@@ -13,5 +13,5 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
-      - uses: ultralytics/action@glenn-jocher-patch-1
+      - uses: actions/checkout@v4
+      - uses: ultralytics/action@dev

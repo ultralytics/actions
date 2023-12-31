@@ -2,18 +2,36 @@
 
 # Configure Git
 git config --global user.name "glenn-jocher"
-git config --global user.email "glenn-jocher@ultralytics.com"
+git config --global user.email "glenn.jocher@ultralytics.com"
 git config --global --add safe.directory /github/workspace
+
+# Fetch all history for all branches and tags
+git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
+
+# Determine the branch name
+BRANCH=${GITHUB_REF##*/}
+if [ -n "$GITHUB_HEAD_REF" ]; then
+    BRANCH=$GITHUB_HEAD_REF
+fi
+
+# Checkout a local branch based on the PR branch
+git checkout -B $BRANCH origin/$BRANCH
 
 # Run formatting tools
 echo "Running Ruff for Python code formatting..."
-ruff .
+ruff format . --line-length 120
 
-echo "Running mdformat for Markdown formatting..."
-mdformat .
+# echo "Running mdformat for Markdown formatting..."
+# mdformat .
 
 echo "Running docformatter..."
-docformatter -i -r .
+docformatter --wrap-summaries 120 \
+             --wrap-descriptions 120 \
+             --in-place \
+             --pre-summary-newline \
+             --close-quotes-on-newline \
+             -i \
+             -r .
 
 echo "Running codespell for spell checking..."
 codespell -w
@@ -27,27 +45,8 @@ if git diff --staged --quiet; then
     exit 0
 fi
 
-# Determine the current branch or fallback to main if not available
-BRANCH=${GITHUB_REF##*/}
-
-# For pull requests, GITHUB_HEAD_REF is set
-if [ -n "$GITHUB_HEAD_REF" ]; then
-    BRANCH=$GITHUB_HEAD_REF
-fi
-
 # Committing changes
 git commit -m "Auto-format by Ultralytics action"
 
-# Fetch the latest updates from the remote
-git fetch origin
-
-# Check if the remote branch is ahead
-LOCAL_COMMIT=$(git rev-parse HEAD)
-REMOTE_COMMIT=$(git rev-parse origin/$BRANCH)
-if [ "$LOCAL_COMMIT" != "$REMOTE_COMMIT" ]; then
-    echo "Remote branch is ahead. Skipping push to avoid conflicts."
-    exit 0
-fi
-
 # Push changes
-git push origin HEAD:$BRANCH
+git push origin $BRANCH
