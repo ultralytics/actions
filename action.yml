@@ -29,7 +29,7 @@ runs:
 
     - name: Install Dependencies
       run: |
-        pip install ruff docformatter codespell
+        pip install ruff docformatter codespell[tomli]
       shell: bash
 
     - name: Run Ruff
