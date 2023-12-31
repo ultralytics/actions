@@ -1,13 +1,13 @@
 <br>
 <img src="https://raw.githubusercontent.com/ultralytics/assets/main/logo/Ultralytics_Logotype_Original.svg" width="320">
 
-# 🚀 Ultralytics Action: Auto-Formatting for Python and Markdown
+# 🚀 Ultralytics Actions: Auto-Formatting for Python and Markdown
 
-Welcome to the [Ultralytics Action](https://github.com/ultralytics/action) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python projects. This GitHub Action is designed to automate the formatting of Python and Markdown files, ensuring adherence to our coding standards.
+Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python projects. This GitHub Action is designed to automate the formatting of Python and Markdown files, ensuring adherence to our coding standards.
 
-## 📄 Action Description
+## 📄 Actions Description
 
-The Ultralytics Action automatically formats and updates:
+Ultralytics Actions automatically applies formats and updates:
 - **Python Code:** Using [Ruff](https://github.com/charliermarsh/ruff), a fast Python auto-formatter.
 - **Markdown Files:** With [mdformat](https://github.com/executablebooks/mdformat), ensuring a consistent style in documentation.
 - **Docstrings:** Utilizing [docformatter](https://github.com/myint/docformatter) for clean and standardized documentation comments.
@@ -15,7 +15,7 @@ The Ultralytics Action automatically formats and updates:
 
 ## 🛠 How It Works
 
-Upon integration, the Ultralytics Action triggers on:
+Upon integration, Ultralytics Actions triggers on:
 - **Push Events:** Automatically formats code when changes are pushed to the `main` branch.
 - **Pull Requests:** Ensures that contributions meet our formatting standards before merging.
 
@@ -23,20 +23,26 @@ Upon integration, the Ultralytics Action triggers on:
 
 To use this action in your Ultralytics repository:
 1. **Create a Workflow File:** In your repository, create a file under `.github/workflows/`, e.g., `format-code.yml`.
-2. **Add the Action:** Use the Ultralytics Action in your workflow file as follows:
+2. **Add the Action:** Use the Ultralytics Actions in your workflow file as follows:
     ```yaml
+    name: Ultralytics Format
+    
     on:
       push:
         branches: [main]
       pull_request:
         branches: [main]
-
+    
     jobs:
       format:
         runs-on: ubuntu-latest
+    
         steps:
-          - uses: actions/checkout@v2
-          - uses: ultralytics/action@v1
+          - name: Checkout Repository
+            uses: actions/checkout@v4
+    
+          - name: Run Ultralytics Formatting Action
+            uses: ultralytics/action@main
     ```
 3. **Customize:** Adjust the workflow settings as necessary for your project.
 
