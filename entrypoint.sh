@@ -19,7 +19,7 @@ git checkout -B $BRANCH origin/$BRANCH
 
 # Run formatting tools
 echo "Running Ruff for Python code formatting..."
-ruff format . --line-width 120
+ruff format . --line-length 120
 
 echo "Running mdformat for Markdown formatting..."
 mdformat .
