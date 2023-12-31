@@ -43,7 +43,6 @@ runs:
                      --in-place \
                      --pre-summary-newline \
                      --close-quotes-on-newline \
-                     --verbose \
                      -i -r .
       shell: bash
 
