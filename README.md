@@ -25,7 +25,7 @@ To use this action in your Ultralytics repository:
 1. **Create a Workflow File:** In your repository, create a file under `.github/workflows/`, e.g., `format-code.yml`.
 2. **Add the Action:** Use the Ultralytics Actions in your workflow file as follows:
     ```yaml
-    name: Ultralytics Format
+    name: Ultralytics Actions
     
     on:
       push:
@@ -41,8 +41,8 @@ To use this action in your Ultralytics repository:
           - name: Checkout Repository
             uses: actions/checkout@v4
     
-          - name: Run Ultralytics Formatting Action
-            uses: ultralytics/action@main
+          - name: Run Ultralytics Formatting Actions
+            uses: ultralytics/actions@main
     ```
 3. **Customize:** Adjust the workflow settings as necessary for your project.
 
