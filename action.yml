@@ -28,8 +28,9 @@ runs:
       shell: bash
 
     - name: Install Dependencies
-      run: |
-        pip install ruff docformatter codespell[tomli]
+      run: |  
+        # tomli required for codespell with pyproject.tom
+        pip install ruff docformatter codespell tomli
       shell: bash
 
     - name: Run Ruff
