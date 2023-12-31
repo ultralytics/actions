@@ -1,79 +1,44 @@
 <br>
 <img src="https://raw.githubusercontent.com/ultralytics/assets/main/logo/Ultralytics_Logotype_Original.svg" width="320">
 
-# 🛠 Ultralytics Python Project Template
+# 🚀 Ultralytics Action: Auto-Formatting for Python and Markdown
 
-This repository serves as the template for Python projects at [Ultralytics](https://ultralytics.com). It encapsulates best practices, standard configurations, and essential project structures, streamlining the initiation process for new Python projects. By leveraging this template, developers at Ultralytics can ensure consistency and adherence to quality standards across all Python-based software developments.
+Welcome to the [Ultralytics Action](https://github.com/ultralytics/action) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python projects. This GitHub Action is designed to automate the formatting of Python and Markdown files, ensuring adherence to our coding standards.
 
-## 🗂 Repository Structure
+## 📄 Action Description
 
-The repository is meticulously organized to offer intuitive navigation and a clear understanding of the project components:
+The Ultralytics Action automatically formats and updates:
+- **Python Code:** Using [Ruff](https://github.com/charliermarsh/ruff), a fast Python auto-formatter.
+- **Markdown Files:** With [mdformat](https://github.com/executablebooks/mdformat), ensuring a consistent style in documentation.
+- **Docstrings:** Utilizing [docformatter](https://github.com/myint/docformatter) for clean and standardized documentation comments.
+- **Spell Check:** Employing [codespell](https://github.com/codespell-project/codespell) for catching common misspellings.
 
-- `src/` or `your_package_name/`: Contains the source code of the Python package, organized in modules and packages.
-- `tests/`: Dedicated to unit tests and integration tests, facilitating continuous testing practices.
-- `docs/`: (Optional) Houses project documentation, typically managed with tools like Sphinx.
-- `requirements.txt` or `Pipfile`: Lists all necessary Python package dependencies.
-- `.gitignore`: Configured to exclude unnecessary files from Git tracking.
-- `LICENSE`: Specifies the open-source license under which the project is released.
-- `.github/workflows/`: Contains GitHub Actions workflows for CI/CD processes.
-- `.pre-commit-config.yaml`: (Optional) Pre-commit hooks configuration for maintaining code quality.
-- `Dockerfile`: (Optional) For containerizing the project environment.
-- `environment.yml`: (Optional, for Conda users) Manages Conda environment dependencies.
-- `setup.py`: (Optional, if using PyPI) Details for packaging and distributing the project.
-- Linting and formatting configuration files (like `.flake8`, `.pylintrc`, `pyproject.toml`).
+## 🛠 How It Works
 
-```
-your-project/
-│
-├── your_package_name/
-│   ├── __init__.py
-│   ├── module1.py
-│   ├── module2.py
-│   └── ...
-│
-├── tests/
-│   ├── __init__.py
-│   ├── test_module1.py
-│   └── ...
-│
-├── docs/
-│   └── ...
-│
-├── pyproject.toml
-└── README.md
-```
+Upon integration, the Ultralytics Action triggers on:
+- **Push Events:** Automatically formats code when changes are pushed to the `main` branch.
+- **Pull Requests:** Ensures that contributions meet our formatting standards before merging.
 
-### Source Code in `src/` or `your_package_name/` Directory 📂
+## 🔧 Setting Up the Action
 
-The `src/` or `your_package_name/` directory is the heart of your project, containing the Python code that constitutes your package. This structure encourages clean imports and testing practices.
+To use this action in your Ultralytics repository:
+1. **Create a Workflow File:** In your repository, create a file under `.github/workflows/`, e.g., `format-code.yml`.
+2. **Add the Action:** Use the Ultralytics Action in your workflow file as follows:
+    ```yaml
+    on:
+      push:
+        branches: [main]
+      pull_request:
+        branches: [main]
 
-### Testing with the `tests/` Directory 🧪
-
-The `tests/` directory is crucial for maintaining the reliability and robustness of your code. It should include comprehensive tests that cover various aspects of your package.
-
-### Documentation in `docs/` Directory 📚
-
-For projects requiring extensive documentation, the `docs/` directory serves as the go-to place. It's typically set up with Sphinx for generating high-quality documentation.
-
-## ➕ Starting a New Project
-
-To kickstart a new Python project with this template:
-
-1. **Create Your New Repository**: Use this template to generate a new repository for your project.
-2. **Customize the Template**: Tailor the template files like `requirements.txt`, `.pre-commit-config.yaml`, and GitHub workflow YAMLs to suit your project's needs.
-3. **Develop Your Package**: Begin adding your code into the `src/` or `your_package_name/` directory and corresponding tests in the `tests/` directory.
-4. **Document Your Project**: Update the README and, if necessary, add documentation to the `docs/` directory.
-5. **Continuous Integration**: Leverage the pre-configured GitHub Actions for automated testing and other CI/CD processes.
-
-## 🔧 Utilizing the Template
-
-For Ultralytics team members and contributors:
-
-- Clone the template repository to get started on a new Python project.
-- Update the `README.md` to reflect your project's specifics.
-- Remove or modify any optional components (like `Dockerfile`, `environment.yml`) based on the project's requirements.
-
-With this template, Ultralytics aims to foster a culture of excellence and uniformity in Python software development, ensuring that each project is built on a solid foundation of industry standards and organizational best practices.
+    jobs:
+      format:
+        runs-on: ubuntu-latest
+        steps:
+          - uses: actions/checkout@v2
+          - uses: ultralytics/action@v1
+    ```
+3. **Customize:** Adjust the workflow settings as necessary for your project.
 
 ## 💡 Contribute
 

@@ -1,0 +1,12 @@
+name: 'Ultralytics Format Action'
+description: 'Automatically formats Python code, Markdown files, and docstrings, and performs spell checks.'
+
+runs:
+  using: 'docker'
+  image: 'Dockerfile'
+
+#inputs:
+  # Define any inputs your action needs here
+
+#outputs:
+  # Define any outputs your action produces here
