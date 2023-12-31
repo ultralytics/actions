@@ -36,7 +36,7 @@ To use this action in your Ultralytics repository:
         runs-on: ubuntu-latest
         steps:
           - uses: actions/checkout@v2
-          - uses: ultralytics/autoformat@v1
+          - uses: ultralytics/action@v1
     ```
 3. **Customize:** Adjust the workflow settings as necessary for your project.
 
