@@ -27,15 +27,26 @@ if git diff --staged --quiet; then
     exit 0
 fi
 
-# Committing changes
-git commit -m "Auto-format by Ultralytics action"
-
 # Determine the current branch or fallback to main if not available
 BRANCH=${GITHUB_REF##*/}
 
 # For pull requests, GITHUB_HEAD_REF is set
 if [ -n "$GITHUB_HEAD_REF" ]; then
     BRANCH=$GITHUB_HEAD_REF
+fi
+
+# Committing changes
+git commit -m "Auto-format by Ultralytics action"
+
+# Fetch the latest updates from the remote
+git fetch origin
+
+# Check if the remote branch is ahead
+LOCAL_COMMIT=$(git rev-parse HEAD)
+REMOTE_COMMIT=$(git rev-parse origin/$BRANCH)
+if [ "$LOCAL_COMMIT" != "$REMOTE_COMMIT" ]; then
+    echo "Remote branch is ahead. Skipping push to avoid conflicts."
+    exit 0
 fi
 
 # Push changes
