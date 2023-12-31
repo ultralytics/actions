@@ -1,0 +1,17 @@
+# Ultralytics 🚀, AGPL-3.0 license
+# Ultralytics format action
+
+name: Ultralytics Format
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: ultralytics/action@v1

@@ -57,9 +57,11 @@ classifiers = [# Optional, for a list of valid classifiers, see https://pypi.org
 ]
 
 # Required dependencies ------------------------------------------------------------------------------------------------
-dependencies = [# Optional
-    "ultralytics",
-    "numpy",
+dependencies = [
+    "ruff",
+    "mdformat",
+    "docformatter",
+    "codespell"
 ]
 
 # Optional dependencies ------------------------------------------------------------------------------------------------
