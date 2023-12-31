@@ -1,12 +1,64 @@
-name: 'Ultralytics Format Action'
-description: 'Automatically formats Python code, Markdown files, and docstrings, and performs spell checks.'
-
+name: 'Ultralytics Formatting Action'
+description: 'Formats Python code and checks spelling'
+inputs:
+  github-token:
+    description: 'GitHub token'
+    required: true
 runs:
-  using: 'docker'
-  image: 'Dockerfile'
+  using: 'composite'
+  steps:
+    - name: Configure Git
+      run: |
+        git config --global user.name "glenn-jocher"
+        git config --global user.email "glenn.jocher@ultralytics.com"
+        git config --global --add safe.directory ${{ github.workspace }}
+      shell: bash
 
-#inputs:
-  # Define any inputs your action needs here
+    - name: Fetch Git History
+      run: git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
+      shell: bash
 
-#outputs:
-  # Define any outputs your action produces here
+    - name: Checkout Branch
+      run: |
+        BRANCH=${GITHUB_REF##*/}
+        if [ -n "$GITHUB_HEAD_REF" ]; then
+          BRANCH=$GITHUB_HEAD_REF
+        fi
+        git checkout -B $BRANCH origin/$BRANCH
+      shell: bash
+
+    - name: Install Dependencies
+      run: |
+        pip install ruff docformatter codespell
+      shell: bash
+
+    - name: Run Ruff
+      run: ruff format . --line-length 120
+      shell: bash
+
+    - name: Run Docformatter
+      run: |
+        docformatter --wrap-summaries 120 \
+                     --wrap-descriptions 120 \
+                     --in-place \
+                     --pre-summary-newline \
+                     --close-quotes-on-newline \
+                     -i -r . || true
+      shell: bash
+
+    - name: Run Codespell
+      run: codespell -w
+      shell: bash
+
+    - name: Commit and Push Changes
+      run: |
+        git add -A
+        if ! git diff --staged --quiet; then
+          git commit -m "Auto-format by Ultralytics action"
+          git push origin $BRANCH
+        else
+          echo "No changes to commit"
+        fi
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
