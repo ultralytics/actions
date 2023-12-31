@@ -36,11 +36,9 @@ To use this action in your Ultralytics repository:
     jobs:
       format:
         runs-on: ubuntu-latest
-    
         steps:
           - name: Checkout Repository
             uses: actions/checkout@v4
-    
           - name: Run Ultralytics Formatting Actions
             uses: ultralytics/actions@main
     ```
