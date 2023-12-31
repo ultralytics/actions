@@ -21,8 +21,8 @@ git checkout -B $BRANCH origin/$BRANCH
 echo "Running Ruff for Python code formatting..."
 ruff format . --line-length 120
 
-echo "Running mdformat for Markdown formatting..."
-mdformat .
+# echo "Running mdformat for Markdown formatting..."
+# mdformat .
 
 echo "Running docformatter..."
 docformatter -i -r .
