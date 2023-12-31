@@ -5,8 +5,8 @@ runs:
   using: 'docker'
   image: 'Dockerfile'
 
-inputs:
+#inputs:
   # Define any inputs your action needs here
 
-outputs:
+#outputs:
   # Define any outputs your action produces here
