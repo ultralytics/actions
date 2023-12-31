@@ -29,7 +29,6 @@ docformatter --wrap-summaries 120 \
              --wrap-descriptions 120 \
              --in-place \
              --pre-summary-newline \
-             --force-wrap=false \
              --close-quotes-on-newline \
              -i \
              -r .
