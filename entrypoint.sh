@@ -1,28 +1,42 @@
 #!/bin/sh -l
 
-# Configure Git to recognize the current directory as safe
+# Configure Git
+git config --global user.name "glenn-jocher"
+git config --global user.email "glenn-jocher@ultralytics.com"
 git config --global --add safe.directory /github/workspace
 
-# Format Python code
+# Run formatting tools
 echo "Running Ruff for Python code formatting..."
-ruff . --line-length 120
+ruff .
 
-# Format markdown files
 echo "Running mdformat for Markdown formatting..."
 mdformat .
 
-# Format Python docstrings
 echo "Running docformatter..."
 docformatter -i -r .
 
-# Run spell check
 echo "Running codespell for spell checking..."
 codespell -w
 
-# Commit and push changes
-echo "Committing and pushing changes..."
-git config --global user.name "glenn-jocher"
-git config --global user.email "glenn.jocher@ultralytics.com"
+# Staging the changes
 git add -A
-git commit -m "Auto-format by Ultralytics action" || echo "No changes to commit"
-git push
+
+# Check if there are any changes to commit
+if git diff --staged --quiet; then
+    echo "No changes to commit"
+    exit 0
+fi
+
+# Committing changes
+git commit -m "Auto-format by Ultralytics action"
+
+# Determine the current branch or fallback to main if not available
+BRANCH=${GITHUB_REF##*/}
+
+# For pull requests, GITHUB_HEAD_REF is set
+if [ -n "$GITHUB_HEAD_REF" ]; then
+    BRANCH=$GITHUB_HEAD_REF
+fi
+
+# Push changes
+git push origin HEAD:$BRANCH
