@@ -2,7 +2,7 @@
 
 # Format Python code
 echo "Running Ruff for Python code formatting..."
-ruff .
+ruff . --line-length 120
 
 # Format markdown files
 echo "Running mdformat for Markdown formatting..."
@@ -18,8 +18,8 @@ codespell -w
 
 # Commit and push changes
 echo "Committing and pushing changes..."
-git config --global user.name "Your Name"
-git config --global user.email "your-email@example.com"
+git config --global user.name "glenn-jocher"
+git config --global user.email "glenn.jocher@ultralytics.com"
 git add -A
-git commit -m "Auto-format by Ultralytics action" || echo "No changes to commit"
+git commit -m "Ultralytics format updates" || echo "No changes to commit"
 git push
