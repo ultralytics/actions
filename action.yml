@@ -22,11 +22,12 @@ runs:
     - name: Configure Git
       run: |
         git config --global user.name "glenn-jocher"
+        git config --global user.email "glenn.jocher@ultralytics.com"
       shell: bash
 
-    - name: Fetch Git History
-      run: git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
-      shell: bash
+    #- name: Fetch Git History
+    #  run: git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
+    #  shell: bash
 
     - name: Checkout Branch
       run: |
