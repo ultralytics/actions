@@ -41,7 +41,7 @@ To use this action in your Ultralytics repository:
      format:
        runs-on: ubuntu-latest
        steps:
-         - name: Ultralytics Formatting
+         - name: Run Ultralytics Formatting Actions
            uses: ultralytics/actions@main
            with:
              python: true
