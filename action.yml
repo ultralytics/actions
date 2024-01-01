@@ -48,7 +48,7 @@ runs:
       shell: bash
 
     - name: Run Codespell
-      run: codespell -w
+      run: codespell -w || true
       shell: bash
 
     - name: Commit and Push Changes
