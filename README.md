@@ -5,8 +5,6 @@
 
 Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python projects. This GitHub Action is designed to automate the formatting of Python and Markdown files, ensuring adherence to our coding standards.
 
-
-
 ## 📄 Actions Description
 
 Ultralytics Actions automatically applies formats and updates:
@@ -26,6 +24,7 @@ Upon integration, Ultralytics Actions triggers on:
 ## 🔧 Setting Up the Action
 
 To use this action in your Ultralytics repository:
+
 1. **Create a Workflow File:** In your repository, create a file under `.github/workflows/`, e.g., `format-code.yml`.
 2. **Add the Action:** Use the Ultralytics Actions in your workflow file as follows:
    ```yaml
