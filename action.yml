@@ -39,17 +39,21 @@ runs:
         git checkout -B $BRANCH origin/$BRANCH
       shell: bash
 
+    - name: Install Dependencies
+      # tomli required for codespell with pyproject.tom
+      run: |
+        pip install --no-cache -q ruff docformatter codespell tomli
+      shell: bash
+
     - name: Run Ruff
       if: inputs.ruff == 'true'
       run: |
-        pip install -q ruff
         ruff format . --line-length 120 || true
       shell: bash
 
     - name: Run Docformatter
       if: inputs.docformatter == 'true'
       run: |
-        pip install -q docformatter
         docformatter --wrap-summaries 120 \
                      --wrap-descriptions 120 \
                      --in-place \
@@ -61,7 +65,6 @@ runs:
     - name: Run Codespell
       if: inputs.codespell == 'true'
       run: |
-        pip install -q codespell tomli  # tomli required for codespell with pyproject.toml
         codespell -w || true
       shell: bash
 
