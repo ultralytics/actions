@@ -4,57 +4,76 @@ inputs:
   github-token:
     description: 'GitHub token'
     required: true
+  python:
+    description: 'Run Python formatting'
+    required: false
+    default: 'true'
+  docstrings:
+    description: 'Run Docstrings formatting'
+    required: false
+    default: 'true'
+  markdown:
+    description: 'Run Markdown formatting'
+    required: false
+    default: 'true'
+  spelling:
+    description: 'Run Spelling checks'
+    required: false
+    default: 'true'
 runs:
   using: 'composite'
   steps:
-    - name: Configure Git
-      run: |
-        git config --global user.name "glenn-jocher"
-        git config --global user.email "glenn.jocher@ultralytics.com"
-        git config --global --add safe.directory ${{ github.workspace }}
-      shell: bash
-
-    - name: Fetch Git History
-      run: git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
-      shell: bash
-
-    - name: Checkout Branch
-      run: |
-        BRANCH=${GITHUB_REF##*/}
-        if [ -n "$GITHUB_HEAD_REF" ]; then
-          BRANCH=$GITHUB_HEAD_REF
-        fi
-        git checkout -B $BRANCH origin/$BRANCH
-      shell: bash
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
+        fetch-depth: 0
 
     - name: Install Dependencies
-      run: |  
-        # tomli required for codespell with pyproject.tom
-        pip install ruff docformatter codespell tomli
+      # tomli required for codespell with pyproject.tom
+      run: |
+        pip install --no-cache -q ruff docformatter mdformat-gfm codespell tomli
       shell: bash
 
+    # Python formatting ------------------------------------------------------------------------------------------------
     - name: Run Ruff
-      run: ruff format . --line-length 120
+      if: inputs.python == 'true'
+      run: |
+        ruff format . --line-length 120 || true
       shell: bash
 
+    # Docstrings formatting --------------------------------------------------------------------------------------------
     - name: Run Docformatter
+      if: inputs.docstrings == 'true'
       run: |
         docformatter --wrap-summaries 120 \
                      --wrap-descriptions 120 \
                      --in-place \
                      --pre-summary-newline \
                      --close-quotes-on-newline \
-                     -i -r . || true
+                     -r . || true
       shell: bash
 
+    # Markdown formatting ----------------------------------------------------------------------------------------------
+    - name: Run Mdformat
+      if: inputs.markdown == 'true'
+      run: |
+        mdformat . --number --wrap no || true
+      shell: bash
+
+    # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
-      run: codespell -w || true
+      if: inputs.spelling == 'true'
+      run: |
+        codespell -w || true
       shell: bash
 
     - name: Commit and Push Changes
       run: |
         git add -A
         if ! git diff --staged --quiet; then
+          git config --global user.name "glenn-jocher"
+          git config --global user.email "glenn.jocher@ultralytics.com"
           git commit -m "Auto-format by Ultralytics actions"
           git push origin $BRANCH
         else
