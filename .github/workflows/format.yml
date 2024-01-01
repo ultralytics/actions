@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run Ultralytics Formatting Actions
-        uses: ultralytics/actions@args
+        uses: ultralytics/actions@main
         with:
           python: true
           docstrings: true
