@@ -39,7 +39,7 @@ To use this action in your Ultralytics repository:
      format:
        runs-on: ubuntu-latest
        steps:
-         - name: Run Ultralytics Formatting Actions
+         - name: Run Ultralytics Formatting
            uses: ultralytics/actions@main
            with:
              python: true
