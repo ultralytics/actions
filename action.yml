@@ -19,29 +19,11 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Configure Git
-      run: |
-        git config --global user.name "glenn-jocher"
-        git config --global user.email "glenn.jocher@ultralytics.com"
-      shell: bash
-
-    - uses: actions/checkout@v4
+    - name: Checkout Repository
+      uses: actions/checkout@v4
       with:
         ref: ${{ github.head_ref }}
         fetch-depth: 0
-
-#    - name: Fetch Git History
-#      run: git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
-#      shell: bash
-#
-#    - name: Checkout Branch
-#      run: |
-#        BRANCH=${GITHUB_REF##*/}
-#        if [ -n "$GITHUB_HEAD_REF" ]; then
-#          BRANCH=$GITHUB_HEAD_REF
-#        fi
-#        git checkout -B $BRANCH origin/$BRANCH
-#      shell: bash
 
     - name: Install Dependencies
       # tomli required for codespell with pyproject.tom
@@ -76,6 +58,8 @@ runs:
       run: |
         git add -A
         if ! git diff --staged --quiet; then
+          git config --global user.name "glenn-jocher"
+          git config --global user.email "glenn.jocher@ultralytics.com"
           git commit -m "Auto-format by Ultralytics actions"
           git push origin $BRANCH
         else
