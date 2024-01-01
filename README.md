@@ -24,6 +24,7 @@ Upon integration, Ultralytics Actions triggers on:
 ## 🔧 Setting Up the Action
 
 To use this action in your Ultralytics repository:
+
 1. **Create a Workflow File:** In your repository, create a file under `.github/workflows/`, e.g., `format-code.yml`.
 2. **Add the Action:** Use the Ultralytics Actions in your workflow file as follows:
    ```yaml
