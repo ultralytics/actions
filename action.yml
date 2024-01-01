@@ -23,7 +23,7 @@ runs:
       run: |
         git config --global user.name "glenn-jocher"
         git config --global user.email "glenn.jocher@ultralytics.com"
-        git config --global --add safe.directory ${{ github.workspace }}
+        # git config --global --add safe.directory ${{ github.workspace }}
       shell: bash
 
     - name: Fetch Git History
