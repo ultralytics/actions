@@ -4,6 +4,18 @@ inputs:
   github-token:
     description: 'GitHub token'
     required: true
+  ruff:
+    description: 'Run Ruff'
+    required: false
+    default: 'true'
+  docformatter:
+    description: 'Run Docformatter'
+    required: false
+    default: 'true'
+  codespell:
+    description: 'Run Codespell'
+    required: false
+    default: 'true'
 runs:
   using: 'composite'
   steps:
@@ -27,18 +39,17 @@ runs:
         git checkout -B $BRANCH origin/$BRANCH
       shell: bash
 
-    - name: Install Dependencies
-      run: |  
-        # tomli required for codespell with pyproject.tom
-        pip install ruff docformatter codespell tomli
-      shell: bash
-
     - name: Run Ruff
-      run: ruff format . --line-length 120
+      if: inputs.ruff == 'true'
+      run: |
+        pip install ruff
+        ruff format . --line-length 120 || true
       shell: bash
 
     - name: Run Docformatter
+      if: inputs.docformatter == 'true'
       run: |
+        pip install docformatter
         docformatter --wrap-summaries 120 \
                      --wrap-descriptions 120 \
                      --in-place \
@@ -48,7 +59,11 @@ runs:
       shell: bash
 
     - name: Run Codespell
-      run: codespell -w || true
+      if: inputs.codespell == 'true'
+      run: |
+        # tomli required for codespell with pyproject.toml
+        pip install codespell tomli
+        codespell -w || true
       shell: bash
 
     - name: Commit and Push Changes
