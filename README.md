@@ -15,7 +15,7 @@ Ultralytics Actions automatically applies formats and updates:
 
 ## 🛠 How It Works
 
-Upon integrationn, Ultralytics Actions triggers on:
+Upon integation, Ultralytics Actions triggers on:
 - **Push Events:** Automatically formats code when changes are pushed to the `main` branch.
 - **Pull Requests:** Ensures that contributions meet our formatting standards before merging.
 
