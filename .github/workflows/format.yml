@@ -19,4 +19,4 @@ jobs:
       - name: Run Ultralytics Formatting Actions
         uses: ultralytics/actions@args
         with:
-          ruff: 'false'
+          ruff: false
