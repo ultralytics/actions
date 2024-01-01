@@ -86,3 +86,7 @@ version = { attr = "template.__version__" }
 
 [tool.ruff]
 line-length = 120
+
+[tool.codespell]
+ignore-words-list = "ultralytics,yolo"
+skip = '*.csv,*venv*'
