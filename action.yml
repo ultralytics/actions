@@ -59,7 +59,7 @@ runs:
                      --in-place \
                      --pre-summary-newline \
                      --close-quotes-on-newline \
-                     -i -r . || true
+                     -r . || true
       shell: bash
 
     - name: Run Codespell
