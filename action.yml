@@ -42,14 +42,14 @@ runs:
     - name: Run Ruff
       if: inputs.ruff == 'true'
       run: |
-        pip install ruff
+        pip install -q ruff
         ruff format . --line-length 120 || true
       shell: bash
 
     - name: Run Docformatter
       if: inputs.docformatter == 'true'
       run: |
-        pip install docformatter
+        pip install -q docformatter
         docformatter --wrap-summaries 120 \
                      --wrap-descriptions 120 \
                      --in-place \
@@ -61,8 +61,7 @@ runs:
     - name: Run Codespell
       if: inputs.codespell == 'true'
       run: |
-        # tomli required for codespell with pyproject.toml
-        pip install codespell tomli
+        pip install -q codespell tomli  # tomli required for codespell with pyproject.toml
         codespell -w || true
       shell: bash
 
