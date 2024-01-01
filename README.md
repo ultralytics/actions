@@ -37,10 +37,12 @@ To use this action in your Ultralytics repository:
       format:
         runs-on: ubuntu-latest
         steps:
-          - name: Checkout Repository
-            uses: actions/checkout@v4
-          - name: Run Ultralytics Formatting Actions
+          - name: Ultralytics Formatting
             uses: ultralytics/actions@main
+            with:
+              ruff: true
+              docformatter: true
+              codespell: true
     ```
 3. **Customize:** Adjust the workflow settings as necessary for your project.
 
