@@ -55,7 +55,7 @@ runs:
       run: |
         git add -A
         if ! git diff --staged --quiet; then
-          git commit -m "Auto-format by Ultralytics action"
+          git commit -m "Auto-format by Ultralytics actions"
           git push origin $BRANCH
         else
           echo "No changes to commit"
