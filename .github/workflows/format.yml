@@ -17,6 +17,6 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
       - name: Run Ultralytics Formatting Actions
-        uses: ultralytics/actions@main
+        uses: ultralytics/actions@args
         with:
           ruff: 'false'
