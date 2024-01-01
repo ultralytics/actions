@@ -14,10 +14,14 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
       - name: Run Ultralytics Formatting Actions
         uses: ultralytics/actions@main
-        with:
-          python: true
-          docstrings: true
-          markdown: true
-          spelling: true
+#      - name: Run Ultralytics Formatting Actions
+#        uses: ultralytics/actions@main
+#        with:
+#          python: true
+#          docstrings: true
+#          markdown: true
+#          spelling: true
