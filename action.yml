@@ -25,18 +25,23 @@ runs:
         git config --global user.email "glenn.jocher@ultralytics.com"
       shell: bash
 
-    #- name: Fetch Git History
-    #  run: git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
-    #  shell: bash
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
+        fetch-depth: 0
 
-    - name: Checkout Branch
-      run: |
-        BRANCH=${GITHUB_REF##*/}
-        if [ -n "$GITHUB_HEAD_REF" ]; then
-          BRANCH=$GITHUB_HEAD_REF
-        fi
-        git checkout -B $BRANCH origin/$BRANCH
-      shell: bash
+#    - name: Fetch Git History
+#      run: git fetch --no-tags --prune --depth=1 origin +refs/heads/*:refs/remotes/origin/*
+#      shell: bash
+#
+#    - name: Checkout Branch
+#      run: |
+#        BRANCH=${GITHUB_REF##*/}
+#        if [ -n "$GITHUB_HEAD_REF" ]; then
+#          BRANCH=$GITHUB_HEAD_REF
+#        fi
+#        git checkout -B $BRANCH origin/$BRANCH
+#      shell: bash
 
     - name: Install Dependencies
       # tomli required for codespell with pyproject.tom
