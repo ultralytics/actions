@@ -7,7 +7,7 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repo
 
 ## 📄 Actions Description
 
-Ultralytics Actons automatically applies formats and updates:
+Ultralytics Actions automatically applies formats and updates:
 - **Python Code:** Using [Ruff](https://github.com/charliermarsh/ruff), a fast Python auto-formatter.
 - **Markdown Files:** With [mdformat](https://github.com/executablebooks/mdformat), ensuring a consistent style in documentation.
 - **Docstrings:** Utilizing [docformatter](https://github.com/myint/docformatter) for clean and standardized documentation comments.
