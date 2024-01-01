@@ -1,5 +1,5 @@
 # Ultralytics 🚀, AGPL-3.0 license
-# Ultralytics Format Workflow
+# Ultralytics Actions https://github.com/ultralytics/actions
 # This workflow automatically formats code and documentation in pull requests and pushes to main branch
 
 name: Ultralytics Actions
@@ -14,8 +14,10 @@ jobs:
   format:
     runs-on: ubuntu-latest
     steps:
+
       - name: Checkout Repository
         uses: actions/checkout@v4
+
       - name: Run Ultralytics Formatting Actions
         uses: ultralytics/actions@args
         with:
