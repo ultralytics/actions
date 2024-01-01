@@ -17,6 +17,7 @@ jobs:
       - name: Run Ultralytics Formatting Actions
         uses: ultralytics/actions@args
         with:
-          ruff: true
-          docformatter: true
-          codespell: true
+          python: true
+          docstrings: true
+          markdown: true
+          spelling: true
