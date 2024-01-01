@@ -40,9 +40,10 @@ To use this action in your Ultralytics repository:
           - name: Ultralytics Formatting
             uses: ultralytics/actions@main
             with:
-              ruff: true
-              docformatter: true
-              codespell: true
+              python: true
+              docstrings: true
+              markdown: true
+              spelling: true
     ```
 3. **Customize:** Adjust the workflow settings as necessary for your project.
 
