@@ -2,7 +2,7 @@ name: 'Ultralytics Formatting Action'
 author: 'Ultralytics'
 description: 'Formats Python code and checks spelling'
 branding:
-  icon: 'code-review'
+  icon: 'code'
   color: 'blue'
 inputs:
   github-token:
