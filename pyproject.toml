@@ -24,9 +24,9 @@ build-backend = "setuptools.build_meta"
 
 # Project settings -----------------------------------------------------------------------------------------------------
 [project]
-name = "template"  # Required
+name = "actions"  # Required
 dynamic = ["version"]
-description = "Ultralytics Template Python Package"  # Optional
+description = "Ultralytics Actions Package"  # Optional
 readme = "README.md"  # Optional
 requires-python = ">=3.8"
 license = { file = "LICENSE" }
@@ -69,12 +69,9 @@ dependencies = [
 tests = ["pytest"]
 
 [project.urls]  # Optional
-"Bug Reports" = "https://github.com/ultralytics/template/issues"
+"Bug Reports" = "https://github.com/ultralytics/actions/issues"
 "Funding" = "https://ultralytics.com"
-"Source" = "https://github.com/ultralytics/template/"
-
-# [project.scripts]  # Optional
-# sample = "sample:main"  # executes the function `main` from this package when "sample" is called.
+"Source" = "https://github.com/ultralytics/actions/"
 
 # Tools settings -------------------------------------------------------------------------------------------------------
 [tool.setuptools]  # configuration specific to the `setuptools` build backend.
