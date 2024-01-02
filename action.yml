@@ -7,19 +7,19 @@ inputs:
   python:
     description: 'Run Python formatting'
     required: false
-    default: 'true'
+    default: false
   docstrings:
     description: 'Run Docstrings formatting'
     required: false
-    default: 'true'
+    default: false
   markdown:
     description: 'Run Markdown formatting'
     required: false
-    default: 'true'
+    default: false
   spelling:
     description: 'Run Spelling checks'
     required: false
-    default: 'true'
+    default: false
 runs:
   using: 'composite'
   steps:
