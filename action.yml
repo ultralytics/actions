@@ -1,5 +1,8 @@
 name: 'Ultralytics Formatting Action'
 description: 'Formats Python code and checks spelling'
+branding:
+  icon: 'code-review'
+  color: 'blue'
 inputs:
   github-token:
     description: 'GitHub token'
