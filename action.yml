@@ -113,21 +113,20 @@ runs:
           git config --global user.name "UltralyticsAssistant"
           git config --global user.email "web@ultralytics.com"
           git commit -m "Auto-format by Ultralytics actions"
-    
+      
           # Set up remote for the fork
-          FORK_REPO_URL="https://github.com/${{ github.event.pull_request.head.repo.full_name }}.git"
+          # Use the PAT in the URL for authentication
+          FORK_REPO_URL="https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@${{ github.event.pull_request.head.repo.full_name }}.git"
           git remote add fork "$FORK_REPO_URL" || git remote set-url fork "$FORK_REPO_URL"
-    
+      
           # Checkout a new branch or use an existing one
           BRANCH="${{ github.event.pull_request.head.ref }}"
           git fetch fork $BRANCH
           git checkout -B $BRANCH fork/$BRANCH
-    
+      
           # Push changes to the fork
           git push fork $BRANCH
         else
           echo "No changes to commit"
         fi
       shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
