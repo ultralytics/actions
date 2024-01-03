@@ -8,16 +8,14 @@ on:
   push:
     branches: [main,master]
   pull_request:
-    branches: [main,master]
   pull_request_target:
-    branches: [main,master]
 
 jobs:
   format:
     runs-on: ubuntu-latest
     steps:
       - name: Run Ultralytics Formatting
-        uses: ultralytics/actions@pr_target
+        uses: ultralytics/actions@main
         with:
           python: true
           docstrings: true
