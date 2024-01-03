@@ -69,7 +69,10 @@ runs:
     - name: Run Codespell
       if: inputs.spelling == 'true'
       run: |
-        codespell -w || true
+        codespell \
+          -w \
+          --ignore-words-list "crate,nd,strack,dota,ane,segway,fo,gool,winn,commend" \
+          --skip '*.csv,*venv*,docs/??/,docs/mkdocs_??.yml' || true
       shell: bash
 
     - name: Commit and Push Changes
