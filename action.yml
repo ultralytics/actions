@@ -113,7 +113,18 @@ runs:
           git config --global user.name "UltralyticsAssistant"
           git config --global user.email "web@ultralytics.com"
           git commit -m "Auto-format by Ultralytics actions"
-          git push origin $BRANCH
+    
+          # Set up remote for the fork
+          FORK_REPO_URL="https://github.com/${{ github.event.pull_request.head.repo.full_name }}.git"
+          git remote add fork "$FORK_REPO_URL" || git remote set-url fork "$FORK_REPO_URL"
+    
+          # Checkout a new branch or use an existing one
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          git fetch fork $BRANCH
+          git checkout -B $BRANCH fork/$BRANCH
+    
+          # Push changes to the fork
+          git push fork $BRANCH
         else
           echo "No changes to commit"
         fi
