@@ -7,8 +7,6 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repo
 
 ## 📄 Actions Description
 
-
-
 Ultralytics Actions automatically applies formats and updates:
 
 - **Python Code:** Using [Ruff](https://github.com/charliermarsh/ruff), a fast Python auto-formatter.
