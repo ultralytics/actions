@@ -31,7 +31,7 @@ runs:
       id: get_ref
       run: |
         if [ "${{ github.event_name }}" = "push" ]; then
-          echo "REF=${GITHUB_REF}" >> $GITHUB_ENV
+          echo "REF=${{ github.head_ref }}" >> $GITHUB_ENV
         else
           echo "REF=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
         fi
