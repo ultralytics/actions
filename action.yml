@@ -116,7 +116,7 @@ runs:
       
           # Set up remote for the fork
           # Use the PAT in the URL for authentication
-          FORK_REPO_URL="https://${{ secrets.ULTRALYTICS_PAT }}@${{ github.event.pull_request.head.repo.full_name }}.git"
+          FORK_REPO_URL="https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@${{ github.event.pull_request.head.repo.full_name }}.git"
           git remote add fork "$FORK_REPO_URL" || git remote set-url fork "$FORK_REPO_URL"
       
           # Checkout a new branch or use an existing one
