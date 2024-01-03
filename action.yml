@@ -114,7 +114,7 @@ runs:
           git config --global user.name "UltralyticsAssistant"
           git config --global user.email "web@ultralytics.com"
           git commit -m "Auto-format by Ultralytics actions"
-          git push https://${{ secrets.PAT_NAME }}@github.com/glenn-jocher/actions.git HEAD:${{ github.event.pull_request.head.ref }}
+          git push https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/glenn-jocher/actions.git HEAD:${{ github.event.pull_request.head.ref }}
         else
           echo "No changes to commit"
         fi
