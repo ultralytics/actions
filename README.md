@@ -9,6 +9,7 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repo
 
 
 
+
 Ultralytics Actions automatically applies formats and updates:
 
 - **Python Code:** Using [Ruff](https://github.com/charliermarsh/ruff), a fast Python auto-formatter.
