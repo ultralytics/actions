@@ -27,10 +27,19 @@ inputs:
 runs:
   using: 'composite'
   steps:
+    - name: Determine Ref for Checkout
+      id: get_ref
+      run: |
+        if [ "${{ github.event_name }}" = "push" ]; then
+          echo "REF=${GITHUB_REF}" >> $GITHUB_ENV
+        else
+          echo "REF=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+        fi
+
     - name: Checkout Repository
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.event_name == 'push' ? github.ref : github.event.pull_request.head.ref }}
+        ref: ${{ env.REF }}
         fetch-depth: 0
 
     - name: Install Dependencies
