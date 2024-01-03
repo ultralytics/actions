@@ -27,10 +27,19 @@ inputs:
 runs:
   using: 'composite'
   steps:
-    - name: Checkout Repository
+
+    - name: Checkout Repository for Push Events
+      if: github.event_name == 'push'
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.head_ref }}
+        ref: ${{ github.ref }}
+        fetch-depth: 0
+    
+    - name: Checkout Repository for Pull Request Events
+      if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.ref }}
         fetch-depth: 0
 
     - name: Install Dependencies
