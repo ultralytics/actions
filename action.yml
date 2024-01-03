@@ -42,6 +42,13 @@ runs:
         echo "Head Ref: ${{ github.head_ref }}"
         echo "Base Ref: ${{ github.base_ref }}"
       shell: bash
+
+    - name: Print Fork Repository Information
+      if: github.event_name == 'pull_request'
+      run: |
+        echo "Fork Repository: ${{ github.event.pull_request.head.repo.full_name }}"
+        echo "Fork Repo Clone URL: ${{ github.event.pull_request.head.repo.clone_url }}"
+      shell: bash
     
     - name: Determine Ref for Checkout
       id: get_ref
