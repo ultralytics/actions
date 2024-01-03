@@ -34,7 +34,7 @@ runs:
         fetch-depth: 0
 
     - name: Install Dependencies
-      # tomli required for codespell with pyproject.tom
+      # tomli required for codespell with pyproject.toml
       run: |
         pip install --no-cache -q ruff docformatter mdformat-gfm codespell tomli
       shell: bash
