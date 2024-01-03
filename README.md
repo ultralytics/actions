@@ -5,6 +5,8 @@
 
 Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python projects. This GitHub Action is designed to automate the formatting of Python and Markdown files, ensuring adherence to our coding standards.
 
+
+
 ## 📄 Actions Description
 
 Ultralytics Actions automatically applies formats and updates:
