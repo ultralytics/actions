@@ -117,7 +117,7 @@ runs:
           git commit -m "Auto-format by Ultralytics actions"
       
           # Set up remote for the fork using the PAT
-          FORK_REPO_URL="https://${PERSONAL_ACCESS_TOKEN}@${{ github.event.pull_request.head.repo.full_name }}.git"
+          FORK_REPO_URL="https://$PERSONAL_ACCESS_TOKEN@${{ github.event.pull_request.head.repo.full_name }}.git"
           git remote add fork "$FORK_REPO_URL" || git remote set-url fork "$FORK_REPO_URL"
       
           # Checkout a new branch or use an existing one
