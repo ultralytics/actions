@@ -35,6 +35,7 @@ runs:
         else
           echo "REF=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
         fi
+      shell: bash
 
     - name: Checkout Repository
       uses: actions/checkout@v4
