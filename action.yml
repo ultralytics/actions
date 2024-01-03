@@ -50,20 +50,18 @@ runs:
         echo "Fork Repo Clone URL: ${{ github.event.pull_request.head.repo.clone_url }}"
       shell: bash
     
-    - name: Determine Ref for Checkout
-      id: get_ref
-      run: |
-        if [ "${{ github.event_name }}" == 'pull_request' ] || [ "${{ github.event_name }}" == 'pull_request_target' ]; then
-          echo "REF=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
-        else
-          echo "REF=${{ github.head_ref }}" >> $GITHUB_ENV
-        fi
-      shell: bash
-
-    - name: Checkout Repository
+    - name: Checkout Repository for Push Events
+      if: github.event_name == 'push'
       uses: actions/checkout@v4
       with:
-        ref: ${{ env.REF }}
+        ref: ${{ github.ref }}
+        fetch-depth: 0
+    
+    - name: Checkout Repository for Pull Request Events
+      if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
+      uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 0
 
     - name: Install Dependencies
