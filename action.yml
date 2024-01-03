@@ -33,7 +33,7 @@ runs:
         if [ "${{ github.event_name }}" == 'pull_request' ] || [ "${{ github.event_name }}" == 'pull_request_target' ]; then
           echo "REF=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
         else
-          echo "REF=${GITHUB_REF}" >> $GITHUB_ENV
+          echo "REF=${{ github.head_ref }}" >> $GITHUB_ENV
         fi
       shell: bash
 
