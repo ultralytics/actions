@@ -79,8 +79,8 @@ runs:
       run: |
         git add -A
         if ! git diff --staged --quiet; then
-          git config --global user.name "Ultralytics Actions"
-          git config --global user.email "noreply@ultralytics.com"
+          git config --global user.name "UltralyticsAssistant"
+          git config --global user.email "web@ultralytics.com"
           git commit -m "Auto-format by Ultralytics actions"
           git push origin $BRANCH
         else
