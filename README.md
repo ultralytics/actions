@@ -5,6 +5,8 @@
 
 Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python projects. This GitHub Action is designed to automate the formatting of Python and Markdown files, ensuring adherence to our coding standards.
 
+[![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
+
 ## 📄 Actions Description
 
 Ultralytics Actions automatically applies formats and updates:
@@ -13,6 +15,7 @@ Ultralytics Actions automatically applies formats and updates:
 - **Markdown Files:** With [mdformat](https://github.com/executablebooks/mdformat), ensuring a consistent style in documentation.
 - **Docstrings:** Utilizing [docformatter](https://github.com/myint/docformatter) for clean and standardized documentation comments.
 - **Spell Check:** Employing [codespell](https://github.com/codespell-project/codespell) for catching common misspellings.
+- **Broken Links Check:** Implementing [Lychee](https://github.com/lycheeverse/lychee) to report broken links in docs and markdown files.
 
 ## 🛠 How It Works
 
@@ -27,27 +30,29 @@ To use this action in your Ultralytics repository:
 
 1. **Create a Workflow File:** In your repository, create a file under `.github/workflows/`, e.g., `format-code.yml`.
 2. **Add the Action:** Use the Ultralytics Actions in your workflow file as follows:
-   ```yaml
-   name: Ultralytics Actions
+    ```yaml
+    name: Ultralytics Actions
 
-   on:
-     push:
-       branches: [main]
-     pull_request:
-       branches: [main]
+    on:
+      push:
+        branches: [main]
+      pull_request_target:
+        branches: [main]
 
-   jobs:
-     format:
-       runs-on: ubuntu-latest
-       steps:
-         - name: Run Ultralytics Formatting
-           uses: ultralytics/actions@main
-           with:
-             python: true
-             docstrings: true
-             markdown: true
-             spelling: true
-   ```
+    jobs:
+      format:
+        runs-on: ubuntu-latest
+        steps:
+          - name: Run Ultralytics Formatting
+            uses: ultralytics/actions@main
+            with:
+              token: ${{ secrets.GITHUB_TOKEN }}  # automatically generated
+              python: true
+              docstrings: true
+              markdown: true
+              spelling: true
+              links: true
+    ```
 3. **Customize:** Adjust the workflow settings as necessary for your project.
 
 ## 💡 Contribute

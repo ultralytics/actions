@@ -5,7 +5,7 @@ branding:
   icon: 'code'
   color: 'blue'
 inputs:
-  github-token:
+  token:
     description: 'GitHub token'
     required: true
   python:
@@ -24,37 +24,47 @@ inputs:
     description: 'Run Spelling checks'
     required: false
     default: 'false'
+  links:
+    description: 'Run Broken Links checks'
+    required: false
+    default: 'false'
 runs:
   using: 'composite'
   steps:
-    - name: Determine Ref for Checkout
-      id: get_ref
+
+    - name: Print Action Information
       run: |
-        if [ "${{ github.event_name }}" == 'pull_request' ] || [ "${{ github.event_name }}" == 'pull_request_target' ]; then
-          echo "REF=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
-        else
-          echo "REF=${GITHUB_REF}" >> $GITHUB_ENV
-        fi
+        echo "github.event_name: ${{ github.event_name }}"
+        echo "github.repository: ${{ github.repository }}"
+        echo "github.event.pull_request.head.repo.full_name: ${{ github.event.pull_request.head.repo.full_name }}"
+        echo "github.actor: ${{ github.actor }}"
+        echo "github.event.pull_request.head.ref: ${{ github.event.pull_request.head.ref }}"
+        echo "github.ref: ${{ github.ref }}"
+        echo "github.head_ref: ${{ github.head_ref }}"
+        echo "github.base_ref: ${{ github.base_ref }}"
       shell: bash
 
     - name: Checkout Repository
       uses: actions/checkout@v4
       with:
-        ref: ${{ env.REF }}
+        repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        token: ${{ inputs.token }}
+        ref: ${{ github.head_ref || github.ref }}
         fetch-depth: 0
 
     - name: Install Dependencies
       # tomli required for codespell with pyproject.toml
       run: |
-        pip install --no-cache -q ruff docformatter mdformat-gfm codespell tomli
+        pip install --no-cache ruff docformatter mdformat-gfm mdformat-frontmatter mdformat-mkdocs codespell tomli
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
     - name: Run Ruff
       if: inputs.python == 'true'
       run: |
-        ruff format . --line-length 120 || true
+        ruff format . --line-length 120
       shell: bash
+      continue-on-error: true
 
     # Docstrings formatting --------------------------------------------------------------------------------------------
     - name: Run Docformatter
@@ -65,15 +75,17 @@ runs:
                      --in-place \
                      --pre-summary-newline \
                      --close-quotes-on-newline \
-                     -r . || true
+                     -r .
       shell: bash
+      continue-on-error: true
 
     # Markdown formatting ----------------------------------------------------------------------------------------------
     - name: Run Mdformat
       if: inputs.markdown == 'true'
       run: |
-        mdformat . --number --wrap no || true
+        mdformat . --number --wrap no
       shell: bash
+      continue-on-error: true
 
     # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
@@ -81,9 +93,34 @@ runs:
       run: |
         codespell \
           -w \
-          --ignore-words-list "crate,nd,strack,dota,ane,segway,fo,gool,winn,commend" \
-          --skip '*.csv,*venv*,docs/??/,docs/mkdocs_??.yml' || true
+          --ignore-words-list "crate,nd,strack,dota,ane,segway,fo,gool,winn,commend,bloc" \
+          --skip '*.csv,*venv*,docs/??/,docs/mkdocs_??.yml'
       shell: bash
+      continue-on-error: true
+
+    # Broken links -----------------------------------------------------------------------------------------------------
+    - name: Broken Link Checker
+      if: inputs.links == 'true'
+      uses: lycheeverse/lychee-action@v1.9.0
+      with:
+        # Check all markdown and html files in repo (default)
+        # Ignores the following status codes to reduce false positives:
+        #   - 403(OpenVINO, 'forbidden')
+        #   - 429(Instagram, 'too many requests')
+        #   - 500(Zenodo, 'cached')
+        #   - 502(Zenodo, 'bad gateway')
+        #   - 999(LinkedIn, 'unknown status code')
+        args: |
+          --accept 403,429,500,502,999
+          --verbose 
+          --exclude-loopback
+          --exclude 'https?://(www\.)?(linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)'
+          './**/*.md'
+          './**/*.html'
+        token: ${{ inputs.token }}
+        output: ../lychee/results.md
+        fail: true
+      continue-on-error: true
 
     - name: Commit and Push Changes
       run: |
@@ -92,10 +129,9 @@ runs:
           git config --global user.name "UltralyticsAssistant"
           git config --global user.email "web@ultralytics.com"
           git commit -m "Auto-format by Ultralytics actions"
-          git push origin $BRANCH
+          git push
         else
           echo "No changes to commit"
         fi
       shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
+      continue-on-error: true

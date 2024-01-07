@@ -6,18 +6,20 @@ name: Ultralytics Actions
 
 on:
   push:
-    branches: [main,master]
-  pull_request:
-    branches: [main,master]
+    branches: [main,master,glenn-jocher-patch-1]
+  pull_request_target:
+    branches: [main,master,glenn-jocher-patch-1]
 
 jobs:
   format:
     runs-on: ubuntu-latest
     steps:
       - name: Run Ultralytics Formatting
-        uses: ultralytics/actions@main
+        uses: ultralytics/actions@glenn-jocher-patch-1
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}  # automatically generated
           python: true
           docstrings: true
           markdown: true
           spelling: true
+          links: true
