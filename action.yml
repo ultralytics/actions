@@ -111,7 +111,7 @@ runs:
           echo "set up remote with token"
           
           # Push the changes
-          git push origin HEAD:${{ github.head_ref }}
+          git push
         else
           echo "No changes to commit"
         fi
