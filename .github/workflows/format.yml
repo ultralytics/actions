@@ -8,7 +8,7 @@ on:
   push:
     branches: [main]
   pull_request_target:
-    branches: [main]
+    branches: [main,master,glenn-jocher-patch-1]
 
 jobs:
   format:
