@@ -94,6 +94,15 @@ runs:
       shell: bash
       continue-on-error: true
 
+    # Broken links -----------------------------------------------------------------------------------------------------
+    - name: Broken Link Checker
+      uses: lycheeverse/lychee-action@v1.9.0
+      with:
+        # Check all markdown and html files in repo (default)
+        args: --base . --verbose --no-progress './**/*.md' './**/*.html' './**/*.rst'
+        token: ${{ inputs.token }}
+        fail: false
+
     - name: Commit and Push Changes
       run: |
         git add -A
