@@ -77,10 +77,7 @@ runs:
         REF="${{ github.head_ref || github.ref }}"
         echo "REF: $REF"
 
-        # Clone the repository into the current directory
         git clone https://github.com/$REPO_NAME.git .
-
-        # Checkout the specific ref
         git checkout $REF
 
     - name: Install Dependencies
@@ -132,7 +129,7 @@ runs:
           git config --global user.name "UltralyticsAssistant"
           git config --global user.email "web@ultralytics.com"
           git commit -m "Auto-format by Ultralytics actions"
-          git push origin $BRANCH
+          git push origin
         else
           echo "No changes to commit"
         fi
