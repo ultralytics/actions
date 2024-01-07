@@ -66,14 +66,6 @@ runs:
         fetch-depth: 0
         token: ${{ inputs.github-token }}
 
-    - name: Manually Clone Repository
-      run: |
-        git clone https://github.com/${{ github.event.pull_request.head.repo.full_name || github.repository }}.git
-        cd ${GITHUB_REPOSITORY##*/}
-        git fetch --depth=1
-        git checkout ${{ github.ref }}
-
-
     - name: Install Dependencies
       # tomli required for codespell with pyproject.toml
       run: |
