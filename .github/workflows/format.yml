@@ -6,9 +6,9 @@ name: Ultralytics Actions
 
 on:
   push:
-    branches: [main,master,glenn-jocher-patch-1]
+    branches: [main]
   pull_request_target:
-    branches: [main,master,glenn-jocher-patch-1]
+    branches: [main]
 
 jobs:
   format:
