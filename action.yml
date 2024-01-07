@@ -96,12 +96,14 @@ runs:
 
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
+      if: inputs.links == 'true'
       uses: lycheeverse/lychee-action@v1.9.0
       with:
         # Check all markdown and html files in repo (default)
         args: --base . --verbose --no-progress './**/*.md' './**/*.html' './**/*.rst'
         token: ${{ inputs.token }}
-        fail: false
+        fail: true
+      continue-on-error: true
 
     - name: Commit and Push Changes
       run: |
