@@ -13,6 +13,7 @@ Ultralytics Actions automatically applies formats and updates:
 - **Markdown Files:** With [mdformat](https://github.com/executablebooks/mdformat), ensuring a consistent style in documentation.
 - **Docstrings:** Utilizing [docformatter](https://github.com/myint/docformatter) for clean and standardized documentation comments.
 - **Spell Check:** Employing [codespell](https://github.com/codespell-project/codespell) for catching common misspellings.
+- **Broken Links Check:** Implementing [Lychee](https://github.com/lycheeverse/lychee) to report broken links in docs and markdown files.
 
 ## 🛠 How It Works
 
@@ -33,7 +34,7 @@ To use this action in your Ultralytics repository:
    on:
      push:
        branches: [main]
-     pull_request:
+     pull_request_target:
        branches: [main]
 
    jobs:
@@ -43,10 +44,12 @@ To use this action in your Ultralytics repository:
          - name: Run Ultralytics Formatting
            uses: ultralytics/actions@main
            with:
+             token: ${{ secrets.GITHUB_TOKEN }}
              python: true
              docstrings: true
              markdown: true
              spelling: true
+             links: true
    ```
 3. **Customize:** Adjust the workflow settings as necessary for your project.
 
