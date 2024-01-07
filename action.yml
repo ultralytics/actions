@@ -93,7 +93,7 @@ runs:
       run: |
         codespell \
           -w \
-          --ignore-words-list "crate,nd,strack,dota,ane,segway,fo,gool,winn,commend" \
+          --ignore-words-list "crate,nd,strack,dota,ane,segway,fo,gool,winn,commend,bloc" \
           --skip '*.csv,*venv*,docs/??/,docs/mkdocs_??.yml'
       shell: bash
       continue-on-error: true
