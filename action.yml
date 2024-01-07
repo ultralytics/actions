@@ -67,6 +67,7 @@ runs:
     #    token: ${{ inputs.github-token }}
 
     - name: Manually Checkout Repository
+      shell: bash
       run: |
         # Determine the repository to clone (PR's head repo or the current repo)
         REPO_NAME="${{ github.event.pull_request.head.repo.full_name || github.repository }}"
@@ -82,6 +83,7 @@ runs:
 
         # Checkout the specific ref
         git checkout $REF
+        
 
     - name: Commit and Push Changes
       run: |
