@@ -119,6 +119,8 @@ runs:
           './**/*.md' 
           './**/*.html'
         token: ${{ inputs.token }}
+        output: ../lychee/results.md
+        jobSummary: true
         fail: true
       continue-on-error: true
 
