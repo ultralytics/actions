@@ -106,6 +106,8 @@ runs:
         # Check all markdown and html files in repo (default)
         args: --base . --verbose --no-progress './**/*.md' './**/*.html' './**/*.rst'
         token: ${{ inputs.token }}
+        output: ../lychee/results.md
+        jobSummary: true
         fail: true
       continue-on-error: true
 
