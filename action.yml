@@ -43,7 +43,7 @@ runs:
     - name: Checkout Repository
       uses: actions/checkout@v4
       with:
-        repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        # repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
         token: ${{ inputs.token }}
         ref: ${{ github.head_ref || github.ref }}
         fetch-depth: 0
@@ -58,8 +58,9 @@ runs:
     - name: Run Ruff
       if: inputs.python == 'true'
       run: |
-        ruff format . --line-length 120 || true
+        ruff format . --line-length 120
       shell: bash
+      continue-on-error: true
 
     # Docstrings formatting --------------------------------------------------------------------------------------------
     - name: Run Docformatter
@@ -70,15 +71,17 @@ runs:
                      --in-place \
                      --pre-summary-newline \
                      --close-quotes-on-newline \
-                     -r . || true
+                     -r .
       shell: bash
+      continue-on-error: true
 
     # Markdown formatting ----------------------------------------------------------------------------------------------
     - name: Run Mdformat
       if: inputs.markdown == 'true'
       run: |
-        mdformat . --number --wrap no || true
+        mdformat . --number --wrap no
       shell: bash
+      continue-on-error: true
 
     # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
@@ -87,8 +90,9 @@ runs:
         codespell \
           -w \
           --ignore-words-list "crate,nd,strack,dota,ane,segway,fo,gool,winn,commend" \
-          --skip '*.csv,*venv*,docs/??/,docs/mkdocs_??.yml' || true
+          --skip '*.csv,*venv*,docs/??/,docs/mkdocs_??.yml'
       shell: bash
+      continue-on-error: true
 
     - name: Commit and Push Changes
       run: |
@@ -102,3 +106,4 @@ runs:
           echo "No changes to commit"
         fi
       shell: bash
+      continue-on-error: true
