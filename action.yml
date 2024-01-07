@@ -84,22 +84,6 @@ runs:
 
         # Checkout the specific ref
         git checkout $REF
-        
-
-    - name: Commit and Push Changes
-      run: |
-        git add -A
-        if ! git diff --staged --quiet; then
-          git config --global user.name "UltralyticsAssistant"
-          git config --global user.email "web@ultralytics.com"
-          git commit -m "Auto-format by Ultralytics actions"
-          git push origin $BRANCH
-        else
-          echo "No changes to commit"
-        fi
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.github-token }}
 
     - name: Install Dependencies
       # tomli required for codespell with pyproject.toml
