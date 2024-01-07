@@ -91,9 +91,9 @@ runs:
     - name: Run Codespell
       if: inputs.spelling == 'true'
       run: |
-        codespell \
-          -w \
-          --ignore-words-list "crate,nd,strack,dota,ane,segway,fo,gool,winn,commend" \
+        codespell
+          -w
+          --ignore-words-list "crate,nd,strack,dota,ane,segway,fo,gool,winn,commend"
           --skip '*.csv,*venv*,docs/??/,docs/mkdocs_??.yml'
       shell: bash
       continue-on-error: true
@@ -113,10 +113,10 @@ runs:
         args: |
           --accept 403,429,500,502,999
           --verbose 
-          --no-progress \
-          --exclude-loopback \
-          --exclude 'https?://(www\.)?(linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)' \
-          './**/*.md' 
+          --no-progress
+          --exclude-loopback
+          --exclude 'https?://(www\.)?(linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)'
+          './**/*.md'
           './**/*.html'
         token: ${{ inputs.token }}
         output: ../lychee/results.md
