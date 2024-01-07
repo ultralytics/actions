@@ -50,19 +50,21 @@ runs:
         echo "Fork Repo Clone URL: ${{ github.event.pull_request.head.repo.clone_url }}"
       shell: bash
     
-    - name: Checkout Repository for Push Events
-      if: github.event_name == 'push'
+
+    - name: Determine Ref for Checkout
+      id: get_ref
+      run: |
+        if [ "${{ github.event_name }}" == 'pull_request' ] || [ "${{ github.event_name }}" == 'pull_request_target' ]; then
+          echo "REF=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
+        else
+          echo "REF=${GITHUB_REF}" >> $GITHUB_ENV
+        fi
+      shell: bash
+
+    - name: Checkout Repository
       uses: actions/checkout@v4
       with:
-        ref: ${{ github.ref }}
-        fetch-depth: 0
-    
-    - name: Checkout Repository for Pull Request Events
-      if: github.event_name == 'pull_request' || github.event_name == 'pull_request_target'
-      uses: actions/checkout@v4
-      with:
-        ref: ${{ github.event.pull_request.head.ref }}
-        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ env.REF }}
         fetch-depth: 0
 
     - name: Install Dependencies
@@ -114,9 +116,10 @@ runs:
           git config --global user.name "UltralyticsAssistant"
           git config --global user.email "web@ultralytics.com"
           git commit -m "Auto-format by Ultralytics actions"
-          git push https://${{ secrets.PERSONAL_ACCESS_TOKEN }}@github.com/glenn-jocher/actions.git HEAD:${{ github.event.pull_request.head.ref }}
+          git push origin $BRANCH
         else
           echo "No changes to commit"
         fi
       shell: bash
-
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
