@@ -24,6 +24,10 @@ inputs:
     description: 'Run Spelling checks'
     required: false
     default: 'false'
+  links:
+    description: 'Run Broken Links checks'
+    required: false
+    default: 'false'
 runs:
   using: 'composite'
   steps:
