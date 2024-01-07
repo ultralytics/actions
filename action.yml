@@ -47,16 +47,6 @@ runs:
         echo "Fork Repository: ${{ github.event.pull_request.head.repo.full_name }}"
         echo "Fork Repo Clone URL: ${{ github.event.pull_request.head.repo.clone_url }}"
       shell: bash
-    
-    - name: Determine Ref for Checkout
-      id: get_ref
-      run: |
-        if [ "${{ github.event_name }}" == 'pull_request' ] || [ "${{ github.event_name }}" == 'pull_request_target' ]; then
-          echo "REF=${{ github.event.pull_request.head.ref }}" >> $GITHUB_ENV
-        else
-          echo "REF=${GITHUB_REF}" >> $GITHUB_ENV
-        fi
-      shell: bash
 
     - name: Checkout Repository
       uses: actions/checkout@v4
@@ -65,20 +55,6 @@ runs:
         token: ${{ inputs.token }}
         ref: ${{ github.head_ref || github.ref }}
         fetch-depth: 0
-
-    #- name: Manually Checkout Repository
-    #  shell: bash
-    #  run: |
-    #    # Determine the repository to clone (PR's head repo or the current repo)
-    #    REPO_NAME="${{ github.event.pull_request.head.repo.full_name || github.repository }}"
-    #    echo "REPO_NAME: $REPO_NAME"
-    
-        # Determine the ref to checkout (PR's head ref or the current ref)
-    #    REF="${{ github.head_ref || github.ref }}"
-    #    echo "REF: $REF"
-
-    #    git clone https://github.com/$REPO_NAME.git .
-    #    git checkout $REF
 
     - name: Install Dependencies
       # tomli required for codespell with pyproject.toml
@@ -131,7 +107,7 @@ runs:
           git commit -m "Auto-format by Ultralytics actions"
 
           # Set up Git to use the token for authentication
-          git remote set-url origin https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git
+          git remote set-url origin https://x-access-token:${{ inputs.token }}@github.com/${{ github.event.pull_request.head.repo.full_name }}.git
           echo "set up remote with token"
           
           # Push the changes
