@@ -30,18 +30,15 @@ runs:
 
     - name: Print Action Information
       run: |
-        echo "Event Name: ${{ github.event_name }}"
-        echo "Repository: ${{ github.repository }}"
+        echo "github.event_name: ${{ github.event_name }}"
+        echo "github.repository: ${{ github.repository }}"
         echo "github.event.pull_request.head.repo.full_name: ${{ github.event.pull_request.head.repo.full_name }}"
-        echo "Actor: ${{ github.actor }}"
-        echo "Workflow: ${{ github.workflow }}"
-        echo "Action Ref: ${{ github.action_ref }}"
-        echo "Action Repository: ${{ github.action_repository }}"
-        echo "Event Path: ${{ github.event_path }}"
-        echo "SHA: ${{ github.sha }}"
-        echo "Ref: ${{ github.ref }}"
-        echo "Head Ref: ${{ github.head_ref }}"
-        echo "Base Ref: ${{ github.base_ref }}"
+        echo "github.actor: ${{ github.actor }}"
+        echo "github.sha: ${{ github.sha }}"
+        echo "github.event.pull_request.head.ref: ${{ github.event.pull_request.head.ref }}"
+        echo "github.ref: ${{ github.ref }}"
+        echo "github.head_ref: ${{ github.head_ref }}"
+        echo "github.base_ref: ${{ github.base_ref }}"
       shell: bash
 
     - name: Print Fork Repository Information
@@ -51,7 +48,6 @@ runs:
         echo "Fork Repo Clone URL: ${{ github.event.pull_request.head.repo.clone_url }}"
       shell: bash
     
-
     - name: Determine Ref for Checkout
       id: get_ref
       run: |
@@ -69,6 +65,13 @@ runs:
         ref: ${{ github.head_ref || github.ref }}
         fetch-depth: 0
         token: ${{ inputs.github-token }}
+
+    - name: Manually Clone Repository
+      run: |
+        git clone https://github.com/${{ github.event.pull_request.head.repo.full_name || github.repository }}.git
+        cd ${GITHUB_REPOSITORY##*/}
+        git fetch --depth=1
+        git checkout ${{ github.ref }}
 
 
     - name: Install Dependencies
