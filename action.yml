@@ -55,7 +55,7 @@ runs:
     - name: Install Dependencies
       # tomli required for codespell with pyproject.toml
       run: |
-        pip install --no-cache ruff docformatter mdformat-gfm mdformat-frontmatter mdformat-mkdocs codespell tomli
+        pip install --no-cache -q ruff docformatter mdformat-gfm mdformat-frontmatter mdformat-mkdocs codespell tomli
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
