@@ -5,7 +5,7 @@ branding:
   icon: 'code'
   color: 'blue'
 inputs:
-  github-token:
+  token:
     description: 'GitHub token'
     required: true
   python:
@@ -58,27 +58,27 @@ runs:
         fi
       shell: bash
 
-    #- name: Checkout Repository
-    #  uses: actions/checkout@v4
-    #  with:
-    #    repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-    #    token: ${{ inputs.github-token }}
-    #    ref: ${{ github.head_ref || github.ref }}
-    #    fetch-depth: 0
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        token: ${{ inputs.github-token }}
+        ref: ${{ github.head_ref || github.ref }}
+        fetch-depth: 0
 
-    - name: Manually Checkout Repository
-      shell: bash
-      run: |
-        # Determine the repository to clone (PR's head repo or the current repo)
-        REPO_NAME="${{ github.event.pull_request.head.repo.full_name || github.repository }}"
-        echo "REPO_NAME: $REPO_NAME"
-
+    #- name: Manually Checkout Repository
+    #  shell: bash
+    #  run: |
+    #    # Determine the repository to clone (PR's head repo or the current repo)
+    #    REPO_NAME="${{ github.event.pull_request.head.repo.full_name || github.repository }}"
+    #    echo "REPO_NAME: $REPO_NAME"
+    
         # Determine the ref to checkout (PR's head ref or the current ref)
-        REF="${{ github.head_ref || github.ref }}"
-        echo "REF: $REF"
+    #    REF="${{ github.head_ref || github.ref }}"
+    #    echo "REF: $REF"
 
-        git clone https://github.com/$REPO_NAME.git .
-        git checkout $REF
+    #    git clone https://github.com/$REPO_NAME.git .
+    #    git checkout $REF
 
     - name: Install Dependencies
       # tomli required for codespell with pyproject.toml
