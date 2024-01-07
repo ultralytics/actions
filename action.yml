@@ -113,14 +113,12 @@ runs:
         args: |
           --accept 403,429,500,502,999
           --verbose 
-          --no-progress
           --exclude-loopback
           --exclude 'https?://(www\.)?(linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)'
           './**/*.md'
           './**/*.html'
         token: ${{ inputs.token }}
         output: ../lychee/results.md
-        jobSummary: true
         fail: true
       continue-on-error: true
 
