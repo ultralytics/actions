@@ -132,9 +132,10 @@ runs:
 
           # Set up Git to use the token for authentication
           git remote set-url origin https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git
-
+          echo "set up remote with token"
+          
           # Push the changes
-          git push origin HEAD:${{ github.ref }}
+          git push origin HEAD:${{ github.head_ref }}
         else
           echo "No changes to commit"
         fi
