@@ -58,13 +58,45 @@ runs:
         fi
       shell: bash
 
-    - name: Checkout Repository
-      uses: actions/checkout@v4
-      with:
-        repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-        ref: ${{ github.head_ref || github.ref }}
-        fetch-depth: 0
-        token: ${{ inputs.github-token }}
+    # - name: Checkout Repository
+    #  uses: actions/checkout@v4
+    #  with:
+    #    repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+    #    ref: ${{ github.head_ref || github.ref }}
+    #    fetch-depth: 0
+    #    token: ${{ inputs.github-token }}
+
+    - name: Manually Checkout Repository
+      run: |
+        # Determine the repository to clone (PR's head repo or the current repo)
+        REPO_NAME="${{ github.event.pull_request.head.repo.full_name || github.repository }}"
+        echo "REPO_NAME: $REPO_NAME"
+
+        # Determine the ref to checkout (PR's head ref or the current ref)
+        REF="${{ github.head_ref || github.ref }}"
+        echo "REF: $REF"
+
+        # Clone the repository
+        git clone https://github.com/$REPO_NAME.git
+        cd $REPO_NAME
+
+        # Checkout the specific ref
+        git checkout $REF
+
+    - name: Commit and Push Changes
+      run: |
+        git add -A
+        if ! git diff --staged --quiet; then
+          git config --global user.name "UltralyticsAssistant"
+          git config --global user.email "web@ultralytics.com"
+          git commit -m "Auto-format by Ultralytics actions"
+          git push origin $BRANCH
+        else
+          echo "No changes to commit"
+        fi
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
 
     - name: Install Dependencies
       # tomli required for codespell with pyproject.toml
