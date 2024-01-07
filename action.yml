@@ -98,6 +98,21 @@ runs:
       shell: bash
       continue-on-error: true
 
+    # Commit Changes ---------------------------------------------------------------------------------------------------
+    - name: Commit and Push Changes
+      run: |
+        git add -A
+        if ! git diff --staged --quiet; then
+          git config --global user.name "UltralyticsAssistant"
+          git config --global user.email "web@ultralytics.com"
+          git commit -m "Auto-format by Ultralytics actions"
+          git push
+        else
+          echo "No changes to commit"
+        fi
+      shell: bash
+      continue-on-error: false
+
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
       if: inputs.links == 'true'
@@ -121,16 +136,3 @@ runs:
         fail: true
       continue-on-error: false
 
-    - name: Commit and Push Changes
-      run: |
-        git add -A
-        if ! git diff --staged --quiet; then
-          git config --global user.name "UltralyticsAssistant"
-          git config --global user.email "web@ultralytics.com"
-          git commit -m "Auto-format by Ultralytics actions"
-          git push
-        else
-          echo "No changes to commit"
-        fi
-      shell: bash
-      continue-on-error: false
