@@ -120,7 +120,7 @@ runs:
         token: ${{ inputs.token }}
         output: ../lychee/results.md
         fail: true
-      continue-on-error: true
+      continue-on-error: false
 
     - name: Commit and Push Changes
       run: |
@@ -134,4 +134,4 @@ runs:
           echo "No changes to commit"
         fi
       shell: bash
-      continue-on-error: true
+      continue-on-error: false
