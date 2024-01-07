@@ -129,7 +129,12 @@ runs:
           git config --global user.name "UltralyticsAssistant"
           git config --global user.email "web@ultralytics.com"
           git commit -m "Auto-format by Ultralytics actions"
-          git push
+
+          # Set up Git to use the token for authentication
+          git remote set-url origin https://x-access-token:${{ inputs.token }}@github.com/${{ github.repository }}.git
+
+          # Push the changes
+          git push origin HEAD:${{ github.ref }}
         else
           echo "No changes to commit"
         fi
