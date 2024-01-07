@@ -129,7 +129,7 @@ runs:
           git config --global user.name "UltralyticsAssistant"
           git config --global user.email "web@ultralytics.com"
           git commit -m "Auto-format by Ultralytics actions"
-          git push origin
+          git push
         else
           echo "No changes to commit"
         fi
