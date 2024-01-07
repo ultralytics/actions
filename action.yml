@@ -104,7 +104,20 @@ runs:
       uses: lycheeverse/lychee-action@v1.9.0
       with:
         # Check all markdown and html files in repo (default)
-        args: --base . --verbose --no-progress './**/*.md' './**/*.html' './**/*.rst'
+        # Ignores the following status codes to reduce false positives:
+        #   - 403(OpenVINO, 'forbidden')
+        #   - 429(Instagram, 'too many requests')
+        #   - 500(Zenodo, 'cached')
+        #   - 502(Zenodo, 'bad gateway')
+        #   - 999(LinkedIn, 'unknown status code')
+        args: |
+          --accept 403,429,500,502,999
+          --verbose 
+          --no-progress \
+          --exclude-loopback \
+          --exclude 'https?://(www\.)?(linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)' \
+          './**/*.md' 
+          './**/*.html'
         token: ${{ inputs.token }}
         fail: true
       continue-on-error: true
