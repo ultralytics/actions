@@ -44,7 +44,7 @@ To use this action in your Ultralytics repository:
          - name: Run Ultralytics Formatting
            uses: ultralytics/actions@main
            with:
-             token: ${{ secrets.GITHUB_TOKEN }}
+             token: ${{ secrets.GITHUB_TOKEN }}  # automatically generated
              python: true
              docstrings: true
              markdown: true
