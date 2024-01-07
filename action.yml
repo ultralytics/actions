@@ -72,6 +72,7 @@ runs:
         # Determine the repository to clone (PR's head repo or the current repo)
         REPO_NAME="${{ github.event.pull_request.head.repo.full_name || github.repository }}"
         echo "REPO_NAME: $REPO_NAME"
+        echo "SHORT REPO_NAME: ${REPO_NAME##*/}"
 
         # Determine the ref to checkout (PR's head ref or the current ref)
         REF="${{ github.head_ref || github.ref }}"
@@ -79,7 +80,7 @@ runs:
 
         # Clone the repository
         git clone https://github.com/$REPO_NAME.git
-        cd $REPO_NAME
+        cd ${REPO_NAME##*/}
 
         # Checkout the specific ref
         git checkout $REF
