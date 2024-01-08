@@ -128,7 +128,7 @@ runs:
         args: |
           --accept 403,429,500,502,999
           --exclude-loopback
-          --exclude 'https?://(www\.)?(linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)'
+          --exclude 'https?://(www\.)?(github\.com|linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)'
           --scheme https
           './**/*.md'
           './**/*.html'
