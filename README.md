@@ -5,8 +5,7 @@
 
 Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python projects. This GitHub Action is designed to automate the formatting of Python and Markdown files, ensuring adherence to our coding standards.
 
-[![GitHub Actions Marketplace](https://img.shields.io/badge/Ultralytics_Actions-Marketplace-blue?style=flat&logo=github)](https://github.com/marketplace/actions/ultralytics-actions)
-[![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
+[![GitHub Actions Marketplace](https://img.shields.io/badge/Ultralytics_Actions-Marketplace-blue?style=flat&logo=github)](https://github.com/marketplace/actions/ultralytics-actions) [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
 
 ## 📄 Actions Description
 
