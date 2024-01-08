@@ -1,6 +1,6 @@
-name: 'Ultralytics Formatting Action'
+name: 'Ultralytics Actions'
 author: 'Ultralytics'
-description: 'Formats Python code and checks spelling'
+description: 'Formats and checks code and docs syntax, spelling and links. Official Ultralytics action for all repositories at https://github.com/ultralytics.'
 branding:
   icon: 'code'
   color: 'blue'
