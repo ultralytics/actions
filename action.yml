@@ -1,6 +1,6 @@
 name: 'Ultralytics Actions'
 author: 'Ultralytics'
-description: 'Formats and checks code and docs syntax, spelling and links. Official Ultralytics action for all repositories at https://github.com/ultralytics.'
+description: 'Optimize code and docs with official Ultralytics Actions for syntax, spelling, and link checks.'
 branding:
   icon: 'code'
   color: 'blue'
