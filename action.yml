@@ -129,6 +129,7 @@ runs:
           --accept 403,429,500,502,999
           --exclude-loopback
           --exclude 'https?://(www\.)?(linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)'
+          --scheme https
           './**/*.md'
           './**/*.html'
         token: ${{ inputs.token }}
