@@ -83,7 +83,8 @@ runs:
     - name: Run Mdformat
       if: inputs.markdown == 'true'
       run: |
-        mdformat . --number --wrap no
+        # mdformat . --number --wrap no
+        find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
       shell: bash
       continue-on-error: true
 
