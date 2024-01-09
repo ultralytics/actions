@@ -7,8 +7,6 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repo
 
 [![GitHub Actions Marketplace](https://img.shields.io/badge/Marketplace-Ultralytics_Actions-blue?style=flat&logo=github)](https://github.com/marketplace/actions/ultralytics-actions) [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
 
-
-
 ## 📄 Actions Description
 
 Ultralytics Actions automatically applies formats and updates:
