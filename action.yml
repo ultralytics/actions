@@ -94,7 +94,7 @@ runs:
         codespell \
           -w \
           --ignore-words-list "crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall" \
-          --skip '*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.data*,*.csv,*venv*,*.jpg,*.png,*.mp4,*.move,docs/??/*.md,docs/mkdocs_??.yml'
+          --skip '*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.data*,*.csv,*venv*,*.jpg,*.png,*.mp4,*.mov,docs/??/*.md,docs/mkdocs_??.yml'
       shell: bash
       continue-on-error: true
 
