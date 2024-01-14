@@ -6,6 +6,9 @@ keywords: YOLOv8, settings, hyperparameters, YOLO CLI commands, YOLO tasks, YOLO
 
 YOLO settings and hyperparameters play a critical role in the model's performance, speed, and accuracy. These settings and hyperparameters can affect the model's behavior at various stages of the model development process, including training, validation, and prediction.
 
+
+
+
 <p align="center">
   <br>
   <iframe width="720" height="405" src="https://www.youtube.com/embed/GsXGnb-A4Kc?start=87"
@@ -20,19 +23,18 @@ YOLO settings and hyperparameters play a critical role in the model's performanc
 Ultralytics commands use the following syntax:
 
 !!! Example
-=== "CLI"
-
+  
+    === "CLI"
         ```bash
         yolo TASK MODE ARGS
         ```
 
     === "Python"
-
         ```python
         from ultralytics import YOLO
 
-        # Load a YOLOv8 model from a pre-trained weights file
-        model = YOLO('yolov8n.pt')
+          # Load a YOLOv8 model from a pre-trained weights file
+        model =  YOLO('yolov8n.pt')
 
         # Run MODE mode using the custom arguments ARGS (guess TASK)
         model.MODE(ARGS)
