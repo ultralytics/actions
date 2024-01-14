@@ -85,7 +85,7 @@ runs:
     - name: Run Prettier
       if: inputs.markdown == 'true'
       run: |
-        npm install prettier prettier-plugin-toml
+        npm install --global prettier
         # Apply to YAML and Markdown only
         # npx prettier --write "**/*.{yaml,yml,md}"
         # find . -regex ".*\.\(yml\|yaml\|md\)" ! -path "./.github/workflows/*" -exec npx prettier --write {} +
@@ -93,7 +93,7 @@ runs:
         # find . -type f ! -path "./.github/workflows/*" -exec npx prettier --write {} +
 
         echo ".github/workflows" > .tmp-ignore
-        npx prettier --ignore-path .tmp-ignore --write '**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,toml,html,vue,svelte}'
+        npx prettier --ignore-path .tmp-ignore --write '**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}'
         # npx prettier --ignore-path .tmp-ignore --write .
       shell: bash
       continue-on-error: true
