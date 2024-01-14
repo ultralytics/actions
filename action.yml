@@ -94,6 +94,7 @@ runs:
       if: inputs.markdown == 'true' 
       uses: creyD/prettier_action@v4.3
       with:
+        same_commit: true
         prettier_options: --write "**/*.{yaml,yml,toml,md}"
         file_pattern: ":!**/.github/workflows/*"
         github_token: ${{ inputs.token }}
