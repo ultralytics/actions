@@ -92,8 +92,6 @@ runs:
     - name: Install Node.js
       if: inputs.markdown == 'true'
       uses: actions/setup-node@v3
-      with:
-        node-version: "16"
 
     - name: Format YAML files
       if: inputs.markdown == 'true'
