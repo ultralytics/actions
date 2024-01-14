@@ -12,6 +12,10 @@ inputs:
     description: "Run Python formatting"
     required: false
     default: "false"
+  markdown:
+    description: "Run Markdown formatting (deprecated in favor of prettier)"
+    required: false
+    default: "false"
   prettier:
     description: "Run Prettier formatting for JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML"
     required: false
@@ -73,7 +77,7 @@ runs:
 
     # Prettier (JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML) -------------
     - name: Run Prettier
-      if: inputs.markdown == 'true'
+      if: inputs.prettier == 'true' || inputs.markdown == 'true'
       run: |
         npm install --global prettier
         npx prettier \
