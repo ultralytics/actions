@@ -89,7 +89,9 @@ runs:
         # echo ".github/workflows" > .tmp-ignore
         # npx prettier --ignore-path .tmp-ignore --write '**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}'
         npx prettier \
-        --write '**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}'
+        --write '**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}' \
+        || true
+        # rm .tmp-ignore
       shell: bash
       continue-on-error: true
 
@@ -107,7 +109,6 @@ runs:
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
       run: |
-        rm .tmp-ignore  # remove temp action file (if exists)
         git add -A
         git checkout -- .github/workflows/
         if ! git diff --staged --quiet; then
