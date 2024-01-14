@@ -90,14 +90,19 @@ runs:
       continue-on-error: true
 
     # YAML formatting --------------------------------------------------------------------------------------------------
-    - name: Prettify code
-      if: inputs.markdown == 'true' 
-      uses: creyD/prettier_action@v4.3
+    - name: Install Node.js
+      if: inputs.yaml == 'true'
+      uses: actions/setup-node@v3
       with:
-        same_commit: true
-        prettier_options: --write "**/*.{yaml,yml,toml,md}"
-        file_pattern: "-A :!**/.github/workflows/*"
-        github_token: ${{ inputs.token }}
+        node-version: '16'
+
+    - name: Format YAML files
+      if: inputs.yaml == 'true'
+      run: |
+        npm install --global prettier
+        npx prettier --write "**/*.{yaml,yml,toml,md}"
+      shell: bash
+      continue-on-error: true
 
     # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
@@ -113,6 +118,7 @@ runs:
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
       run: |
+        git add -A
         git checkout -- .github/workflows/
         if ! git diff --staged --quiet; then
           git config --global user.name "UltralyticsAssistant"
