@@ -20,6 +20,10 @@ inputs:
     description: "Run Markdown formatting"
     required: false
     default: "false"
+  yaml:
+    description: "Run YAML formatting"
+    required: false
+    default: "true"
   spelling:
     description: "Run Spelling checks"
     required: false
@@ -84,22 +88,24 @@ runs:
       run: |
         # mdformat . --number --wrap no
         find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
-        echo ".github/workflows" > ../.prettierignore
       shell: bash
       continue-on-error: true
 
     # YAML formatting --------------------------------------------------------------------------------------------------
     - name: Install Node.js
-      if: inputs.markdown == 'true'
+      if: inputs.yaml == 'true'
       uses: actions/setup-node@v3
 
     - name: Format YAML files
-      if: inputs.markdown == 'true'
+      if: inputs.yaml == 'true'
       run: |
         npm install --global prettier
-        echo ".github/workflows/**/*.*" > ".tmp_ignore"
-        npx prettier --write "**/*.{yaml,yml,toml,md}" --ignore-path ".tmp_ignore"
-        rm ".tmp_ignore"
+        # echo ".github/workflows/**/*.*" > ".tmp_ignore"
+        # npx prettier --write "**/*.{yaml,yml,toml,md}" --ignore-path ".tmp_ignore"
+        # rm ".tmp_ignore"
+
+        # npx prettier --write "**/*.{yaml,yml,toml,md}"
+        find . -name "**/*.{yaml,yml,toml,md}" ! -path ".github/workflows/*" -exec npx prettier --write {} +
       shell: bash
       continue-on-error: true
 
