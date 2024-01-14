@@ -1,6 +1,6 @@
 name: "Ultralytics Actions"
 author: "Ultralytics"
-description: "Optimize code and docs with official Ultralytics Actions for syntax, spelling, and link checks."
+description: 'Optimize code and docs with official Ultralytics Actions for syntax, spelling, and link checks.'
 branding:
   icon: "code"
   color: "blue"
