@@ -110,8 +110,8 @@ runs:
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
       run: |
-        git reset HEAD .github/workflows/*
-        git add -u
+        git add -A
+        git checkout -- .github/workflows/
         if ! git diff --staged --quiet; then
           git config --global user.name "UltralyticsAssistant"
           git config --global user.email "web@ultralytics.com"
