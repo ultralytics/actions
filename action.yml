@@ -1,37 +1,36 @@
-name: 'Ultralytics Actions'
-author: 'Ultralytics'
-description: 'Optimize code and docs with official Ultralytics Actions for syntax, spelling, and link checks.'
+name: "Ultralytics Actions"
+author: "Ultralytics"
+description: "Optimize code and docs with official Ultralytics Actions for syntax, spelling, and link checks."
 branding:
-  icon: 'code'
-  color: 'blue'
+  icon: "code"
+  color: "blue"
 inputs:
   token:
-    description: 'GitHub token'
+    description: "GitHub token"
     required: true
   python:
-    description: 'Run Python formatting'
+    description: "Run Python formatting"
     required: false
-    default: 'false'
+    default: "false"
   docstrings:
-    description: 'Run Docstrings formatting'
+    description: "Run Docstrings formatting"
     required: false
-    default: 'false'
+    default: "false"
   markdown:
-    description: 'Run Markdown formatting'
+    description: "Run Markdown formatting"
     required: false
-    default: 'false'
+    default: "false"
   spelling:
-    description: 'Run Spelling checks'
+    description: "Run Spelling checks"
     required: false
-    default: 'false'
+    default: "false"
   links:
-    description: 'Run Broken Links checks'
+    description: "Run Broken Links checks"
     required: false
-    default: 'false'
+    default: "false"
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
-
     - name: Print Action Information
       run: |
         echo "github.event_name: ${{ github.event_name }}"
@@ -94,7 +93,7 @@ runs:
       if: inputs.markdown == 'true'
       uses: actions/setup-node@v3
       with:
-        node-version: '16'
+        node-version: "16"
 
     - name: Format YAML files
       if: inputs.markdown == 'true'
@@ -155,4 +154,3 @@ runs:
         output: ../lychee/results.md
         fail: true
       continue-on-error: false
-

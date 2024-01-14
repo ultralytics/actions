@@ -30,29 +30,31 @@ To use this action in your Ultralytics repository:
 
 1. **Create a Workflow File:** In your repository, create a file under `.github/workflows/`, e.g., `format-code.yml`.
 2. **Add the Action:** Use the Ultralytics Actions in your workflow file as follows:
-    ```yaml
-    name: Ultralytics Actions
 
-    on:
-      push:
-        branches: [main]
-      pull_request_target:
-        branches: [main]
+   ```yaml
+   name: Ultralytics Actions
 
-    jobs:
-      format:
-        runs-on: ubuntu-latest
-        steps:
-          - name: Run Ultralytics Formatting
-            uses: ultralytics/actions@main
-            with:
-              token: ${{ secrets.GITHUB_TOKEN }}  # automatically generated
-              python: true
-              docstrings: true
-              markdown: true
-              spelling: true
-              links: true
-    ```
+   on:
+     push:
+       branches: [main]
+     pull_request_target:
+       branches: [main]
+
+   jobs:
+     format:
+       runs-on: ubuntu-latest
+       steps:
+         - name: Run Ultralytics Formatting
+           uses: ultralytics/actions@main
+           with:
+             token: ${{ secrets.GITHUB_TOKEN }} # automatically generated
+             python: true
+             docstrings: true
+             markdown: true
+             spelling: true
+             links: true
+   ```
+
 3. **Customize:** Adjust the workflow settings as necessary for your project.
 
 ## 💡 Contribute
