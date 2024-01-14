@@ -91,7 +91,7 @@ runs:
     #   shell: bash
     #   continue-on-error: true
 
-    # YAML formatting --------------------------------------------------------------------------------------------------
+    # Prettier formatting for Markdown and YAML -------------------------------------------------------------------------
     # - name: Install Node.js
     #   if: inputs.yaml == 'true'
     #   uses: actions/setup-node@v4
