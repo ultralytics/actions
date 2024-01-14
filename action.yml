@@ -99,8 +99,9 @@ runs:
       if: inputs.markdown == 'true'
       run: |
         npm install --global prettier
-        echo ".github/workflows/**/*.*" > ".git/.prettierignore"
-        npx prettier --write "**/*.{yaml,yml,toml,md}" --ignore-path ".git/.prettierignore"
+        echo ".github/workflows/**/*.*" > ".tmp_ignore"
+        npx prettier --write "**/*.{yaml,yml,toml,md}" --ignore-path ".tmp_ignore"
+        rm ".tmp_ignore"
       shell: bash
       continue-on-error: true
 
