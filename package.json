@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "prettier": "^3.2.2",
+    "prettier-plugin-toml": "^2.0.1"
+  }
+}
