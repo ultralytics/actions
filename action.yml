@@ -50,7 +50,7 @@ runs:
     - name: Install Dependencies
       # tomli required for codespell with pyproject.toml
       run: |
-        pip install --no-cache -q ruff docformatter mdformat-gfm mdformat-frontmatter mdformat-mkdocs codespell tomli
+        pip install --no-cache -q ruff docformatter codespell tomli
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
@@ -75,6 +75,7 @@ runs:
     # - name: Run Mdformat
     #   if: inputs.markdown == 'true'
     #   run: |
+    #     # pip install mdformat-gfm mdformat-frontmatter mdformat-mkdocs
     #     # mdformat . --number --wrap no
     #     find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
     #   shell: bash
