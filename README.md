@@ -17,9 +17,8 @@ Ultralytics Actions automatically applies formats and updates:
 - **Spell Check:** Employing [codespell](https://github.com/codespell-project/codespell) for catching common misspellings.
 - **Broken Links Check:** Implementing [Lychee](https://github.com/lycheeverse/lychee) to report broken links in docs and markdown files.
 
-
-
 ## 🛠 How It Works
+
 Upon integration, Ultralytics Actions triggers on:
 
 - **Push Events:** Automatically formats code when changes are pushed to the `main` branch.
