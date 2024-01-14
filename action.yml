@@ -85,6 +85,7 @@ runs:
       run: |
         # mdformat . --number --wrap no
         find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
+        echo ".github/workflows" > ../.prettierignore
       shell: bash
       continue-on-error: true
 
@@ -93,7 +94,8 @@ runs:
       if: inputs.markdown == 'true' 
       uses: creyD/prettier_action@v4.3
       with:
-        prettier_options: --write '**/*.{yaml,yml,toml,md}' '!**/.github/workflows/**/*.*'
+        prettier_options: --write "**/*.{yaml,yml,toml,md}"
+        file_pattern: ":!**/.github/workflows/*"
         github_token: ${{ inputs.token }}
 
     # Spelling ---------------------------------------------------------------------------------------------------------
