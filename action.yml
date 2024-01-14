@@ -90,7 +90,13 @@ runs:
         # npx prettier --write "**/*.{yaml,yml,md}"
         # find . -regex ".*\.\(yml\|yaml\|md\)" ! -path "./.github/workflows/*" -exec npx prettier --write {} +
         # Apply to all supported file formats
-        find . -type f ! -path "./.github/workflows/*" -exec npx prettier --write {} +
+        # find . -type f ! -path "./.github/workflows/*" -exec npx prettier --write {} +
+        
+        echo ".github/workflows" > .tmp-prettierignore
+        npx prettier --ignore-path .tmp-prettierignore --write '**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,toml,html,vue,svelte}'
+        # npx prettier --ignore-path .tmp-prettierignore --write .
+        rm .tmp-prettierignore
+
       shell: bash
       continue-on-error: true
 
