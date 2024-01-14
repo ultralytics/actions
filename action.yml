@@ -105,7 +105,7 @@ runs:
         # rm ".tmp_ignore"
 
         # npx prettier --write "**/*.{yaml,yml,toml,md}"
-        find . -name "*.{yaml,yml,toml,md}" ! -path ".github/workflows/*" -exec npx prettier --write {} +
+        find . -name "*.yml" ! -path ".github/workflows/*" -exec npx prettier --write {} +
       shell: bash
       continue-on-error: true
 
