@@ -94,10 +94,11 @@ runs:
     # YAML formatting --------------------------------------------------------------------------------------------------
     # - name: Install Node.js
     #   if: inputs.yaml == 'true'
-    #   uses: actions/setup-node@v3
+    #   uses: actions/setup-node@v4
 
     - name: Format YAML files
       if: inputs.yaml == 'true'
+      uses: actions/setup-node@v4
       run: |
         npm install --global prettier
         # npx prettier --write "**/*.{yaml,yml,md}"
