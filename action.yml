@@ -109,7 +109,7 @@ runs:
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
       run: |
-        git add -A
+        git add -A ':!**/.github/workflows/*'
         if ! git diff --staged --quiet; then
           git config --global user.name "UltralyticsAssistant"
           git config --global user.email "web@ultralytics.com"
