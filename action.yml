@@ -83,13 +83,13 @@ runs:
       continue-on-error: true
 
     # Markdown formatting ----------------------------------------------------------------------------------------------
-    - name: Run Mdformat
-      if: inputs.markdown == 'true'
-      run: |
-        # mdformat . --number --wrap no
-        find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
-      shell: bash
-      continue-on-error: true
+    # - name: Run Mdformat
+    #   if: inputs.markdown == 'true'
+    #   run: |
+    #     # mdformat . --number --wrap no
+    #     find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
+    #   shell: bash
+    #   continue-on-error: true
 
     # YAML formatting --------------------------------------------------------------------------------------------------
     # - name: Install Node.js
@@ -97,7 +97,7 @@ runs:
     #   uses: actions/setup-node@v4
 
     - name: Format YAML files
-      if: inputs.yaml == 'true'
+      if: inputs.yaml == 'true' | inputs.markdown == 'true'
       uses: actions/setup-node@v4
       run: |
         npm install --global prettier
