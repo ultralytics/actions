@@ -85,7 +85,7 @@ runs:
     - name: Run Prettier
       if: inputs.markdown == 'true'
       run: |
-        npm install --global prettier
+        npm install --global prettier prettier-plugin-toml
         # Apply to YAML and Markdown only
         # npx prettier --write "**/*.{yaml,yml,md}"
         # find . -regex ".*\.\(yml\|yaml\|md\)" ! -path "./.github/workflows/*" -exec npx prettier --write {} +
