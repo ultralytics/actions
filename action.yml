@@ -12,18 +12,10 @@ inputs:
     description: "Run Python formatting"
     required: false
     default: "false"
-  docstrings:
-    description: "Run Docstrings formatting"
-    required: false
-    default: "false"
   markdown:
     description: "Run Markdown formatting"
     required: false
     default: "false"
-  yaml:
-    description: "Run YAML formatting"
-    required: false
-    default: "true"
   spelling:
     description: "Run Spelling checks"
     required: false
@@ -62,23 +54,20 @@ runs:
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
-    - name: Run Ruff
+    - name: Run Python
       if: inputs.python == 'true'
       run: |
-        ruff format . --line-length 120
-      shell: bash
-      continue-on-error: true
-
-    # Docstrings formatting --------------------------------------------------------------------------------------------
-    - name: Run Docformatter
-      if: inputs.docstrings == 'true'
-      run: |
-        docformatter --wrap-summaries 120 \
-                     --wrap-descriptions 120 \
-                     --in-place \
-                     --pre-summary-newline \
-                     --close-quotes-on-newline \
-                     -r .
+        ruff format \
+        --line-length 120 \
+        .
+        docformatter \
+        --wrap-summaries 120 \
+        --wrap-descriptions 120 \
+        --in-place \
+        --pre-summary-newline \
+        --close-quotes-on-newline \
+        --recursive \
+        .
       shell: bash
       continue-on-error: true
 
@@ -91,17 +80,16 @@ runs:
     #   shell: bash
     #   continue-on-error: true
 
-    # Prettier formatting for Markdown and YAML -------------------------------------------------------------------------
-    # - name: Install Node.js
-    #   if: inputs.yaml == 'true'
-    #   uses: actions/setup-node@v4
-
-    - name: Format YAML files
-      if: inputs.yaml == 'true' | inputs.markdown == 'true'
+    # Prettier (JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML) -------------
+    - name: Run Prettier
+      if: inputs.markdown == 'true'
       run: |
         npm install --global prettier
+        # Apply to YAML and Markdown only
         # npx prettier --write "**/*.{yaml,yml,md}"
-        find . -regex ".*\.\(yml\|yaml\|md\)" ! -path "./.github/workflows/*" -exec npx prettier --write {} +
+        # find . -regex ".*\.\(yml\|yaml\|md\)" ! -path "./.github/workflows/*" -exec npx prettier --write {} +
+        # Apply to all supported file formats
+        find . -type f ! -path "./.github/workflows/*" -exec npx prettier --write {} +
       shell: bash
       continue-on-error: true
 
