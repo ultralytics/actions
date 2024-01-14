@@ -88,6 +88,13 @@ runs:
       shell: bash
       continue-on-error: true
 
+    # YAML formatting --------------------------------------------------------------------------------------------------
+    - name: Prettify code
+      if: inputs.markdown == 'true' 
+      uses: creyD/prettier_action@v4.3
+      with:
+        prettier_options: --write **/*.{yaml,yml,toml,md}
+
     # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
       if: inputs.spelling == 'true'
