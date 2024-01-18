@@ -24,4 +24,6 @@ jobs:
           spelling: false
           links: false
           summary: true
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          #openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          openai_azure_api_key: ${{ secrets.OPENAI_AZURE_API_KEY }}
+          openai_azure_endpoint: ${{ secrets.OPENAI_AZURE_ENDPOINT }}
