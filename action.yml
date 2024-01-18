@@ -142,6 +142,10 @@ runs:
       run: |
         python custom_script.py
       shell: bash
+      env:
+        REPO_NAME: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        GITHUB_TOKEN: ${{ inputs.token }}
       continue-on-error: true
 
     # Broken links -----------------------------------------------------------------------------------------------------
