@@ -41,6 +41,10 @@ inputs:
   openai_azure_endpoint:
     description: "OpenAI Azure Endpoint"
     required: false
+  openai_model:
+    description: "OpenAI Model"
+    required: false
+    default: "gpt-4-1106-preview"
 runs:
   using: "composite"
   steps:
@@ -148,6 +152,7 @@ runs:
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_AZURE_API_KEY: ${{ inputs.openai_azure_api_key }}
         OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
+        OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
         pip install openai
         python utils/run_pr_summary.py
