@@ -18,11 +18,13 @@ SUMMARY_START = (
 
 # Checks
 assert OPENAI_MODEL, "No model found, please define OPENAI_MODEL"
-assert OPENAI_API_KEY or (OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT), \
-    "No OpenAI Keys found, please pass either OPENAI_API_KEY or both (OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT)"
+assert OPENAI_API_KEY or (
+    OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT
+), "No OpenAI Keys found, please pass either OPENAI_API_KEY or both (OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT)"
 if OPENAI_AZURE_API_KEY or OPENAI_AZURE_ENDPOINT:
-    assert (OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT), \
-        "For Azure usage both both OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT must be passed."
+    assert (
+        OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT
+    ), "For Azure usage both both OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT must be passed."
 
 
 def openai_client(azure=OPENAI_AZURE_ENDPOINT and OPENAI_AZURE_API_KEY):
@@ -58,10 +60,10 @@ def generate_pr_summary(repo_name, pr_title, diff_text):
         {
             "role": "user",
             "content": f"Summarize this '{repo_name}' PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:\n\n"
-                       f"### 🌟 Summary (single-line synopsis)\n"
-                       f"### 📊 Key Changes (bullet points highlighting any major changes)\n"
-                       f"### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n"
-                       f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}",
+            f"### 🌟 Summary (single-line synopsis)\n"
+            f"### 📊 Key Changes (bullet points highlighting any major changes)\n"
+            f"### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n"
+            f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}",
         },
     ]
     response = openai_client().chat.completions.create(model=OPENAI_MODEL, messages=messages).choices[0]
