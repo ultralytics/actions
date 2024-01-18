@@ -28,6 +28,10 @@ inputs:
     description: "Run Broken Links checks"
     required: false
     default: "false"
+  summary:
+    description: "Run PR Summary"
+    required: false
+    default: "false"
 runs:
   using: "composite"
   steps:
@@ -132,11 +136,11 @@ runs:
       shell: bash
       continue-on-error: false
 
-    # Custom Python Script for Summary --------------------------------------------------------------------------------
+    # Custom Python Script for Summary ---------------------------------------------------------------------------------
     - name: Summarize PR
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.event.action == 'opened' || inputs.event.action == 'closed')
+      if: inputs.summary == 'true' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.event.action == 'opened' || inputs.event.action == 'closed')
       run: |
-        python path/to/summary_script.py
+        python custom_script.py
       shell: bash
       continue-on-error: true
 
