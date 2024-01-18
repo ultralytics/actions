@@ -19,6 +19,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }} # automatically generated
           python: true
-          prettier: true
+          docstrings: true
+          markdown: true
           spelling: false
-          links: true
+          links: false
