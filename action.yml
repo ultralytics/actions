@@ -113,14 +113,6 @@ runs:
       shell: bash
       continue-on-error: true
 
-    # Custom Python Script -------------------------------------------------------------------------------------------
-    - name: Run Custom Python Script
-      if: inputs.python == 'true'
-      run: |
-        python custom_script.py
-      shell: bash
-      continue-on-error: true
-
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
       run: |
