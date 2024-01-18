@@ -16,6 +16,7 @@ Ultralytics Actions automatically applies formats and updates:
 - **Docstrings:** Utilizing [docformatter](https://github.com/myint/docformatter) for clean and standardized documentation comments.
 - **Spell Check:** Employing [codespell](https://github.com/codespell-project/codespell) for catching common misspellings.
 - **Broken Links Check:** Implementing [Lychee](https://github.com/lycheeverse/lychee) to report broken links in docs and markdown files.
+- **PR Summary:** Generating concise, AI-powered summaries for pull requests using OpenAI GPT4, enhancing code review efficiency and clarity.
 
 ## 🛠 How It Works
 
@@ -28,7 +29,7 @@ Upon integration, Ultralytics Actions triggers on:
 
 To use this action in your Ultralytics repository:
 
-1. **Create a Workflow File:** In your repository, create a file under `.github/workflows/`, e.g., `format-code.yml`.
+1. **Create a Workflow File:** In your repository, create a file under `.github/workflows/`, e.g., `ultralytics-actions.yml`.
 
 2. **Add the Action:** Use the Ultralytics Actions in your workflow file as follows:
 
@@ -38,8 +39,7 @@ To use this action in your Ultralytics repository:
     on:
       push:
         branches: [main]
-      pull_request_target:
-        branches: [main]
+        types: [opened, closed, synchronize]
 
     jobs:
       format:
@@ -48,11 +48,13 @@ To use this action in your Ultralytics repository:
           - name: Run Ultralytics Formatting
             uses: ultralytics/actions@main
             with:
-              token: ${{ secrets.GITHUB_TOKEN }} # automatically generated
-              python: true
-              markdown: true
-              spelling: true
-              links: true
+              token: ${{ secrets.GITHUB_TOKEN }} # automatically generated, do not modify
+              python: true # format Python code and docstrings
+              markdown: true # format Markdown and YAML
+              spelling: true # check spelling
+              links: true # check broken links
+              summary: true  # print PR summary with GPT4 (requires 'openai_api_key' or 'openai_azure_api_key' and 'openai_azure_endpoint')
+              openai_api_key: # your OpenAI API key
     ```
 
 3. **Customize:** Adjust the workflow settings as necessary for your project.
