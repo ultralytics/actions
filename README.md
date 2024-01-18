@@ -39,6 +39,8 @@ To use this action in your Ultralytics repository:
     on:
       push:
         branches: [main]
+      pull_request:
+        branches: [main]
         types: [opened, closed, synchronize]
 
     jobs:
