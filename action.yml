@@ -125,7 +125,7 @@ runs:
 
     # Custom Python Script for Summary --------------------------------------------------------------------------------
     - name: Summarize PR
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.event_action == 'opened' || inputs.event_action == 'closed')
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.event.action == 'opened' || inputs.event.action == 'closed')
       run: |
         python path/to/summary_script.py
       shell: bash
