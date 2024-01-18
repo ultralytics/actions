@@ -50,7 +50,6 @@ To use this action in your Ultralytics repository:
            with:
              token: ${{ secrets.GITHUB_TOKEN }} # automatically generated
              python: true
-             docstrings: true
              markdown: true
              spelling: true
              links: true

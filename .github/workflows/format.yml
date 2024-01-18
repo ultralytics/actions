@@ -9,6 +9,7 @@ on:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+    types: [opened, closed, synchronize]
 
 jobs:
   format:
@@ -17,8 +18,12 @@ jobs:
       - name: Run Ultralytics Formatting
         uses: ultralytics/actions@main
         with:
-          token: ${{ secrets.GITHUB_TOKEN }} # automatically generated
+          token: ${{ secrets.GITHUB_TOKEN }} # automatically generated, do not modify
           python: true
-          prettier: true
+          markdown: true
           spelling: false
-          links: true
+          links: false
+          summary: true  # requires either 'openai_api_key' or 'openai_azure_api_key' and 'openai_azure_endpoint'
+          openai_azure_api_key: ${{ secrets.OPENAI_AZURE_API_KEY }}
+          openai_azure_endpoint: ${{ secrets.OPENAI_AZURE_ENDPOINT }}
+          #openai_api_key: ${{ secrets.OPENAI_API_KEY }}

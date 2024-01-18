@@ -28,13 +28,32 @@ inputs:
     description: "Run Broken Links checks"
     required: false
     default: "false"
+  summary:
+    description: "Run PR Summary"
+    required: false
+    default: "false"
+  openai_api_key:
+    description: "OpenAI API Key"
+    required: false
+  openai_azure_api_key:
+    description: "OpenAI Azure API Key"
+    required: false
+  openai_azure_endpoint:
+    description: "OpenAI Azure Endpoint"
+    required: false
+  openai_model:
+    description: "OpenAI Model"
+    required: false
+    default: "gpt-4-1106-preview"
 runs:
   using: "composite"
   steps:
     - name: Print Action Information
       run: |
-        echo "github.event_name: ${{ github.event_name }}"
+        echo "github.event_name: ${{ github.event_name }}"  # i.e. "pull_request"
+        echo "github.event.action: ${{ github.event.action }}"  # i.e. "open" or "close"
         echo "github.repository: ${{ github.repository }}"
+        echo "github.event.pull_request.number: ${{ github.event.pull_request.number }}"
         echo "github.event.pull_request.head.repo.full_name: ${{ github.event.pull_request.head.repo.full_name }}"
         echo "github.actor: ${{ github.actor }}"
         echo "github.event.pull_request.head.ref: ${{ github.event.pull_request.head.ref }}"
@@ -88,7 +107,7 @@ runs:
 
     # Prettier (JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML) -------------
     - name: Run Prettier
-      if: inputs.prettier == 'true' || inputs.markdown == 'true'
+      if: inputs.prettier == 'true'
       run: |
         npm install --global prettier
         npx prettier \
@@ -122,6 +141,23 @@ runs:
         fi
       shell: bash
       continue-on-error: false
+
+    # PR Summary -------------------------------------------------------------------------------------------------------
+    - name: Summarize PR
+      if: inputs.summary == 'true' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.event.action == 'opened' || inputs.event.action == 'closed')
+      env:
+        REPO_NAME: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        OPENAI_AZURE_API_KEY: ${{ inputs.openai_azure_api_key }}
+        OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
+        OPENAI_MODEL: ${{ inputs.openai_model }}
+      run: |
+        pip install --no-cache -q openai
+        python utils/run_pr_summary.py
+      shell: bash
+      continue-on-error: true
 
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
