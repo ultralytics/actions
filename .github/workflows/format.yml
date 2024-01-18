@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run Ultralytics Formatting
-        uses: ultralytics/actions@prettier
+        uses: ultralytics/actions@main
         with:
           token: ${{ secrets.GITHUB_TOKEN }} # automatically generated
           python: true
