@@ -22,9 +22,9 @@ def get_pr_diff(repo_name, pr_number, github_token):
 
 
 # Example usage
-repo_name = os.environ['REPO_NAME']
-pr_number = os.environ['PR_NUMBER']
-github_token = os.environ['GITHUB_TOKEN']
+repo_name = os.getenv('REPO_NAME')
+pr_number = os.getenv('PR_NUMBER')
+github_token = os.getenv('GITHUB_TOKEN')
 pr_diff = get_pr_diff(repo_name, pr_number, github_token)
 if pr_diff:
     print(pr_diff)
