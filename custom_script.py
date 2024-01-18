@@ -2,6 +2,8 @@ import sys
 
 import requests
 
+print(sys.argv)
+
 repo_name = sys.argv[1]
 pr_number = sys.argv[2]
 github_token = sys.argv[3]
