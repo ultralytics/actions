@@ -158,7 +158,9 @@ runs:
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
         pip install --no-cache -q openai
-        python utils/run_pr_summary.py
+        # python utils/run_pr_summary.py
+        curl -o run_pr_summary.py "https://raw.githubusercontent.com/ultralytics/actions/main/utils/run_pr_summary.py"
+        python run_pr_summary.py
       shell: bash
       continue-on-error: true
 
