@@ -107,7 +107,7 @@ runs:
 
     # Prettier (JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML) -------------
     - name: Run Prettier
-      if: inputs.prettier == 'true' || inputs.markdown == 'true'
+      if: inputs.prettier == 'true'
       run: |
         npm install --global prettier
         npx prettier \
