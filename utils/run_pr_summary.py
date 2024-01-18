@@ -1,11 +1,9 @@
 import os
 
 import requests
-from assistant.utils import openai_client
-from assistant.utils.llm import create_openai_llm
+from openai import OpenAI, AzureOpenAI
 
 MODEL_NAME = "gpt-4-1106-preview"
-MODEL = create_openai_llm(model_name=MODEL_NAME)
 CONTEXT_TOKENS = 128000
 SUMMARY_START = (
     "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
@@ -15,6 +13,23 @@ REPO_NAME = os.getenv("REPO_NAME")
 PR_NUMBER = os.getenv("PR_NUMBER")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+OPENAI_AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
+OPENAI_AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
+
+
+def openai_client(azure=True):
+    """Returns OpenAI client instance."""
+
+    return (
+        AzureOpenAI(
+            api_key=OPENAI_AZURE_API_KEY,
+            api_version="2023-09-01-preview",
+            azure_endpoint=OPENAI_AZURE_ENDPOINT,
+        )
+        if azure
+        else OpenAI(api_key=OPENAI_API_KEY)
+    )
 
 
 def get_pr_diff(repo_name, pr_number):
@@ -45,11 +60,7 @@ def generate_pr_summary(repo_name, pr_title, diff_text):
                        f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}",
         },
     ]
-    use_client = True
-    if use_client:
-        response = openai_client().chat.completions.create(model=MODEL_NAME, messages=messages).choices[0]
-    else:
-        response = MODEL.chat(messages=messages)
+    response = openai_client().chat.completions.create(model=MODEL_NAME, messages=messages).choices[0]
     reply = response.message.content.strip()
     if len(diff_text) > limit:
         return SUMMARY_START + "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
