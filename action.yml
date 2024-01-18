@@ -104,7 +104,7 @@ runs:
         if ! git diff --staged --quiet; then
           git config --global user.name "UltralyticsAssistant"
           git config --global user.email "web@ultralytics.com"
-          git commit -m "Auto-format by Ultralytics actions"
+          git commit -m "Auto-format by [Ultralytics Actions](https://github.com/ultralytics/actions)"
           git push
         else
           echo "No changes to commit"
