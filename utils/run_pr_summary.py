@@ -18,7 +18,7 @@ OPENAI_AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
 OPENAI_AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
 
 
-def openai_client(azure=True):
+def openai_client(azure=False):
     """Returns OpenAI client instance."""
 
     return (
