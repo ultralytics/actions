@@ -1,14 +1,6 @@
-import sys
+import os
 
 import requests
-
-print(sys.argv)
-
-repo_name = sys.argv[1]
-pr_number = sys.argv[2]
-github_token = sys.argv[3]
-
-print("CUSTOM PYTHON SCRIPT IS WORKING 1!!")
 
 
 def get_pr_diff(repo_name, pr_number, github_token):
@@ -24,10 +16,14 @@ def get_pr_diff(repo_name, pr_number, github_token):
         return None
 
 
-if __name__ == "__main__":
-    print(repo_name, pr_number, github_token)
-    pr_diff = get_pr_diff(repo_name, pr_number, github_token)
-    if pr_diff:
-        print(pr_diff)
-    else:
-        print("Failed to fetch PR diff")
+# Example usage
+repo_name = os.getenv("REPO_NAME")
+pr_number = os.getenv("PR_NUMBER")
+github_token = os.getenv("GITHUB_TOKEN")
+
+print(repo_name, pr_number, github_token)
+pr_diff = get_pr_diff(repo_name, pr_number, github_token)
+if pr_diff:
+    print(pr_diff)
+else:
+    print("Failed to fetch PR diff")
