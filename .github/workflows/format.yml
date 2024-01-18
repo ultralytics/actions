@@ -16,14 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run Ultralytics Formatting
-        uses: ultralytics/actions@test-local-python-script
+        uses: ultralytics/actions@main
         with:
           token: ${{ secrets.GITHUB_TOKEN }} # automatically generated, do not modify
           python: true
           markdown: true
           spelling: false
           links: false
-          summary: true  # requires either 'openai_api_key' or both 'openai_azure_api_key' and 'openai_azure_endpoint'
+          summary: true  # requires either 'openai_api_key' or 'openai_azure_api_key' and 'openai_azure_endpoint'
           openai_azure_api_key: ${{ secrets.OPENAI_AZURE_API_KEY }}
           openai_azure_endpoint: ${{ secrets.OPENAI_AZURE_ENDPOINT }}
           #openai_api_key: ${{ secrets.OPENAI_API_KEY }}

@@ -12,7 +12,7 @@ OPENAI_AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
 OPENAI_AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
 OPENAI_AZURE_BOTH = OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT
 OPENAI_MODEL = os.getenv("OPENAI_MODEL")
-OPENAI_MODEL_TOKENS = 128000
+OPENAI_MODEL_TOKENS = 128000  # update with model
 SUMMARY_START = (
     "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
 )
@@ -20,7 +20,7 @@ SUMMARY_START = (
 # Checks
 assert OPENAI_MODEL, "No model found, please define OPENAI_MODEL"
 assert (
-    OPENAI_API_KEY or OPENAI_AZURE_BOTH
+        OPENAI_API_KEY or OPENAI_AZURE_BOTH
 ), "No OpenAI Keys found, please pass either OPENAI_API_KEY or both (OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT)"
 if OPENAI_AZURE_API_KEY or OPENAI_AZURE_ENDPOINT:
     assert OPENAI_AZURE_BOTH, "For Azure usage both both OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT must be passed."
@@ -45,7 +45,7 @@ def get_pr_diff(repo_name, pr_number):
     return response.text if response.status_code == 200 else ""
 
 
-def generate_pr_summary(repo_name, pr_title, diff_text):
+def generate_pr_summary(repo_name, diff_text):
     """Generates a professionally written yet accessible summary of a PR using OpenAI's API."""
     if not diff_text:
         diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
@@ -94,10 +94,10 @@ def update_pr_description(repo_name, pr_number, new_summary):
 
 if __name__ == "__main__":
     # Fetch PR details
-    pr_diff = get_pr_diff(REPO_NAME, PR_NUMBER)
+    diff = get_pr_diff(REPO_NAME, PR_NUMBER)
 
     # Generate PR summary
-    summary = generate_pr_summary(REPO_NAME, PR_NUMBER, pr_diff)
+    summary = generate_pr_summary(REPO_NAME, diff)
 
     # Update PR description
     status_code = update_pr_description(REPO_NAME, PR_NUMBER, summary)
