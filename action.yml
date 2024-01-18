@@ -51,7 +51,7 @@ runs:
     - name: Print Action Information
       run: |
         echo "github.event_name: ${{ github.event_name }}"  # i.e. "pull_request"
-        echo "github.event.action: ${{ github.event.action }}"  # i.e. "open" or "close"
+        echo "github.event.action: ${{ github.event.action }}"  # i.e. "opened" or "closed"
         echo "github.repository: ${{ github.repository }}"
         echo "github.event.pull_request.number: ${{ github.event.pull_request.number }}"
         echo "github.event.pull_request.head.repo.full_name: ${{ github.event.pull_request.head.repo.full_name }}"
@@ -63,6 +63,7 @@ runs:
       shell: bash
 
     - name: Checkout Repository
+      if: github.event.action != 'closed'
       uses: actions/checkout@v4
       with:
         repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -72,6 +73,7 @@ runs:
 
     - name: Install Dependencies
       # tomli required for codespell with pyproject.toml
+      if: github.event.action != 'closed'
       run: |
         pip install --no-cache -q \
         ruff docformatter codespell tomli \
@@ -80,7 +82,7 @@ runs:
 
     # Python formatting ------------------------------------------------------------------------------------------------
     - name: Run Python
-      if: inputs.python == 'true'
+      if: inputs.python == 'true' && github.event.action != 'closed'
       run: |
         ruff format \
         --line-length 120 \
@@ -98,7 +100,7 @@ runs:
 
     # Markdown formatting ----------------------------------------------------------------------------------------------
     - name: Run Mdformat
-      if: inputs.markdown == 'true'
+      if: inputs.markdown == 'true' && github.event.action != 'closed'
       run: |
         # mdformat . --number --wrap no
         find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
@@ -107,7 +109,7 @@ runs:
 
     # Prettier (JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML) -------------
     - name: Run Prettier
-      if: inputs.prettier == 'true'
+      if: inputs.prettier == 'true' && github.event.action != 'closed'
       run: |
         npm install --global prettier
         npx prettier \
@@ -117,7 +119,7 @@ runs:
 
     # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
-      if: inputs.spelling == 'true'
+      if: inputs.spelling == 'true' && github.event.action != 'closed'
       run: |
         codespell \
           -w \
@@ -128,6 +130,7 @@ runs:
 
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
+      if: github.event.action != 'closed'
       run: |
         git add .
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
@@ -161,7 +164,7 @@ runs:
 
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
-      if: inputs.links == 'true'
+      if: inputs.links == 'true' and github.event.action != 'closed'
       uses: lycheeverse/lychee-action@v1.9.0
       with:
         # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:
