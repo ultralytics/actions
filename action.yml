@@ -1,37 +1,36 @@
-name: 'Ultralytics Actions'
-author: 'Ultralytics'
-description: 'Optimize code and docs with official Ultralytics Actions for syntax, spelling, and link checks.'
+name: "Ultralytics Actions"
+author: "Ultralytics"
+description: "Optimize code and docs with official Ultralytics Actions for syntax, spelling, and link checks."
 branding:
-  icon: 'code'
-  color: 'blue'
+  icon: "code"
+  color: "blue"
 inputs:
   token:
-    description: 'GitHub token'
+    description: "GitHub token"
     required: true
   python:
-    description: 'Run Python formatting'
+    description: "Run Python formatting"
     required: false
-    default: 'false'
-  docstrings:
-    description: 'Run Docstrings formatting'
-    required: false
-    default: 'false'
+    default: "false"
   markdown:
-    description: 'Run Markdown formatting'
+    description: "Run Markdown formatting (deprecated in favor of prettier)"
     required: false
-    default: 'false'
+    default: "false"
+  prettier:
+    description: "Run Prettier formatting for JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML"
+    required: false
+    default: "false"
   spelling:
-    description: 'Run Spelling checks'
+    description: "Run Spelling checks"
     required: false
-    default: 'false'
+    default: "false"
   links:
-    description: 'Run Broken Links checks'
+    description: "Run Broken Links checks"
     required: false
-    default: 'false'
+    default: "false"
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
-
     - name: Print Action Information
       run: |
         echo "github.event_name: ${{ github.event_name }}"
@@ -55,27 +54,26 @@ runs:
     - name: Install Dependencies
       # tomli required for codespell with pyproject.toml
       run: |
-        pip install --no-cache -q ruff docformatter mdformat-gfm mdformat-frontmatter mdformat-mkdocs codespell tomli
+        pip install --no-cache -q \
+        ruff docformatter codespell tomli \
+        mdformat-gfm mdformat-frontmatter mdformat-mkdocs
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
-    - name: Run Ruff
+    - name: Run Python
       if: inputs.python == 'true'
       run: |
-        ruff format . --line-length 120
-      shell: bash
-      continue-on-error: true
-
-    # Docstrings formatting --------------------------------------------------------------------------------------------
-    - name: Run Docformatter
-      if: inputs.docstrings == 'true'
-      run: |
-        docformatter --wrap-summaries 120 \
-                     --wrap-descriptions 120 \
-                     --in-place \
-                     --pre-summary-newline \
-                     --close-quotes-on-newline \
-                     -r .
+        ruff format \
+        --line-length 120 \
+        .
+        docformatter \
+        --wrap-summaries 120 \
+        --wrap-descriptions 120 \
+        --in-place \
+        --pre-summary-newline \
+        --close-quotes-on-newline \
+        --recursive \
+        .
       shell: bash
       continue-on-error: true
 
@@ -88,6 +86,16 @@ runs:
       shell: bash
       continue-on-error: true
 
+    # Prettier (JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML) -------------
+    - name: Run Prettier
+      if: inputs.prettier == 'true' || inputs.markdown == 'true'
+      run: |
+        npm install --global prettier
+        npx prettier \
+        --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
+      shell: bash
+      continue-on-error: true
+
     # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
       if: inputs.spelling == 'true'
@@ -95,18 +103,19 @@ runs:
         codespell \
           -w \
           --ignore-words-list "crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall" \
-          --skip '*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,__pycache__*,*.ico,*.jpg,*.png,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml'
+          --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,__pycache__*,*.ico,*.jpg,*.png,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml"
       shell: bash
       continue-on-error: true
 
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
       run: |
-        git add -A
+        git add .
+        git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
         if ! git diff --staged --quiet; then
           git config --global user.name "UltralyticsAssistant"
           git config --global user.email "web@ultralytics.com"
-          git commit -m "Auto-format by Ultralytics actions"
+          git commit -m "Auto-format by https://ultralytics.com/actions"
           git push
         else
           echo "No changes to commit"
@@ -119,22 +128,20 @@ runs:
       if: inputs.links == 'true'
       uses: lycheeverse/lychee-action@v1.9.0
       with:
-        # Check all markdown and html files in repo (default)
-        # Ignores the following status codes to reduce false positives:
-        #   - 403(OpenVINO, 'forbidden')
-        #   - 429(Instagram, 'too many requests')
-        #   - 500(Zenodo, 'cached')
-        #   - 502(Zenodo, 'bad gateway')
-        #   - 999(LinkedIn, 'unknown status code')
+        # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:
+        #   - 403(OpenVINO, "forbidden")
+        #   - 429(Instagram, "too many requests")
+        #   - 500(Zenodo, "cached")
+        #   - 502(Zenodo, "bad gateway")
+        #   - 999(LinkedIn, "unknown status code")
         args: |
           --accept 403,429,500,502,999
           --exclude-loopback
-          --exclude 'https?://(www\.)?(github\.com|linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)'
+          --exclude "https?://(www\.)?(github\.com|linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)"
           --scheme https
-          './**/*.md'
-          './**/*.html'
+          "./**/*.md"
+          "./**/*.html"
         token: ${{ inputs.token }}
         output: ../lychee/results.md
         fail: true
       continue-on-error: false
-
