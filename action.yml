@@ -142,9 +142,9 @@ runs:
       shell: bash
       continue-on-error: false
 
-    # Custom Python Script for Summary ---------------------------------------------------------------------------------
+    # PR Summary -------------------------------------------------------------------------------------------------------
     - name: Summarize PR
-      # if: inputs.summary == 'true' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.event.action == 'opened' || inputs.event.action == 'closed')
+      if: inputs.summary == 'true' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.event.action == 'opened' || inputs.event.action == 'closed')
       env:
         REPO_NAME: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
