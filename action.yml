@@ -33,8 +33,8 @@ runs:
   steps:
     - name: Print Action Information
       run: |
-        echo "github.event_name: ${{ github.event_name }}"
-        echo "github.event.action: ${{ github.event.action }}"
+        echo "github.event_name: ${{ github.event_name }}"  # i.e. "pull_request"
+        echo "github.event.action: ${{ github.event.action }}"  # i.e. "open" or "close"
         echo "github.repository: ${{ github.repository }}"
         echo "github.event.pull_request.head.repo.full_name: ${{ github.event.pull_request.head.repo.full_name }}"
         echo "github.actor: ${{ github.actor }}"
