@@ -35,6 +35,7 @@ runs:
     - name: Print Action Information
       run: |
         echo "github.event_name: ${{ github.event_name }}"
+        echo "github.event_action: ${{ github.event_action }}"
         echo "github.repository: ${{ github.repository }}"
         echo "github.event.pull_request.head.repo.full_name: ${{ github.event.pull_request.head.repo.full_name }}"
         echo "github.actor: ${{ github.actor }}"
@@ -121,6 +122,14 @@ runs:
         fi
       shell: bash
       continue-on-error: false
+
+    # Custom Python Script for Summary --------------------------------------------------------------------------------
+    - name: Summarize PR
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.event_action == 'opened' || inputs.event_action == 'closed')
+      run: |
+        python path/to/summary_script.py
+      shell: bash
+      continue-on-error: true
 
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
