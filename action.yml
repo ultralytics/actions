@@ -54,7 +54,9 @@ runs:
     - name: Install Dependencies
       # tomli required for codespell with pyproject.toml
       run: |
-        pip install --no-cache -q ruff docformatter codespell tomli
+        pip install --no-cache -q \
+        ruff docformatter codespell tomli \
+        mdformat-gfm mdformat-frontmatter mdformat-mkdocs
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
@@ -72,6 +74,15 @@ runs:
         --close-quotes-on-newline \
         --recursive \
         .
+      shell: bash
+      continue-on-error: true
+
+    # Markdown formatting ----------------------------------------------------------------------------------------------
+    - name: Run Mdformat
+      if: inputs.markdown == 'true'
+      run: |
+        # mdformat . --number --wrap no
+        find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
       shell: bash
       continue-on-error: true
 
