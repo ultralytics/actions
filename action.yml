@@ -131,7 +131,7 @@ runs:
 
     # Custom Python Script for Summary ---------------------------------------------------------------------------------
     - name: Summarize PR
-      if: inputs.summary == 'true' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.event.action == 'opened' || inputs.event.action == 'closed')
+      # if: inputs.summary == 'true' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.event.action == 'opened' || inputs.event.action == 'closed')
       run: |
         python custom_script.py "${{ github.repository }}" "${{ github.event.pull_request.number }}" "${{ inputs.token }}"
       shell: bash
