@@ -35,7 +35,7 @@ runs:
     - name: Print Action Information
       run: |
         echo "github.event_name: ${{ github.event_name }}"
-        echo "github.event_action: ${{ github.event_action }}"
+        echo "github.event.action: ${{ github.event.action }}"
         echo "github.repository: ${{ github.repository }}"
         echo "github.event.pull_request.head.repo.full_name: ${{ github.event.pull_request.head.repo.full_name }}"
         echo "github.actor: ${{ github.actor }}"
