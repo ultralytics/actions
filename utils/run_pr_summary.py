@@ -10,6 +10,7 @@ GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
 OPENAI_AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
+OPENAI_AZURE_BOTH = OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT
 OPENAI_MODEL = os.getenv("OPENAI_MODEL")
 OPENAI_MODEL_TOKENS = 128000
 SUMMARY_START = (
@@ -18,16 +19,12 @@ SUMMARY_START = (
 
 # Checks
 assert OPENAI_MODEL, "No model found, please define OPENAI_MODEL"
-assert OPENAI_API_KEY or (
-    OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT
-), "No OpenAI Keys found, please pass either OPENAI_API_KEY or both (OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT)"
+assert OPENAI_API_KEY or OPENAI_AZURE_BOTH, "No OpenAI Keys found, please pass either OPENAI_API_KEY or both (OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT)"
 if OPENAI_AZURE_API_KEY or OPENAI_AZURE_ENDPOINT:
-    assert (
-        OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT
-    ), "For Azure usage both both OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT must be passed."
+    assert OPENAI_AZURE_BOTH, "For Azure usage both both OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT must be passed."
 
 
-def openai_client(azure=OPENAI_AZURE_ENDPOINT and OPENAI_AZURE_API_KEY):
+def openai_client(azure=OPENAI_AZURE_BOTH):
     """Returns OpenAI client instance."""
     return (
         AzureOpenAI(
