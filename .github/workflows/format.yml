@@ -23,3 +23,5 @@ jobs:
           markdown: true
           spelling: false
           links: false
+          summary: true
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
