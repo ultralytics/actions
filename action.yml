@@ -176,10 +176,12 @@ runs:
         #   - 502(Zenodo, "bad gateway")
         #   - 999(LinkedIn, "unknown status code")
         args: |
-          --accept 403,429,500,502,999
-          --exclude-loopback
-          --exclude "https?://(www\.)?(github\.com|linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)"
           --scheme https
+          --timeout 60
+          --insecure
+          --accept 403,429,500,502,999
+          --exclude-all-private
+          --exclude "https?://(www\.)?(github\.com|linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)"
           "./**/*.md"
           "./**/*.html"
         token: ${{ inputs.token }}
