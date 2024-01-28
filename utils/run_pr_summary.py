@@ -50,7 +50,7 @@ def generate_pr_summary(repo_name, diff_text):
     if not diff_text:
         diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
     ratio = 3.3  # about 3.3 characters per token
-    limit = round(OPENAI_MODEL_TOKENS * ratio * 0.7)  # use up to 70% of the context window
+    limit = round(OPENAI_MODEL_TOKENS * ratio * 0.5)  # use up to 50% of the context window for prompt
     messages = [
         {
             "role": "system",
