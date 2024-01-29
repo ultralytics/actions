@@ -153,7 +153,7 @@ runs:
 
     # PR Summary -------------------------------------------------------------------------------------------------------
     - name: PR Summary
-      if: inputs.summary == 'true' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (github.event.action == 'opened' || github.event.action == 'closed')
+      if: inputs.summary == 'true' && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'synchronize'
       env:
         REPO_NAME: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
