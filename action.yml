@@ -44,7 +44,7 @@ inputs:
   openai_model:
     description: "OpenAI Model"
     required: false
-    default: "gpt-4-1106-preview"
+    default: "gpt-4-0125-preview"
 runs:
   using: "composite"
   steps:
