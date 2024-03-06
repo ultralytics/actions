@@ -30,7 +30,7 @@ def openai_client(azure=OPENAI_AZURE_BOTH):
     """Returns OpenAI client instance."""
     return (
         AzureOpenAI(
-            api_key=OPENAI_AZURE_API_KEY, api_version="2023-09-01-preview", azure_endpoint=OPENAI_AZURE_ENDPOINT
+            api_key=OPENAI_AZURE_API_KEY, api_version="2023-12-01-preview", azure_endpoint=OPENAI_AZURE_ENDPOINT
         )
         if azure
         else OpenAI(api_key=OPENAI_API_KEY)
