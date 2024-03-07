@@ -9,6 +9,7 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
+OPENAI_AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-02-15-preview") 
 OPENAI_AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
 OPENAI_AZURE_BOTH = OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT
 OPENAI_MODEL = os.getenv("OPENAI_MODEL")
@@ -30,7 +31,7 @@ def openai_client(azure=OPENAI_AZURE_BOTH):
     """Returns OpenAI client instance."""
     return (
         AzureOpenAI(
-            api_key=OPENAI_AZURE_API_KEY, api_version="2023-12-01-preview", azure_endpoint=OPENAI_AZURE_ENDPOINT
+            api_key=OPENAI_AZURE_API_KEY, api_version=OPENAI_AZURE_API_VERSION, azure_endpoint=OPENAI_AZURE_ENDPOINT
         )
         if azure
         else OpenAI(api_key=OPENAI_API_KEY)
