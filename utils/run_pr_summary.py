@@ -1,7 +1,7 @@
 import os
 
 import requests
-from openai import OpenAI, AzureOpenAI
+from openai import AzureOpenAI, OpenAI
 
 REPO_NAME = os.getenv("REPO_NAME")
 PR_NUMBER = os.getenv("PR_NUMBER")
