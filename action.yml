@@ -87,6 +87,10 @@ runs:
         ruff format \
         --line-length 120 \
         .
+        ruff check \
+        --fix \
+        --select I \
+        .
         docformatter \
         --wrap-summaries 120 \
         --wrap-descriptions 120 \
