@@ -81,11 +81,16 @@ runs:
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
+    # Note on sorting Python imports https://stackoverflow.com/questions/77876253/sort-imports-alphabetically-with-ruff
     - name: Run Python
       if: inputs.python == 'true' && github.event.action != 'closed'
       run: |
         ruff format \
         --line-length 120 \
+        .
+        ruff check \
+        --fix \
+        --select I \
         .
         docformatter \
         --wrap-summaries 120 \
