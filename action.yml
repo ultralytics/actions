@@ -143,6 +143,7 @@ runs:
       uses: crate-ci/typos@v1.20.10
       with:
         write_changes: true
+      continue-on-error: true
 
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
