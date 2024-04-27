@@ -139,6 +139,7 @@ runs:
       shell: bash
       continue-on-error: true
     - name: Run Typos
+      if: inputs.spelling == 'false' && github.event.action != 'closed'
       uses: crate-ci/typos@v1.20.10
       with:
         write_changes: true
