@@ -138,6 +138,10 @@ runs:
           --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,__pycache__*,*.ico,*.jpg,*.png,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml"
       shell: bash
       continue-on-error: true
+    - name: Run Typos
+      uses: crate-ci/typos@v1.20.10
+      with:
+        write_changes: true
 
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
