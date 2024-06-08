@@ -6,9 +6,9 @@ name: Ultralytics Actions
 
 on:
   push:
-    branches: [main, master]
-  pull_request:
-    branches: [main, master]
+    branches: [main]
+  pull_request_target:
+    branches: [main]
     # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request
     types: [opened, closed, synchronize, review_requested]
 
