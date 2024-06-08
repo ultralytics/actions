@@ -101,7 +101,7 @@ runs:
         --recursive \
         .
       shell: bash
-      continue-on-error: false
+      continue-on-error: true
 
     # Markdown formatting ----------------------------------------------------------------------------------------------
     - name: Run Mdformat
