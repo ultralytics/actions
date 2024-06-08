@@ -14,7 +14,7 @@ OPENAI_AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
 OPENAI_AZURE_BOTH = OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT
 OPENAI_MODEL = os.getenv("OPENAI_MODEL")
 OPENAI_MODEL_TOKENS = 128000  # update with model
-SUMMARY_START = (
+SUMMARY_START (
     "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
 )
 
