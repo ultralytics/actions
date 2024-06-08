@@ -71,12 +71,6 @@ runs:
         ref: ${{ github.head_ref || github.ref }}
         fetch-depth: 0
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: "3.x"
-        cache: "pip" # caching pip dependencies
-
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
       if: github.event.action != 'closed'
