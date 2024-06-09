@@ -107,6 +107,7 @@ runs:
     - name: Run Mdformat
       if: inputs.markdown == 'true' && github.event.action != 'closed'
       run: |
+        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/update_markdown_code_blocks.py" | python -
         # mdformat . --number --wrap no
         find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
       shell: bash
