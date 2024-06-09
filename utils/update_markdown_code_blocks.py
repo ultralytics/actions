@@ -1,5 +1,6 @@
 import hashlib
 import re
+import shutil
 import subprocess
 import time
 from pathlib import Path
@@ -102,9 +103,8 @@ def process_all_markdown_files(root_dir):
     temp_dir = Path("temp_code_blocks")
     temp_dir.mkdir(exist_ok=True)
 
-    all_temp_files = []
-
     # Extract code blocks and save to temp files
+    all_temp_files = []
     for markdown_file in markdown_files:
         print(f"Processing {markdown_file}")
         markdown_content, temp_files = process_markdown_file(markdown_file, temp_dir)
@@ -118,13 +118,8 @@ def process_all_markdown_files(root_dir):
     for markdown_file, markdown_content, temp_files in all_temp_files:
         update_markdown_file(markdown_file, markdown_content, temp_files)
 
-    # Clean up temp files
-    for _, _, temp_files in all_temp_files:
-        for _, _, temp_file_path in temp_files:
-            if temp_file_path.exists():
-                temp_file_path.unlink()
-    if temp_dir.exists() and not any(temp_dir.iterdir()):
-        temp_dir.rmdir()
+    # Clean up temp directory
+    shutil.rmtree(temp_dir)
 
 
 # Usage
