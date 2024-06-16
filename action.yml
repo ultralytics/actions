@@ -89,7 +89,7 @@ runs:
       run: |
         ruff check \
         --fix \
-        --extend-select=I
+        --extend-select I \
         .
         ruff format \
         --line-length 120 \
