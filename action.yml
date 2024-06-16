@@ -119,8 +119,8 @@ runs:
     - name: Run Prettier
       if: inputs.prettier == 'true' && github.event.action != 'closed'
       run: |
-        # npm install --global prettier
-        npm install --global prettier TomasLudvik/prettier
+        # npm install --save-dev prettier
+        npm install --save-dev prettier TomasLudvik/prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
         find . \( \
             -name "*.yml" \
