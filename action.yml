@@ -89,6 +89,7 @@ runs:
       run: |
         ruff check \
         --fix \
+        --select=E4,E7,E9,F,I
         .
         ruff format \
         --line-length 120 \
