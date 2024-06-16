@@ -87,11 +87,11 @@ runs:
     - name: Run Python
       if: inputs.python == 'true' && github.event.action != 'closed'
       run: |
-        ruff check \
-        --fix \
-        .
         ruff format \
         --line-length 120 \
+        .
+        ruff check \
+        --fix \
         .
         docformatter \
         --wrap-summaries 120 \
