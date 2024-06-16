@@ -33,31 +33,31 @@ To use this action in your Ultralytics repository:
 
 2. **Add the Action:** Use the Ultralytics Actions in your workflow file as follows:
 
-    ```yaml
-    name: Ultralytics Actions
+   ```yaml
+   name: Ultralytics Actions
 
-    on:
-      push:
-        branches: [main]
-      pull_request:
-        branches: [main]
-        types: [opened, closed, synchronize]
+   on:
+     push:
+       branches: [main]
+     pull_request:
+       branches: [main]
+       types: [opened, closed, synchronize]
 
-    jobs:
-      format:
-        runs-on: ubuntu-latest
-        steps:
-          - name: Run Ultralytics Formatting
-            uses: ultralytics/actions@main
-            with:
-              token: ${{ secrets.GITHUB_TOKEN }} # automatically generated, do not modify
-              python: true # format Python code and docstrings
-              markdown: true # format Markdown and YAML
-              spelling: true # check spelling
-              links: true # check broken links
-              summary: true  # print PR summary with GPT4 (requires 'openai_api_key' or 'openai_azure_api_key' and 'openai_azure_endpoint')
-              openai_api_key: # your OpenAI API key
-    ```
+   jobs:
+     format:
+       runs-on: ubuntu-latest
+       steps:
+         - name: Run Ultralytics Formatting
+           uses: ultralytics/actions@main
+           with:
+             token: ${{ secrets.GITHUB_TOKEN }} # automatically generated, do not modify
+             python: true # format Python code and docstrings
+             markdown: true # format Markdown and YAML
+             spelling: true # check spelling
+             links: true # check broken links
+             summary: true # print PR summary with GPT4 (requires 'openai_api_key' or 'openai_azure_api_key' and 'openai_azure_endpoint')
+             openai_api_key: # your OpenAI API key
+   ```
 
 3. **Customize:** Adjust the workflow settings as necessary for your project.
 
