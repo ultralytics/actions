@@ -92,7 +92,6 @@ runs:
         .
         ruff check \
         --fix \
-        --select I \
         .
         docformatter \
         --wrap-summaries 120 \
