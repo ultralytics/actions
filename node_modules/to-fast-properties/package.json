@@ -1,0 +1,39 @@
+{
+	"name": "to-fast-properties",
+	"version": "4.0.0",
+	"description": "Force V8 to use fast properties for an object",
+	"license": "MIT",
+	"repository": "sindresorhus/to-fast-properties",
+	"funding": "https://github.com/sponsors/sindresorhus",
+	"author": {
+		"name": "Sindre Sorhus",
+		"email": "sindresorhus@gmail.com",
+		"url": "https:/sindresorhus.com"
+	},
+	"type": "module",
+	"exports": "./index.js",
+	"engines": {
+		"node": ">=12.20"
+	},
+	"scripts": {
+		"test": "node --allow-natives-syntax test.js && tsd"
+	},
+	"files": [
+		"index.js",
+		"index.d.ts"
+	],
+	"keywords": [
+		"object",
+		"properties",
+		"props",
+		"v8",
+		"optimize",
+		"fast",
+		"convert",
+		"mode"
+	],
+	"devDependencies": {
+		"ava": "0.0.4",
+		"tsd": "^0.10.0"
+	}
+}
