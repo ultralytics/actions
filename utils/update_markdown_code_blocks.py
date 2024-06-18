@@ -41,7 +41,7 @@ def format_code_with_ruff(temp_dir):
 
     try:
         # Run ruff format
-        subprocess.run(["ruff", "format", "--line-length1", "120", str(temp_dir)], check=True)
+        subprocess.run(["ruff", "format", "--line-length", "120", str(temp_dir)], check=True)
         print("Completed ruff format ✅")
     except Exception as e:
         print(f"ERROR running ruff format ❌ {e}")
