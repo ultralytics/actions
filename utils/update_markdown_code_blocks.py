@@ -34,7 +34,9 @@ def format_code_with_ruff(temp_dir):
     """Formats all Python code files in the `temp_dir` directory using the 'ruff' linter tool."""
     try:
         # Run ruff check
-        subprocess.run(["ruff", "check", "--fix", "--extend-select", "I", str(temp_dir)], check=False)  # continue on error
+        subprocess.run(
+            ["ruff", "check", "--fix", "--extend-select", "I", str(temp_dir)], check=False
+        )  # continue on error
         print("Completed ruff check ✅")
 
         # Run ruff format
