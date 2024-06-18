@@ -58,7 +58,7 @@ def format_code_with_ruff(temp_dir):
             check=True,
         )
         print("Completed docformatter ✅")
-        
+
     except Exception as e:
         print(f"ERROR running ruff: {e}")
 
