@@ -35,23 +35,27 @@ def format_code_with_ruff(temp_dir):
     try:
         # Run ruff check
         subprocess.run(["ruff", "check", "--fix", "--extend-select", "I", "-q", str(temp_dir)], check=True)
-        
+
         # Run ruff format
         subprocess.run(["ruff", "format", "--line-length", "120", "-q", str(temp_dir)], check=True)
-        
-        # Run docformatter
-        subprocess.run([
-            "docformatter",
-            "--wrap-summaries", "120",
-            "--wrap-descriptions", "120",
-            "--in-place",
-            "--pre-summary-newline",
-            "--close-quotes-on-newline",
-            "--recursive",
-            str(temp_dir)
-        ], check=True)
 
-    
+        # Run docformatter
+        subprocess.run(
+            [
+                "docformatter",
+                "--wrap-summaries",
+                "120",
+                "--wrap-descriptions",
+                "120",
+                "--in-place",
+                "--pre-summary-newline",
+                "--close-quotes-on-newline",
+                "--recursive",
+                str(temp_dir),
+            ],
+            check=True,
+        )
+
     except Exception as e:
         print(f"ERROR running ruff: {e}")
 
