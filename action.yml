@@ -122,13 +122,13 @@ runs:
         npm install --global prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
         npx prettier --write "**/*.{yml,yaml}"
-        
+
         find . \( \
             -name "*.md" \
         \) \
         ! -path "*/docs/*" \
         -exec npx prettier --write {} +
-        
+
         find . \( \
             -name "./docs/*.md" \
         \) \
