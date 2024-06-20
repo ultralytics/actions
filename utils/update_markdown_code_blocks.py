@@ -75,7 +75,7 @@ def generate_temp_filename(file_path, index):
     return f"temp_{unique_hash}.py"
 
 
-def process_markdown_file(file_path, temp_dir):
+def process_markdown_file(file_path, temp_dir, verbose=False):
     """Reads a markdown file, extracts Python code blocks, saves them to temp files, and updates the file."""
     try:
         with open(file_path, "r") as file:
@@ -85,7 +85,8 @@ def process_markdown_file(file_path, temp_dir):
         temp_files = []
 
         for i, (num_spaces, code_block) in enumerate(code_blocks):
-            print(f"Extracting code block {i} from {file_path}")
+            if verbose:
+                print(f"Extracting code block {i} from {file_path}")
             num_spaces = len(num_spaces)
             code_without_indentation = remove_indentation(code_block, num_spaces)
 
@@ -126,7 +127,7 @@ def update_markdown_file(file_path, markdown_content, temp_files):
         print(f"Error writing file {file_path}: {e}")
 
 
-def process_all_markdown_files(root_dir):
+def process_all_markdown_files(root_dir, verbose=False):
     """Processes all markdown files in a specified directory and its subdirectories."""
     root_path = Path(root_dir)
     markdown_files = list(root_path.rglob("*.md"))
@@ -136,7 +137,8 @@ def process_all_markdown_files(root_dir):
     # Extract code blocks and save to temp files
     all_temp_files = []
     for markdown_file in markdown_files:
-        print(f"Processing {markdown_file}")
+        if verbose:
+            print(f"Processing {markdown_file}")
         markdown_content, temp_files = process_markdown_file(markdown_file, temp_dir)
         if markdown_content and temp_files:
             all_temp_files.append((markdown_file, markdown_content, temp_files))
