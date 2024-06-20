@@ -111,7 +111,15 @@ runs:
       run: |
         curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/update_markdown_code_blocks.py" | python -
         # mdformat . --number --wrap no
-        find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
+        # find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
+
+        npm install --global TomasLudvik/prettier
+        # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
+        find . \( \
+            -name "*.md" \
+        \) \
+        ! -path "*/reference/*" \
+        -exec npx prettier --tab-width 4 --write {} +
       shell: bash
       continue-on-error: true
 
@@ -119,7 +127,7 @@ runs:
     - name: Run Prettier
       if: inputs.prettier == 'true' && github.event.action != 'closed'
       run: |
-        npm install --global prettier
+        npm install --global TomasLudvik/prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
         find . \( \
             -name "*.yml" \
