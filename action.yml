@@ -137,7 +137,7 @@ runs:
         from pathlib import Path
         for file in Path(".").rglob('*.md'):
             content = file.read_text()
-            updated_content = content.replace("| - ","| -   ").replace('-   ', '- ')
+            updated_content = content.replace("| - ","| -   ").replace('-   ', '- ').replace("*   ","* ")
             file.write_text(updated_content)
       shell: python
       continue-on-error: true
