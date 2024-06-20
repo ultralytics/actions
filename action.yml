@@ -113,7 +113,8 @@ runs:
         # mdformat . --number --wrap no
         # find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
 
-        npm install --global TomasLudvik/prettier
+        # npm install --global TomasLudvik/prettier
+        npm install --global prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
         find . \( \
             -name "*.md" \
@@ -127,7 +128,8 @@ runs:
     - name: Run Prettier
       if: inputs.prettier == 'true' && github.event.action != 'closed'
       run: |
-        npm install --global TomasLudvik/prettier
+        # npm install --global TomasLudvik/prettier
+        npm install --global prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
         find . \( \
             -name "*.yml" \
