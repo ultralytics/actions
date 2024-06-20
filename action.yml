@@ -141,6 +141,17 @@ runs:
       shell: bash
       continue-on-error: true
 
+    - name: Update unordered Markdown list indents to 4 spaces
+      if: inputs.prettier == 'true' && github.event.action != 'closed'
+      run: |
+        from pathlib import Path
+        for file in Path(".").rglob('*.md'):
+            content = file.read_text()
+            updated_content = content.replace('\n  - ', '\n    - ').replace('\n   - ', '\n    - ')
+            file.write_text(updated_content)
+      shell: python
+      continue-on-error: true
+
     # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
       if: inputs.spelling == 'true' && github.event.action != 'closed'
