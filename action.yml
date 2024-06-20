@@ -123,8 +123,7 @@ runs:
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
         find . \( \
             -name "*.md" \
-            # -o -name "*.yml" \
-            # -o -name "*.yaml" \
+            -o -name "*.md" \
         \) \
         ! -path "*/reference/*" \
         ! -path "./.github/workflows/*" \
