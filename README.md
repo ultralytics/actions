@@ -20,7 +20,6 @@ Ultralytics Actions automatically applies formats and updates:
 
 ## 🛠 How It Works
 
-
 Upon integration, Ultralytics Actions triggers on:
 
 - **Push Events:** Automatically formats code when changes are pushed to the `main` branch.
@@ -38,26 +37,26 @@ To use this action in your Ultralytics repository:
     name: Ultralytics Actions
 
     on:
-      push:
-        branches: [main]
-      pull_request:
-        branches: [main]
-        types: [opened, closed, synchronize]
+        push:
+            branches: [main]
+        pull_request:
+            branches: [main]
+            types: [opened, closed, synchronize]
 
     jobs:
-      format:
-        runs-on: ubuntu-latest
-        steps:
-          - name: Run Ultralytics Formatting
-            uses: ultralytics/actions@main
-            with:
-              token: ${{ secrets.GITHUB_TOKEN }} # automatically generated, do not modify
-              python: true # format Python code and docstrings
-              markdown: true # format Markdown and YAML
-              spelling: true # check spelling
-              links: true # check broken links
-              summary: true # print PR summary with GPT4 (requires 'openai_api_key' or 'openai_azure_api_key' and 'openai_azure_endpoint')
-              openai_api_key: # your OpenAI API key
+        format:
+            runs-on: ubuntu-latest
+            steps:
+                - name: Run Ultralytics Formatting
+                  uses: ultralytics/actions@main
+                  with:
+                      token: ${{ secrets.GITHUB_TOKEN }} # automatically generated, do not modify
+                      python: true # format Python code and docstrings
+                      markdown: true # format Markdown and YAML
+                      spelling: true # check spelling
+                      links: true # check broken links
+                      summary: true # print PR summary with GPT4 (requires 'openai_api_key' or 'openai_azure_api_key' and 'openai_azure_endpoint')
+                      openai_api_key: # your OpenAI API key
     ```
 
 3. **Customize:** Adjust the workflow settings as necessary for your project.
