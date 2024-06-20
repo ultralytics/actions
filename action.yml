@@ -117,7 +117,7 @@ runs:
 
     # Prettier (JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML) -------------
     - name: Run Prettier
-      if: inputs.prettier == 'true' && github.event.action != 'closed'
+      if: (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
       run: |
         npm install --global prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
@@ -135,8 +135,8 @@ runs:
       shell: bash
       continue-on-error: true
 
-    - name: Update unordered Markdown list indents to 4 spaces
-      if: inputs.prettier == 'true' && github.event.action != 'closed'
+    - name: Update unordered Markdown list indents to 4 spaces for MkDocs compatibility
+      if: (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
       run: |
         from pathlib import Path
         for file in Path(".").rglob('*.md'):
