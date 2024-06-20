@@ -108,6 +108,7 @@ runs:
     - name: Install Prettier
       if: inputs.markdown == 'true' && github.event.action != 'closed'
       run: npm install --global TomasLudvik/prettier
+      shell: bash
 
     # Markdown formatting ----------------------------------------------------------------------------------------------
     - name: Run Mdformat
