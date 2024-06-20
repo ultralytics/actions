@@ -147,7 +147,8 @@ runs:
         from pathlib import Path
         for file in Path(".").rglob('*.md'):
             content = file.read_text()
-            updated_content = content.replace('\n  - ', '\n    - ').replace('\n   - ', '\n    - ')
+            # updates 2 and 3 spaces to 4, and 5 spaces to 8
+            updated_content = content.replace('\n  - ', '\n    - ').replace('\n   - ', '\n    - ').replace('\n     - ', '\n        - ')
             file.write_text(updated_content)
       shell: python
       continue-on-error: true
