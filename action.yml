@@ -125,7 +125,6 @@ runs:
             -o -name "*.yaml" \
             -o -name "*.md" \
         \) \
-        ! -path "*/reference/*" \
         ! -path "./.github/workflows/*" \
         -exec npx prettier --write {} +
       shell: bash
