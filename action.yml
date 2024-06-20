@@ -78,8 +78,8 @@ runs:
       if: github.event.action != 'closed'
       run: |
         pip install -q \
-        ruff docformatter codespell tomli \
-        mdformat-gfm mdformat-frontmatter mdformat-mkdocs
+        ruff docformatter codespell tomli
+        # mdformat-gfm mdformat-frontmatter mdformat-mkdocs
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
@@ -119,6 +119,7 @@ runs:
     - name: Run Prettier
       if: inputs.prettier == 'true' && github.event.action != 'closed'
       run: |
+        npm install --global prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
         find . \( \
             -name "*.yml" \
