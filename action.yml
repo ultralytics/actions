@@ -122,9 +122,9 @@ runs:
         npm install --global prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
         find . \( \
-            -name "*.yml" \
-            -o -name "*.yaml" \
-            -o -name "*.md" \
+            -name "*.md" \
+            # -o -name "*.yml" \
+            # -o -name "*.yaml" \
         \) \
         ! -path "*/reference/*" \
         ! -path "./.github/workflows/*" \
@@ -139,7 +139,7 @@ runs:
         for file in Path(".").rglob('*.md'):
             content = file.read_text()
             # updates 2 and 3 spaces to 4, and 5 spaces to 8
-            updated_content = content.replace('\n  - ', '\n    - ').replace('\n   - ', '\n    - ').replace('\n     - ', '\n        - ')
+            updated_content = content.replace('-   ', '- ')
             file.write_text(updated_content)
       shell: python
       continue-on-error: true
