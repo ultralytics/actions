@@ -51,6 +51,10 @@ runs:
   using: "composite"
   steps:
     - name: Print Action Information
+      env:
+        PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        HEAD_REF: ${{ github.head_ref }}
+        REF: ${{ github.ref }}
       run: |
         echo "github.event_name: ${{ github.event_name }}"  # i.e. "pull_request"
         echo "github.event.action: ${{ github.event.action }}"  # i.e. "opened" or "closed"
@@ -58,9 +62,9 @@ runs:
         echo "github.event.pull_request.number: ${{ github.event.pull_request.number }}"
         echo "github.event.pull_request.head.repo.full_name: ${{ github.event.pull_request.head.repo.full_name }}"
         echo "github.actor: ${{ github.actor }}"
-        echo "github.event.pull_request.head.ref: ${{ github.event.pull_request.head.ref }}"
-        echo "github.ref: ${{ github.ref }}"
-        echo "github.head_ref: ${{ github.head_ref }}"
+        echo "github.event.pull_request.head.ref: $PR_HEAD_REF"
+        echo "github.ref: $REF"
+        echo "github.head_ref: $HEAD_REF"
         echo "github.base_ref: ${{ github.base_ref }}"
       shell: bash
 
