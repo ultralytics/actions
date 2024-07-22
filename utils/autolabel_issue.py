@@ -76,7 +76,6 @@ And the following available labels:
 Please select the top 1-3 most relevant labels for this issue or pull request. 
 Respond with only the label names, separated by commas. If no labels are relevant, respond with 'None'.
 """
-    print(prompt)  # for debugging
 
     client = get_openai_client()
     response = client.chat.completions.create(
