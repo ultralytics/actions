@@ -24,7 +24,7 @@ Ultralytics Actions automatically applies formats, updates, and enhancements:
 Ultralytics Actions triggers on various GitHub events:
 
 - **Push Events:** Automatically formats code when changes are pushed to the `main` branch.
-- **Pull Requests:** 
+- **Pull Requests:**
   - Ensures that contributions meet our formatting standards before merging.
   - Generates a concise summary of the changes using GPT-4o.
   - Automatically applies relevant labels using GPT-4o for intelligent categorization.
