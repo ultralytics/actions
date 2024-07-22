@@ -94,7 +94,7 @@ def get_relevant_labels(title: str, body: str, available_labels: List[str]) -> L
 def apply_labels(number: int, labels: List[str]):
     """Applies the given labels to the issue or pull request."""
     url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
-    response = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS)
+    response = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS | {"Author": "UltralyticsAssistant"})
     if response.status_code == 200:
         print(f"Successfully applied labels: {', '.join(labels)}")
     else:
@@ -106,7 +106,6 @@ def main():
     number, title, body = get_event_content()
     available_labels = [label["name"] for label in get_github_data("labels")]
     relevant_labels = get_relevant_labels(title, body, available_labels)
-
     if relevant_labels:
         apply_labels(number, relevant_labels)
     else:
