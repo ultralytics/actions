@@ -16,7 +16,7 @@ Ultralytics Actions automatically applies formats and updates:
 - **Docstrings:** Utilizing [docformatter](https://github.com/myint/docformatter) for clean and standardized documentation comments.
 - **Spell Check:** Employing [codespell](https://github.com/codespell-project/codespell) for catching common misspellings.
 - **Broken Links Check:** Implementing [Lychee](https://github.com/lycheeverse/lychee) to report broken links in docs and markdown files.
-- **PR Summary:** Generating concise [OpenAI](https://openai.com/) GPT4-powered PR summaries, enhancing PR clarity.
+- **PR Summary:** Generating concise [OpenAI](https://openai.com/) GPT4o-powered PR summaries, enhancing PR clarity.
 
 ## 🛠 How It Works
 
@@ -58,7 +58,7 @@ To use this action in your Ultralytics repository:
              markdown: true # format Markdown and YAML
              spelling: true # check spelling
              links: true # check broken links
-             summary: true # print PR summary with GPT4 (requires 'openai_api_key')
+             summary: true # print PR summary with GPT4o (requires 'openai_api_key')
              openai_api_key: # your OpenAI API key
    ```
 
