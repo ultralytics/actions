@@ -3,7 +3,7 @@
 import json
 import os
 import time
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 
 import requests
 from openai import AzureOpenAI, OpenAI
@@ -64,18 +64,29 @@ def get_event_content() -> Tuple[int, str, str]:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
 
-def get_relevant_labels(title: str, body: str, available_labels: List[str]) -> List[str]:
+def get_relevant_labels(title: str, body: str, available_labels: Dict[str, str]) -> List[str]:
     """Uses OpenAI to determine the most relevant labels."""
-    prompt = f"""Given the following issue or pull request:
+    labels = "\n".join(f"- {name}: {description}" for name, description in available_labels.items())
 
-Title: {title}
-Body: {body}
+    prompt = f"""Select the top 1-3 most relevant labels for the following GitHub issue or pull request.
 
-And the following available labels:
-{', '.join(available_labels)}
+INSTRUCTIONS:
+1. Review the issue/PR title and description.
+2. Consider the available labels and their descriptions.
+3. Choose 1-3 labels that best match the issue/PR content.
+4. Respond ONLY with the chosen label names (no descriptions), separated by commas.
+5. If no labels are relevant, respond with 'None'.
 
-Please select the top 1-3 most relevant labels for this issue or pull request. 
-Respond with only the label names, separated by commas. If no labels are relevant, respond with 'None'.
+AVAILABLE LABELS:
+{labels}
+
+ISSUE/PR TITLE:
+{title}
+
+ISSUE/PR DESCRIPTION:
+{body[:128000]}
+
+YOUR RESPONSE (label names only):
 """
 
     client = get_openai_client()
@@ -91,7 +102,7 @@ Respond with only the label names, separated by commas. If no labels are relevan
     if "none" in suggested_labels.lower():
         return []
 
-    available_labels_lower = {label.lower(): label for label in available_labels}
+    available_labels_lower = {name.lower(): name for name in available_labels}
     return [
         available_labels_lower[label.lower().strip()]
         for label in suggested_labels.split(",")
@@ -112,7 +123,7 @@ def apply_labels(number: int, labels: List[str]):
 def main():
     """Runs autolabel action."""
     number, title, body = get_event_content()
-    available_labels = [label["name"] for label in get_github_data("labels")]
+    available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
     relevant_labels = get_relevant_labels(title, body, available_labels)
     if relevant_labels:
         apply_labels(number, relevant_labels)
