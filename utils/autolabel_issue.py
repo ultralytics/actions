@@ -50,12 +50,12 @@ def get_event_content() -> Tuple[int, str, str]:
         return item["number"], item["title"], item.get("body", "")
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
         pr_number = event_data["pull_request"]["number"]
-        
+
         # Check if this is a newly opened PR
         if event_data["action"] == "opened":
             print("New PR detected. Waiting for 60 seconds before fetching PR data...")
             time.sleep(60)
-        
+
         # Fetch the latest PR data
         latest_pr_data = get_github_data(f"pulls/{pr_number}")
         return pr_number, latest_pr_data["title"], latest_pr_data.get("body", "")
