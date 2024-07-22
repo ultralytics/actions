@@ -9,7 +9,7 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repo
 
 ## 📄 Actions Description
 
-Ultralytics Actions automatically applies formats and updates:
+Ultralytics Actions automatically applies formats, updates, and enhancements:
 
 - **Python Code:** Using [Ruff](https://github.com/charliermarsh/ruff), a fast Python auto-formatter.
 - **Markdown Files:** With [mdformat](https://github.com/executablebooks/mdformat), ensuring a consistent style in documentation.
@@ -17,13 +17,20 @@ Ultralytics Actions automatically applies formats and updates:
 - **Spell Check:** Employing [codespell](https://github.com/codespell-project/codespell) for catching common misspellings.
 - **Broken Links Check:** Implementing [Lychee](https://github.com/lycheeverse/lychee) to report broken links in docs and markdown files.
 - **PR Summary:** Generating concise [OpenAI](https://openai.com/) GPT4o-powered PR summaries, enhancing PR clarity.
+- **Auto-labeling:** Applying relevant labels to issues and pull requests using [OpenAI](https://openai.com/) GPT-4o for intelligent categorization.
 
 ## 🛠 How It Works
 
-Upon integration, Ultralytics Actions triggers on:
+Ultralytics Actions triggers on various GitHub events:
 
 - **Push Events:** Automatically formats code when changes are pushed to the `main` branch.
-- **Pull Requests:** Ensures that contributions meet our formatting standards before merging.
+- **Pull Requests:**
+  - Ensures that contributions meet our formatting standards before merging.
+  - Generates a concise summary of the changes using GPT-4o.
+  - Automatically applies relevant labels using GPT-4o for intelligent categorization.
+- **Issues:** Automatically applies relevant labels using GPT-4o when new issues are created.
+
+These actions help maintain code quality, improve documentation clarity, and streamline the review process by providing consistent formatting, informative summaries, and appropriate categorization of issues and pull requests.
 
 ## 🔧 Setting Up the Action
 
