@@ -37,6 +37,8 @@ To use this action in your Ultralytics repository:
    name: Ultralytics Actions
 
    on:
+     issues:
+       types: [opened, edited]
      push:
        branches: [main]
      pull_request:
