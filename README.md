@@ -37,6 +37,8 @@ To use this action in your Ultralytics repository:
    name: Ultralytics Actions
 
    on:
+     issues:
+       types: [opened, edited]
      push:
        branches: [main]
      pull_request:
@@ -51,6 +53,7 @@ To use this action in your Ultralytics repository:
            uses: ultralytics/actions@main
            with:
              token: ${{ secrets.GITHUB_TOKEN }} # automatically generated, do not modify
+             labels: true # autolabel issues and PRs
              python: true # format Python code and docstrings
              markdown: true # format Markdown and YAML
              spelling: true # check spelling
