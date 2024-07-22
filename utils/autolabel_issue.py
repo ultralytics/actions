@@ -61,6 +61,30 @@ def get_issue_or_pr_content(event_data) -> Tuple[int, str, str]:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
 
+def apply_labels(number: int, labels: List[str]):
+    """Applies the given labels to the issue or pull request."""
+    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
+    data = {"labels": labels}
+    response = requests.post(url, json=data, headers=GITHUB_HEADERS)
+    if response.status_code == 200:
+        print(f"Successfully applied labels: {', '.join(labels)}")
+    else:
+        print(f"Failed to apply labels. Status code: {response.status_code}")
+
+
+def normalize_labels(suggested_labels: List[str], available_labels: List[str]) -> List[str]:
+    """Filters labels to match available labels, adjusting capitalization and ignoring labels that don't match."""
+    available_labels_lower = {label.lower(): label for label in available_labels}
+    normalized_labels = []
+
+    for label in suggested_labels:
+        lower_label = label.lower()
+        if lower_label in available_labels_lower:
+            normalized_labels.append(available_labels_lower[lower_label])
+
+    return normalized_labels
+
+
 def get_relevant_labels(title: str, body: str, labels: List[str]) -> List[str]:
     """Uses OpenAI to determine the most relevant labels."""
     prompt = f"""
@@ -80,25 +104,16 @@ def get_relevant_labels(title: str, body: str, labels: List[str]) -> List[str]:
         model=OPENAI_MODEL,
         messages=[
             {"role": "system", "content": "You are a helpful assistant that labels GitHub issues and pull requests."},
-            {"role": "user", "content": prompt},
-        ],
+            {"role": "user", "content": prompt}
+        ]
     )
 
     suggested_labels = response.choices[0].message.content.strip()
-    if suggested_labels.lower() == "none":
+    if suggested_labels.lower() == 'none':
         return []
-    return [label.strip() for label in suggested_labels.split(",")]
 
-
-def apply_labels(number: int, labels: List[str]):
-    """Applies the given labels to the issue or pull request."""
-    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
-    data = {"labels": labels}
-    response = requests.post(url, json=data, headers=GITHUB_HEADERS)
-    if response.status_code == 200:
-        print(f"Successfully applied labels: {', '.join(labels)}")
-    else:
-        print(f"Failed to apply labels. Status code: {response.status_code}")
+    suggested_label_list = [label.strip() for label in suggested_labels.split(',')]
+    return normalize_labels(suggested_label_list, labels)
 
 
 def main():
@@ -111,7 +126,7 @@ def main():
     if relevant_labels:
         apply_labels(number, relevant_labels)
     else:
-        print("No relevant labels found.")
+        print("No relevant labels found or applied.")
 
 
 if __name__ == "__main__":
