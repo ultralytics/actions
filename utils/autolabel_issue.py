@@ -52,6 +52,10 @@ def get_event_content() -> Tuple[int, str, str]:
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
+    # Fetch the full PR data to ensure we have the most up-to-date body
+    if GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
+        item["body"] = get_github_data(f"pulls/{item['number']}").get("body", "")
+
     return item["number"], item["title"], item.get("body", "")
 
 
