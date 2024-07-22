@@ -74,7 +74,7 @@ INSTRUCTIONS:
 1. Review the issue/PR title and description.
 2. Consider the available labels and their descriptions.
 3. Choose 1-3 labels that best match the issue/PR content.
-4. Respond ONLY with the chosen label names, separated by commas.
+4. Respond ONLY with the chosen label names (no descriptions), separated by commas.
 5. If no labels are relevant, respond with 'None'.
 
 AVAILABLE LABELS:
