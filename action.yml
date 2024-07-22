@@ -83,7 +83,7 @@ runs:
 
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
-      if: github.event.action != 'closed'
+      if: github.event_name != 'issues' && github.event.action != 'closed'
       run: |
         pip install -q \
         ruff docformatter codespell tomli
@@ -105,7 +105,7 @@ runs:
         pip install -q openai requests
         curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/autolabel_issue.py" | python -
       shell: bash
-      continue-on-error: true
+      continue-on-error: false
 
     # Python formatting ------------------------------------------------------------------------------------------------
     # Note on sorting Python imports https://stackoverflow.com/questions/77876253/sort-imports-alphabetically-with-ruff
