@@ -3,7 +3,7 @@
 import json
 import os
 import time
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import requests
 from openai import AzureOpenAI, OpenAI
@@ -64,15 +64,17 @@ def get_event_content() -> Tuple[int, str, str]:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
 
-def get_relevant_labels(title: str, body: str, available_labels: List[str]) -> List[str]:
+def get_relevant_labels(title: str, body: str, available_labels: Dict[str, str]) -> List[str]:
     """Uses OpenAI to determine the most relevant labels."""
+    labels = "\n".join(f"- {name}: {description}" for name, description in available_labels.items())
+
     prompt = f"""Given the following issue or pull request:
 
 Title: {title}
 Body: {body}
 
-And the following available labels:
-{', '.join(available_labels)}
+And the following available labels with their descriptions:
+{labels}
 
 Please select the top 1-3 most relevant labels for this issue or pull request. 
 Respond with only the label names, separated by commas. If no labels are relevant, respond with 'None'.
@@ -92,7 +94,7 @@ Respond with only the label names, separated by commas. If no labels are relevan
     if "none" in suggested_labels.lower():
         return []
 
-    available_labels_lower = {label.lower(): label for label in available_labels}
+    available_labels_lower = {name.lower(): name for name in available_labels}
     return [
         available_labels_lower[label.lower().strip()]
         for label in suggested_labels.split(",")
@@ -113,7 +115,7 @@ def apply_labels(number: int, labels: List[str]):
 def main():
     """Runs autolabel action."""
     number, title, body = get_event_content()
-    available_labels = [label["name"] for label in get_github_data("labels")]
+    available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
     relevant_labels = get_relevant_labels(title, body, available_labels)
     if relevant_labels:
         apply_labels(number, relevant_labels)
