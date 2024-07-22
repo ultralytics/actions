@@ -80,12 +80,12 @@ def get_relevant_labels(title: str, body: str, available_labels: List[str]) -> L
     )
 
     suggested_labels = response.choices[0].message.content.strip()
-    if suggested_labels.lower() == "none":
+    if "none" in suggested_labels.lower():
         return []
 
     available_labels_lower = {label.lower(): label for label in available_labels}
     return [
-        available_labels_lower[label.lower()]
+        available_labels_lower[label.lower().strip()]
         for label in suggested_labels.split(",")
         if label.lower().strip() in available_labels_lower
     ]
