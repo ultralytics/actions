@@ -103,7 +103,7 @@ runs:
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
         pip install -q openai requests
-        python .github/scripts/autolabel_issue.py
+        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/autolabel_issue.py" | python -
       shell: bash
       continue-on-error: true
 
