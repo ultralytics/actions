@@ -28,7 +28,7 @@ def get_openai_client():
         return AzureOpenAI(
             api_key=OPENAI_AZURE_API_KEY,
             api_version=os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview"),
-            azure_endpoint=OPENAI_AZURE_ENDPOINT
+            azure_endpoint=OPENAI_AZURE_ENDPOINT,
         )
     return OpenAI(api_key=OPENAI_API_KEY)
 
@@ -75,18 +75,20 @@ def get_relevant_labels(title: str, body: str, available_labels: List[str]) -> L
         model=OPENAI_MODEL,
         messages=[
             {"role": "system", "content": "You are a helpful assistant that labels GitHub issues and pull requests."},
-            {"role": "user", "content": prompt}
-        ]
+            {"role": "user", "content": prompt},
+        ],
     )
 
     suggested_labels = response.choices[0].message.content.strip()
-    if suggested_labels.lower() == 'none':
+    if suggested_labels.lower() == "none":
         return []
 
     available_labels_lower = {label.lower(): label for label in available_labels}
-    return [available_labels_lower[label.lower()]
-            for label in suggested_labels.split(',')
-            if label.lower().strip() in available_labels_lower]
+    return [
+        available_labels_lower[label.lower()]
+        for label in suggested_labels.split(",")
+        if label.lower().strip() in available_labels_lower
+    ]
 
 
 def apply_labels(number: int, labels: List[str]):
