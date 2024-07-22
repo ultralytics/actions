@@ -58,7 +58,7 @@ To use this action in your Ultralytics repository:
              markdown: true # format Markdown and YAML
              spelling: true # check spelling
              links: true # check broken links
-             summary: true # print PR summary with GPT4 (requires 'openai_api_key' or 'openai_azure_api_key' and 'openai_azure_endpoint')
+             summary: true # print PR summary with GPT4 (requires 'openai_api_key')
              openai_api_key: # your OpenAI API key
    ```
 
