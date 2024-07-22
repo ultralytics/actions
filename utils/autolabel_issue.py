@@ -36,7 +36,7 @@ def openai_client(azure=OPENAI_AZURE_BOTH):
 
 def get_event_data():
     """Reads the event data from the GITHUB_EVENT_PATH file."""
-    with open(GITHUB_EVENT_PATH, 'r') as f:
+    with open(GITHUB_EVENT_PATH, "r") as f:
         return json.load(f)
 
 
@@ -44,19 +44,19 @@ def get_repo_labels() -> List[str]:
     """Fetches all labels from the repository."""
     url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels"
     response = requests.get(url, headers=GITHUB_HEADERS)
-    return [label['name'] for label in response.json()]
+    return [label["name"] for label in response.json()]
 
 
 def get_issue_or_pr_content(event_data) -> Tuple[int, str, str]:
     """Extracts the number, title, and body from the issue or pull request."""
     if GITHUB_EVENT_NAME == "issues":
-        return (event_data['issue']['number'],
-                event_data['issue']['title'],
-                event_data['issue']['body'] or "")
+        return (event_data["issue"]["number"], event_data["issue"]["title"], event_data["issue"]["body"] or "")
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
-        return (event_data['pull_request']['number'],
-                event_data['pull_request']['title'],
-                event_data['pull_request']['body'] or "")
+        return (
+            event_data["pull_request"]["number"],
+            event_data["pull_request"]["title"],
+            event_data["pull_request"]["body"] or "",
+        )
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
@@ -80,14 +80,14 @@ def get_relevant_labels(title: str, body: str, labels: List[str]) -> List[str]:
         model=OPENAI_MODEL,
         messages=[
             {"role": "system", "content": "You are a helpful assistant that labels GitHub issues and pull requests."},
-            {"role": "user", "content": prompt}
-        ]
+            {"role": "user", "content": prompt},
+        ],
     )
 
     suggested_labels = response.choices[0].message.content.strip()
-    if suggested_labels.lower() == 'none':
+    if suggested_labels.lower() == "none":
         return []
-    return [label.strip() for label in suggested_labels.split(',')]
+    return [label.strip() for label in suggested_labels.split(",")]
 
 
 def apply_labels(number: int, labels: List[str]):
