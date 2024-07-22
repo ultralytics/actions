@@ -68,16 +68,25 @@ def get_relevant_labels(title: str, body: str, available_labels: Dict[str, str])
     """Uses OpenAI to determine the most relevant labels."""
     labels = "\n".join(f"- {name}: {description}" for name, description in available_labels.items())
 
-    prompt = f"""Given the following issue or pull request:
+    prompt = f"""Select the top 1-3 most relevant labels for the following GitHub issue or pull request.
 
-Title: {title}
-Body: {body}
+INSTRUCTIONS:
+1. Review the issue/PR title and description.
+2. Consider the available labels and their descriptions.
+3. Choose 1-3 labels that best match the issue/PR content.
+4. Respond ONLY with the chosen label names, separated by commas.
+5. If no labels are relevant, respond with 'None'.
 
-And the following available labels with their descriptions:
+AVAILABLE LABELS:
 {labels}
 
-Please select the top 1-3 most relevant labels for this issue or pull request. 
-Respond with only the label names, separated by commas. If no labels are relevant, respond with 'None'.
+ISSUE/PR TITLE:
+{title}
+
+ISSUE/PR DESCRIPTION:
+{body[:128000]}
+
+YOUR RESPONSE (label names only):
 """
     print(prompt)
 
