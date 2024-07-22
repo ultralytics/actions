@@ -104,15 +104,15 @@ def get_relevant_labels(title: str, body: str, labels: List[str]) -> List[str]:
         model=OPENAI_MODEL,
         messages=[
             {"role": "system", "content": "You are a helpful assistant that labels GitHub issues and pull requests."},
-            {"role": "user", "content": prompt}
-        ]
+            {"role": "user", "content": prompt},
+        ],
     )
 
     suggested_labels = response.choices[0].message.content.strip()
-    if suggested_labels.lower() == 'none':
+    if suggested_labels.lower() == "none":
         return []
 
-    suggested_label_list = [label.strip() for label in suggested_labels.split(',')]
+    suggested_label_list = [label.strip() for label in suggested_labels.split(",")]
     return normalize_labels(suggested_label_list, labels)
 
 
