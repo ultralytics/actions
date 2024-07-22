@@ -57,18 +57,18 @@ def get_event_content() -> Tuple[int, str, str]:
 
 def get_relevant_labels(title: str, body: str, available_labels: List[str]) -> List[str]:
     """Uses OpenAI to determine the most relevant labels."""
-    prompt = f"""
-    Given the following issue or pull request:
+    prompt = f"""Given the following issue or pull request:
 
-    Title: {title}
-    Body: {body}
+Title: {title}
+Body: {body}
 
-    And the following available labels:
-    {', '.join(available_labels)}
+And the following available labels:
+{', '.join(available_labels)}
 
-    Please select the top 1-3 most relevant labels for this issue or pull request. 
-    Respond with only the label names, separated by commas. If no labels are relevant, respond with 'None'.
-    """
+Please select the top 1-3 most relevant labels for this issue or pull request. 
+Respond with only the label names, separated by commas. If no labels are relevant, respond with 'None'.
+"""
+    print(prompt)  # for debugging
 
     client = get_openai_client()
     response = client.chat.completions.create(
