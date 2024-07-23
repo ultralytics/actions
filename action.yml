@@ -178,7 +178,6 @@ runs:
     - name: PR Summary
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize'
       env:
-        REPO_NAME: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
@@ -187,7 +186,7 @@ runs:
         OPENAI_MODEL: ${{ inputs.openai_model }}
       # Note file must be run remotely using requests, not with "python utils/run_pr_summary.py"
       run: |
-        pip install -q openai requests
+        pip install -q requests
         curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/run_pr_summary.py" | python -
       shell: bash
       continue-on-error: true
@@ -196,7 +195,6 @@ runs:
     - name: Autolabel Issues and PRs
       if: (github.event_name == 'issues' || github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.labels == 'true' && (github.event.action == 'opened' || github.event.action == 'edited')
       env:
-        REPO_NAME: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
@@ -204,7 +202,7 @@ runs:
         OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
-        pip install -q openai requests
+        pip install -q requests
         curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/autolabel_issue.py" | python -
       shell: bash
       continue-on-error: true
