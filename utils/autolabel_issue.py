@@ -106,16 +106,11 @@ ISSUE/PR DESCRIPTION:
 
 YOUR RESPONSE (label names only):
 """
-    print(prompt)
-
-    response = openai_client().chat.completions.create(
-        model=OPENAI_MODEL,
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant that labels GitHub issues and pull requests."},
-            {"role": "user", "content": prompt},
-        ],
-    )
-
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant that labels GitHub issues and pull requests."},
+        {"role": "user", "content": prompt},
+    ]
+    response = openai_client().chat.completions.create(model=OPENAI_MODEL, messages=messages)
     suggested_labels = response.choices[0].message.content.strip()
     if "none" in suggested_labels.lower():
         return []
