@@ -88,8 +88,9 @@ def get_event_content() -> Tuple[int, str, str]:
 def get_relevant_labels(title: str, body: str, available_labels: Dict, current_labels: List) -> List[str]:
     """Uses OpenAI to determine the most relevant labels."""
 
-    # Remove mutually exclusive labels like both 'bug' and 'question' or innapropriate labels like 'help wanted'
-    available_labels.pop("help wanted", None)  # remove as should only be manually added
+    # Remove mutually exclusive labels like both 'bug' and 'question' or inappropriate labels like 'help wanted'
+    for keys in ["help wanted", "TODO"]  # normal case
+        available_labels.pop(key, None)  # remove as should only be manually added
     if "bug" in current_labels:
         available_labels.pop("question", None)
     elif "question" in current_labels:
