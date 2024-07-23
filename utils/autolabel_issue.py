@@ -85,9 +85,16 @@ def get_event_content() -> Tuple[int, str, str]:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
 
-def get_relevant_labels(title: str, body: str, available_labels: Dict[str, str]) -> List[str]:
+def get_relevant_labels(title: str, body: str, available_labels: Dict, current_labels: List) -> List[str]:
     """Uses OpenAI to determine the most relevant labels."""
-    available_labels.pop("help wanted")  # remove as should only be manually added
+
+    # Remove mutually exclusive labels like both 'bug' and 'question' or innapropriate labels like 'help wanted'
+    available_labels.pop("help wanted", None)  # remove as should only be manually added
+    if 'bug' in current_labels:
+        available_labels.pop('question', None)
+    elif 'question' in current_labels:
+        available_labels.pop('bug', None)
+
     labels = "\n".join(f"- {name}: {description}" for name, description in available_labels.items())
 
     prompt = f"""Select the top 1-3 most relevant labels for the following GitHub issue or pull request.
@@ -140,7 +147,8 @@ def main():
     """Runs autolabel action."""
     number, title, body = get_event_content()
     available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
-    relevant_labels = get_relevant_labels(title, body, available_labels)
+    current_labels = [label["name"].lower() for label in get_github_data(f"issues/{number}/labels")]
+    relevant_labels = get_relevant_labels(title, body, available_labels, current_labels)
     if relevant_labels:
         apply_labels(number, relevant_labels)
     else:
