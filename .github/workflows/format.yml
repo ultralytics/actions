@@ -6,7 +6,7 @@ name: Ultralytics Actions
 
 on:
   issues:
-    types: [opened, edited]
+    types: [opened]
   push:
     branches: [main]
   pull_request_target:
