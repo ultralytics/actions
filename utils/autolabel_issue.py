@@ -117,6 +117,7 @@ ISSUE/PR DESCRIPTION:
 
 YOUR RESPONSE (label names only):
 """
+    print(prompt)  # for short-term debugging
     messages = [
         {"role": "system", "content": "You are a helpful assistant that labels GitHub issues and pull requests."},
         {"role": "user", "content": prompt},
