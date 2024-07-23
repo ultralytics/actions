@@ -23,7 +23,7 @@ OPENAI_AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-05-13")
 
 
-def get_openai_client():
+def openai_client():
     """Returns OpenAI client instance."""
     if OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT:
         return AzureOpenAI(
@@ -90,8 +90,7 @@ YOUR RESPONSE (label names only):
 """
     print(prompt)
 
-    client = get_openai_client()
-    response = client.chat.completions.create(
+    response = openai_client().chat.completions.create(
         model=OPENAI_MODEL,
         messages=[
             {"role": "system", "content": "You are a helpful assistant that labels GitHub issues and pull requests."},
