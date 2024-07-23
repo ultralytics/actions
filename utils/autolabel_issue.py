@@ -89,8 +89,8 @@ def get_relevant_labels(title: str, body: str, available_labels: Dict, current_l
     """Uses OpenAI to determine the most relevant labels."""
 
     # Remove mutually exclusive labels like both 'bug' and 'question' or inappropriate labels like 'help wanted'
-    for keys in ["help wanted", "TODO"]:  # normal case
-        available_labels.pop(key, None)  # remove as should only be manually added
+    for label in ["help wanted", "TODO"]:  # normal case
+        available_labels.pop(label, None)  # remove as should only be manually added
     if "bug" in current_labels:
         available_labels.pop("question", None)
     elif "question" in current_labels:
