@@ -20,6 +20,7 @@ SUMMARY_START = (
     "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
 )
 
+
 def get_openai_client():
     """Returns OpenAI client instance."""
     if OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT:
@@ -29,6 +30,7 @@ def get_openai_client():
             azure_endpoint=OPENAI_AZURE_ENDPOINT,
         )
     return OpenAI(api_key=OPENAI_API_KEY)
+
 
 def get_pr_diff(repo_name, pr_number):
     """Fetches the diff of a specific PR from a GitHub repository."""
