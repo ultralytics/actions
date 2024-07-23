@@ -40,27 +40,16 @@ def get_completion(messages: list) -> str:
     """Get completion from OpenAI or Azure OpenAI."""
     if OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT:
         url = f"{OPENAI_AZURE_ENDPOINT}/openai/deployments/{OPENAI_MODEL}/chat/completions?api-version={OPENAI_AZURE_API_VERSION}"
-        headers = {
-            "api-key": OPENAI_AZURE_API_KEY,
-            "Content-Type": "application/json"
-        }
-        data = {
-            "messages": messages
-        }
+        headers = {"api-key": OPENAI_AZURE_API_KEY, "Content-Type": "application/json"}
+        data = {"messages": messages}
     else:
         url = "https://api.openai.com/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "Content-Type": "application/json"
-        }
-        data = {
-            "model": OPENAI_MODEL,
-            "messages": messages
-        }
+        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+        data = {"model": OPENAI_MODEL, "messages": messages}
 
     response = requests.post(url, headers=headers, json=data)
     response.raise_for_status()
-    return response.json()['choices'][0]['message']['content']
+    return response.json()["choices"][0]["message"]["content"]
 
 
 def get_github_data(endpoint: str) -> dict:
