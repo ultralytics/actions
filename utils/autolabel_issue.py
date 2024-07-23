@@ -88,7 +88,6 @@ ISSUE/PR DESCRIPTION:
 
 YOUR RESPONSE (label names only):
 """
-    print(prompt)
 
     response = openai_client().chat.completions.create(
         model=OPENAI_MODEL,
