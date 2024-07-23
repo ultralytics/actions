@@ -3,19 +3,24 @@
 import os
 
 import requests
-from openai import AzureOpenAI, OpenAI
 
-REPO_NAME = os.getenv("REPO_NAME")
+# Environment variables
+REPO_NAME = os.getenv("GITHUB_REPOSITORY")
 PR_NUMBER = os.getenv("PR_NUMBER")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}"}
+GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
+GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
+GITHUB_API_URL = "https://api.github.com"
+GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+
+# OpenAI settings
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-05-13")  # update as required
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
-OPENAI_AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")
-OPENAI_AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
-OPENAI_AZURE_BOTH = OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT
-OPENAI_MODEL = os.getenv("OPENAI_MODEL")
-OPENAI_MODEL_TOKENS = 128000  # update with model
+AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
+AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
+AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")  # update as required
+
+# Action settings
 SUMMARY_START = (
     "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
 )
@@ -23,18 +28,39 @@ SUMMARY_START = (
 
 def openai_client():
     """Returns OpenAI client instance."""
-    if OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT:
-        return AzureOpenAI(
-            api_key=OPENAI_AZURE_API_KEY,
-            api_version=os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview"),
-            azure_endpoint=OPENAI_AZURE_ENDPOINT,
-        )
-    return OpenAI(api_key=OPENAI_API_KEY)
+    from openai import AzureOpenAI, OpenAI
+
+    return (
+        AzureOpenAI(api_key=AZURE_API_KEY, api_version=AZURE_API_VERSION, azure_endpoint=AZURE_ENDPOINT)
+        if AZURE_API_KEY and AZURE_ENDPOINT
+        else OpenAI(api_key=OPENAI_API_KEY)
+    )
+
+
+def get_completion(messages: list, use_python_client: bool = False) -> str:
+    """Get completion from OpenAI or Azure OpenAI."""
+    if use_python_client:
+        response = openai_client().chat.completions.create(model=OPENAI_MODEL, messages=messages)
+        return response.choices[0].message.content.strip()
+
+    # If not Python client then use REST API
+    if AZURE_API_KEY and AZURE_ENDPOINT:
+        url = f"{AZURE_ENDPOINT}/openai/deployments/{OPENAI_MODEL}/chat/completions?api-version={AZURE_API_VERSION}"
+        headers = {"api-key": AZURE_API_KEY, "Content-Type": "application/json"}
+        data = {"messages": messages}
+    else:
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+        data = {"model": OPENAI_MODEL, "messages": messages}
+
+    response = requests.post(url, headers=headers, json=data)
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"].strip()
 
 
 def get_pr_diff(repo_name, pr_number):
     """Fetches the diff of a specific PR from a GitHub repository."""
-    url = f"https://api.github.com/repos/{repo_name}/pulls/{pr_number}"
+    url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
     response = requests.get(url, headers=headers)
     return response.text if response.status_code == 200 else ""
@@ -45,7 +71,7 @@ def generate_pr_summary(repo_name, diff_text):
     if not diff_text:
         diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
     ratio = 3.3  # about 3.3 characters per token
-    limit = round(OPENAI_MODEL_TOKENS * ratio * 0.5)  # use up to 50% of the context window for prompt
+    limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
     messages = [
         {
             "role": "system",
@@ -60,8 +86,7 @@ def generate_pr_summary(repo_name, diff_text):
             f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}",
         },
     ]
-    response = openai_client().chat.completions.create(model=OPENAI_MODEL, messages=messages).choices[0]
-    reply = response.message.content.strip()
+    reply = get_completion(messages)
     if len(diff_text) > limit:
         return SUMMARY_START + "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
     else:
@@ -71,7 +96,7 @@ def generate_pr_summary(repo_name, diff_text):
 def update_pr_description(repo_name, pr_number, new_summary):
     """Updates the original PR description with a new summary, replacing an existing summary if found."""
     # Fetch the current PR description
-    pr_url = f"https://api.github.com/repos/{repo_name}/pulls/{pr_number}"
+    pr_url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
     pr_response = requests.get(pr_url, headers=GITHUB_HEADERS)
     pr_data = pr_response.json()
     current_description = pr_data.get("body") or ""  # warning, can be None

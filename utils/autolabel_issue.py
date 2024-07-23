@@ -6,7 +6,6 @@ import time
 from typing import Dict, List, Tuple
 
 import requests
-from openai import AzureOpenAI, OpenAI
 
 # Environment variables
 REPO_NAME = os.getenv("GITHUB_REPOSITORY")
@@ -17,21 +16,43 @@ GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 
 # OpenAI settings
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-05-13")  # update as required
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
-OPENAI_AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-05-13")
+AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
+AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
+AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")  # update as required
 
 
 def openai_client():
     """Returns OpenAI client instance."""
-    if OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT:
-        return AzureOpenAI(
-            api_key=OPENAI_AZURE_API_KEY,
-            api_version=os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview"),
-            azure_endpoint=OPENAI_AZURE_ENDPOINT,
-        )
-    return OpenAI(api_key=OPENAI_API_KEY)
+    from openai import AzureOpenAI, OpenAI
+
+    return (
+        AzureOpenAI(api_key=AZURE_API_KEY, api_version=AZURE_API_VERSION, azure_endpoint=AZURE_ENDPOINT)
+        if AZURE_API_KEY and AZURE_ENDPOINT
+        else OpenAI(api_key=OPENAI_API_KEY)
+    )
+
+
+def get_completion(messages: list, use_python_client: bool = False) -> str:
+    """Get completion from OpenAI or Azure OpenAI."""
+    if use_python_client:
+        response = openai_client().chat.completions.create(model=OPENAI_MODEL, messages=messages)
+        return response.choices[0].message.content.strip()
+
+    # If not Python client then use REST API
+    if AZURE_API_KEY and AZURE_ENDPOINT:
+        url = f"{AZURE_ENDPOINT}/openai/deployments/{OPENAI_MODEL}/chat/completions?api-version={AZURE_API_VERSION}"
+        headers = {"api-key": AZURE_API_KEY, "Content-Type": "application/json"}
+        data = {"messages": messages}
+    else:
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+        data = {"model": OPENAI_MODEL, "messages": messages}
+
+    response = requests.post(url, headers=headers, json=data)
+    response.raise_for_status()
+    return response.json()["choices"][0]["message"]["content"].strip()
 
 
 def get_github_data(endpoint: str) -> dict:
@@ -88,17 +109,11 @@ ISSUE/PR DESCRIPTION:
 
 YOUR RESPONSE (label names only):
 """
-    print(prompt)
-
-    response = openai_client().chat.completions.create(
-        model=OPENAI_MODEL,
-        messages=[
-            {"role": "system", "content": "You are a helpful assistant that labels GitHub issues and pull requests."},
-            {"role": "user", "content": prompt},
-        ],
-    )
-
-    suggested_labels = response.choices[0].message.content.strip()
+    messages = [
+        {"role": "system", "content": "You are a helpful assistant that labels GitHub issues and pull requests."},
+        {"role": "user", "content": prompt},
+    ]
+    suggested_labels = get_completion(messages)
     if "none" in suggested_labels.lower():
         return []
 
