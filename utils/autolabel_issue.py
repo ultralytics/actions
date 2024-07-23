@@ -90,10 +90,10 @@ def get_relevant_labels(title: str, body: str, available_labels: Dict, current_l
 
     # Remove mutually exclusive labels like both 'bug' and 'question' or innapropriate labels like 'help wanted'
     available_labels.pop("help wanted", None)  # remove as should only be manually added
-    if 'bug' in current_labels:
-        available_labels.pop('question', None)
-    elif 'question' in current_labels:
-        available_labels.pop('bug', None)
+    if "bug" in current_labels:
+        available_labels.pop("question", None)
+    elif "question" in current_labels:
+        available_labels.pop("bug", None)
 
     labels = "\n".join(f"- {name}: {description}" for name, description in available_labels.items())
 
