@@ -16,31 +16,25 @@ GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 
 # OpenAI settings
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-05-13")  # update as required
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
-OPENAI_AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
-OPENAI_AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-05-13")
+AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
+AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
+AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")  # update as required
 
 
 def openai_client():
     """Returns OpenAI client instance."""
     from openai import AzureOpenAI, OpenAI
 
-    if OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT:
-        return AzureOpenAI(
-            api_key=OPENAI_AZURE_API_KEY,
-            api_version=os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview"),
-            azure_endpoint=OPENAI_AZURE_ENDPOINT,
-        )
-    return OpenAI(api_key=OPENAI_API_KEY)
+    return AzureOpenAI(api_key=AZURE_API_KEY, api_version=AZURE_API_VERSION, azure_endpoint=AZURE_ENDPOINT) if AZURE_API_KEY and AZURE_ENDPOINT else OpenAI(api_key=OPENAI_API_KEY)
 
 
 def get_completion(messages: list) -> str:
     """Get completion from OpenAI or Azure OpenAI."""
-    if OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT:
-        url = f"{OPENAI_AZURE_ENDPOINT}/openai/deployments/{OPENAI_MODEL}/chat/completions?api-version={OPENAI_AZURE_API_VERSION}"
-        headers = {"api-key": OPENAI_AZURE_API_KEY, "Content-Type": "application/json"}
+    if AZURE_API_KEY and AZURE_ENDPOINT:
+        url = f"{AZURE_ENDPOINT}/openai/deployments/{OPENAI_MODEL}/chat/completions?api-version={AZURE_API_VERSION}"
+        headers = {"api-key": AZURE_API_KEY, "Content-Type": "application/json"}
         data = {"messages": messages}
     else:
         url = "https://api.openai.com/v1/chat/completions"
