@@ -27,7 +27,11 @@ def openai_client():
     """Returns OpenAI client instance."""
     from openai import AzureOpenAI, OpenAI
 
-    return AzureOpenAI(api_key=AZURE_API_KEY, api_version=AZURE_API_VERSION, azure_endpoint=AZURE_ENDPOINT) if AZURE_API_KEY and AZURE_ENDPOINT else OpenAI(api_key=OPENAI_API_KEY)
+    return (
+        AzureOpenAI(api_key=AZURE_API_KEY, api_version=AZURE_API_VERSION, azure_endpoint=AZURE_ENDPOINT)
+        if AZURE_API_KEY and AZURE_ENDPOINT
+        else OpenAI(api_key=OPENAI_API_KEY)
+    )
 
 
 def get_completion(messages: list) -> str:
