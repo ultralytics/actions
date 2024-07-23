@@ -6,7 +6,6 @@ import time
 from typing import Dict, List, Tuple
 
 import requests
-from openai import AzureOpenAI, OpenAI
 
 # Environment variables
 REPO_NAME = os.getenv("GITHUB_REPOSITORY")
@@ -20,11 +19,14 @@ GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "applicati
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
 OPENAI_AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
+OPENAI_AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-05-13")
 
 
 def openai_client():
     """Returns OpenAI client instance."""
+    from openai import AzureOpenAI, OpenAI
+
     if OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT:
         return AzureOpenAI(
             api_key=OPENAI_AZURE_API_KEY,
@@ -32,6 +34,33 @@ def openai_client():
             azure_endpoint=OPENAI_AZURE_ENDPOINT,
         )
     return OpenAI(api_key=OPENAI_API_KEY)
+
+
+def get_completion(messages: list) -> str:
+    """Get completion from OpenAI or Azure OpenAI."""
+    if OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT:
+        url = f"{OPENAI_AZURE_ENDPOINT}/openai/deployments/{OPENAI_MODEL}/chat/completions?api-version={OPENAI_AZURE_API_VERSION}"
+        headers = {
+            "api-key": OPENAI_AZURE_API_KEY,
+            "Content-Type": "application/json"
+        }
+        data = {
+            "messages": messages
+        }
+    else:
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "model": OPENAI_MODEL,
+            "messages": messages
+        }
+
+    response = requests.post(url, headers=headers, json=data)
+    response.raise_for_status()
+    return response.json()['choices'][0]['message']['content']
 
 
 def get_github_data(endpoint: str) -> dict:
