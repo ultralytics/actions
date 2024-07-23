@@ -87,6 +87,7 @@ def get_event_content() -> Tuple[int, str, str]:
 
 def get_relevant_labels(title: str, body: str, available_labels: Dict[str, str]) -> List[str]:
     """Uses OpenAI to determine the most relevant labels."""
+    available_labels.pop("help wanted")  # remove as should only be manually added
     labels = "\n".join(f"- {name}: {description}" for name, description in available_labels.items())
 
     prompt = f"""Select the top 1-3 most relevant labels for the following GitHub issue or pull request.
