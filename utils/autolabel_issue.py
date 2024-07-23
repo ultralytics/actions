@@ -34,8 +34,13 @@ def openai_client():
     )
 
 
-def get_completion(messages: list) -> str:
+def get_completion(messages: list, use_python_client: bool = False) -> str:
     """Get completion from OpenAI or Azure OpenAI."""
+    if use_python_client:
+        response = openai_client().chat.completions.create(model=OPENAI_MODEL, messages=messages)
+        return response.choices[0].message.content.strip()
+
+    # If not Python client then use REST API
     if AZURE_API_KEY and AZURE_ENDPOINT:
         url = f"{AZURE_ENDPOINT}/openai/deployments/{OPENAI_MODEL}/chat/completions?api-version={AZURE_API_VERSION}"
         headers = {"api-key": AZURE_API_KEY, "Content-Type": "application/json"}
@@ -47,7 +52,7 @@ def get_completion(messages: list) -> str:
 
     response = requests.post(url, headers=headers, json=data)
     response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"]
+    return response.json()["choices"][0]["message"]["content"].strip()
 
 
 def get_github_data(endpoint: str) -> dict:
@@ -108,8 +113,7 @@ YOUR RESPONSE (label names only):
         {"role": "system", "content": "You are a helpful assistant that labels GitHub issues and pull requests."},
         {"role": "user", "content": prompt},
     ]
-    response = openai_client().chat.completions.create(model=OPENAI_MODEL, messages=messages)
-    suggested_labels = response.choices[0].message.content.strip()
+    suggested_labels = get_completion(messages)
     if "none" in suggested_labels.lower():
         return []
 
