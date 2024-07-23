@@ -21,7 +21,7 @@ SUMMARY_START = (
 )
 
 
-def get_openai_client():
+def openai_client():
     """Returns OpenAI client instance."""
     if OPENAI_AZURE_API_KEY and OPENAI_AZURE_ENDPOINT:
         return AzureOpenAI(
