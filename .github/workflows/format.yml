@@ -7,8 +7,6 @@ name: Ultralytics Actions
 on:
   issues:
     types: [opened]
-  push:
-    branches: [main]
   pull_request_target:
     branches: [main]
     # https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#pull_request
