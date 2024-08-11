@@ -45,12 +45,10 @@ To use this action in your Ultralytics repository:
 
    on:
      issues:
-       types: [opened, edited]
-     push:
-       branches: [main]
+       types: [opened]
      pull_request:
        branches: [main]
-       types: [opened, closed, synchronize]
+       types: [opened, closed]
 
    jobs:
      format:
