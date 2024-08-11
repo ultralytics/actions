@@ -13,7 +13,7 @@ Ultralytics Actions automatically applies formats, updates, and enhancements:
 - **Python Code:** Using [Ruff](https://github.com/charliermarsh/ruff), a fast Python auto-formatter.
 - **Markdown Files:** With [mdformat](https://github.com/executablebooks/mdformat), ensuring a consistent style in documentation.
 - **Docstrings:** Utilizing [docformatter](https://github.com/myint/docformatter) for clean and standardized documentation comments.
-- **Swift Code:** Formatting Swift files using `swift-format` to ensure consistent coding style across Swift projects. *(Requires `macos-latest` to run correctly.)*
+- **Swift Code:** Formatting Swift files using `swift-format` to ensure consistent coding style across Swift projects. _(Requires `macos-latest` to run correctly.)_
 - **Spell Check:** Employing [codespell](https://github.com/codespell-project/codespell) for catching common misspellings.
 - **Broken Links Check:** Implementing [Lychee](https://github.com/lycheeverse/lychee) to report broken links in docs and markdown files.
 - **PR Summary:** Generating concise [OpenAI](https://openai.com/) GPT4o-powered PR summaries, enhancing PR clarity.
