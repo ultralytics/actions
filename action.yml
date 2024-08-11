@@ -26,6 +26,10 @@ inputs:
     description: "Run Prettier formatting for JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML"
     required: false
     default: "false"
+  swift:
+    description: "Run Swift formatting"
+    required: false
+    default: "false"
   spelling:
     description: "Run Spelling checks"
     required: false
@@ -144,6 +148,15 @@ runs:
             updated_content = content.replace("| - ","| -   ").replace('-   ', '- ').replace("** ","**   ").replace("*   ","* ")
             file.write_text(updated_content)
       shell: python
+      continue-on-error: true
+
+    # Swift formatting -------------------------------------------------------------------------------------------------
+    if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') &&  (inputs.swift == 'true') && github.event.action != 'closed'
+    - name: Run Swift Formatter
+      run: |
+        brew install swift-format
+        swift-format --in-place --recursive .
+      shell: bash
       continue-on-error: true
 
     # Spelling ---------------------------------------------------------------------------------------------------------
