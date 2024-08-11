@@ -140,7 +140,7 @@ runs:
       continue-on-error: true
 
     - name: Update unordered Markdown list indents to 4 spaces for MkDocs compatibility
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') &&  (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
       run: |
         from pathlib import Path
         for file in Path("./docs").rglob('*.md'):
@@ -151,8 +151,8 @@ runs:
       continue-on-error: true
 
     # Swift formatting -------------------------------------------------------------------------------------------------
-    if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') &&  (inputs.swift == 'true') && github.event.action != 'closed'
     - name: Run Swift Formatter
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.swift == 'true' && github.event.action != 'closed'
       run: |
         brew install swift-format
         swift-format --in-place --recursive .
