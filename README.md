@@ -1,9 +1,8 @@
-<br>
 <a href="https://ultralytics.com" target="_blank"><img src="https://raw.githubusercontent.com/ultralytics/assets/main/logo/Ultralytics_Logotype_Original.svg" width="320" alt="Ultralytics logo"></a>
 
-# 🚀 Ultralytics Actions: Auto-Formatting for Python and Markdown
+# 🚀 Ultralytics Actions: Auto-Formatting for Python, Markdown, and Swift
 
-Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python projects. This GitHub Action is designed to automate the formatting of Python and Markdown files, ensuring adherence to our coding standards.
+Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python and Swift projects. This GitHub Action is designed to automate the formatting of Python, Markdown, and Swift files, ensuring adherence to our coding standards.
 
 [![GitHub Actions Marketplace](https://img.shields.io/badge/Marketplace-Ultralytics_Actions-blue?style=flat&logo=github)](https://github.com/marketplace/actions/ultralytics-actions) [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml) <a href="https://ultralytics.com/discord"><img alt="Discord" src="https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue"></a> <a href="https://community.ultralytics.com"><img alt="Ultralytics Forums" src="https://img.shields.io/discourse/users?server=https%3A%2F%2Fcommunity.ultralytics.com&logo=discourse&label=Forums&color=blue"></a>
 
@@ -14,6 +13,7 @@ Ultralytics Actions automatically applies formats, updates, and enhancements:
 - **Python Code:** Using [Ruff](https://github.com/charliermarsh/ruff), a fast Python auto-formatter.
 - **Markdown Files:** With [mdformat](https://github.com/executablebooks/mdformat), ensuring a consistent style in documentation.
 - **Docstrings:** Utilizing [docformatter](https://github.com/myint/docformatter) for clean and standardized documentation comments.
+- **Swift Code:** Formatting Swift files using `swift-format` to ensure consistent coding style across Swift projects. *(Requires `macos-latest` to run correctly.)*
 - **Spell Check:** Employing [codespell](https://github.com/codespell-project/codespell) for catching common misspellings.
 - **Broken Links Check:** Implementing [Lychee](https://github.com/lycheeverse/lychee) to report broken links in docs and markdown files.
 - **PR Summary:** Generating concise [OpenAI](https://openai.com/) GPT4o-powered PR summaries, enhancing PR clarity.
@@ -61,6 +61,7 @@ To use this action in your Ultralytics repository:
              labels: true # autolabel issues and PRs
              python: true # format Python code and docstrings
              markdown: true # format Markdown and YAML
+             swift: true # format Swift code (requires 'macos-latest')
              spelling: true # check spelling
              links: true # check broken links
              summary: true # print PR summary with GPT4o (requires 'openai_api_key')
