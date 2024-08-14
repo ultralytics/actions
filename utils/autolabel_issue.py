@@ -88,12 +88,6 @@ def get_event_content() -> Tuple[int, str, str]:
 def get_relevant_labels(title: str, body: str, available_labels: Dict, current_labels: List) -> List[str]:
     """Uses OpenAI to determine the most relevant labels."""
 
-    # Add "Alert" to available labels if not present
-    if "Alert" not in available_labels:
-        available_labels["Alert"] = """Potential spam, abuse, or illegal activity including advertising, unsolicited 
-promotions, malware or phishing links, distribution of pirated software or media, free movie downloads, cracks, keygens 
-or any other content that violates terms of service or legal standards. Requires immediate review by maintainers."""
-
     # Remove mutually exclusive labels like both 'bug' and 'question' or inappropriate labels like 'help wanted'
     for label in ["help wanted", "TODO"]:  # normal case
         available_labels.pop(label, None)  # remove as should only be manually added
@@ -101,6 +95,12 @@ or any other content that violates terms of service or legal standards. Requires
         available_labels.pop("question", None)
     elif "question" in current_labels:
         available_labels.pop("bug", None)
+
+    # Add "Alert" to available labels if not present
+    if "Alert" not in available_labels:
+        available_labels["Alert"] = """Potential spam, abuse, or illegal activity including advertising, unsolicited 
+promotions, malware or phishing links, distribution of pirated software or media, free movie downloads, cracks, keygens 
+or any other content that violates terms of service or legal standards. Requires immediate review by maintainers."""
 
     labels = "\n".join(f"- {name}: {description}" for name, description in available_labels.items())
 
@@ -149,6 +149,23 @@ def apply_labels(number: int, labels: List[str]):
         print(f"Successfully applied labels: {', '.join(labels)}")
     else:
         print(f"Failed to apply labels. Status code: {response.status_code}")
+
+
+def create_alert_label():
+    """Creates the 'Alert' label in the repository if it doesn't exist."""
+    label_url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels"
+    alert_label = {
+        "name": "Alert",
+        "color": "FF0000",
+        "description": "Requires immediate review: potential spam, abuse, or illegal activity."
+    }
+    response = requests.post(label_url, json=alert_label, headers=GITHUB_HEADERS)
+    if response.status_code == 201:
+        print("Successfully created 'Alert' label.")
+    elif response.status_code == 422:  # Label already exists
+        print("'Alert' label already exists.")
+    else:
+        print(f"Failed to create 'Alert' label. Status code: {response.status_code}")
 
 
 def main():
