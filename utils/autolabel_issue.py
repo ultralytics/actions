@@ -143,6 +143,8 @@ YOUR RESPONSE (label names only):
 
 def apply_labels(number: int, labels: List[str]):
     """Applies the given labels to the issue or pull request."""
+    if "Alert" in labels:
+        create_alert_label()
     url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
     response = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS | {"Author": "UltralyticsAssistant"})
     if response.status_code == 200:
@@ -153,13 +155,12 @@ def apply_labels(number: int, labels: List[str]):
 
 def create_alert_label():
     """Creates the 'Alert' label in the repository if it doesn't exist."""
-    label_url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels"
     alert_label = {
         "name": "Alert",
         "color": "FF0000",
         "description": "Requires immediate review: potential spam, abuse, or illegal activity.",
     }
-    response = requests.post(label_url, json=alert_label, headers=GITHUB_HEADERS)
+    response = requests.post(f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels", json=alert_label, headers=GITHUB_HEADERS)
     if response.status_code == 201:
         print("Successfully created 'Alert' label.")
     elif response.status_code == 422:  # Label already exists
