@@ -212,7 +212,7 @@ def create_alert_label():
     """Creates the 'Alert' label in the repository if it doesn't exist."""
     alert_label = {
         "name": "Alert",
-        "color": "FFA500",  # bright orange
+        "color": "FF0000",  # bright red
         "description": "Potential spam, abuse, or off-topic.",
     }
     response = requests.post(f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels", json=alert_label, headers=GITHUB_HEADERS)
