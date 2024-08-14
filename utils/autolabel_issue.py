@@ -88,6 +88,12 @@ def get_event_content() -> Tuple[int, str, str]:
 def get_relevant_labels(title: str, body: str, available_labels: Dict, current_labels: List) -> List[str]:
     """Uses OpenAI to determine the most relevant labels."""
 
+    # Add "Alert" to available labels if not present
+    if "Alert" not in available_labels:
+        available_labels["Alert"] = """Potential spam, abuse, or illegal activity including advertising, unsolicited 
+promotions, malware or phishing links, distribution of pirated software or media, free movie downloads, cracks, keygens 
+or any other content that violates terms of service or legal standards. Requires immediate review by maintainers."""
+
     # Remove mutually exclusive labels like both 'bug' and 'question' or inappropriate labels like 'help wanted'
     for label in ["help wanted", "TODO"]:  # normal case
         available_labels.pop(label, None)  # remove as should only be manually added
@@ -114,7 +120,7 @@ ISSUE/PR TITLE:
 {title}
 
 ISSUE/PR DESCRIPTION:
-{body[:128000]}
+{body[:8000]}
 
 YOUR RESPONSE (label names only):
 """
