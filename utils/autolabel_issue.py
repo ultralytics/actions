@@ -212,7 +212,7 @@ def create_alert_label():
     """Creates the 'Alert' label in the repository if it doesn't exist."""
     alert_label = {
         "name": "Alert",
-        "color": "FFA500",  # bright orange
+        "color": "FF0000",  # bright red
         "description": "Potential spam, abuse, or off-topic.",
     }
     response = requests.post(f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels", json=alert_label, headers=GITHUB_HEADERS)
@@ -241,7 +241,7 @@ def main():
 
     if relevant_labels:
         apply_labels(number, relevant_labels)
-        if "Alert" in relevant_labels:  # and not is_org_member(username):
+        if "Alert" in relevant_labels and not is_org_member(username):
             update_issue_pr_content(number)
             close_issue_pr(number)
             lock_issue_pr(number)
