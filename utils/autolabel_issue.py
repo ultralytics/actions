@@ -88,12 +88,13 @@ def get_event_content() -> Tuple[int, str, str, str]:
 
 def update_issue_pr_content(number: int):
     """Updates the title and body of the issue or pull request."""
-    new_title = "Content Under Review ⚠️"
-    new_body = """This post has been flagged for review due to possible spam, abuse, or off-topic content. For 
-[Ultralytics](https://ultralytics.com) open-source guidelines, please see:
+    new_title = "Content Under Review"
+    new_body = """This post has been flagged for review by [Ultralytics Actions](https://ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
 
 - [Code of Conduct](https://docs.ultralytics.com/help/code_of_conduct)
 - [Security Policy](https://docs.ultralytics.com/help/security)
+
+For questions or bug reports related to this action please visit https://github.com/ultralytics/actions.
 
 Thank you 🙏
 """
@@ -151,9 +152,9 @@ def get_relevant_labels(title: str, body: str, available_labels: Dict, current_l
 
     # Add "Alert" to available labels if not present
     if "Alert" not in available_labels:
-        available_labels["Alert"] = """Potential spam, abuse, or illegal activity including advertising, unsolicited 
-promotions, malware or phishing links, distribution of pirated software or media, free movie downloads, cracks, keygens 
-or any other content that violates terms of service or legal standards. Requires immediate review by maintainers."""
+        available_labels["Alert"] = (
+            "Potential spam, abuse, or illegal activity including advertising, unsolicited promotions, malware, phishing, crypto offers, pirated software or media, free movie downloads, cracks, keygens or any other content that violates terms of service or legal standards."
+        )
 
     labels = "\n".join(f"- {name}: {description}" for name, description in available_labels.items())
 
@@ -163,8 +164,9 @@ INSTRUCTIONS:
 1. Review the issue/PR title and description.
 2. Consider the available labels and their descriptions.
 3. Choose 1-3 labels that best match the issue/PR content.
-4. Respond ONLY with the chosen label names (no descriptions), separated by commas.
-5. If no labels are relevant, respond with 'None'.
+4. Only use the "Alert" label when you have high confidence that this is an inappropriate issue.
+5. Respond ONLY with the chosen label names (no descriptions), separated by commas.
+6. If no labels are relevant, respond with 'None'.
 
 AVAILABLE LABELS:
 {labels}
