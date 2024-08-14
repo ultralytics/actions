@@ -91,7 +91,6 @@ runs:
       run: |
         pip install -q \
         ruff docformatter codespell tomli
-        # mdformat-gfm mdformat-frontmatter mdformat-mkdocs
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
@@ -117,20 +116,11 @@ runs:
       shell: bash
       continue-on-error: true
 
-    # Markdown formatting ----------------------------------------------------------------------------------------------
-    - name: Run Mdformat
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.markdown == 'true' && github.event.action != 'closed'
-      run: |
-        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/update_markdown_code_blocks.py" | python -
-        # mdformat . --number --wrap no
-        # find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
-      shell: bash
-      continue-on-error: true
-
     # Prettier (JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML) -------------
     - name: Run Prettier
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
       run: |
+        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/update_markdown_code_blocks.py" | python -
         npm install --global prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
         npx prettier --write "**/*.{css,json,yml,yaml}"
