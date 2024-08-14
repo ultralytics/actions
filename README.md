@@ -11,7 +11,7 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repo
 Ultralytics Actions automatically applies formats, updates, and enhancements:
 
 - **Python Code:** Using [Ruff](https://github.com/charliermarsh/ruff), a fast Python auto-formatter.
-- **Markdown Files:** With [mdformat](https://github.com/executablebooks/mdformat), ensuring a consistent style in documentation.
+- **Markdown Files:** With [Prettier](https://github.com/prettier/prettier), ensuring a consistent style in documentation.
 - **Docstrings:** Utilizing [docformatter](https://github.com/myint/docformatter) for clean and standardized documentation comments.
 - **Swift Code:** Formatting Swift files using `swift-format` to ensure consistent coding style across Swift projects. _(Requires `macos-latest` to run correctly.)_
 - **Spell Check:** Employing [codespell](https://github.com/codespell-project/codespell) for catching common misspellings.
@@ -60,7 +60,7 @@ To use this action in your Ultralytics repository:
              token: ${{ secrets.GITHUB_TOKEN }} # automatically generated, do not modify
              labels: true # autolabel issues and PRs
              python: true # format Python code and docstrings
-             markdown: true # format Markdown and YAML
+             prettier: true # format YAML, JSON, Markdown and CSS
              swift: true # format Swift code (requires 'macos-latest')
              spelling: true # check spelling
              links: true # check broken links
