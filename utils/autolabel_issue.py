@@ -211,7 +211,7 @@ def create_alert_label():
     alert_label = {
         "name": "Alert",
         "color": "FFA500",  # bright orange
-        "description": "Requires immediate review: potential spam, abuse, or illegal activity.",
+        "description": "Potential spam, abuse, or off-topic.",
     }
     response = requests.post(f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels", json=alert_label, headers=GITHUB_HEADERS)
     if response.status_code == 201:
@@ -239,7 +239,7 @@ def main():
 
     if relevant_labels:
         apply_labels(number, relevant_labels)
-        if "Alert" in relevant_labels:  #  and not is_org_member(username):
+        if "Alert" in relevant_labels and not is_org_member(username):
             update_issue_pr_content(number)
             close_issue_pr(number)
             lock_issue_pr(number)
