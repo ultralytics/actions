@@ -93,7 +93,7 @@ def update_issue_pr_content(number: int, new_title: str = None, new_body: str = 
 [Ultralytics](https://ultralytics.com) open-source guidelines, please see:
 
 - [Code of Conduct](https://docs.ultralytics.com/help/code_of_conduct)
-- [Security Guidelines](https://docs.ultralytics.com/help/security)
+- [Security Policy](https://docs.ultralytics.com/help/security)
 
 Thank you 🙏
 """
@@ -210,7 +210,7 @@ def create_alert_label():
     """Creates the 'Alert' label in the repository if it doesn't exist."""
     alert_label = {
         "name": "Alert",
-        "color": "FF0000",
+        "color": "FFA500",  # bright orange
         "description": "Requires immediate review: potential spam, abuse, or illegal activity.",
     }
     response = requests.post(f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels", json=alert_label, headers=GITHUB_HEADERS)
