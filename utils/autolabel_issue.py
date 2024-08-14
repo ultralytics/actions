@@ -224,7 +224,7 @@ def create_alert_label():
 
 def is_org_member(username: str) -> bool:
     """Checks if a user is a member of the organization."""
-    org_name = REPO_NAME.split('/')[0]
+    org_name = REPO_NAME.split("/")[0]
     url = f"{GITHUB_API_URL}/orgs/{org_name}/members/{username}"
     response = requests.get(url, headers=GITHUB_HEADERS)
     return response.status_code == 204  # 204 means the user is a member
