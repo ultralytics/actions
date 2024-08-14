@@ -154,7 +154,6 @@ def get_relevant_labels(title: str, body: str, available_labels: Dict, current_l
     if "Alert" not in available_labels:
         available_labels["Alert"] = (
             "Potential spam, abuse, or illegal activity including advertising, unsolicited promotions, malware, phishing, crypto offers, pirated software or media, free movie downloads, cracks, keygens or any other content that violates terms of service or legal standards."
-            ""
         )
 
     labels = "\n".join(f"- {name}: {description}" for name, description in available_labels.items())
