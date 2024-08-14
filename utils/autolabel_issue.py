@@ -239,7 +239,7 @@ def main():
 
     if relevant_labels:
         apply_labels(number, relevant_labels)
-        if "Alert" in relevant_labels and not is_org_member(username):
+        if "Alert" in relevant_labels:  # and not is_org_member(username):
             update_issue_pr_content(number)
             close_issue_pr(number)
             lock_issue_pr(number)
