@@ -157,7 +157,7 @@ def create_alert_label():
     alert_label = {
         "name": "Alert",
         "color": "FF0000",
-        "description": "Requires immediate review: potential spam, abuse, or illegal activity."
+        "description": "Requires immediate review: potential spam, abuse, or illegal activity.",
     }
     response = requests.post(label_url, json=alert_label, headers=GITHUB_HEADERS)
     if response.status_code == 201:
