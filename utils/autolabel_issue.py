@@ -14,6 +14,7 @@ GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
 GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 
 # OpenAI settings
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-05-13")  # update as required
@@ -83,6 +84,58 @@ def get_event_content() -> Tuple[int, str, str]:
         return pr_number, latest_pr_data["title"], latest_pr_data.get("body", "")
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
+
+
+def update_issue_pr_content(number: int, new_title: str = None, new_body: str = None):
+    """Updates the title and body of the issue or pull request."""
+    new_title |= "Content Under Review ⚠️"
+    new_body |= """This post has been flagged for review due to possible spam, abuse, or off-topic content. For 
+[Ultralytics](https://ultralytics.com) open-source guidelines, please see:
+
+- [Code of Conduct](https://docs.ultralytics.com/help/code_of_conduct)
+- [Security Guidelines](https://docs.ultralytics.com/help/security)
+
+Thank you 🙏
+"""
+    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
+    data = {"title": new_title, "body": new_body}
+    response = requests.patch(url, json=data, headers=GITHUB_HEADERS)
+    if response.status_code == 200:
+        print(f"Successfully updated issue/PR #{number} title and body.")
+    else:
+        print(f"Failed to update issue/PR. Status code: {response.status_code}")
+
+
+def close_issue_pr(number: int):
+    """Closes the issue or pull request."""
+    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
+    data = {"state": "closed"}
+    response = requests.patch(url, json=data, headers=GITHUB_HEADERS)
+    if response.status_code == 200:
+        print(f"Successfully closed issue/PR #{number}.")
+    else:
+        print(f"Failed to close issue/PR. Status code: {response.status_code}")
+
+
+def lock_issue_pr(number: int):
+    """Locks the issue or pull request."""
+    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/lock"
+    data = {"lock_reason": "off-topic"}
+    response = requests.put(url, json=data, headers=GITHUB_HEADERS)
+    if response.status_code == 204:
+        print(f"Successfully locked issue/PR #{number}.")
+    else:
+        print(f"Failed to lock issue/PR. Status code: {response.status_code}")
+
+
+def block_user(username: str):
+    """Blocks a user from the organization."""
+    url = f"{GITHUB_API_URL}/orgs/{REPO_NAME.split('/')[0]}/blocks/{username}"
+    response = requests.put(url, headers=GITHUB_HEADERS)
+    if response.status_code == 204:
+        print(f"Successfully blocked user: {username}.")
+    else:
+        print(f"Failed to block user. Status code: {response.status_code}")
 
 
 def get_relevant_labels(title: str, body: str, available_labels: Dict, current_labels: List) -> List[str]:
@@ -175,8 +228,15 @@ def main():
     available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
     current_labels = [label["name"].lower() for label in get_github_data(f"issues/{number}/labels")]
     relevant_labels = get_relevant_labels(title, body, available_labels, current_labels)
+
     if relevant_labels:
         apply_labels(number, relevant_labels)
+        if "Alert" in relevant_labels:
+            update_issue_pr_content(number)
+            close_issue_pr(number)
+            lock_issue_pr(number)
+            if BLOCK_USER:
+                block_user(username=get_github_data(f"issues/{number}")["user"]["login"])
     else:
         print("No relevant labels found or applied.")
 
