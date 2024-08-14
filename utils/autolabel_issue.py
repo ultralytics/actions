@@ -93,7 +93,7 @@ def update_issue_pr_content(number: int, new_title: str = None, new_body: str = 
 [Ultralytics](https://ultralytics.com) open-source guidelines, please see:
 
 - [Code of Conduct](https://docs.ultralytics.com/help/code_of_conduct)
-- [Security Guidelines](https://docs.ultralytics.com/help/security)
+- [Security Policy](https://docs.ultralytics.com/help/security)
 
 Thank you 🙏
 """
