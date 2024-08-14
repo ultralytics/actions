@@ -63,14 +63,14 @@ def get_github_data(endpoint: str) -> dict:
     return response.json()
 
 
-def get_event_content() -> Tuple[int, str, str]:
-    """Extracts the number, title, and body from the issue or pull request."""
+def get_event_content() -> Tuple[int, str, str, str]:
+    """Extracts the number, title, body, and username from the issue or pull request."""
     with open(GITHUB_EVENT_PATH, "r") as f:
         event_data = json.load(f)
 
     if GITHUB_EVENT_NAME == "issues":
         item = event_data["issue"]
-        return item["number"], item["title"], item.get("body", "")
+        return item["number"], item["title"], item.get("body", ""), item["user"]["login"]
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
         pr_number = event_data["pull_request"]["number"]
 
@@ -81,7 +81,7 @@ def get_event_content() -> Tuple[int, str, str]:
 
         # Fetch the latest PR data
         latest_pr_data = get_github_data(f"pulls/{pr_number}")
-        return pr_number, latest_pr_data["title"], latest_pr_data.get("body", "")
+        return pr_number, latest_pr_data["title"], latest_pr_data.get("body", ""), latest_pr_data["user"]["login"]
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
@@ -222,16 +222,24 @@ def create_alert_label():
         print(f"Failed to create 'Alert' label. Status code: {response.status_code}")
 
 
+def is_org_member(username: str) -> bool:
+    """Checks if a user is a member of the organization."""
+    org_name = REPO_NAME.split('/')[0]
+    url = f"{GITHUB_API_URL}/orgs/{org_name}/members/{username}"
+    response = requests.get(url, headers=GITHUB_HEADERS)
+    return response.status_code == 204  # 204 means the user is a member
+
+
 def main():
     """Runs autolabel action."""
-    number, title, body = get_event_content()
+    number, title, body, username = get_event_content()
     available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
     current_labels = [label["name"].lower() for label in get_github_data(f"issues/{number}/labels")]
     relevant_labels = get_relevant_labels(title, body, available_labels, current_labels)
 
     if relevant_labels:
         apply_labels(number, relevant_labels)
-        if "Alert" in relevant_labels:
+        if "Alert" in relevant_labels:  #  and not is_org_member(username):
             update_issue_pr_content(number)
             close_issue_pr(number)
             lock_issue_pr(number)
