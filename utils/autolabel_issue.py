@@ -86,10 +86,10 @@ def get_event_content() -> Tuple[int, str, str, str]:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
 
-def update_issue_pr_content(number: int, new_title: str = None, new_body: str = None):
+def update_issue_pr_content(number: int):
     """Updates the title and body of the issue or pull request."""
-    new_title |= "Content Under Review ⚠️"
-    new_body |= """This post has been flagged for review due to possible spam, abuse, or off-topic content. For 
+    new_title = "Content Under Review ⚠️"
+    new_body = """This post has been flagged for review due to possible spam, abuse, or off-topic content. For 
 [Ultralytics](https://ultralytics.com) open-source guidelines, please see:
 
 - [Code of Conduct](https://docs.ultralytics.com/help/code_of_conduct)
