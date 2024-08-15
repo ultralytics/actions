@@ -26,6 +26,10 @@ inputs:
     description: "Run Prettier formatting for JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML"
     required: false
     default: "false"
+  swift:
+    description: "Run Swift formatting"
+    required: false
+    default: "false"
   spelling:
     description: "Run Spelling checks"
     required: false
@@ -87,7 +91,6 @@ runs:
       run: |
         pip install -q \
         ruff docformatter codespell tomli
-        # mdformat-gfm mdformat-frontmatter mdformat-mkdocs
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
@@ -113,30 +116,21 @@ runs:
       shell: bash
       continue-on-error: true
 
-    # Markdown formatting ----------------------------------------------------------------------------------------------
-    - name: Run Mdformat
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.markdown == 'true' && github.event.action != 'closed'
-      run: |
-        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/update_markdown_code_blocks.py" | python -
-        # mdformat . --number --wrap no
-        # find . -name "*.md" ! -path "./docs/*" -exec mdformat --number --wrap no {} +
-      shell: bash
-      continue-on-error: true
-
     # Prettier (JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML) -------------
     - name: Run Prettier
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
       run: |
+        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/update_markdown_code_blocks.py" | python -
         npm install --global prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
-        npx prettier --write "**/*.{yml,yaml}"
+        npx prettier --write "**/*.{css,json,yml,yaml}"
         find . -name "*.md" ! -path "*/docs/*" -exec npx prettier --write {} +
         find ./docs -name "*.md" ! -path "*/reference/*" -exec npx prettier --tab-width 4 --write {} + || true  # error if no /docs dir
       shell: bash
       continue-on-error: true
 
     - name: Update unordered Markdown list indents to 4 spaces for MkDocs compatibility
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') &&  (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
       run: |
         from pathlib import Path
         for file in Path("./docs").rglob('*.md'):
@@ -146,13 +140,22 @@ runs:
       shell: python
       continue-on-error: true
 
+    # Swift formatting -------------------------------------------------------------------------------------------------
+    - name: Run Swift Formatter
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.swift == 'true' && github.event.action != 'closed'
+      run: |
+        brew install swift-format
+        swift-format --in-place --recursive .
+      shell: bash
+      continue-on-error: true
+
     # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.spelling == 'true' && github.event.action != 'closed'
       run: |
         codespell \
           --write-changes \
-          --ignore-words-list "crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall" \
+          --ignore-words-list "crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall,skelton,goin" \
           --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,__pycache__*,*.ico,*.jpg,*.png,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml"
       shell: bash
       continue-on-error: true
@@ -178,7 +181,6 @@ runs:
     - name: PR Summary
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize'
       env:
-        REPO_NAME: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
@@ -187,16 +189,15 @@ runs:
         OPENAI_MODEL: ${{ inputs.openai_model }}
       # Note file must be run remotely using requests, not with "python utils/run_pr_summary.py"
       run: |
-        pip install -q openai requests
+        pip install -q requests
         curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/run_pr_summary.py" | python -
       shell: bash
       continue-on-error: true
 
     # Autolabel Issues and PRs ----------------------------------------------------------------------------------------
     - name: Autolabel Issues and PRs
-      if: (github.event_name == 'issues' || github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.labels == 'true' && (github.event.action == 'opened' || github.event.action == 'edited')
+      if: (github.event_name == 'issues' || github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.labels == 'true' && github.event.action == 'opened'
       env:
-        REPO_NAME: ${{ github.repository }}
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
@@ -204,7 +205,7 @@ runs:
         OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
-        pip install -q openai requests
+        pip install -q requests
         curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/autolabel_issue.py" | python -
       shell: bash
       continue-on-error: true
