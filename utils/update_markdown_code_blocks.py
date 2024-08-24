@@ -42,7 +42,16 @@ def format_code_with_ruff(temp_dir):
     try:
         # Run ruff check, ignore F821 Undefined name
         subprocess.run(
-            ["ruff", "check", "--fix", "--extend-select", "I", "--ignore", "F821,F841", str(temp_dir),],
+            [
+                "ruff",
+                "check",
+                "--fix",
+                "--extend-select",
+                "I",
+                "--ignore",
+                "F821,F841",
+                str(temp_dir),
+            ],
             check=True,
         )
         print("Completed ruff check ✅")
