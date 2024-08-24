@@ -70,7 +70,7 @@ def get_event_content() -> Tuple[int, str, str, str]:
 
     def remove_comments_from_body(body: str) -> str:
         """Removes HTML comment blocks from the body text."""
-        return re.sub(r'<!--.*?-->', '', body, flags=re.DOTALL).strip()
+        return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
 
     if GITHUB_EVENT_NAME == "issues":
         item = event_data["issue"]
