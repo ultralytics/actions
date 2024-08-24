@@ -177,11 +177,11 @@ runs:
       run: |
         git config --global user.name "UltralyticsAssistant"
         git config --global user.email "web@ultralytics.com"
+        git pull origin ${{ github.head_ref || github.ref }}
         git add .
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
         if ! git diff --staged --quiet; then
           git commit -m "Auto-format by https://ultralytics.com/actions"
-          git pull --rebase  # pull the latest changes from the remote branch and rebase to avoid merge commit
           git push
         else
           echo "No changes to commit"
