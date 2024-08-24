@@ -109,8 +109,6 @@ runs:
         --wrap-summaries 120 \
         --wrap-descriptions 120 \
         --in-place \
-        --pre-summary-newline \
-        --close-quotes-on-newline \
         --recursive \
         .
       shell: bash
