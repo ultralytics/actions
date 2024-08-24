@@ -40,16 +40,14 @@ def format_code_with_ruff(temp_dir):
         print(f"ERROR running ruff format ❌ {e}")
 
     try:
-        # Run ruff check, ignore F821 Undefined name
+        # Run ruff check, ignore F821 Undefined name, F841 Local variable is assigned to but never used
         subprocess.run(
             [
                 "ruff",
                 "check",
                 "--fix",
-                "--extend-select",
-                "I",
-                "--ignore",
-                "F821,F841",
+                "--extend-select=I",
+                "--ignore=F821,F841",
                 str(temp_dir),
             ],
             check=True,
