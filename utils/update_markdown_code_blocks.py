@@ -38,10 +38,12 @@ def format_code_with_ruff(temp_dir):
         print("Completed ruff format ✅")
     except Exception as e:
         print(f"ERROR running ruff format ❌ {e}")
-    
+
     try:
         # Run ruff check, ignore F821 Undefined name
-        subprocess.run(["ruff", "check", "--fix", "--extend-select", "I", "--ignore", "F821", str(temp_dir)], check=True)
+        subprocess.run(
+            ["ruff", "check", "--fix", "--extend-select", "I", "--ignore", "F821", str(temp_dir)], check=True
+        )
         print("Completed ruff check ✅")
     except Exception as e:
         print(f"ERROR running ruff check ❌ {e}")
