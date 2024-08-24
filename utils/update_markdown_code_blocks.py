@@ -49,9 +49,6 @@ def format_code_with_ruff(temp_dir):
 
     try:
         # Run ruff check with ignored rules:
-        # D100: Missing docstring in public module
-        # D104: Missing docstring in public package
-        # D205: 1 blank line required between summary line and description
         # F821: Undefined name
         # F841: Local variable is assigned to but never used
         subprocess.run(
@@ -59,8 +56,8 @@ def format_code_with_ruff(temp_dir):
                 "ruff",
                 "check",
                 "--fix",
-                "--extend-select=I,D",
-                "--ignore=D100,D104,D205,F821,F841",
+                "--extend-select=I",
+                "--ignore=F821,F841",
                 str(temp_dir),
             ],
             check=True,
@@ -76,6 +73,7 @@ def format_code_with_ruff(temp_dir):
                 "docformatter",
                 "--wrap-summaries=120",
                 "--wrap-descriptions=120",
+                "--pre-summary-newline",
                 "--close-quotes-on-newline",
                 "--in-place",
                 "--recursive",

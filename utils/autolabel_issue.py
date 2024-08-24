@@ -149,7 +149,6 @@ def block_user(username: str):
 
 def get_relevant_labels(title: str, body: str, available_labels: Dict, current_labels: List) -> List[str]:
     """Uses OpenAI to determine the most relevant labels."""
-
     # Remove mutually exclusive labels like both 'bug' and 'question' or inappropriate labels like 'help wanted'
     for label in ["help wanted", "TODO"]:  # normal case
         available_labels.pop(label, None)  # remove as should only be manually added
