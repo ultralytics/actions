@@ -83,8 +83,8 @@ def get_event_content() -> Tuple[int, str, str, str]:
 
         # Check if this is a newly opened PR
         if event_data["action"] == "opened":
-            print("New PR detected. Waiting 15s before fetching PR data...")
-            time.sleep(15)
+            print("New PR detected. Waiting 10s before fetching PR data...")
+            time.sleep(10)
 
         # Fetch the latest PR data
         data = get_github_data(f"pulls/{pr_number}")
