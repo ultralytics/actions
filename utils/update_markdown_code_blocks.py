@@ -34,15 +34,30 @@ def format_code_with_ruff(temp_dir):
     """Formats all Python code files in the `temp_dir` directory using the 'ruff' linter tool."""
     try:
         # Run ruff format
-        subprocess.run(["ruff", "format", "--line-length", "120", str(temp_dir)], check=True)
+        subprocess.run(
+            [
+                "ruff",
+                "format",
+                "--line-length=120",
+                str(temp_dir),
+            ],
+            check=True,
+        )
         print("Completed ruff format ✅")
     except Exception as e:
         print(f"ERROR running ruff format ❌ {e}")
 
     try:
-        # Run ruff check, ignore F821 Undefined name
+        # Run ruff check, ignore F821 Undefined name, F841 Local variable is assigned to but never used
         subprocess.run(
-            ["ruff", "check", "--fix", "--extend-select", "I", "--ignore", "F821", str(temp_dir)],
+            [
+                "ruff",
+                "check",
+                "--fix",
+                "--extend-select=I",
+                "--ignore=F821,F841",
+                str(temp_dir),
+            ],
             check=True,
         )
         print("Completed ruff check ✅")
@@ -54,10 +69,8 @@ def format_code_with_ruff(temp_dir):
         subprocess.run(
             [
                 "docformatter",
-                "--wrap-summaries",
-                "120",
-                "--wrap-descriptions",
-                "120",
+                "--wrap-summaries=120",
+                "--wrap-descriptions=120",
                 "--in-place",
                 "--pre-summary-newline",
                 "--close-quotes-on-newline",
