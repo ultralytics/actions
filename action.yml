@@ -94,15 +94,15 @@ runs:
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
-        # Ignored rules explanation (mostly set to match Google-style docstrings)
-        # D100: Missing docstring in public module
-        # D104: Missing docstring in public package
-        # D205: 1 blank line required between summary line and description
-        # D212: Multi-line docstring summary should start at the first line
-        # D401: First line of docstring should be in imperative mood
-        # D406: Section name should end with a newline
-        # D407: Missing dashed underline after section
-        # D413: Missing blank line after last section
+    # Ignored rules explanation (mostly set to match Google-style docstrings)
+    # D100: Missing docstring in public module
+    # D104: Missing docstring in public package
+    # D205: 1 blank line required between summary line and description
+    # D212: Multi-line docstring summary should start at the first line
+    # D401: First line of docstring should be in imperative mood
+    # D406: Section name should end with a newline
+    # D407: Missing dashed underline after section
+    # D413: Missing blank line after last section
     - name: Run Python
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.python == 'true' && github.event.action != 'closed'
       run: |
