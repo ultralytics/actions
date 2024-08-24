@@ -72,8 +72,6 @@ def format_code_with_ruff(temp_dir):
                 "--wrap-summaries=120",
                 "--wrap-descriptions=120",
                 "--in-place",
-                "--pre-summary-newline",
-                "--close-quotes-on-newline",
                 "--recursive",
                 str(temp_dir),
             ],
