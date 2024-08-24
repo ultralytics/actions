@@ -107,7 +107,7 @@ runs:
         ruff check \
         --fix \
         --extend-select I,D \
-        --ignore D100,D104,D205 \
+        --ignore D100,D104,D205,D401 \
         . || true
         docformatter \
         --wrap-summaries 120 \
