@@ -17,7 +17,6 @@ Ultralytics Actions automatically applies formats, updates, and enhancements:
 - **Spell Check:** Employing [codespell](https://github.com/codespell-project/codespell) for catching common misspellings.
 - **Broken Links Check:** Implementing [Lychee](https://github.com/lycheeverse/lychee) to report broken links in docs and markdown files.
 - **PR Summary:** Generating concise [OpenAI](https://openai.com/) GPT4o-powered PR summaries, enhancing PR clarity.
-- **Auto-labeling:** Applying relevant labels to issues and pull requests using [OpenAI](https://openai.com/) GPT-4o for intelligent categorization.
 
 ## 🛠 How It Works
 
