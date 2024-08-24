@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import time
 from typing import Dict, List, Tuple
 
@@ -68,20 +69,27 @@ def get_event_content() -> Tuple[int, str, str, str]:
     with open(GITHUB_EVENT_PATH, "r") as f:
         event_data = json.load(f)
 
+    def remove_comments_from_body(body: str) -> str:
+        """Removes HTML comment blocks from the body text."""
+        return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
+
     if GITHUB_EVENT_NAME == "issues":
         item = event_data["issue"]
-        return item["number"], item["title"], item.get("body", ""), item["user"]["login"]
+        body = remove_comments_from_body(item.get("body", ""))
+        return item["number"], item["title"], body, item["user"]["login"]
+
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
         pr_number = event_data["pull_request"]["number"]
 
         # Check if this is a newly opened PR
         if event_data["action"] == "opened":
-            print("New PR detected. Waiting 20s before fetching PR data...")
-            time.sleep(20)
+            print("New PR detected. Waiting 15s before fetching PR data...")
+            time.sleep(15)
 
         # Fetch the latest PR data
-        latest_pr_data = get_github_data(f"pulls/{pr_number}")
-        return pr_number, latest_pr_data["title"], latest_pr_data.get("body", ""), latest_pr_data["user"]["login"]
+        data = get_github_data(f"pulls/{pr_number}")
+        return pr_number, data["title"], remove_comments_from_body(data.get("body", "")), data["user"]["login"]
+
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
