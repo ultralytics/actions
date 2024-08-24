@@ -94,7 +94,10 @@ runs:
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
-    # Note on sorting Python imports https://stackoverflow.com/questions/77876253/sort-imports-alphabetically-with-ruff
+    # Ignored rules explanation:
+    # D100: Missing docstring in public module
+    # D104: Missing docstring in public package
+    # D205: 1 blank line required between summary line and description
     - name: Run Python
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.python == 'true' && github.event.action != 'closed'
       run: |
@@ -103,7 +106,8 @@ runs:
         . || true
         ruff check \
         --fix \
-        --extend-select I \
+        --extend-select I,D \
+        --ignore D100,D104,D205 \
         . || true
         docformatter \
         --wrap-summaries 120 \
