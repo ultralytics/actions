@@ -71,6 +71,7 @@ def format_code_with_ruff(temp_dir):
                 "docformatter",
                 "--wrap-summaries=120",
                 "--wrap-descriptions=120",
+                "--close-quotes-on-newline",
                 "--in-place",
                 "--recursive",
                 str(temp_dir),
