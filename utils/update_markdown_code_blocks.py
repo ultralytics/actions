@@ -38,8 +38,7 @@ def format_code_with_ruff(temp_dir):
             [
                 "ruff",
                 "format",
-                "--line-length",
-                "120",
+                "--line-length=120",
                 str(temp_dir),
             ],
             check=True,
@@ -70,10 +69,8 @@ def format_code_with_ruff(temp_dir):
         subprocess.run(
             [
                 "docformatter",
-                "--wrap-summaries",
-                "120",
-                "--wrap-descriptions",
-                "120",
+                "--wrap-summaries=120",
+                "--wrap-descriptions=120",
                 "--in-place",
                 "--pre-summary-newline",
                 "--close-quotes-on-newline",
