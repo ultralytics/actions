@@ -113,6 +113,7 @@ runs:
         . || true
         ruff check \
         --fix \
+        --unsafe-fixes \
         --extend-select I,D \
         --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413 \
         . || true
