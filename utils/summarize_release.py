@@ -1,16 +1,14 @@
 # Ultralytics YOLO 🚀, AGPL-3.0 License https://ultralytics.com/license
 
 import os
+import re
 import subprocess
 
 import requests
 
 # Environment variables
 REPO_NAME = os.getenv("GITHUB_REPOSITORY")
-PR_NUMBER = os.getenv("PR_NUMBER")
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
-GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 CURRENT_TAG = os.getenv("CURRENT_TAG")
@@ -24,7 +22,12 @@ AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
 AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")  # update as required
 
 
-def get_completion(messages: list, use_python_client: bool = False) -> str:
+def remove_html_comments(body: str) -> str:
+    """Removes HTML comment blocks from the body text."""
+    return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
+
+
+def get_completion(messages: list) -> str:
     """Get completion from OpenAI or Azure OpenAI."""
     if AZURE_API_KEY and AZURE_ENDPOINT:
         url = f"{AZURE_ENDPOINT}/openai/deployments/{OPENAI_MODEL}/chat/completions?api-version={AZURE_API_VERSION}"
@@ -43,13 +46,38 @@ def get_completion(messages: list, use_python_client: bool = False) -> str:
 
 def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str) -> str:
     """Get the diff between two tags."""
-    url = f"https://api.github.com/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
+    url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
     response = requests.get(url, headers=GITHUB_HEADERS)
     return response.text if response.status_code == 200 else f"Failed to get diff: {response.content}"
 
 
-def generate_release_summary(diff: str, latest_tag: str) -> str:
+def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> list:
+    """Get PRs merged between two tags."""
+    url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls"
+    params = {"state": "closed", "base": "main", "sort": "updated", "direction": "desc"}
+    prs = []
+
+    for pr in requests.get(url, headers=GITHUB_HEADERS, params=params).json():
+        if pr["merged_at"]:
+            if latest_tag >= pr["merge_commit_sha"] > previous_tag:
+                prs.append({"number": pr["number"], "title": pr["title"], "body": remove_html_comments(pr["body"])})
+            elif pr["merge_commit_sha"] <= previous_tag:
+                break
+
+    return prs
+
+
+def generate_release_summary(diff: str, prs: list, latest_tag: str) -> str:
     """Generate a summary for the release."""
+    pr_summaries = ("\n".join([f"PR #{pr['number']}: {pr['title']}\n{pr['body'][:1000]}..." for pr in prs]))[:30000]
+
+    current_pr = prs[0] if prs else None
+    current_pr_summary = (
+        f"Current PR #{current_pr['number']}: {current_pr['title']}\n{current_pr['body'][:1000]}..."
+        if current_pr
+        else "No current PR found."
+    )
+
     messages = [
         {
             "role": "system",
@@ -57,38 +85,53 @@ def generate_release_summary(diff: str, latest_tag: str) -> str:
         },
         {
             "role": "user",
-            "content": f"Summarize the updates made in the '{latest_tag}' tag, focusing on major changes, their purpose, and potential impact. Keep the summary clear and suitable for a broad audience. Add emojis to enliven the summary. Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:\n\n"
+            "content": f"Summarize the updates made in the '{latest_tag}' tag, focusing on major model or features changes, their purpose, and potential impact. Keep the summary clear and suitable for a broad audience. Add emojis to enliven the summary. Prioritize changes from the current PR (the first in the list), which is usually the most important in the release. Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:\n\n"
             f"## 🌟 Summary (single-line synopsis)\n"
             f"## 📊 Key Changes (bullet points highlighting any major changes)\n"
-            f"## 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n"
-            f"\n\nHere's the release diff:\n\n{diff[:300000]}",
+            f"## 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n\n\n"
+            f"Here's the information about the current PR:\n\n{current_pr_summary}\n\n"
+            f"Here's the information about PRs merged between the previous release and this one:\n\n{pr_summaries}\n\n"
+            f"Here's the release diff:\n\n{diff[:300000]}",
         },
     ]
+    print(messages[-1]["content"][:3000])  # for debug
     return get_completion(messages)
 
 
 def create_github_release(repo_name: str, tag_name: str, name: str, body: str) -> int:
     """Create a release on GitHub."""
-    release_url = f"https://api.github.com/repos/{repo_name}/releases"
-    release_data = {"tag_name": tag_name, "name": name, "body": body, "draft": False, "prerelease": False}
-    response = requests.post(release_url, headers=GITHUB_HEADERS, json=release_data)
+    url = f"{GITHUB_API_URL}/repos/{repo_name}/releases"
+    data = {"tag_name": tag_name, "name": name, "body": body, "draft": False, "prerelease": False}
+    response = requests.post(url, headers=GITHUB_HEADERS, json=data)
     return response.status_code
+
+
+def get_previous_tag() -> str:
+    """Get the previous tag from git tags."""
+    cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", CURRENT_TAG]
+    try:
+        return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
+    except subprocess.CalledProcessError:
+        print("Failed to get previous tag from git. Using previous commit.")
+        return "HEAD~1"
 
 
 def main():
     # Check for required environment variables
-    if not all([GITHUB_TOKEN, CURRENT_TAG, PREVIOUS_TAG]):
+    if not all([GITHUB_TOKEN, CURRENT_TAG]):
         raise ValueError("One or more required environment variables are missing.")
 
-    latest_tag = f"v{CURRENT_TAG}"
-    previous_tag = f"v{PREVIOUS_TAG}"
+    previous_tag = PREVIOUS_TAG or get_previous_tag()
 
     # Get the diff between the tags
-    diff = get_release_diff(REPO_NAME, previous_tag, latest_tag)
+    diff = get_release_diff(REPO_NAME, previous_tag, CURRENT_TAG)
+
+    # Get PRs merged between the tags
+    prs = get_prs_between_tags(REPO_NAME, previous_tag, CURRENT_TAG)
 
     # Generate release summary
     try:
-        summary = generate_release_summary(diff, latest_tag)
+        summary = generate_release_summary(diff, prs, CURRENT_TAG)
     except Exception as e:
         print(f"Failed to generate summary: {str(e)}")
         summary = "Failed to generate summary."
@@ -98,11 +141,11 @@ def main():
     commit_message = subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.split("\n")[0].strip()
 
     # Create the release on GitHub
-    status_code = create_github_release(REPO_NAME, latest_tag, f"{latest_tag} - {commit_message}", summary)
+    status_code = create_github_release(REPO_NAME, CURRENT_TAG, f"{CURRENT_TAG} - {commit_message}", summary)
     if status_code == 201:
-        print(f"Successfully created release {latest_tag}")
+        print(f"Successfully created release {CURRENT_TAG}")
     else:
-        print(f"Failed to create release {latest_tag}. Status code: {status_code}")
+        print(f"Failed to create release {CURRENT_TAG}. Status code: {status_code}")
 
 
 if __name__ == "__main__":
