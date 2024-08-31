@@ -69,11 +69,11 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> 
 
 def generate_release_summary(diff: str, prs: list, latest_tag: str) -> str:
     """Generate a summary for the release."""
-    pr_summaries = "\n".join([f"PR #{pr['number']}: {pr['title']}\n{pr['body'][:500]}..." for pr in prs])
+    pr_summaries = ("\n".join([f"PR #{pr['number']}: {pr['title']}\n{pr['body'][:1000]}..." for pr in prs]))[:30000]
 
     current_pr = prs[0] if prs else None
     current_pr_summary = (
-        f"Current PR #{current_pr['number']}: {current_pr['title']}\n{current_pr['body'][:500]}..."
+        f"Current PR #{current_pr['number']}: {current_pr['title']}\n{current_pr['body'][:1000]}..."
         if current_pr
         else "No current PR found."
     )
