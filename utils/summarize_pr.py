@@ -16,9 +16,6 @@ GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "applicati
 # OpenAI settings
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-05-13")  # update as required
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
-AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
-AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")  # update as required
 
 # Action settings
 SUMMARY_START = (
