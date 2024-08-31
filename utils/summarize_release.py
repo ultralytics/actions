@@ -53,28 +53,43 @@ def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str) -> str:
 
 
 def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> list:
-    """Get PRs merged between two tags."""
-    url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls"
-    params = {"state": "closed", "base": "main", "sort": "updated", "direction": "desc"}
-    prs = []
+    """Get PRs merged between two tags using the compare API."""
+    url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
+    response = requests.get(url, headers=GITHUB_HEADERS)
+    response.raise_for_status()
 
-    for pr in requests.get(url, headers=GITHUB_HEADERS, params=params).json():
-        if pr["merged_at"]:
-            if latest_tag >= pr["merge_commit_sha"] > previous_tag:
-                prs.append({"number": pr["number"], "title": pr["title"], "body": remove_html_comments(pr["body"])})
-            elif pr["merge_commit_sha"] <= previous_tag:
-                break
+    data = response.json()
+    pr_numbers = set()
+
+    for commit in data['commits']:
+        pr_matches = re.findall(r'#(\d+)', commit['commit']['message'])
+        pr_numbers.update(pr_matches)
+
+    prs = []
+    for pr_number in pr_numbers:
+        pr_url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
+        pr_response = requests.get(pr_url, headers=GITHUB_HEADERS)
+        if pr_response.status_code == 200:
+            pr_data = pr_response.json()
+            prs.append({
+                "number": pr_data['number'],
+                "title": pr_data['title'],
+                "body": remove_html_comments(pr_data['body']),
+                "author": pr_data['user']['login'],
+                "html_url": pr_data['html_url']
+            })
 
     return prs
 
 
 def generate_release_summary(diff: str, prs: list, latest_tag: str) -> str:
     """Generate a summary for the release."""
-    pr_summaries = ("\n".join([f"PR #{pr['number']}: {pr['title']}\n{pr['body'][:1000]}..." for pr in prs]))[:30000]
+    pr_summaries = ("\n".join(
+        [f"PR #{pr['number']}: {pr['title']} by @{pr['author']}\n{pr['body'][:1000]}..." for pr in prs]))[:30000]
 
     current_pr = prs[0] if prs else None
     current_pr_summary = (
-        f"Current PR #{current_pr['number']}: {current_pr['title']}\n{current_pr['body'][:1000]}..."
+        f"Current PR #{current_pr['number']}: {current_pr['title']} by @{current_pr['author']}\n{current_pr['body'][:1000]}..."
         if current_pr
         else "No current PR found."
     )
