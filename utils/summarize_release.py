@@ -1,6 +1,7 @@
 # Ultralytics YOLO 🚀, AGPL-3.0 License https://ultralytics.com/license
 
 import os
+import re
 import subprocess
 
 import requests
@@ -19,6 +20,11 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
 AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
 AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")  # update as required
+
+
+def remove_html_comments(body: str) -> str:
+    """Removes HTML comment blocks from the body text."""
+    return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
 
 
 def get_completion(messages: list) -> str:
@@ -58,11 +64,11 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> 
 
     for pr in requests.get(url, headers=GITHUB_HEADERS, params=params).json():
         if pr['merged_at']:
-            if pr['merge_commit_sha'] <= latest_tag and pr['merge_commit_sha'] > previous_tag:
+            if latest_tag >= pr['merge_commit_sha'] > previous_tag:
                 prs.append({
                     "number": pr['number'],
                     "title": pr['title'],
-                    "body": pr['body']
+                    "body": remove_html_comments(pr['body'])
                 })
             elif pr['merge_commit_sha'] <= previous_tag:
                 break

@@ -25,6 +25,11 @@ AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
 AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")  # update as required
 
 
+def remove_html_comments(body: str) -> str:
+    """Removes HTML comment blocks from the body text."""
+    return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
+
+
 def get_completion(messages: list) -> str:
     """Get completion from OpenAI or Azure OpenAI."""
     if AZURE_API_KEY and AZURE_ENDPOINT:
@@ -54,13 +59,9 @@ def get_event_content() -> Tuple[int, str, str, str]:
     with open(GITHUB_EVENT_PATH, "r") as f:
         event_data = json.load(f)
 
-    def remove_comments_from_body(body: str) -> str:
-        """Removes HTML comment blocks from the body text."""
-        return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
-
     if GITHUB_EVENT_NAME == "issues":
         item = event_data["issue"]
-        body = remove_comments_from_body(item.get("body", ""))
+        body = remove_html_comments(item.get("body", ""))
         return item["number"], item["title"], body, item["user"]["login"]
 
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
@@ -73,7 +74,7 @@ def get_event_content() -> Tuple[int, str, str, str]:
 
         # Fetch the latest PR data
         data = get_github_data(f"pulls/{pr_number}")
-        return pr_number, data["title"], remove_comments_from_body(data.get("body", "")), data["user"]["login"]
+        return pr_number, data["title"], remove_html_comments(data.get("body", "")), data["user"]["login"]
 
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
