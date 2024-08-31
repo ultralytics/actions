@@ -112,8 +112,8 @@ def update_pr_description(repo_name, pr_number, new_summary):
     return update_response.status_code
 
 
-if __name__ == "__main__":
-    # Fetch PR details
+def main():
+    """Summarize PR."""
     diff = get_pr_diff(REPO_NAME, PR_NUMBER)
 
     # Generate PR summary
@@ -125,3 +125,7 @@ if __name__ == "__main__":
         print("PR description updated successfully.")
     else:
         print(f"Failed to update PR description. Status code: {status_code}")
+
+
+if __name__ == "__main__":
+    main()
