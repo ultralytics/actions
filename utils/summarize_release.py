@@ -155,7 +155,7 @@ def main():
 
     # Generate release summary
     try:
-        summary = generate_release_summary(diff, prs, CURRENT_TAG)
+        summary = generate_release_summary(diff, prs, CURRENT_TAG, previous_tag, REPO_NAME)
     except Exception as e:
         print(f"Failed to generate summary: {str(e)}")
         summary = "Failed to generate summary."
