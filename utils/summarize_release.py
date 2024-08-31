@@ -107,12 +107,12 @@ def create_github_release(repo_name: str, tag_name: str, name: str, body: str) -
 
 def get_previous_tag() -> str:
     """Get the previous tag from git tags."""
-    cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", CURRENT_TAG, "--exclude", f"v{CURRENT_TAG}"]
+    cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", CURRENT_TAG]
     try:
         return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
     except subprocess.CalledProcessError:
-        print("Failed to get previous tag from git. Using an empty string.")
-        return ""
+        print("Failed to get previous tag from git. Using previous commit.")
+        return "HEAD~1"
 
 
 def main():
@@ -120,21 +120,17 @@ def main():
     if not all([GITHUB_TOKEN, CURRENT_TAG]):
         raise ValueError("One or more required environment variables are missing.")
 
-    latest_tag = f"v{CURRENT_TAG}"
-    previous_tag = f"v{PREVIOUS_TAG}" if PREVIOUS_TAG else get_previous_tag()
-    if not previous_tag:
-        print("No previous tag found. This might be the first release.")
-        previous_tag = "HEAD~1"  # Use the previous commit if no tag is found
+    previous_tag = PREVIOUS_TAG or get_previous_tag()
 
     # Get the diff between the tags
-    diff = get_release_diff(REPO_NAME, previous_tag, latest_tag)
+    diff = get_release_diff(REPO_NAME, previous_tag, CURRENT_TAG)
 
     # Get PRs merged between the tags
-    prs = get_prs_between_tags(REPO_NAME, previous_tag, latest_tag)
+    prs = get_prs_between_tags(REPO_NAME, previous_tag, CURRENT_TAG)
 
     # Generate release summary
     try:
-        summary = generate_release_summary(diff, prs, latest_tag)
+        summary = generate_release_summary(diff, prs, CURRENT_TAG)
     except Exception as e:
         print(f"Failed to generate summary: {str(e)}")
         summary = "Failed to generate summary."
@@ -144,11 +140,11 @@ def main():
     commit_message = subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.split("\n")[0].strip()
 
     # Create the release on GitHub
-    status_code = create_github_release(REPO_NAME, latest_tag, f"{latest_tag} - {commit_message}", summary)
+    status_code = create_github_release(REPO_NAME, CURRENT_TAG, f"{CURRENT_TAG} - {commit_message}", summary)
     if status_code == 201:
-        print(f"Successfully created release {latest_tag}")
+        print(f"Successfully created release {CURRENT_TAG}")
     else:
-        print(f"Failed to create release {latest_tag}. Status code: {status_code}")
+        print(f"Failed to create release {CURRENT_TAG}. Status code: {status_code}")
 
 
 if __name__ == "__main__":
