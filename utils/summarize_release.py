@@ -47,7 +47,8 @@ def get_completion(messages: list) -> str:
 def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str) -> str:
     """Get the diff between two tags."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
-    response = requests.get(url, headers=GITHUB_HEADERS)
+    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
+    response = requests.get(url, headers=headers)
     return response.text if response.status_code == 200 else f"Failed to get diff: {response.content}"
 
 
