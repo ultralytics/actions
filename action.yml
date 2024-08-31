@@ -54,7 +54,7 @@ inputs:
   openai_model:
     description: "OpenAI Model"
     required: false
-    default: "gpt-4o-2024-05-13"
+    default: "gpt-4o-2024-08-06"
 runs:
   using: "composite"
   steps:
