@@ -45,10 +45,16 @@ inputs:
   openai_api_key:
     description: "OpenAI API Key"
     required: false
+  openai_azure_api_key:
+    description: "OpenAI Azure API Key"
+    required: false
+  openai_azure_endpoint:
+    description: "OpenAI Azure Endpoint"
+    required: false
   openai_model:
     description: "OpenAI Model"
     required: false
-    default: "gpt-4o-2024-08-06"
+    default: "gpt-4o-2024-05-13"
 runs:
   using: "composite"
   steps:
