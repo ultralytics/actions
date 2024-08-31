@@ -107,7 +107,7 @@ def create_github_release(repo_name: str, tag_name: str, name: str, body: str) -
 
 def get_previous_tag() -> str:
     """Get the previous tag from git tags."""
-    cmd = ["git", "describe", "--tags", "--abbrev=0","--exclude", CURRENT_TAG,"--exclude", f"v{CURRENT_TAG}"]    
+    cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", CURRENT_TAG, "--exclude", f"v{CURRENT_TAG}"]
     try:
         return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
     except subprocess.CalledProcessError:
