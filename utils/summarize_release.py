@@ -95,7 +95,7 @@ def generate_release_summary(diff: str, prs: list, latest_tag: str) -> str:
             f"Here's the release diff:\n\n{diff[:300000]}",
         },
     ]
-    print(messages[-1]["content"][:3000])  # for debug
+    print(messages[-1]["content"])  # for debug
     return get_completion(messages)
 
 
