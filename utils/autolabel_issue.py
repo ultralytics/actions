@@ -25,7 +25,7 @@ AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
 AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")  # update as required
 
 
-def get_completion(messages: list, use_python_client: bool = False) -> str:
+def get_completion(messages: list) -> str:
     """Get completion from OpenAI or Azure OpenAI."""
     if AZURE_API_KEY and AZURE_ENDPOINT:
         url = f"{AZURE_ENDPOINT}/openai/deployments/{OPENAI_MODEL}/chat/completions?api-version={AZURE_API_VERSION}"
