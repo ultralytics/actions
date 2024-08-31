@@ -34,7 +34,7 @@ def get_completion(messages: list, use_python_client: bool = False) -> str:
         assert OPENAI_API_KEY, "OpenAI API key is required."
         url = "https://api.openai.com/v1/chat/completions"
         headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
-        data = {"model": OPENAI_MODEL, "messages": messages}
+        data = {"model": "gpt-4o-2024-08-06", "messages": messages}
 
     response = requests.post(url, headers=headers, json=data)
     response.raise_for_status()
