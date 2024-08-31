@@ -26,33 +26,12 @@ SUMMARY_START = (
 )
 
 
-def openai_client():
-    """Returns OpenAI client instance."""
-    from openai import AzureOpenAI, OpenAI
-
-    return (
-        AzureOpenAI(api_key=AZURE_API_KEY, api_version=AZURE_API_VERSION, azure_endpoint=AZURE_ENDPOINT)
-        if AZURE_API_KEY and AZURE_ENDPOINT
-        else OpenAI(api_key=OPENAI_API_KEY)
-    )
-
-
-def get_completion(messages: list, use_python_client: bool = False) -> str:
-    """Get completion from OpenAI or Azure OpenAI."""
-    if use_python_client:
-        response = openai_client().chat.completions.create(model=OPENAI_MODEL, messages=messages)
-        return response.choices[0].message.content.strip()
-
-    # If not Python client then use REST API
-    if AZURE_API_KEY and AZURE_ENDPOINT:
-        url = f"{AZURE_ENDPOINT}/openai/deployments/{OPENAI_MODEL}/chat/completions?api-version={AZURE_API_VERSION}"
-        headers = {"api-key": AZURE_API_KEY, "Content-Type": "application/json"}
-        data = {"messages": messages}
-    else:
-        url = "https://api.openai.com/v1/chat/completions"
-        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
-        data = {"model": OPENAI_MODEL, "messages": messages}
-
+def get_completion(messages: list) -> str:
+    """Get completion from OpenAI."""
+    assert OPENAI_API_KEY, "OpenAI API key is required."
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+    data = {"model": OPENAI_MODEL, "messages": messages}
     response = requests.post(url, headers=headers, json=data)
     response.raise_for_status()
     return response.json()["choices"][0]["message"]["content"].strip()

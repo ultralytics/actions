@@ -22,7 +22,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 def get_completion(messages: list) -> str:
-    """Get completion from OpenAI or Azure OpenAI."""
+    """Get completion from OpenAI."""
+    assert OPENAI_API_KEY, "OpenAI API key is required."
     url = "https://api.openai.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
     data = {"model": OPENAI_MODEL, "messages": messages}
@@ -75,9 +76,6 @@ def main():
     # Check for required environment variables
     if not all([GITHUB_TOKEN, CURRENT_TAG, PREVIOUS_TAG]):
         raise ValueError("One or more required environment variables are missing.")
-
-    if not OPENAI_API_KEY:
-        raise ValueError("OpenAI API key is required.")
 
     latest_tag = f"v{CURRENT_TAG}"
     previous_tag = f"v{PREVIOUS_TAG}"
