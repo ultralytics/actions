@@ -54,9 +54,8 @@ completion = client.chat.completions.create(model="gpt-4o-2024-08-06", messages=
 summary = completion.choices[0].message.content.strip()
 
 # Get the latest commit message
-commit_message = \
-    subprocess.run(['git', 'log', '-1', '--pretty=%B'], check=True, text=True, capture_output=True).stdout.split("\n")[
-        0].strip()
+cmd = ['git', 'log', '-1', '--pretty=%B']
+commit_message = subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.split("\n")[0].strip()
 
 # Prepare release data
 release = {
