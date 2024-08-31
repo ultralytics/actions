@@ -105,13 +105,26 @@ def create_github_release(repo_name: str, tag_name: str, name: str, body: str) -
     return response.status_code
 
 
+def get_previous_tag() -> str:
+    """Get the previous tag from git tags."""
+    cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", f"v{CURRENT_TAG}"]
+    try:
+        return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
+    except subprocess.CalledProcessError:
+        print("Failed to get previous tag from git. Using an empty string.")
+        return ""
+
+
 def main():
     # Check for required environment variables
-    if not all([GITHUB_TOKEN, CURRENT_TAG, PREVIOUS_TAG]):
+    if not all([GITHUB_TOKEN, CURRENT_TAG]):
         raise ValueError("One or more required environment variables are missing.")
 
     latest_tag = f"v{CURRENT_TAG}"
-    previous_tag = f"v{PREVIOUS_TAG}"
+    previous_tag = f"v{PREVIOUS_TAG}" if PREVIOUS_TAG else get_previous_tag()
+    if not previous_tag:
+        print("No previous tag found. This might be the first release.")
+        previous_tag = "HEAD~1"  # Use the previous commit if no tag is found
 
     # Get the diff between the tags
     diff = get_release_diff(REPO_NAME, previous_tag, latest_tag)
