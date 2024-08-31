@@ -99,9 +99,9 @@ def generate_release_summary(diff: str, prs: list, latest_tag: str) -> str:
 
 def create_github_release(repo_name: str, tag_name: str, name: str, body: str) -> int:
     """Create a release on GitHub."""
-    release_url = f"{GITHUB_API_URL}/repos/{repo_name}/releases"
-    release_data = {"tag_name": tag_name, "name": name, "body": body, "draft": False, "prerelease": False}
-    response = requests.post(release_url, headers=GITHUB_HEADERS, json=release_data)
+    url = f"{GITHUB_API_URL}/repos/{repo_name}/releases"
+    data = {"tag_name": tag_name, "name": name, "body": body, "draft": False, "prerelease": False}
+    response = requests.post(url, headers=GITHUB_HEADERS, json=data)
     return response.status_code
 
 
