@@ -86,9 +86,7 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> 
 
 def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag: str, repo_name: str) -> str:
     """Generate a summary for the release."""
-    pr_summaries = (
-        "\n".join([f"PR #{pr['number']}: {pr['title']} by @{pr['author']}\n{pr['body'][:1000]}..." for pr in prs])
-    )[:30000]
+    pr_summaries = "\n".join([f"PR #{pr['number']}: {pr['title']} by @{pr['author']}\n{pr['body'][:1000]}..." for pr in prs])
 
     current_pr = prs[0] if prs else None
     current_pr_summary = (
@@ -112,7 +110,7 @@ def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag
             f"## 📊 Key Changes (bullet points highlighting any major changes)\n"
             f"## 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n\n\n"
             f"Here's the information about the current PR:\n\n{current_pr_summary}\n\n"
-            f"Here's the information about PRs merged between the previous release and this one:\n\n{pr_summaries}\n\n"
+            f"Here's the information about PRs merged between the previous release and this one:\n\n{pr_summaries[:30000]}\n\n"
             f"Here's the release diff:\n\n{diff[:300000]}",
         },
     ]
