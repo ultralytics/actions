@@ -112,13 +112,13 @@ runs:
         ruff format \
         --line-length 120 \
         . || true
-      ruff check \
-          --fix \
-          --unsafe-fixes \
-          --extend-select I,D,UP \
-          --target-version py38 \
-          --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413 \
-          . || true
+        ruff check \
+        --fix \
+        --unsafe-fixes \
+        --extend-select I,D,UP \
+        --target-version py38 \
+        --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413 \
+        . || true
         docformatter \
         --wrap-summaries 120 \
         --wrap-descriptions 120 \
