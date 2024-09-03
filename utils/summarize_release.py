@@ -109,7 +109,7 @@ def get_new_contributors(repo: str, prs: list) -> set:
 def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag: str, repo_name: str) -> str:
     """Generate a summary for the release."""
     pr_summaries = "\n".join(
-        [f"PR #{pr['number']}: {pr['title']} by @{pr['author']}\n{pr['body'][:1000]}..." for pr in prs]
+        [f"PR #{pr['number']}: {pr['title']} by @{pr['author']}\n{pr['body'][:1000]}\n\n" for pr in prs]
     )
 
     current_pr = prs[-1] if prs else None
