@@ -56,7 +56,7 @@ def get_github_data(endpoint: str) -> dict:
 
 def get_event_content() -> Tuple[int, str, str, str]:
     """Extracts the number, title, body, and username from the issue or pull request."""
-    with open(GITHUB_EVENT_PATH, "r") as f:
+    with open(GITHUB_EVENT_PATH) as f:
         event_data = json.load(f)
 
     if GITHUB_EVENT_NAME == "issues":
