@@ -89,15 +89,13 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> 
     return prs
 
 
-def get_new_contributors(repo_name: str, prs: list) -> set:
+def get_new_contributors(repo: str, prs: list) -> set:
     """Identify genuinely new contributors in the current release."""
     new_contributors = set()
     for pr in prs:
         author = pr["author"]
         # Check if this is the author's first contribution
-        url = (
-            f"{GITHUB_API_URL}/search/issues?q=repo:{repo_name}+author:{author}+is:pr+is:merged&sort=created&order=asc"
-        )
+        url = f"{GITHUB_API_URL}/search/issues?q=repo:{repo}+author:{author}+is:pr+is:merged&sort=created&order=asc"
         response = requests.get(url, headers=GITHUB_HEADERS)
         if response.status_code == 200:
             data = response.json()
