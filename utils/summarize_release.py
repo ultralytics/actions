@@ -3,6 +3,7 @@
 import os
 import re
 import subprocess
+from datetime import datetime
 
 import requests
 
@@ -78,8 +79,12 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> 
                     "body": remove_html_comments(pr_data["body"]),
                     "author": pr_data["user"]["login"],
                     "html_url": pr_data["html_url"],
+                    "merged_at": pr_data["merged_at"],
                 }
             )
+
+    # Sort PRs by merge date
+    prs.sort(key=lambda x: datetime.strptime(x["merged_at"], "%Y-%m-%dT%H:%M:%SZ"))
 
     return prs
 
@@ -90,7 +95,7 @@ def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag
         [f"PR #{pr['number']}: {pr['title']} by @{pr['author']}\n{pr['body'][:1000]}..." for pr in prs]
     )
 
-    current_pr = prs[0] if prs else None
+    current_pr = prs[-1] if prs else None
     current_pr_summary = (
         f"Current PR #{current_pr['number']}: {current_pr['title']} by @{current_pr['author']}\n{current_pr['body'][:1000]}..."
         if current_pr
