@@ -89,6 +89,23 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> 
     return prs
 
 
+def get_new_contributors(repo: str, prs: list) -> set:
+    """Identify genuinely new contributors in the current release."""
+    new_contributors = set()
+    for pr in prs:
+        author = pr["author"]
+        # Check if this is the author's first contribution
+        url = f"{GITHUB_API_URL}/search/issues?q=repo:{repo}+author:{author}+is:pr+is:merged&sort=created&order=asc"
+        response = requests.get(url, headers=GITHUB_HEADERS)
+        if response.status_code == 200:
+            data = response.json()
+            if data["total_count"] > 0:
+                first_pr = data["items"][0]
+                if first_pr["number"] == pr["number"]:
+                    new_contributors.add(author)
+    return new_contributors
+
+
 def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag: str, repo_name: str) -> str:
     """Generate a summary for the release."""
     pr_summaries = "\n".join(
@@ -103,8 +120,25 @@ def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag
     )
 
     whats_changed = "\n".join([f"* {pr['title']} by @{pr['author']} in {pr['html_url']}" for pr in prs])
+
+    # Generate New Contributors section
+    new_contributors = get_new_contributors(repo_name, prs)
+    new_contributors_section = (
+        "\n## New Contributors\n"
+        + "\n".join(
+            [
+                f"* @{contributor} made their first contribution in {next(pr['html_url'] for pr in prs if pr['author'] == contributor)}"
+                for contributor in new_contributors
+            ]
+        )
+        if new_contributors
+        else ""
+    )
+
     full_changelog = f"https://github.com/{repo_name}/compare/{previous_tag}...{latest_tag}"
-    release_suffix = f"\n\n## What's Changed\n{whats_changed}\n\n**Full Changelog**: {full_changelog}\n"
+    release_suffix = (
+        f"\n\n## What's Changed\n{whats_changed}\n{new_contributors_section}\n\n**Full Changelog**: {full_changelog}\n"
+    )
 
     messages = [
         {
