@@ -96,7 +96,7 @@ def generate_temp_filename(file_path, index):
 def process_markdown_file(file_path, temp_dir, verbose=False):
     """Reads a markdown file, extracts Python code blocks, saves them to temp files, and updates the file."""
     try:
-        with open(file_path, "r") as file:
+        with open(file_path) as file:
             markdown_content = file.read()
 
         code_blocks = extract_code_blocks(markdown_content)
@@ -125,7 +125,7 @@ def update_markdown_file(file_path, markdown_content, temp_files):
     """Updates the markdown file with formatted code blocks."""
     for num_spaces, original_code_block, temp_file_path in temp_files:
         try:
-            with open(temp_file_path, "r") as temp_file:
+            with open(temp_file_path) as temp_file:
                 formatted_code = temp_file.read().rstrip("\n")  # Strip trailing newlines
             formatted_code_with_indentation = add_indentation(formatted_code, num_spaces)
 
