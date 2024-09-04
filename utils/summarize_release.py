@@ -16,7 +16,7 @@ CURRENT_TAG = os.getenv("CURRENT_TAG")
 PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
 
 # OpenAI settings
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-05-13")  # update as required
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # update as required
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
 AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")

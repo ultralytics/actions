@@ -18,7 +18,7 @@ GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "applicati
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 
 # OpenAI settings
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-05-13")  # update as required
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # update as required
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
 AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
