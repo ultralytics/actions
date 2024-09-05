@@ -2,7 +2,7 @@
 
 # 🚀 Ultralytics Actions: Auto-Formatting for Python, Markdown, and Swift
 
-Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python and Swift projects. This GitHub Action is designed to automate the formatting of Python, Markdown, and Swift files, ensuring adherence to our coding standards.
+Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python and Swift projects. This GitHub Action is designed to automate the formatting of Python, Markdown, and Swift files, ensuring adherence to our coding standards.
 
 [![GitHub Actions Marketplace](https://img.shields.io/badge/Marketplace-Ultralytics_Actions-blue?style=flat&logo=github)](https://github.com/marketplace/actions/ultralytics-actions) [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml) <a href="https://ultralytics.com/discord"><img alt="Discord" src="https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue"></a> <a href="https://community.ultralytics.com"><img alt="Ultralytics Forums" src="https://img.shields.io/discourse/users?server=https%3A%2F%2Fcommunity.ultralytics.com&logo=discourse&label=Forums&color=blue"></a> <a href="https://reddit.com/r/ultralytics"><img alt="Ultralytics Reddit" src="https://img.shields.io/reddit/subreddit-subscribers/ultralytics?style=flat&logo=reddit&logoColor=white&label=Reddit&color=blue"></a>
 
@@ -10,9 +10,9 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/action) repo
 
 Ultralytics Actions automatically applies formats, updates, and enhancements:
 
-- **Python Code:** Using [Ruff](https://github.com/charliermarsh/ruff), a fast Python auto-formatter.
+- **Python Code:** Using [Ruff](https://github.com/astral-sh/ruff), a fast Python auto-formatter.
 - **Markdown Files:** With [Prettier](https://github.com/prettier/prettier), ensuring a consistent style in documentation.
-- **Docstrings:** Utilizing [docformatter](https://github.com/myint/docformatter) for clean and standardized documentation comments.
+- **Docstrings:** Utilizing [docformatter](https://github.com/PyCQA/docformatter) for clean and standardized documentation comments.
 - **Swift Code:** Formatting Swift files using `swift-format` to ensure consistent coding style across Swift projects. _(Requires `macos-latest` to run correctly.)_
 - **Spell Check:** Employing [codespell](https://github.com/codespell-project/codespell) for catching common misspellings.
 - **Broken Links Check:** Implementing [Lychee](https://github.com/lycheeverse/lychee) to report broken links in docs and markdown files.
@@ -72,7 +72,7 @@ To use this action in your Ultralytics repository:
 
 ## 💡 Contribute
 
-Ultralytics thrives on community collaboration; we immensely value your involvement! We urge you to peruse our [Contributing Guide](https://docs.ultralytics.com/help/contributing) for detailed insights on how you can participate. Don't forget to share your feedback with us by contributing to our [Survey](https://ultralytics.com/survey?utm_source=github&utm_medium=social&utm_campaign=Survey). A heartfelt thank you 🙏 goes out to everyone who has already contributed!
+Ultralytics thrives on community collaboration; we immensely value your involvement! We urge you to peruse our [Contributing Guide](https://docs.ultralytics.com/help/contributing) for detailed insights on how you can participate. Don't forget to share your feedback with us by contributing to our [Survey](https://www.ultralytics.com/survey?utm_source=github&utm_medium=social&utm_campaign=Survey). A heartfelt thank you 🙏 goes out to everyone who has already contributed!
 
 <a href="https://github.com/ultralytics/yolov5/graphs/contributors">
 <img width="100%" src="https://github.com/ultralytics/assets/raw/main/im/image-contributors.png" alt="Ultralytics open-source contributors"></a>
@@ -81,12 +81,12 @@ Ultralytics thrives on community collaboration; we immensely value your involvem
 
 Ultralytics presents two distinct licensing paths to accommodate a variety of scenarios:
 
-- **AGPL-3.0 License**: This official [OSI-approved](https://opensource.org/licenses/) open-source license is perfectly aligned with the goals of students, enthusiasts, and researchers who believe in the virtues of open collaboration and shared wisdom. Details are available in the [LICENSE](https://github.com/ultralytics/ultralytics/blob/main/LICENSE) document.
-- **Enterprise License**: Tailored for commercial deployment, this license authorizes the unfettered integration of Ultralytics software and AI models within commercial goods and services, without the copyleft stipulations of AGPL-3.0. Should your use case demand an enterprise solution, direct your inquiries to [Ultralytics Licensing](https://ultralytics.com/license).
+- **AGPL-3.0 License**: This official [OSI-approved](https://opensource.org/license) open-source license is perfectly aligned with the goals of students, enthusiasts, and researchers who believe in the virtues of open collaboration and shared wisdom. Details are available in the [LICENSE](https://github.com/ultralytics/ultralytics/blob/main/LICENSE) document.
+- **Enterprise License**: Tailored for commercial deployment, this license authorizes the unfettered integration of Ultralytics software and AI models within commercial goods and services, without the copyleft stipulations of AGPL-3.0. Should your use case demand an enterprise solution, direct your inquiries to [Ultralytics Licensing](https://www.ultralytics.com/license).
 
 ## 📮 Contact
 
-For bugs or feature suggestions pertaining to Ultralytics, please lodge an issue via [GitHub Issues](https://github.com/ultralytics/pre-commit/issues). You're also invited to participate in our [Discord](https://ultralytics.com/discord) community to engage in discussions and seek advice!
+For bugs or feature suggestions pertaining to Ultralytics, please lodge an issue via [GitHub Issues](https://github.com/ultralytics/pre-commit/issues). You're also invited to participate in our [Discord](https://discord.com/invite/ultralytics) community to engage in discussions and seek advice!
 
 <br>
 <div align="center">

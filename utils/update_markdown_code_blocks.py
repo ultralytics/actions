@@ -96,9 +96,7 @@ def generate_temp_filename(file_path, index):
 def process_markdown_file(file_path, temp_dir, verbose=False):
     """Reads a markdown file, extracts Python code blocks, saves them to temp files, and updates the file."""
     try:
-        with open(file_path) as file:
-            markdown_content = file.read()
-
+        markdown_content = Path(file_path).read_text()
         code_blocks = extract_code_blocks(markdown_content)
         temp_files = []
 
