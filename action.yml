@@ -38,6 +38,10 @@ inputs:
     description: "Run Broken Links checks"
     required: false
     default: "false"
+  redirects:
+    description: "Run URL redirect checks"
+    required: false
+    default: "false"
   summary:
     description: "Run PR Summary"
     required: false
