@@ -179,7 +179,7 @@ def get_previous_tag() -> str:
 
 
 def main():
-    # Check for required environment variables
+    """Automates generating and publishing a GitHub release summary from PRs and commit differences."""
     if not all([GITHUB_TOKEN, CURRENT_TAG]):
         raise ValueError("One or more required environment variables are missing.")
 
