@@ -90,7 +90,7 @@ runs:
       if: github.event_name != 'issues' && github.event.action != 'closed'
       run: |
         pip install -q \
-        ruff docformatter codespell tomli
+        ruff docformatter codespell tomli requests
       shell: bash
 
     # Python formatting ------------------------------------------------------------------------------------------------
@@ -202,9 +202,7 @@ runs:
         OPENAI_AZURE_API_KEY: ${{ inputs.openai_azure_api_key }}
         OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
-      # Note file must be run remotely using requests, not with "python utils/summarize_pr.py"
       run: |
-        pip install -q requests
         curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/summarize_pr.py" | python -
       shell: bash
       continue-on-error: true
@@ -220,7 +218,6 @@ runs:
         OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
-        pip install -q requests
         curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/autolabel_issue.py" | python -
       shell: bash
       continue-on-error: true
