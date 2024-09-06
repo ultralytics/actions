@@ -90,8 +90,23 @@ runs:
       if: github.event_name != 'issues' && github.event.action != 'closed'
       run: |
         pip install -q \
-        ruff docformatter codespell tomli
+        ruff docformatter codespell tomli requests
       shell: bash
+
+    # PR Summary -------------------------------------------------------------------------------------------------------
+    - name: PR Summary
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize'
+      env:
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        OPENAI_AZURE_API_KEY: ${{ inputs.openai_azure_api_key }}
+        OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
+        OPENAI_MODEL: ${{ inputs.openai_model }}
+      run: |
+        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/summarize_pr.py" | python -
+      shell: bash
+      continue-on-error: true
 
     # Python formatting ------------------------------------------------------------------------------------------------
     # Ignores the following Docs rules to match Google-style docstrings:
@@ -192,23 +207,6 @@ runs:
       shell: bash
       continue-on-error: false
 
-    # PR Summary -------------------------------------------------------------------------------------------------------
-    - name: PR Summary
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize'
-      env:
-        PR_NUMBER: ${{ github.event.pull_request.number }}
-        GITHUB_TOKEN: ${{ inputs.token }}
-        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
-        OPENAI_AZURE_API_KEY: ${{ inputs.openai_azure_api_key }}
-        OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
-        OPENAI_MODEL: ${{ inputs.openai_model }}
-      # Note file must be run remotely using requests, not with "python utils/summarize_pr.py"
-      run: |
-        pip install -q requests
-        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/summarize_pr.py" | python -
-      shell: bash
-      continue-on-error: true
-
     # Autolabel Issues and PRs ----------------------------------------------------------------------------------------
     - name: Autolabel Issues and PRs
       if: (github.event_name == 'issues' || github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.labels == 'true' && github.event.action == 'opened'
@@ -220,7 +218,6 @@ runs:
         OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
-        pip install -q requests
         curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/autolabel_issue.py" | python -
       shell: bash
       continue-on-error: true

@@ -3,7 +3,6 @@
 import json
 import os
 import re
-import time
 from typing import Dict, List, Tuple
 
 import requests
@@ -66,11 +65,6 @@ def get_event_content() -> Tuple[int, str, str, str]:
 
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
         pr_number = event_data["pull_request"]["number"]
-
-        # Check if this is a newly opened PR
-        if event_data["action"] == "opened":
-            print("New PR detected. Waiting 3s before fetching PR data...")
-            time.sleep(3)
 
         # Fetch the latest PR data
         data = get_github_data(f"pulls/{pr_number}")
