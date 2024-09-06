@@ -3,7 +3,6 @@
 import json
 import os
 import re
-import time
 from typing import Dict, List, Tuple
 
 import requests
