@@ -60,18 +60,14 @@ def get_event_content() -> Tuple[int, str, str, str]:
 
     if GITHUB_EVENT_NAME == "issues":
         item = event_data["issue"]
-        body = remove_html_comments(item.get("body", ""))
-        return item["number"], item["title"], body, item["user"]["login"]
-
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
         pr_number = event_data["pull_request"]["number"]
-
-        # Fetch the latest PR data
-        data = get_github_data(f"pulls/{pr_number}")
-        return pr_number, data["title"], remove_html_comments(data.get("body", "")), data["user"]["login"]
-
+        item = get_github_data(f"pulls/{pr_number}")
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
+
+    body = remove_html_comments(item.get("body", ""))
+    return item["number"], item["title"], body, item["user"]["login"]
 
 
 def update_issue_pr_content(number: int):
