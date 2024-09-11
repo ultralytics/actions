@@ -73,6 +73,22 @@ def get_event_content() -> Tuple[int, str, str, str]:
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
+def get_event_content() -> Tuple[int, str, str, str]:
+    """Extracts the number, title, body, and username from the issue or pull request."""
+    with open(GITHUB_EVENT_PATH) as f:
+        event_data = json.load(f)
+    
+    if GITHUB_EVENT_NAME == "issues":
+        item = event_data["issue"]
+    elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
+        pr_number = event_data["pull_request"]["number"]
+        item = get_github_data(f"pulls/{pr_number}")
+    else:
+        raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
+    
+    body = remove_html_comments(item.get("body", ""))
+    return item["number"], item["title"], body, item["user"]["login"]
+
 
 def update_issue_pr_content(number: int):
     """Updates the title and body of the issue or pull request."""
