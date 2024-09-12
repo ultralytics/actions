@@ -43,9 +43,9 @@ def get_completion(messages: list) -> str:
     return response.json()["choices"][0]["message"]["content"].strip()
 
 
-def get_pr_diff(repo_name, pr_number):
+def get_pr_diff(pr_number):
     """Fetches the diff of a specific PR from a GitHub repository."""
-    url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
+    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/pulls/{pr_number}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
     response = requests.get(url, headers=headers)
     return response.text if response.status_code == 200 else ""
@@ -99,7 +99,7 @@ def update_pr_description(repo_name, pr_number, new_summary):
 
 def main():
     """Summarize PR."""
-    diff = get_pr_diff(REPO_NAME, PR_NUMBER)
+    diff = get_pr_diff(PR_NUMBER)
 
     # Generate PR summary
     summary = generate_pr_summary(REPO_NAME, diff)
