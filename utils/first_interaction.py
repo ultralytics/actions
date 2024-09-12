@@ -289,7 +289,7 @@ def add_comment(number: int, comment: str):
 
 def get_first_interaction_response(issue_type: str, title: str, body: str, username: str) -> str:
     """Generates a custom response using LLM based on the issue/PR content and instructions."""
-    instructions = FIRST_INTERACTION_ISSUE_INSTRUCTIONS if issue_type == "issue" else FIRST_INTERACTION_PR_INSTRUCTIONS
+    example = FIRST_INTERACTION_ISSUE_INSTRUCTIONS if issue_type == "issue" else FIRST_INTERACTION_PR_INSTRUCTIONS
 
     org_name, repo_name = REPO_NAME.split("/")
     repo_url = f"https://github.com/{REPO_NAME}"
@@ -303,7 +303,15 @@ CONTEXT:
 - User: {username}
 
 INSTRUCTIONS:
-{instructions}
+- Provide an optimal answer if a bug report or question
+- Provide highly detailed best-practices guidelines for issue/PR submission
+- Include all links and instructions in the example below, but customize and tailer the content as appropriate
+- Make clear that this is an automated response and that a human reviewer should respond soon with additional help
+- Do not add a sign-off or valediction like "best regards" at the end of your response
+- Use emojis to enliven your response and code example and backlinks if they help
+
+EXAMPLE:
+{example}
 
 {issue_type.upper()} TITLE:
 {title}
@@ -311,7 +319,7 @@ INSTRUCTIONS:
 {issue_type.upper()} DESCRIPTION:
 {body[:16000]}
 
-YOUR RESPONSE:
+YOUR RESPONSE COMMENT BODY:
 """
     messages = [
         {
