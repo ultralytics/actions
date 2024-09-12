@@ -173,7 +173,7 @@ def block_user(username: str):
         print(f"Failed to block user. Status code: {response.status_code}")
 
 
-def get_relevant_labels(title: str, body: str, available_labels: Dict, current_labels: List) -> List[str]:
+def get_relevant_labels(issue_type: str, title: str, body: str, available_labels: Dict, current_labels: List) -> List[str]:
     """Uses OpenAI to determine the most relevant labels."""
     # Remove mutually exclusive labels like both 'bug' and 'question' or inappropriate labels like 'help wanted'
     for label in ["help wanted", "TODO"]:  # normal case
@@ -191,23 +191,23 @@ def get_relevant_labels(title: str, body: str, available_labels: Dict, current_l
 
     labels = "\n".join(f"- {name}: {description}" for name, description in available_labels.items())
 
-    prompt = f"""Select the top 1-3 most relevant labels for the following GitHub issue or pull request.
+    prompt = f"""Select the top 1-3 most relevant labels for the following GitHub {issue_type}.
 
 INSTRUCTIONS:
-1. Review the issue/PR title and description.
+1. Review the {issue_type} title and description.
 2. Consider the available labels and their descriptions.
-3. Choose 1-3 labels that best match the issue/PR content.
-4. Only use the "Alert" label when you have high confidence that this is an inappropriate issue.
+3. Choose 1-3 labels that best match the {issue_type} content.
+4. Only use the "Alert" label when you have high confidence that this is an inappropriate {issue_type}.
 5. Respond ONLY with the chosen label names (no descriptions), separated by commas.
 6. If no labels are relevant, respond with 'None'.
 
 AVAILABLE LABELS:
 {labels}
 
-ISSUE/PR TITLE:
+{issue_type.upper()} TITLE:
 {title}
 
-ISSUE/PR DESCRIPTION:
+{issue_type.upper()} DESCRIPTION:
 {body[:16000]}
 
 YOUR RESPONSE (label names only):
@@ -329,9 +329,10 @@ YOUR RESPONSE:
 def main():
     """Runs autolabel action and adds custom response for new issues/PRs."""
     number, title, body, username = get_event_content()
+    issue_type = "issue" if GITHUB_EVENT_NAME == "issues" else "pull request"
     available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
     current_labels = [label["name"].lower() for label in get_github_data(f"issues/{number}/labels")]
-    relevant_labels = get_relevant_labels(title, body, available_labels, current_labels)
+    relevant_labels = get_relevant_labels(issue_type, title, body, available_labels, current_labels)
 
     if relevant_labels:
         apply_labels(number, relevant_labels)
@@ -349,7 +350,6 @@ def main():
         event_data = json.load(f)
 
     if event_data.get("action") == "opened":
-        issue_type = "issue" if GITHUB_EVENT_NAME == "issues" else "pull request"
         custom_response = get_first_interaction_response(issue_type, title, body, username, number)
         add_comment(number, custom_response)
 
