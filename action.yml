@@ -55,6 +55,12 @@ inputs:
     description: "OpenAI Model"
     required: false
     default: "gpt-4o"
+  first_interaction_issue_instructions:
+    description: "Instructions for generating custom responses to new issues"
+    required: false
+  first_interaction_pr_instructions:
+    description: "Instructions for generating custom responses to new pull requests"
+    required: false
 runs:
   using: "composite"
   steps:
@@ -213,6 +219,8 @@ runs:
       env:
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ inputs.token }}
+        FIRST_INTERACTION_ISSUE_INSTRUCTIONS: ${{ inputs.first_interaction_issue_instructions }}
+        FIRST_INTERACTION_PR_INSTRUCTIONS: ${{ inputs.first_interaction_pr_instructions }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_AZURE_API_KEY: ${{ inputs.openai_azure_api_key }}
         OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
