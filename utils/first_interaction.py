@@ -189,10 +189,7 @@ def lock_issue_pr(number: int, node_id: str, issue_type: str):
             }
         }
         """
-        variables = {
-            "lockableId": node_id,
-            "lockReason": "OFF_TOPIC",
-        }
+        variables = {"lockableId": node_id,"lockReason": "OFF_TOPIC"}
         response = graphql_request(mutation, variables)
         if response.get("data"):
             print(f"Successfully locked discussion #{number}.")
@@ -335,13 +332,7 @@ def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
 def create_alert_label():
     """Creates the 'Alert' label in the repository if it doesn't exist."""
     alert_label = {"name": "Alert", "color": "FF0000", "description": "Potential spam, abuse, or off-topic."}
-    response = requests.post(f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels", json=alert_label, headers=GITHUB_HEADERS)
-    if response.status_code == 201:
-        print("Successfully created 'Alert' label.")
-    elif response.status_code == 422:  # Label already exists
-        print("'Alert' label already exists.")
-    else:
-        print(f"Failed to create 'Alert' label. Status code: {response.status_code}")
+    requests.post(f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels", json=alert_label, headers=GITHUB_HEADERS)
 
 
 def is_org_member(username: str) -> bool:
