@@ -316,7 +316,7 @@ EXAMPLE:
 {"PULL REQUEST DIFF:" if issue_type == "pull request" else ""}
 {diff if issue_type == "pull request" else ""}
 
-YOUR RESPONSE:
+YOUR RESPONSE (response comment body only):
 """
     print(f"\n\n{prompt}\n\n")  # for debug
     messages = [
