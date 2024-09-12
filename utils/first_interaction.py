@@ -38,7 +38,10 @@ def get_completion(messages: list) -> str:
     else:
         assert OPENAI_API_KEY, "OpenAI API key is required."
         url = "https://api.openai.com/v1/chat/completions"
-        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+        headers = {
+            "Authorization": f"Bearer {OPENAI_API_KEY}",
+            "Content-Type": "application/json",
+        }
         data = {"model": OPENAI_MODEL, "messages": messages}
 
     response = requests.post(url, headers=headers, json=data)
@@ -49,37 +52,77 @@ def get_completion(messages: list) -> str:
 def get_pr_diff(pr_number):
     """Fetches the diff of a specific PR from a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/pulls/{pr_number}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
+    headers = {
+        "Authorization": f"token {GITHUB_TOKEN}",
+        "Accept": "application/vnd.github.v3.diff",
+    }
     response = requests.get(url, headers=headers)
     return response.text if response.status_code == 200 else ""
 
 
 def get_github_data(endpoint: str) -> dict:
     """Generic function to fetch data from GitHub API."""
-    response = requests.get(f"{GITHUB_API_URL}/repos/{REPO_NAME}/{endpoint}", headers=GITHUB_HEADERS)
+    response = requests.get(
+        f"{GITHUB_API_URL}/repos/{REPO_NAME}/{endpoint}", headers=GITHUB_HEADERS
+    )
     response.raise_for_status()
     return response.json()
 
 
-def get_event_content() -> Tuple[int, str, str, str]:
-    """Extracts the number, title, body, and username from the issue or pull request."""
+def graphql_request(query: str, variables: dict = None) -> dict:
+    """Executes a GraphQL query or mutation."""
+    headers = {
+        "Authorization": f"Bearer {GITHUB_TOKEN}",
+        "Content-Type": "application/json",
+        "Accept": "application/vnd.github.v4+json",
+    }
+    response = requests.post(
+        GITHUB_API_URL + "/graphql",
+        json={"query": query, "variables": variables},
+        headers=headers,
+    )
+    response.raise_for_status()
+    result = response.json()
+    if "errors" in result:
+        raise Exception(f"GraphQL error: {result['errors']}")
+    return result
+
+
+def get_event_content() -> Tuple[int, str, str, str, str]:
+    """Extracts the number, node_id, title, body, and username from the issue, pull request, or discussion."""
     with open(GITHUB_EVENT_PATH) as f:
         event_data = json.load(f)
 
     if GITHUB_EVENT_NAME == "issues":
         item = event_data["issue"]
+        body = remove_html_comments(item.get("body", ""))
+        return item["number"], item["node_id"], item["title"], body, item["user"]["login"]
+
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
         pr_number = event_data["pull_request"]["number"]
         item = get_github_data(f"pulls/{pr_number}")
+        body = remove_html_comments(item.get("body", ""))
+        return (
+            item["number"],
+            item["node_id"],
+            item["title"],
+            body,
+            item["user"]["login"],
+        )
+
+    elif GITHUB_EVENT_NAME == "discussion":
+        item = event_data["discussion"]
+        discussion_id = item["node_id"]  # GraphQL node ID
+        number = item["number"]
+        body = remove_html_comments(item.get("body", ""))
+        return number, discussion_id, item["title"], body, item["user"]["login"]
+
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
-    body = remove_html_comments(item.get("body", ""))
-    return item["number"], item["title"], body, item["user"]["login"]
 
-
-def update_issue_pr_content(number: int):
-    """Updates the title and body of the issue or pull request."""
+def update_issue_pr_content(number: int, node_id: str, issue_type: str):
+    """Updates the title and body of the issue, pull request, or discussion."""
     new_title = "Content Under Review"
     new_body = """This post has been flagged for review by [Ultralytics Actions](https://ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
 
@@ -90,35 +133,95 @@ For questions or bug reports related to this action please visit https://github.
 
 Thank you 🙏
 """
-    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
-    data = {"title": new_title, "body": new_body}
-    response = requests.patch(url, json=data, headers=GITHUB_HEADERS)
-    if response.status_code == 200:
-        print(f"Successfully updated issue/PR #{number} title and body.")
+    if issue_type == "discussion":
+        mutation = """
+        mutation($discussionId: ID!, $title: String!, $body: String!) {
+            updateDiscussion(input: {discussionId: $discussionId, title: $title, body: $body}) {
+                discussion {
+                    id
+                }
+            }
+        }
+        """
+        variables = {
+            "discussionId": node_id,
+            "title": new_title,
+            "body": new_body,
+        }
+        response = graphql_request(mutation, variables)
+        if response.get("data"):
+            print(f"Successfully updated discussion #{number} title and body.")
+        else:
+            print(f"Failed to update discussion. Errors: {response.get('errors')}")
     else:
-        print(f"Failed to update issue/PR. Status code: {response.status_code}")
+        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
+        data = {"title": new_title, "body": new_body}
+        response = requests.patch(url, json=data, headers=GITHUB_HEADERS)
+        if response.status_code == 200:
+            print(f"Successfully updated issue/PR #{number} title and body.")
+        else:
+            print(f"Failed to update issue/PR. Status code: {response.status_code}")
 
 
-def close_issue_pr(number: int):
-    """Closes the issue or pull request."""
-    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
-    data = {"state": "closed"}
-    response = requests.patch(url, json=data, headers=GITHUB_HEADERS)
-    if response.status_code == 200:
-        print(f"Successfully closed issue/PR #{number}.")
+def close_issue_pr(number: int, node_id: str, issue_type: str):
+    """Closes the issue, pull request, or discussion."""
+    if issue_type == "discussion":
+        mutation = """
+        mutation($discussionId: ID!) {
+            closeDiscussion(input: {discussionId: $discussionId}) {
+                discussion {
+                    id
+                }
+            }
+        }
+        """
+        variables = {"discussionId": node_id}
+        response = graphql_request(mutation, variables)
+        if response.get("data"):
+            print(f"Successfully closed discussion #{number}.")
+        else:
+            print(f"Failed to close discussion. Errors: {response.get('errors')}")
     else:
-        print(f"Failed to close issue/PR. Status code: {response.status_code}")
+        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
+        data = {"state": "closed"}
+        response = requests.patch(url, json=data, headers=GITHUB_HEADERS)
+        if response.status_code == 200:
+            print(f"Successfully closed issue/PR #{number}.")
+        else:
+            print(f"Failed to close issue/PR. Status code: {response.status_code}")
 
 
-def lock_issue_pr(number: int):
-    """Locks the issue or pull request."""
-    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/lock"
-    data = {"lock_reason": "off-topic"}
-    response = requests.put(url, json=data, headers=GITHUB_HEADERS)
-    if response.status_code == 204:
-        print(f"Successfully locked issue/PR #{number}.")
+def lock_issue_pr(number: int, node_id: str, issue_type: str):
+    """Locks the issue, pull request, or discussion."""
+    if issue_type == "discussion":
+        mutation = """
+        mutation($lockableId: ID!, $lockReason: LockReason) {
+            lockLockable(input: {lockableId: $lockableId, lockReason: $lockReason}) {
+                lockedRecord {
+                    ... on Discussion {
+                        id
+                    }
+                }
+            }
+        }
+        """
+        variables = {
+            "lockableId": node_id,
+            "lockReason": "OFF_TOPIC",
+        }
+        response = graphql_request(mutation, variables)
+        if response.get("data"):
+            print(f"Successfully locked discussion #{number}.")
+        else:
+            print(f"Failed to lock discussion. Errors: {response.get('errors')}")
     else:
-        print(f"Failed to lock issue/PR. Status code: {response.status_code}")
+        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/lock"
+        data = {"lock_reason": "off-topic"}
+        response = requests.put(url, json=data, headers=GITHUB_HEADERS)
+        if response.status_code in [200, 204]:
+            print(f"Successfully locked issue/PR #{number}.")
+        else:
+            print(f"Failed to lock issue/PR. Status code: {response.status_code}")
 
 
 def block_user(username: str):
@@ -174,7 +277,10 @@ YOUR RESPONSE (label names only):
 """
     print(prompt)  # for short-term debugging
     messages = [
-        {"role": "system", "content": "You are a helpful assistant that labels GitHub issues and pull requests."},
+        {
+            "role": "system",
+            "content": "You are a helpful assistant that labels GitHub issues, pull requests, and discussions.",
+        },
         {"role": "user", "content": prompt},
     ]
     suggested_labels = get_completion(messages)
@@ -189,16 +295,62 @@ YOUR RESPONSE (label names only):
     ]
 
 
-def apply_labels(number: int, labels: List[str]):
-    """Applies the given labels to the issue or pull request."""
+def get_label_ids(labels: List[str]) -> List[str]:
+    """Fetches the label IDs for given label names."""
+    # This function remains unchanged and continues to use REST API
+    label_ids = []
+    for label_name in labels:
+        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels/{label_name}"
+        response = requests.get(url, headers=GITHUB_HEADERS)
+        if response.status_code == 200:
+            label_data = response.json()
+            label_ids.append(label_data["id"])
+        else:
+            print(f"Label '{label_name}' not found.")
+    return label_ids
+
+
+def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
+    """Applies the given labels to the issue, pull request, or discussion."""
     if "Alert" in labels:
         create_alert_label()
-    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
-    response = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS | {"Author": "UltralyticsAssistant"})
-    if response.status_code == 200:
-        print(f"Successfully applied labels: {', '.join(labels)}")
+    if issue_type == "discussion":
+        label_ids = get_label_ids(labels)
+        if not label_ids:
+            print("No valid labels to apply.")
+            return
+        # Use GraphQL to apply labels to the discussion
+        mutation = """
+        mutation($labelableId: ID!, $labelIds: [ID!]!) {
+            addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
+                labelable {
+                    ... on Discussion {
+                        id
+                    }
+                }
+            }
+        }
+        """
+        variables = {
+            "labelableId": node_id,
+            "labelIds": label_ids,
+        }
+        response = graphql_request(mutation, variables)
+        if response.get("data"):
+            print(f"Successfully applied labels to discussion #{number}.")
+        else:
+            print(f"Failed to apply labels to discussion. Errors: {response.get('errors')}")
     else:
-        print(f"Failed to apply labels. Status code: {response.status_code}")
+        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
+        response = requests.post(
+            url,
+            json={"labels": labels},
+            headers=GITHUB_HEADERS | {"Author": "UltralyticsAssistant"},
+        )
+        if response.status_code == 200:
+            print(f"Successfully applied labels: {', '.join(labels)}")
+        else:
+            print(f"Failed to apply labels. Status code: {response.status_code}")
 
 
 def create_alert_label():
@@ -208,7 +360,11 @@ def create_alert_label():
         "color": "FF0000",  # bright red
         "description": "Potential spam, abuse, or off-topic.",
     }
-    response = requests.post(f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels", json=alert_label, headers=GITHUB_HEADERS)
+    response = requests.post(
+        f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels",
+        json=alert_label,
+        headers=GITHUB_HEADERS,
+    )
     if response.status_code == 201:
         print("Successfully created 'Alert' label.")
     elif response.status_code == 422:  # Label already exists
@@ -225,18 +381,40 @@ def is_org_member(username: str) -> bool:
     return response.status_code == 204  # 204 means the user is a member
 
 
-def add_comment(number: int, comment: str):
-    """Adds a comment to the issue or pull request."""
-    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/comments"
-    data = {"body": comment}
-    response = requests.post(url, json=data, headers=GITHUB_HEADERS)
-    if response.status_code == 201:
-        print(f"Successfully added comment to {GITHUB_EVENT_NAME} #{number}.")
+def add_comment(number: int, node_id: str, comment: str, issue_type: str):
+    """Adds a comment to the issue, pull request, or discussion."""
+    if issue_type == "discussion":
+        mutation = """
+        mutation($discussionId: ID!, $body: String!) {
+            addDiscussionComment(input: {discussionId: $discussionId, body: $body}) {
+                comment {
+                    id
+                }
+            }
+        }
+        """
+        variables = {
+            "discussionId": node_id,
+            "body": comment,
+        }
+        response = graphql_request(mutation, variables)
+        if response.get("data"):
+            print(f"Successfully added comment to discussion #{number}.")
+        else:
+            print(f"Failed to add comment to discussion. Errors: {response.get('errors')}")
     else:
-        print(f"Failed to add comment. Status code: {response.status_code}")
+        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/comments"
+        data = {"body": comment}
+        response = requests.post(url, json=data, headers=GITHUB_HEADERS)
+        if response.status_code in [200, 201]:
+            print(f"Successfully added comment to {issue_type} #{number}.")
+        else:
+            print(f"Failed to add comment. Status code: {response.status_code}")
 
 
-def get_first_interaction_response(issue_type: str, title: str, body: str, username: str, number: int) -> str:
+def get_first_interaction_response(
+    issue_type: str, title: str, body: str, username: str, number: int
+) -> str:
     """Generates a custom response using LLM based on the issue/PR content and instructions."""
     issue_response = f"""
 👋 Hello @{username}, thank you for submitting an Ultralytics 🚀 Issue. To help us address your concern efficiently, please ensure you've provided the following information:
@@ -277,10 +455,26 @@ Thank you for your contribution to improving our project!
 For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing). Don’t hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀
 """
 
+    discussion_response = f"""
+👋 Hello @{username}, welcome to the Ultralytics community! Thank you for starting this discussion. We're excited to engage with you.
+
+To help us facilitate a meaningful conversation, please consider the following:
+
+- **Be Clear and Concise**: Provide as much detail as possible about your topic or question.
+- **Share Resources**: If applicable, include code snippets, links, or references that can help others understand your point.
+- **Engage Respectfully**: Remember to be respectful and considerate in your interactions. Our [Code of Conduct](https://docs.ultralytics.com/help/code_of_conduct) outlines the expectations for our community.
+
+An Ultralytics team member or community expert will join the discussion soon. In the meantime, feel free to explore our [documentation](https://docs.ultralytics.com) and [existing discussions](https://github.com/{REPO_NAME}/discussions) for more information.
+
+Thank you for contributing to our community! 🚀
+"""
+
     example = (
         (os.getenv("FIRST_ISSUE_RESPONSE") or issue_response)
         if issue_type == "issue"
         else (os.getenv("FIRST_PR_RESPONSE") or pr_response)
+        if issue_type == "pull request"
+        else (os.getenv("FIRST_DISCUSSION_RESPONSE") or discussion_response)
     )
 
     org_name, repo_name = REPO_NAME.split("/")
@@ -330,31 +524,53 @@ YOUR RESPONSE:
 
 
 def main():
-    """Runs autolabel action and adds custom response for new issues/PRs."""
-    number, title, body, username = get_event_content()
-    issue_type = "issue" if GITHUB_EVENT_NAME == "issues" else "pull request"
-    available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
-    current_labels = [label["name"].lower() for label in get_github_data(f"issues/{number}/labels")]
-    relevant_labels = get_relevant_labels(issue_type, title, body, available_labels, current_labels)
+    """Runs autolabel action and adds custom response for new issues/PRs/Discussions."""
+    number, node_id, title, body, username = get_event_content()
+    if GITHUB_EVENT_NAME == "issues":
+        issue_type = "issue"
+    elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
+        issue_type = "pull request"
+    elif GITHUB_EVENT_NAME == "discussion":
+        issue_type = "discussion"
+    else:
+        raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
+
+    available_labels = {
+        label["name"]: label.get("description", "") for label in get_github_data("labels")
+    }
+    if issue_type == "discussion":
+        # For discussions, labels may need to be fetched differently or adjusted
+        current_labels = []  # Adjust as needed if discussions have labels
+    else:
+        current_labels = [
+            label["name"].lower()
+            for label in get_github_data(f"issues/{number}/labels")
+        ]
+    relevant_labels = get_relevant_labels(
+        issue_type, title, body, available_labels, current_labels
+    )
 
     if relevant_labels:
-        apply_labels(number, relevant_labels)
+        apply_labels(number, node_id, relevant_labels, issue_type)
         if "Alert" in relevant_labels and not is_org_member(username):
-            update_issue_pr_content(number)
-            close_issue_pr(number)
-            lock_issue_pr(number)
+            update_issue_pr_content(number, node_id, issue_type)
+            if issue_type != "pull request":
+                close_issue_pr(number, node_id, issue_type)
+            lock_issue_pr(number, node_id, issue_type)
             if BLOCK_USER:
-                block_user(username=get_github_data(f"issues/{number}")["user"]["login"])
+                block_user(username=username)
     else:
         print("No relevant labels found or applied.")
 
-    # Generate and add custom response for new issues/PRs
+    # Generate and add custom response for new issues/PRs/Discussions
     with open(GITHUB_EVENT_PATH) as f:
         event_data = json.load(f)
 
-    if event_data.get("action") == "opened":
-        custom_response = get_first_interaction_response(issue_type, title, body, username, number)
-        add_comment(number, custom_response)
+    if event_data.get("action") in ["opened", "created"]:
+        custom_response = get_first_interaction_response(
+            issue_type, title, body, username, number
+        )
+        add_comment(number, node_id, custom_response, issue_type)
 
 
 if __name__ == "__main__":
