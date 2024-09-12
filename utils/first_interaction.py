@@ -479,9 +479,13 @@ YOUR RESPONSE:
 def main():
     """Runs autolabel action and adds custom response for new issues/PRs/Discussions."""
     number, node_id, title, body, username = get_event_content()
-    issue_type = "issue" if GITHUB_EVENT_NAME == "issues" \
-        else "pull request" if GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"] \
+    issue_type = (
+        "issue"
+        if GITHUB_EVENT_NAME == "issues"
+        else "pull request"
+        if GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]
         else "discussion"
+    )
     available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
     if issue_type == "discussion":
         # For discussions, labels may need to be fetched differently or adjusted
