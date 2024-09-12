@@ -123,8 +123,7 @@ mutation($discussionId: ID!, $title: String!, $body: String!) {
     }
 }
 """
-        variables = {"discussionId": node_id, "title": new_title, "body": new_body}
-        response = graphql_request(mutation, variables)
+        response = graphql_request(mutation, variables={"discussionId": node_id, "title": new_title, "body": new_body})
         if response.get("data"):
             print(f"Successfully updated discussion #{number} title and body.")
         else:
@@ -151,8 +150,7 @@ mutation($discussionId: ID!) {
     }
 }
 """
-        variables = {"discussionId": node_id}
-        response = graphql_request(mutation, variables)
+        response = graphql_request(mutation, variables={"discussionId": node_id})
         if response.get("data"):
             print(f"Successfully closed discussion #{number}.")
         else:
@@ -181,8 +179,7 @@ mutation($lockableId: ID!, $lockReason: LockReason) {
     }
 }
 """
-        variables = {"lockableId": node_id, "lockReason": "OFF_TOPIC"}
-        response = graphql_request(mutation, variables)
+        response = graphql_request(mutation, variables={"lockableId": node_id, "lockReason": "OFF_TOPIC"})
         if response.get("data"):
             print(f"Successfully locked discussion #{number}.")
         else:
@@ -304,8 +301,7 @@ mutation($labelableId: ID!, $labelIds: [ID!]!) {
     }
 }
 """
-        variables = {"labelableId": node_id, "labelIds": label_ids}
-        response = graphql_request(mutation, variables)
+        response = graphql_request(mutation, variables={"labelableId": node_id, "labelIds": label_ids})
         if response.get("data"):
             print(f"Successfully applied labels to discussion #{number}.")
         else:
@@ -347,8 +343,7 @@ mutation($discussionId: ID!, $body: String!) {
     }
 }
 """
-        variables = {"discussionId": node_id, "body": comment}
-        response = graphql_request(mutation, variables)
+        response = graphql_request(mutation, variables={"discussionId": node_id, "body": comment})
         if response.get("data"):
             print(f"Successfully added comment to discussion #{number}.")
         else:
