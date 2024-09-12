@@ -276,9 +276,11 @@ Thank you for your contribution to improving our project!
 For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing). Don’t hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀
 """
 
-    example = os.getenv("FIRST_ISSUE_RESPONSE", issue_response) \
-        if issue_type == "issue" \
-        else os.getenv("FIRST_PR_RESPONSE", pr_response)
+    example = (
+        (os.getenv("FIRST_ISSUE_RESPONSE") or issue_response)
+        if issue_type == "issue"
+        else (os.getenv("FIRST_PR_RESPONSE") or pr_response)
+    )
 
     org_name, repo_name = REPO_NAME.split("/")
     repo_url = f"https://github.com/{REPO_NAME}"
