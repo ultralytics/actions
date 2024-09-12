@@ -369,8 +369,8 @@ def add_comment(number: int, node_id: str, comment: str, issue_type: str):
 
 def get_first_interaction_response(issue_type: str, title: str, body: str, username: str, number: int) -> str:
     """Generates a custom response using LLM based on the issue/PR content and instructions."""
-    issue_response = f"""
-👋 Hello @{username}, thank you for submitting a `{REPO_NAME}` 🚀 Issue. To help us address your concern efficiently, please ensure you've provided the following information:
+    issue_discussion_response = f"""
+👋 Hello @{username}, thank you for submitting a `{REPO_NAME}` 🚀 {issue_type.capitalize()}. To help us address your concern efficiently, please ensure you've provided the following information:
 
 1. For bug reports:
    - A clear and concise description of the bug
@@ -389,7 +389,7 @@ def get_first_interaction_response(issue_type: str, title: str, body: str, usern
    - Include any research you've already done on the topic
    - Specify which parts of the [documentation](https://docs.ultralytics.com), if any, you've already consulted
 
-Please make sure you've searched existing issues to avoid duplicates. If you need to add any additional information, please comment on this issue.
+Please make sure you've searched existing {issue_type}s to avoid duplicates. If you need to add any additional information, please comment on this {issue_type}.
 
 Thank you for your contribution to improving our project!
 """
@@ -398,7 +398,7 @@ Thank you for your contribution to improving our project!
 👋 Hello @{username}, thank you for submitting an `{REPO_NAME}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
 
 - ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{REPO_NAME}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
-- ✅ **Syncrhonize with Source**: Confirm your PR is synchronized with the `{REPO_NAME}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
+- ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{REPO_NAME}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
 - ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI/) checks are passing. If any checks fail, please address the issues.
 - ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com) for any new or modified features.
 - ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
@@ -408,27 +408,10 @@ Thank you for your contribution to improving our project!
 For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing). Don’t hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀
 """
 
-    discussion_response = f"""
-👋 Hello @{username}, welcome to the `{REPO_NAME}` community! Thank you for starting this discussion. We're excited to engage with you.
-
-To help us facilitate a meaningful conversation, please consider the following:
-
-- **Be Clear and Concise**: Provide as much detail as possible about your topic or question.
-- **Share Resources**: If applicable, include code snippets, links, or references that can help others understand your point.
-- **Engage Respectfully**: Remember to be respectful and considerate in your interactions. Our [Code of Conduct](https://docs.ultralytics.com/help/code_of_conduct) outlines the expectations for our community.
-
-An Ultralytics team member or community expert will join the discussion soon. In the meantime, feel free to explore our [documentation](https://docs.ultralytics.com) and [existing issues](https://github.com/{REPO_NAME}/issues) for more information.
-
-Thank you for contributing to our community! 🚀
-"""
-
-    example = (
-        (os.getenv("FIRST_ISSUE_RESPONSE") or issue_response)
-        if issue_type == "issue"
-        else (os.getenv("FIRST_PR_RESPONSE") or pr_response)
-        if issue_type == "pull request"
-        else (os.getenv("FIRST_DISCUSSION_RESPONSE") or discussion_response)
-    )
+    if issue_type == "pull request":
+        example = os.getenv("FIRST_PR_RESPONSE") or pr_response
+    else:
+        example = os.getenv("FIRST_ISSUE_RESPONSE") or issue_discussion_response
 
     org_name, repo_name = REPO_NAME.split("/")
     repo_url = f"https://github.com/{REPO_NAME}"
@@ -444,10 +427,11 @@ CONTEXT:
 
 INSTRUCTIONS:
 - Provide a detailed, optimal answer if a bug report or question, using code examples if helpful
-- Provide highly detailed best-practices guidelines for issue/PR submission
+- Provide highly detailed best-practices guidelines for {issue_type} submission
 - INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
 - In your response mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
 - Do not add a sign-off or valediction like "best regards" at the end of your response
+- Do not insert extra newlines between list items
 - Only link to files or URLs in the example below, do not add external links
 - Use a few emojis to enliven your response
 
@@ -474,6 +458,7 @@ YOUR RESPONSE:
         {"role": "user", "content": prompt},
     ]
     return get_completion(messages)
+
 
 
 def main():
