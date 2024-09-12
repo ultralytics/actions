@@ -53,7 +53,7 @@ DEFAULT_PR_INSTRUCTIONS = f"""
 
 - ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{REPO_NAME}/issues) (e.g., "Fixes #123"). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
 - ✅ **Stay Up-to-Date**: Confirm your PR is synchronized with the `{REPO_NAME}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
-- ✅ **Ensure CI Checks Pass**: Verify all Ultralytics Continuous Integration (CI) checks are passing. If any checks fail, please address the issues.
+- ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI/) checks are passing. If any checks fail, please address the issues.
 - ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com) for any new or modified features.
 - ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
 - ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA/) if this is your first Ultralytics PR by writing "I have read the CLA Document and I sign the CLA" in a new message.
