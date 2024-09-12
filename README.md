@@ -8,6 +8,7 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) rep
 
 ## 📄 Actions Description
 
+
 Ultralytics Actions automatically applies formats, updates, and enhancements:
 
 - **Python Code:** Using [Ruff](https://github.com/astral-sh/ruff), a fast Python auto-formatter.
