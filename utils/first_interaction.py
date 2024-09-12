@@ -23,6 +23,7 @@ AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
 AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
 AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")  # update as required
 
+
 def remove_html_comments(body: str) -> str:
     """Removes HTML comment blocks from the body text."""
     return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
@@ -276,9 +277,11 @@ Thank you for your contribution to improving our project!
 For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing). Don’t hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀
 """
 
-    example = os.getenv("FIRST_ISSUE_RESPONSE", issue_response) \
-        if issue_type == "issue" \
+    example = (
+        os.getenv("FIRST_ISSUE_RESPONSE", issue_response)
+        if issue_type == "issue"
         else os.getenv("FIRST_PR_RESPONSE", pr_response)
+    )
 
     org_name, repo_name = REPO_NAME.split("/")
     repo_url = f"https://github.com/{REPO_NAME}"
