@@ -217,11 +217,31 @@ def is_org_member(username: str) -> bool:
     return response.status_code == 204  # 204 means the user is a member
 
 
-def get_first_interaction_response(issue_type: str, title: str, body: str) -> str:
+def add_comment(number: int, comment: str):
+    """Adds a comment to the issue or pull request."""
+    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/comments"
+    data = {"body": comment}
+    response = requests.post(url, json=data, headers=GITHUB_HEADERS)
+    if response.status_code == 201:
+        print(f"Successfully added comment to {GITHUB_EVENT_NAME} #{number}.")
+    else:
+        print(f"Failed to add comment. Status code: {response.status_code}")
+
+
+def get_first_interaction_response(issue_type: str, title: str, body: str, username: str) -> str:
     """Generates a custom response using LLM based on the issue/PR content and instructions."""
     instructions = FIRST_INTERACTION_ISSUE_INSTRUCTIONS if issue_type == "issue" else FIRST_INTERACTION_PR_INSTRUCTIONS
 
-    prompt = f"""Generate a response for a new GitHub {issue_type} based on the following instructions and content:
+    org_name, repo_name = REPO_NAME.split('/')
+    repo_url = f"https://github.com/{REPO_NAME}"
+
+    prompt = f"""Generate a response for a new GitHub {issue_type} based on the following context and content:
+
+CONTEXT:
+- Repository: {repo_name}
+- Organization: {org_name}
+- Repository URL: {repo_url}
+- User: {username}
 
 INSTRUCTIONS:
 {instructions}
@@ -235,7 +255,8 @@ INSTRUCTIONS:
 YOUR RESPONSE:
 """
     messages = [
-        {"role": "system", "content": f"You are a helpful assistant responding to GitHub {issue_type}s."},
+        {"role": "system",
+         "content": f"You are a helpful assistant responding to GitHub {issue_type}s for the {org_name} organization."},
         {"role": "user", "content": prompt},
     ]
     return get_completion(messages)
@@ -276,7 +297,7 @@ def main():
 
     if event_data.get("action") == "opened":
         issue_type = "issue" if GITHUB_EVENT_NAME == "issues" else "pull request"
-        custom_response = get_first_interaction_response(issue_type, title, body)
+        custom_response = get_first_interaction_response(issue_type, title, body, username)
         add_comment(number, custom_response)
 
 
