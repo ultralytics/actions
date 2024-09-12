@@ -62,9 +62,7 @@ def get_pr_diff(pr_number):
 
 def get_github_data(endpoint: str) -> dict:
     """Generic function to fetch data from GitHub API."""
-    response = requests.get(
-        f"{GITHUB_API_URL}/repos/{REPO_NAME}/{endpoint}", headers=GITHUB_HEADERS
-    )
+    response = requests.get(f"{GITHUB_API_URL}/repos/{REPO_NAME}/{endpoint}", headers=GITHUB_HEADERS)
     response.raise_for_status()
     return response.json()
 
@@ -412,9 +410,7 @@ def add_comment(number: int, node_id: str, comment: str, issue_type: str):
             print(f"Failed to add comment. Status code: {response.status_code}")
 
 
-def get_first_interaction_response(
-    issue_type: str, title: str, body: str, username: str, number: int
-) -> str:
+def get_first_interaction_response(issue_type: str, title: str, body: str, username: str, number: int) -> str:
     """Generates a custom response using LLM based on the issue/PR content and instructions."""
     issue_response = f"""
 👋 Hello @{username}, thank you for submitting an Ultralytics 🚀 Issue. To help us address your concern efficiently, please ensure you've provided the following information:
@@ -535,20 +531,13 @@ def main():
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
-    available_labels = {
-        label["name"]: label.get("description", "") for label in get_github_data("labels")
-    }
+    available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
     if issue_type == "discussion":
         # For discussions, labels may need to be fetched differently or adjusted
         current_labels = []  # Adjust as needed if discussions have labels
     else:
-        current_labels = [
-            label["name"].lower()
-            for label in get_github_data(f"issues/{number}/labels")
-        ]
-    relevant_labels = get_relevant_labels(
-        issue_type, title, body, available_labels, current_labels
-    )
+        current_labels = [label["name"].lower() for label in get_github_data(f"issues/{number}/labels")]
+    relevant_labels = get_relevant_labels(issue_type, title, body, available_labels, current_labels)
 
     if relevant_labels:
         apply_labels(number, node_id, relevant_labels, issue_type)
@@ -567,9 +556,7 @@ def main():
         event_data = json.load(f)
 
     if event_data.get("action") in ["opened", "created"]:
-        custom_response = get_first_interaction_response(
-            issue_type, title, body, username, number
-        )
+        custom_response = get_first_interaction_response(issue_type, title, body, username, number)
         add_comment(number, node_id, custom_response, issue_type)
 
 
