@@ -56,10 +56,10 @@ inputs:
     required: false
     default: "gpt-4o"
   first_interaction_issue_instructions:
-    description: "Instructions for generating custom responses to new issues"
+    description: "Instructions for new issue responses"
     required: false
   first_interaction_pr_instructions:
-    description: "Instructions for generating custom responses to new pull requests"
+    description: "Instructions for new RP responses"
     required: false
 runs:
   using: "composite"
@@ -226,7 +226,7 @@ runs:
         OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
-        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/autolabel_issue.py" | python -
+        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/first_interaction.py" | python -
       shell: bash
       continue-on-error: true
 
