@@ -298,7 +298,7 @@ INSTRUCTIONS:
 - INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
 - Make clear that this is an automated response and that a human reviewer should respond soon with additional help
 - Do not add a sign-off or valediction like "best regards" at the end of your response
-- Only link to files or URL that are in the example below, do not add external links
+- Only link to files or URLs in the example below, do not add external links
 - Use emojis to enliven your response and code example and backlinks if they help
 
 EXAMPLE:
