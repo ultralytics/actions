@@ -15,8 +15,6 @@ GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
-FIRST_INTERACTION_ISSUE_INSTRUCTIONS = os.getenv("FIRST_INTERACTION_ISSUE_INSTRUCTIONS")
-FIRST_INTERACTION_PR_INSTRUCTIONS = os.getenv("FIRST_INTERACTION_PR_INSTRUCTIONS")
 
 # OpenAI settings
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # update as required
@@ -24,6 +22,67 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
 AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
 AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")  # update as required
+
+DEFAULT_ISSUE_INSTRUCTIONS = """
+Thank you for submitting an issue! To help us address your concern efficiently, please ensure you've provided the following information:
+
+1. For bug reports:
+   - A clear and concise description of the bug
+   - A minimum reproducible example (MRE)[https://docs.ultralytics.com/help/minimum_reproducible_example/] that demonstrates the issue
+   - Your environment details (OS, Python version, package versions)
+   - Expected behavior vs. actual behavior
+   - Any error messages or logs related to the issue
+
+2. For feature requests:
+   - A clear and concise description of the proposed feature
+   - The problem this feature would solve
+   - Any alternative solutions you've considered
+
+3. For questions:
+   - Provide as much context as possible about your question
+   - Include any research you've already done on the topic
+   - Specify which parts of the [documentation](https://docs.ultralytics.com/), if any, you've already consulted
+
+Please make sure you've searched existing issues to avoid duplicates. If you need to add any additional information, please comment on this issue.
+
+Thank you for your contribution to improving our project!
+"""
+
+DEFAULT_PR_INSTRUCTIONS = """
+Thank you for submitting a pull request! To ensure a smooth review process, please confirm that you've completed the following:
+
+1. Contributor License Agreement (CLA):
+   - You've signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA/)
+   - If you haven't signed it yet, please do so before we can review your PR
+
+2. Code changes:
+   - Your PR is scoped to the minimum changes required for the fix or feature
+   - You've followed the project's [coding style and guidelines](https://docs.ultralytics.com/help/contributing/)
+   - You've added comments to your code where necessary
+
+3. Documentation:
+   - You've updated the relevant [documentation](https://docs.ultralytics.com/) to reflect your changes
+   - For new features, you've added docstrings with usage examples if applicable
+
+4. Tests:
+   - You've added or updated tests to cover your changes
+   - All existing and new tests are passing
+
+5. Continuous Integration:
+   - All [CI checks](https://docs.ultralytics.com/help/CI/) are passing (if not, please investigate and fix any issues)
+
+6. Commit messages:
+   - Your commit messages are clear and follow the project's commit message conventions
+
+7. PR description:
+   - You've provided a clear description of the changes and the problem they solve
+   - You've referenced any related issues using the appropriate keywords (e.g., "Fixes #123")
+
+If you need to make any updates or have any questions, please leave a comment. We appreciate your contribution to the project!
+"""
+
+FIRST_INTERACTION_ISSUE_INSTRUCTIONS = os.getenv("FIRST_INTERACTION_ISSUE_INSTRUCTIONS", DEFAULT_ISSUE_INSTRUCTIONS)
+FIRST_INTERACTION_PR_INSTRUCTIONS = os.getenv("FIRST_INTERACTION_PR_INSTRUCTIONS", DEFAULT_PR_INSTRUCTIONS)
 
 
 def remove_html_comments(body: str) -> str:
@@ -235,7 +294,7 @@ def get_first_interaction_response(issue_type: str, title: str, body: str, usern
     org_name, repo_name = REPO_NAME.split('/')
     repo_url = f"https://github.com/{REPO_NAME}"
 
-    prompt = f"""Generate a response for a new GitHub {issue_type} based on the following context and content:
+    prompt = f"""Generate a tailored response for a new GitHub {issue_type} based on the following context and content:
 
 CONTEXT:
 - Repository: {repo_name}
@@ -260,17 +319,6 @@ YOUR RESPONSE:
         {"role": "user", "content": prompt},
     ]
     return get_completion(messages)
-
-
-def add_comment(number: int, comment: str):
-    """Adds a comment to the issue or pull request."""
-    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/comments"
-    data = {"body": comment}
-    response = requests.post(url, json=data, headers=GITHUB_HEADERS)
-    if response.status_code == 201:
-        print(f"Successfully added comment to {GITHUB_EVENT_NAME} #{number}.")
-    else:
-        print(f"Failed to add comment. Status code: {response.status_code}")
 
 
 def main():
