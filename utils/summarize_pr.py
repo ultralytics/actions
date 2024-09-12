@@ -38,17 +38,17 @@ def get_completion(messages: list) -> str:
         headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
         data = {"model": OPENAI_MODEL, "messages": messages}
 
-    response = requests.post(url, headers=headers, json=data)
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"].strip()
+    r = requests.post(url, headers=headers, json=data)
+    r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"].strip()
 
 
 def get_pr_diff(pr_number):
     """Fetches the diff of a specific PR from a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/pulls/{pr_number}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
-    response = requests.get(url, headers=headers)
-    return response.text if response.status_code == 200 else ""
+    r = requests.get(url, headers=headers)
+    return r.text if r.status_code == 200 else ""
 
 
 def generate_pr_summary(repo_name, diff_text):

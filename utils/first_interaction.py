@@ -41,24 +41,24 @@ def get_completion(messages: list) -> str:
         headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
         data = {"model": OPENAI_MODEL, "messages": messages}
 
-    response = requests.post(url, headers=headers, json=data)
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"].strip()
+    r = requests.post(url, headers=headers, json=data)
+    r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"].strip()
 
 
 def get_pr_diff(pr_number):
     """Fetches the diff of a specific PR from a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/pulls/{pr_number}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
-    response = requests.get(url, headers=headers)
-    return response.text if response.status_code == 200 else ""
+    r = requests.get(url, headers=headers)
+    return r.text if r.status_code == 200 else ""
 
 
 def get_github_data(endpoint: str) -> dict:
     """Generic function to fetch data from GitHub API."""
-    response = requests.get(f"{GITHUB_API_URL}/repos/{REPO_NAME}/{endpoint}", headers=GITHUB_HEADERS)
-    response.raise_for_status()
-    return response.json()
+    r = requests.get(f"{GITHUB_API_URL}/repos/{REPO_NAME}/{endpoint}", headers=GITHUB_HEADERS)
+    r.raise_for_status()
+    return r.json()
 
 
 def graphql_request(query: str, variables: dict = None) -> dict:
@@ -127,11 +127,11 @@ mutation($discussionId: ID!, $title: String!, $body: String!) {
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
         data = {"title": new_title, "body": new_body}
-        response = requests.patch(url, json=data, headers=GITHUB_HEADERS)
-        if response.status_code == 200:
+        r = requests.patch(url, json=data, headers=GITHUB_HEADERS)
+        if r.status_code == 200:
             print(f"Successfully updated issue/PR #{number} title and body.")
         else:
-            print(f"Failed to update issue/PR. Status code: {response.status_code}")
+            print(f"Failed to update issue/PR. Status code: {r.status_code}")
 
 
 def close_issue_pr(number: int, node_id: str, issue_type: str):
@@ -150,11 +150,11 @@ mutation($discussionId: ID!) {
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
         data = {"state": "closed"}
-        response = requests.patch(url, json=data, headers=GITHUB_HEADERS)
-        if response.status_code == 200:
+        r = requests.patch(url, json=data, headers=GITHUB_HEADERS)
+        if r.status_code == 200:
             print(f"Successfully closed issue/PR #{number}.")
         else:
-            print(f"Failed to close issue/PR. Status code: {response.status_code}")
+            print(f"Failed to close issue/PR. Status code: {r.status_code}")
 
 
 def lock_issue_pr(number: int, node_id: str, issue_type: str):
@@ -175,21 +175,21 @@ mutation($lockableId: ID!, $lockReason: LockReason) {
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/lock"
         data = {"lock_reason": "off-topic"}
-        response = requests.put(url, json=data, headers=GITHUB_HEADERS)
-        if response.status_code in [200, 204]:
+        r = requests.put(url, json=data, headers=GITHUB_HEADERS)
+        if r.status_code in [200, 204]:
             print(f"Successfully locked issue/PR #{number}.")
         else:
-            print(f"Failed to lock issue/PR. Status code: {response.status_code}")
+            print(f"Failed to lock issue/PR. Status code: {r.status_code}")
 
 
 def block_user(username: str):
     """Blocks a user from the organization."""
     url = f"{GITHUB_API_URL}/orgs/{REPO_NAME.split('/')[0]}/blocks/{username}"
-    response = requests.put(url, headers=GITHUB_HEADERS)
-    if response.status_code == 204:
+    r = requests.put(url, headers=GITHUB_HEADERS)
+    if r.status_code == 204:
         print(f"Successfully blocked user: {username}.")
     else:
-        print(f"Failed to block user. Status code: {response.status_code}")
+        print(f"Failed to block user. Status code: {r.status_code}")
 
 
 def get_relevant_labels(
@@ -259,9 +259,9 @@ def get_label_ids(labels: List[str]) -> List[str]:
     label_ids = []
     for label_name in labels:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels/{label_name}"
-        response = requests.get(url, headers=GITHUB_HEADERS)
-        if response.status_code == 200:
-            label_data = response.json()
+        r = requests.get(url, headers=GITHUB_HEADERS)
+        if r.status_code == 200:
+            label_data = r.json()
             label_ids.append(label_data["id"])
         else:
             print(f"Label '{label_name}' not found.")
@@ -292,11 +292,11 @@ mutation($labelableId: ID!, $labelIds: [ID!]!) {
         graphql_request(mutation, variables={"labelableId": node_id, "labelIds": label_ids})
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
-        response = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS)
-        if response.status_code == 200:
+        r = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS)
+        if r.status_code == 200:
             print(f"Successfully applied labels: {', '.join(labels)}")
         else:
-            print(f"Failed to apply labels. Status code: {response.status_code}")
+            print(f"Failed to apply labels. Status code: {r.status_code}")
 
 
 def create_alert_label():
@@ -309,8 +309,8 @@ def is_org_member(username: str) -> bool:
     """Checks if a user is a member of the organization."""
     org_name = REPO_NAME.split("/")[0]
     url = f"{GITHUB_API_URL}/orgs/{org_name}/members/{username}"
-    response = requests.get(url, headers=GITHUB_HEADERS)
-    return response.status_code == 204  # 204 means the user is a member
+    r = requests.get(url, headers=GITHUB_HEADERS)
+    return r.status_code == 204  # 204 means the user is a member
 
 
 def add_comment(number: int, node_id: str, comment: str, issue_type: str):
@@ -329,11 +329,11 @@ mutation($discussionId: ID!, $body: String!) {
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/comments"
         data = {"body": comment}
-        response = requests.post(url, json=data, headers=GITHUB_HEADERS)
-        if response.status_code in [200, 201]:
+        r = requests.post(url, json=data, headers=GITHUB_HEADERS)
+        if r.status_code in [200, 201]:
             print(f"Successfully added comment to {issue_type} #{number}.")
         else:
-            print(f"Failed to add comment. Status code: {response.status_code}")
+            print(f"Failed to add comment. Status code: {r.status_code}")
 
 
 def get_first_interaction_response(issue_type: str, title: str, body: str, username: str, number: int) -> str:
