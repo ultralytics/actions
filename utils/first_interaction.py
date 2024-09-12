@@ -68,37 +68,37 @@ def graphql_request(query: str, variables: dict = None) -> dict:
         "Content-Type": "application/json",
         "Accept": "application/vnd.github.v4+json",
     }
-    response = requests.post(
-        GITHUB_API_URL + "/graphql", json={"query": query, "variables": variables}, headers=headers
-    )
-    response.raise_for_status()
-    result = response.json()
+    r = requests.post(f"{GITHUB_API_URL}/graphql", json={"query": query, "variables": variables}, headers=headers)
+    r.raise_for_status()
+    result = r.json()
     if "errors" in result:
         raise Exception(f"GraphQL error: {result['errors']}")
+    if result.get("data"):
+        print("Successful discussion GraphQL request.")
+    else:
+        print(f"Discussion GraphQL error: {result.get('errors')}")
     return result
 
 
 def get_event_content() -> Tuple[int, str, str, str, str, str]:
-    """Extracts the number, node_id, title, body, and username from the issue, pull request, or discussion."""
+    """Extracts the number, node_id, title, body, username, and issue_type."""
     with open(GITHUB_EVENT_PATH) as f:
         event_data = json.load(f)
     if GITHUB_EVENT_NAME == "issues":
-        item = event_data["issue"]
-        body = remove_html_comments(item.get("body", ""))
-        return item["number"], item["node_id"], item["title"], body, item["user"]["login"], "issue"
+        issue_type = "issue"
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
-        pr_number = event_data["pull_request"]["number"]
-        item = get_github_data(f"pulls/{pr_number}")
-        body = remove_html_comments(item.get("body", ""))
-        return item["number"], item["node_id"], item["title"], body, item["user"]["login"], "pull request"
+        issue_type = "pull request"
     elif GITHUB_EVENT_NAME == "discussion":
-        item = event_data["discussion"]
-        discussion_id = item["node_id"]  # GraphQL node ID
-        number = item["number"]
-        body = remove_html_comments(item.get("body", ""))
-        return number, discussion_id, item["title"], body, item["user"]["login"], "discussion"
+        issue_type = "discussion"
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
+    item = event_data[issue_type]
+    number = item["number"]
+    node_id = item.get("node_id") or item.get("id")
+    title = item["title"]
+    body = remove_html_comments(item.get("body", ""))
+    username = item["user"]["login"]
+    return number, node_id, title, body, username, issue_type
 
 
 def update_issue_pr_content(number: int, node_id: str, issue_type: str):
@@ -123,11 +123,7 @@ mutation($discussionId: ID!, $title: String!, $body: String!) {
     }
 }
 """
-        response = graphql_request(mutation, variables={"discussionId": node_id, "title": new_title, "body": new_body})
-        if response.get("data"):
-            print(f"Successfully updated discussion #{number} title and body.")
-        else:
-            print(f"Failed to update discussion. Errors: {response.get('errors')}")
+        graphql_request(mutation, variables={"discussionId": node_id, "title": new_title, "body": new_body})
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
         data = {"title": new_title, "body": new_body}
@@ -150,11 +146,7 @@ mutation($discussionId: ID!) {
     }
 }
 """
-        response = graphql_request(mutation, variables={"discussionId": node_id})
-        if response.get("data"):
-            print(f"Successfully closed discussion #{number}.")
-        else:
-            print(f"Failed to close discussion. Errors: {response.get('errors')}")
+        graphql_request(mutation, variables={"discussionId": node_id})
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
         data = {"state": "closed"}
@@ -179,11 +171,7 @@ mutation($lockableId: ID!, $lockReason: LockReason) {
     }
 }
 """
-        response = graphql_request(mutation, variables={"lockableId": node_id, "lockReason": "OFF_TOPIC"})
-        if response.get("data"):
-            print(f"Successfully locked discussion #{number}.")
-        else:
-            print(f"Failed to lock discussion. Errors: {response.get('errors')}")
+        graphql_request(mutation, variables={"lockableId": node_id, "lockReason": "OFF_TOPIC"})
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/lock"
         data = {"lock_reason": "off-topic"}
@@ -301,16 +289,10 @@ mutation($labelableId: ID!, $labelIds: [ID!]!) {
     }
 }
 """
-        response = graphql_request(mutation, variables={"labelableId": node_id, "labelIds": label_ids})
-        if response.get("data"):
-            print(f"Successfully applied labels to discussion #{number}.")
-        else:
-            print(f"Failed to apply labels to discussion. Errors: {response.get('errors')}")
+        graphql_request(mutation, variables={"labelableId": node_id, "labelIds": label_ids})
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
-        response = requests.post(
-            url, json={"labels": labels}, headers=GITHUB_HEADERS | {"Author": "UltralyticsAssistant"}
-        )
+        response = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS)
         if response.status_code == 200:
             print(f"Successfully applied labels: {', '.join(labels)}")
         else:
@@ -343,11 +325,7 @@ mutation($discussionId: ID!, $body: String!) {
     }
 }
 """
-        response = graphql_request(mutation, variables={"discussionId": node_id, "body": comment})
-        if response.get("data"):
-            print(f"Successfully added comment to discussion #{number}.")
-        else:
-            print(f"Failed to add comment to discussion. Errors: {response.get('errors')}")
+        graphql_request(mutation, variables={"discussionId": node_id, "body": comment})
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/comments"
         data = {"body": comment}
