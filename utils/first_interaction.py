@@ -301,13 +301,7 @@ def get_first_interaction_response(issue_type: str, title: str, body: str, usern
 
     org_name, repo_name = REPO_NAME.split("/")
     repo_url = f"https://github.com/{REPO_NAME}"
-
-    diff = ""
-    if issue_type == "pull request":
-        diff = get_pr_diff(number)
-        diff = diff[:10000] if diff else "No diff available."
-
-    diff = get_pr_diff(number)[:64000] if diff
+    diff = get_pr_diff(number)[:32000] if issue_type == "pull request" else ""
 
     prompt = f"""Generate a tailored response for a new GitHub {issue_type} based on the following context and content:
 
@@ -320,7 +314,7 @@ CONTEXT:
 INSTRUCTIONS:
 - Provide an optimal answer if a bug report or question
 - Provide highly detailed best-practices guidelines for issue/PR submission
-- Include all links and instructions in the example below, but customize and tailer the content as appropriate
+- INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
 - Make clear that this is an automated response and that a human reviewer should respond soon with additional help
 - Do not add a sign-off or valediction like "best regards" at the end of your response
 - Use emojis to enliven your response and code example and backlinks if they help
@@ -337,7 +331,7 @@ EXAMPLE:
 {"PULL REQUEST DIFF:" if issue_type == "pull request" else ""}
 {diff if issue_type == "pull request" else ""}
 
-YOUR RESPONSE COMMENT BODY:
+YOUR RESPONSE (comment body only, no sign-off):
 """
     messages = [
         {
