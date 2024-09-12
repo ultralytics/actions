@@ -107,6 +107,14 @@ def get_completion(messages: list) -> str:
     return response.json()["choices"][0]["message"]["content"].strip()
 
 
+def get_pr_diff(pr_number):
+    """Fetches the diff of a specific PR from a GitHub repository."""
+    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/pulls/{pr_number}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
+    response = requests.get(url, headers=headers)
+    return response.text if response.status_code == 200 else ""
+
+
 def get_github_data(endpoint: str) -> dict:
     """Generic function to fetch data from GitHub API."""
     response = requests.get(f"{GITHUB_API_URL}/repos/{REPO_NAME}/{endpoint}", headers=GITHUB_HEADERS)
@@ -287,12 +295,13 @@ def add_comment(number: int, comment: str):
         print(f"Failed to add comment. Status code: {response.status_code}")
 
 
-def get_first_interaction_response(issue_type: str, title: str, body: str, username: str) -> str:
+def get_first_interaction_response(issue_type: str, title: str, body: str, username: str, number: int) -> str:
     """Generates a custom response using LLM based on the issue/PR content and instructions."""
-    instructions = FIRST_INTERACTION_ISSUE_INSTRUCTIONS if issue_type == "issue" else FIRST_INTERACTION_PR_INSTRUCTIONS
+    example = FIRST_INTERACTION_ISSUE_INSTRUCTIONS if issue_type == "issue" else FIRST_INTERACTION_PR_INSTRUCTIONS
 
     org_name, repo_name = REPO_NAME.split("/")
     repo_url = f"https://github.com/{REPO_NAME}"
+    diff = get_pr_diff(number)[:32000] if issue_type == "pull request" else ""
 
     prompt = f"""Generate a tailored response for a new GitHub {issue_type} based on the following context and content:
 
@@ -303,7 +312,15 @@ CONTEXT:
 - User: {username}
 
 INSTRUCTIONS:
-{instructions}
+- Provide an optimal answer if a bug report or question
+- Provide highly detailed best-practices guidelines for issue/PR submission
+- INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
+- Make clear that this is an automated response and that a human reviewer should respond soon with additional help
+- Do not add a sign-off or valediction like "best regards" at the end of your response
+- Use emojis to enliven your response and code example and backlinks if they help
+
+EXAMPLE:
+{example}
 
 {issue_type.upper()} TITLE:
 {title}
@@ -311,7 +328,10 @@ INSTRUCTIONS:
 {issue_type.upper()} DESCRIPTION:
 {body[:16000]}
 
-YOUR RESPONSE:
+{"PULL REQUEST DIFF:" if issue_type == "pull request" else ""}
+{diff if issue_type == "pull request" else ""}
+
+YOUR RESPONSE (comment body only, no sign-off):
 """
     messages = [
         {
@@ -320,6 +340,8 @@ YOUR RESPONSE:
         },
         {"role": "user", "content": prompt},
     ]
+    print("Preparing first interaction response.")
+    print(messages)  # for debug
     return get_completion(messages)
 
 
@@ -347,7 +369,7 @@ def main():
 
     if event_data.get("action") == "opened":
         issue_type = "issue" if GITHUB_EVENT_NAME == "issues" else "pull request"
-        custom_response = get_first_interaction_response(issue_type, title, body, username)
+        custom_response = get_first_interaction_response(issue_type, title, body, username, number)
         add_comment(number, custom_response)
 
 
