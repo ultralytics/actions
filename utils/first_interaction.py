@@ -48,37 +48,18 @@ Please make sure you've searched existing issues to avoid duplicates. If you nee
 Thank you for your contribution to improving our project!
 """
 
-DEFAULT_PR_INSTRUCTIONS = """
-Thank you for submitting a pull request! To ensure a smooth review process, please confirm that you've completed the following:
+DEFAULT_PR_INSTRUCTIONS = f"""
+👋 Hello @${{ github.actor }}, thank you for submitting an Ultralytics 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
 
-1. Contributor License Agreement (CLA):
-   - You've signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA/)
-   - If you haven't signed it yet, please do so before we can review your PR
+- ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{REPO_NAME}/issues) (e.g., "Fixes #123"). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
+- ✅ **Stay Up-to-Date**: Confirm your PR is synchronized with the `{REPO_NAME}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
+- ✅ **Ensure CI Checks Pass**: Verify all Ultralytics Continuous Integration (CI) checks are passing. If any checks fail, please address the issues.
+- ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com) for any new or modified features.
+- ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
+- ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA/). This is required for us to review your PR.
+- ✅ **Minimize Changes**: Limit your changes to the **minimum** necessary for your bug fix or feature addition. _"It is not daily increase but daily decrease, hack away the unessential. The closer to the source, the less wastage there is."_  — Bruce Lee
 
-2. Code changes:
-   - Your PR is scoped to the minimum changes required for the fix or feature
-   - You've followed the project's [coding style and guidelines](https://docs.ultralytics.com/help/contributing/)
-   - You've added comments to your code where necessary
-
-3. Documentation:
-   - You've updated the relevant [documentation](https://docs.ultralytics.com/) to reflect your changes
-   - For new features, you've added docstrings with usage examples if applicable
-
-4. Tests:
-   - You've added or updated tests to cover your changes
-   - All existing and new tests are passing
-
-5. Continuous Integration:
-   - All [CI checks](https://docs.ultralytics.com/help/CI/) are passing (if not, please investigate and fix any issues)
-
-6. Commit messages:
-   - Your commit messages are clear and follow the project's commit message conventions
-
-7. PR description:
-   - You've provided a clear description of the changes and the problem they solve
-   - You've referenced any related issues using the appropriate keywords (e.g., "Fixes #123")
-
-If you need to make any updates or have any questions, please leave a comment. We appreciate your contribution to the project!
+For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing). Don’t hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀
 """
 
 FIRST_INTERACTION_ISSUE_INSTRUCTIONS = os.getenv("FIRST_INTERACTION_ISSUE_INSTRUCTIONS", DEFAULT_ISSUE_INSTRUCTIONS)
@@ -317,7 +298,7 @@ INSTRUCTIONS:
 - INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
 - Make clear that this is an automated response and that a human reviewer should respond soon with additional help
 - Do not add a sign-off or valediction like "best regards" at the end of your response
-- Only link to files or URLs that are in the example below, do not add external links
+- Only link to files or URL that are in the example below, do not add external links
 - Use emojis to enliven your response and code example and backlinks if they help
 
 EXAMPLE:
