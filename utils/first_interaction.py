@@ -71,12 +71,8 @@ def graphql_request(query: str, variables: dict = None) -> dict:
     r = requests.post(f"{GITHUB_API_URL}/graphql", json={"query": query, "variables": variables}, headers=headers)
     r.raise_for_status()
     result = r.json()
-    if "errors" in result:
-        raise Exception(f"GraphQL error: {result['errors']}")
-    if result.get("data"):
-        print("Successful discussion GraphQL request.")
-    else:
-        print(f"Discussion GraphQL error: {result.get('errors')}")
+    success = "data" in result and not result.get("errors")
+    print(f"{'Successful' if success else 'Failed'} discussion GraphQL request: {result.get('errors', 'No errors')}")
     return result
 
 
