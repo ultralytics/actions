@@ -291,7 +291,7 @@ def get_first_interaction_response(issue_type: str, title: str, body: str, usern
     """Generates a custom response using LLM based on the issue/PR content and instructions."""
     instructions = FIRST_INTERACTION_ISSUE_INSTRUCTIONS if issue_type == "issue" else FIRST_INTERACTION_PR_INSTRUCTIONS
 
-    org_name, repo_name = REPO_NAME.split('/')
+    org_name, repo_name = REPO_NAME.split("/")
     repo_url = f"https://github.com/{REPO_NAME}"
 
     prompt = f"""Generate a tailored response for a new GitHub {issue_type} based on the following context and content:
@@ -314,8 +314,10 @@ INSTRUCTIONS:
 YOUR RESPONSE:
 """
     messages = [
-        {"role": "system",
-         "content": f"You are a helpful assistant responding to GitHub {issue_type}s for the {org_name} organization."},
+        {
+            "role": "system",
+            "content": f"You are a helpful assistant responding to GitHub {issue_type}s for the {org_name} organization.",
+        },
         {"role": "user", "content": prompt},
     ]
     return get_completion(messages)
