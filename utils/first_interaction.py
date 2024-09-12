@@ -107,6 +107,14 @@ def get_completion(messages: list) -> str:
     return response.json()["choices"][0]["message"]["content"].strip()
 
 
+def get_pr_diff(pr_number):
+    """Fetches the diff of a specific PR from a GitHub repository."""
+    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/pulls/{pr_number}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
+    response = requests.get(url, headers=headers)
+    return response.text if response.status_code == 200 else ""
+
+
 def get_github_data(endpoint: str) -> dict:
     """Generic function to fetch data from GitHub API."""
     response = requests.get(f"{GITHUB_API_URL}/repos/{REPO_NAME}/{endpoint}", headers=GITHUB_HEADERS)
@@ -287,12 +295,19 @@ def add_comment(number: int, comment: str):
         print(f"Failed to add comment. Status code: {response.status_code}")
 
 
-def get_first_interaction_response(issue_type: str, title: str, body: str, username: str) -> str:
+def get_first_interaction_response(issue_type: str, title: str, body: str, username: str, number: int) -> str:
     """Generates a custom response using LLM based on the issue/PR content and instructions."""
     example = FIRST_INTERACTION_ISSUE_INSTRUCTIONS if issue_type == "issue" else FIRST_INTERACTION_PR_INSTRUCTIONS
 
     org_name, repo_name = REPO_NAME.split("/")
     repo_url = f"https://github.com/{REPO_NAME}"
+
+    diff = ""
+    if issue_type == "pull request":
+        diff = get_pr_diff(number)
+        diff = diff[:10000] if diff else "No diff available."
+
+    diff = get_pr_diff(number)[:64000] if diff
 
     prompt = f"""Generate a tailored response for a new GitHub {issue_type} based on the following context and content:
 
@@ -319,7 +334,10 @@ EXAMPLE:
 {issue_type.upper()} DESCRIPTION:
 {body[:16000]}
 
-YOUR GITHUB RESPONSE COMMENT BODY:
+{"PULL REQUEST DIFF:" if issue_type == "pull request" else ""}
+{diff if issue_type == "pull request" else ""}
+
+YOUR RESPONSE COMMENT BODY:
 """
     messages = [
         {
@@ -357,7 +375,7 @@ def main():
 
     if event_data.get("action") == "opened":
         issue_type = "issue" if GITHUB_EVENT_NAME == "issues" else "pull request"
-        custom_response = get_first_interaction_response(issue_type, title, body, username)
+        custom_response = get_first_interaction_response(issue_type, title, body, username, number)
         add_comment(number, custom_response)
 
 
