@@ -14,7 +14,7 @@ GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
 GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
-BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
+BLOCK_USER = False
 
 # OpenAI settings
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # update as required
@@ -282,6 +282,11 @@ For more guidance, please refer to our [Contributing Guide](https://docs.ultraly
         if issue_type == "issue"
         else (os.getenv("FIRST_PR_RESPONSE") or pr_response)
     )
+    print(0, issue_type)
+    print(1, os.getenv("FIRST_PR_RESPONSE"))
+    print(2, pr_response)
+    print(3, (os.getenv("FIRST_PR_RESPONSE") or pr_response))
+    print(4, example)
 
     org_name, repo_name = REPO_NAME.split("/")
     repo_url = f"https://github.com/{REPO_NAME}"
