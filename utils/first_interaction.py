@@ -319,7 +319,7 @@ EXAMPLE:
 {issue_type.upper()} DESCRIPTION:
 {body[:16000]}
 
-YOUR RESPONSE COMMENT BODY:
+YOUR GITHUB RESPONSE COMMENT BODY:
 """
     messages = [
         {
@@ -328,6 +328,8 @@ YOUR RESPONSE COMMENT BODY:
         },
         {"role": "user", "content": prompt},
     ]
+    print("Preparing first interaction response.")
+    print(messages)  # for debug
     return get_completion(messages)
 
 
