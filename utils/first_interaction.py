@@ -333,6 +333,7 @@ EXAMPLE:
 
 YOUR RESPONSE (comment body only, no sign-off):
 """
+    print(f"\n\n{prompt}\n\n")  # for debug
     messages = [
         {
             "role": "system",
@@ -340,8 +341,6 @@ YOUR RESPONSE (comment body only, no sign-off):
         },
         {"role": "user", "content": prompt},
     ]
-    print("Preparing first interaction response.")
-    print(messages)  # for debug
     return get_completion(messages)
 
 
