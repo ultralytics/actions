@@ -40,7 +40,7 @@ def get_completion(messages: list) -> str:
         url = "https://api.openai.com/v1/chat/completions"
         headers = {
             "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "Content-Type": "application/json",
+            "Content-Type": "application/json"
         }
         data = {"model": OPENAI_MODEL, "messages": messages}
 
@@ -54,7 +54,7 @@ def get_pr_diff(pr_number):
     url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/pulls/{pr_number}"
     headers = {
         "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3.diff",
+        "Accept": "application/vnd.github.v3.diff"
     }
     response = requests.get(url, headers=headers)
     return response.text if response.status_code == 200 else ""
@@ -72,12 +72,12 @@ def graphql_request(query: str, variables: dict = None) -> dict:
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Content-Type": "application/json",
-        "Accept": "application/vnd.github.v4+json",
+        "Accept": "application/vnd.github.v4+json"
     }
     response = requests.post(
         GITHUB_API_URL + "/graphql",
         json={"query": query, "variables": variables},
-        headers=headers,
+        headers=headers
     )
     response.raise_for_status()
     result = response.json()
@@ -105,7 +105,7 @@ def get_event_content() -> Tuple[int, str, str, str, str]:
             item["node_id"],
             item["title"],
             body,
-            item["user"]["login"],
+            item["user"]["login"]
         )
 
     elif GITHUB_EVENT_NAME == "discussion":
@@ -331,7 +331,7 @@ def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
         """
         variables = {
             "labelableId": node_id,
-            "labelIds": label_ids,
+            "labelIds": label_ids
         }
         response = graphql_request(mutation, variables)
         if response.get("data"):
@@ -343,7 +343,7 @@ def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
         response = requests.post(
             url,
             json={"labels": labels},
-            headers=GITHUB_HEADERS | {"Author": "UltralyticsAssistant"},
+            headers=GITHUB_HEADERS | {"Author": "UltralyticsAssistant"}
         )
         if response.status_code == 200:
             print(f"Successfully applied labels: {', '.join(labels)}")
@@ -356,7 +356,7 @@ def create_alert_label():
     alert_label = {
         "name": "Alert",
         "color": "FF0000",  # bright red
-        "description": "Potential spam, abuse, or off-topic.",
+        "description": "Potential spam, abuse, or off-topic."
     }
     response = requests.post(
         f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels",
@@ -393,7 +393,7 @@ def add_comment(number: int, node_id: str, comment: str, issue_type: str):
         """
         variables = {
             "discussionId": node_id,
-            "body": comment,
+            "body": comment
         }
         response = graphql_request(mutation, variables)
         if response.get("data"):
@@ -413,7 +413,7 @@ def add_comment(number: int, node_id: str, comment: str, issue_type: str):
 def get_first_interaction_response(issue_type: str, title: str, body: str, username: str, number: int) -> str:
     """Generates a custom response using LLM based on the issue/PR content and instructions."""
     issue_response = f"""
-👋 Hello @{username}, thank you for submitting an Ultralytics 🚀 Issue. To help us address your concern efficiently, please ensure you've provided the following information:
+👋 Hello @{username}, thank you for submitting a `{REPO_NAME}` 🚀 Issue. To help us address your concern efficiently, please ensure you've provided the following information:
 
 1. For bug reports:
    - A clear and concise description of the bug
@@ -452,7 +452,7 @@ For more guidance, please refer to our [Contributing Guide](https://docs.ultraly
 """
 
     discussion_response = f"""
-👋 Hello @{username}, welcome to the Ultralytics community! Thank you for starting this discussion. We're excited to engage with you.
+👋 Hello @{username}, welcome to the `{REPO_NAME}` community! Thank you for starting this discussion. We're excited to engage with you.
 
 To help us facilitate a meaningful conversation, please consider the following:
 
@@ -460,7 +460,7 @@ To help us facilitate a meaningful conversation, please consider the following:
 - **Share Resources**: If applicable, include code snippets, links, or references that can help others understand your point.
 - **Engage Respectfully**: Remember to be respectful and considerate in your interactions. Our [Code of Conduct](https://docs.ultralytics.com/help/code_of_conduct) outlines the expectations for our community.
 
-An Ultralytics team member or community expert will join the discussion soon. In the meantime, feel free to explore our [documentation](https://docs.ultralytics.com) and [existing discussions](https://github.com/{REPO_NAME}/discussions) for more information.
+An Ultralytics team member or community expert will join the discussion soon. In the meantime, feel free to explore our [documentation](https://docs.ultralytics.com) and [existing issues](https://github.com/{REPO_NAME}/issues) for more information.
 
 Thank you for contributing to our community! 🚀
 """
