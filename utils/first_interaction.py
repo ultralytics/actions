@@ -38,10 +38,7 @@ def get_completion(messages: list) -> str:
     else:
         assert OPENAI_API_KEY, "OpenAI API key is required."
         url = "https://api.openai.com/v1/chat/completions"
-        headers = {
-            "Authorization": f"Bearer {OPENAI_API_KEY}",
-            "Content-Type": "application/json"
-        }
+        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
         data = {"model": OPENAI_MODEL, "messages": messages}
 
     response = requests.post(url, headers=headers, json=data)
@@ -52,10 +49,7 @@ def get_completion(messages: list) -> str:
 def get_pr_diff(pr_number):
     """Fetches the diff of a specific PR from a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/pulls/{pr_number}"
-    headers = {
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github.v3.diff"
-    }
+    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
     response = requests.get(url, headers=headers)
     return response.text if response.status_code == 200 else ""
 
@@ -72,12 +66,10 @@ def graphql_request(query: str, variables: dict = None) -> dict:
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Content-Type": "application/json",
-        "Accept": "application/vnd.github.v4+json"
+        "Accept": "application/vnd.github.v4+json",
     }
     response = requests.post(
-        GITHUB_API_URL + "/graphql",
-        json={"query": query, "variables": variables},
-        headers=headers
+        GITHUB_API_URL + "/graphql", json={"query": query, "variables": variables}, headers=headers
     )
     response.raise_for_status()
     result = response.json()
@@ -100,13 +92,7 @@ def get_event_content() -> Tuple[int, str, str, str, str]:
         pr_number = event_data["pull_request"]["number"]
         item = get_github_data(f"pulls/{pr_number}")
         body = remove_html_comments(item.get("body", ""))
-        return (
-            item["number"],
-            item["node_id"],
-            item["title"],
-            body,
-            item["user"]["login"]
-        )
+        return (item["number"], item["node_id"], item["title"], body, item["user"]["login"])
 
     elif GITHUB_EVENT_NAME == "discussion":
         item = event_data["discussion"]
@@ -329,10 +315,7 @@ def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
             }
         }
         """
-        variables = {
-            "labelableId": node_id,
-            "labelIds": label_ids
-        }
+        variables = {"labelableId": node_id, "labelIds": label_ids}
         response = graphql_request(mutation, variables)
         if response.get("data"):
             print(f"Successfully applied labels to discussion #{number}.")
@@ -341,9 +324,7 @@ def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
         response = requests.post(
-            url,
-            json={"labels": labels},
-            headers=GITHUB_HEADERS | {"Author": "UltralyticsAssistant"}
+            url, json={"labels": labels}, headers=GITHUB_HEADERS | {"Author": "UltralyticsAssistant"}
         )
         if response.status_code == 200:
             print(f"Successfully applied labels: {', '.join(labels)}")
@@ -356,7 +337,7 @@ def create_alert_label():
     alert_label = {
         "name": "Alert",
         "color": "FF0000",  # bright red
-        "description": "Potential spam, abuse, or off-topic."
+        "description": "Potential spam, abuse, or off-topic.",
     }
     response = requests.post(
         f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels",
@@ -391,10 +372,7 @@ def add_comment(number: int, node_id: str, comment: str, issue_type: str):
             }
         }
         """
-        variables = {
-            "discussionId": node_id,
-            "body": comment
-        }
+        variables = {"discussionId": node_id, "body": comment}
         response = graphql_request(mutation, variables)
         if response.get("data"):
             print(f"Successfully added comment to discussion #{number}.")
