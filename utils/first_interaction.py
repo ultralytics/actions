@@ -49,7 +49,7 @@ Thank you for your contribution to improving our project!
 """
 
 DEFAULT_PR_INSTRUCTIONS = f"""
-👋 Hello @${{ github.actor }}, thank you for submitting an Ultralytics 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
+👋 Hello @{{ username }}, thank you for submitting an Ultralytics 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
 
 - ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{REPO_NAME}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
 - ✅ **Stay Up-to-Date**: Confirm your PR is synchronized with the `{REPO_NAME}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
