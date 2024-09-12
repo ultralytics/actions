@@ -189,7 +189,7 @@ def lock_issue_pr(number: int, node_id: str, issue_type: str):
             }
         }
         """
-        variables = {"lockableId": node_id,"lockReason": "OFF_TOPIC"}
+        variables = {"lockableId": node_id, "lockReason": "OFF_TOPIC"}
         response = graphql_request(mutation, variables)
         if response.get("data"):
             print(f"Successfully locked discussion #{number}.")
