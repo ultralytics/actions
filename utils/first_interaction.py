@@ -264,10 +264,10 @@ Thank you for your contribution to improving our project!
 """
 
     pr_response = f"""
-👋 Hello @{username}, thank you for submitting an Ultralytics 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
+👋 Hello @{username}, thank you for submitting an `{REPO_NAME}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
 
 - ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{REPO_NAME}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
-- ✅ **Stay Up-to-Date**: Confirm your PR is synchronized with the `{REPO_NAME}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
+- ✅ **Syncrhonize with Source**: Confirm your PR is synchronized with the `{REPO_NAME}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
 - ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI/) checks are passing. If any checks fail, please address the issues.
 - ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com) for any new or modified features.
 - ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
@@ -287,7 +287,7 @@ For more guidance, please refer to our [Contributing Guide](https://docs.ultraly
     repo_url = f"https://github.com/{REPO_NAME}"
     diff = get_pr_diff(number)[:32000] if issue_type == "pull request" else ""
 
-    prompt = f"""Generate a tailored response for a new GitHub {issue_type} based on the following context and content:
+    prompt = f"""Generate a customized response to the new GitHub {issue_type} below:
 
 CONTEXT:
 - Repository: {repo_name}
@@ -296,13 +296,13 @@ CONTEXT:
 - User: {username}
 
 INSTRUCTIONS:
-- Provide an optimal answer if a bug report or question
+- Provide a detailed, optimal answer if a bug report or question, using code examples if helpful
 - Provide highly detailed best-practices guidelines for issue/PR submission
 - INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
-- Inform the user that this is an automated response but a human reviewer should respond soon with additional help
+- In your response mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
 - Do not add a sign-off or valediction like "best regards" at the end of your response
 - Only link to files or URLs in the example below, do not add external links
-- Use emojis to enliven your response and code example and backlinks if they help
+- Use a few emojis to enliven your response
 
 EXAMPLE:
 {example}
