@@ -55,11 +55,11 @@ inputs:
     description: "OpenAI Model"
     required: false
     default: "gpt-4o"
-  first_interaction_issue_instructions:
-    description: "Instructions for new issue responses"
+  first_issue_response:
+    description: "Example response to a new issue"
     required: false
-  first_interaction_pr_instructions:
-    description: "Instructions for new RP responses"
+  first_pr_response:
+    description: "Example response to a new PR"
     required: false
 runs:
   using: "composite"
@@ -219,8 +219,8 @@ runs:
       env:
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ inputs.token }}
-        FIRST_INTERACTION_ISSUE_INSTRUCTIONS: ${{ inputs.first_interaction_issue_instructions }}
-        FIRST_INTERACTION_PR_INSTRUCTIONS: ${{ inputs.first_interaction_pr_instructions }}
+        FIRST_ISSUE_RESPONSE: ${{ inputs.first_issue_response }}
+        FIRST_PR_RESPONSE: ${{ inputs.first_pr_response }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_AZURE_API_KEY: ${{ inputs.openai_azure_api_key }}
         OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
