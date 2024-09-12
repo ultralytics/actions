@@ -317,6 +317,7 @@ INSTRUCTIONS:
 - INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
 - Make clear that this is an automated response and that a human reviewer should respond soon with additional help
 - Do not add a sign-off or valediction like "best regards" at the end of your response
+- Only link to files or URLs that are in the example below, do not add external links
 - Use emojis to enliven your response and code example and backlinks if they help
 
 EXAMPLE:
@@ -333,6 +334,7 @@ EXAMPLE:
 
 YOUR RESPONSE (comment body only, no sign-off):
 """
+    print(f"\n\n{prompt}\n\n")  # for debug
     messages = [
         {
             "role": "system",
@@ -340,8 +342,6 @@ YOUR RESPONSE (comment body only, no sign-off):
         },
         {"role": "user", "content": prompt},
     ]
-    print("Preparing first interaction response.")
-    print(messages)  # for debug
     return get_completion(messages)
 
 
