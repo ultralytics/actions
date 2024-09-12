@@ -456,8 +456,7 @@ def main():
     number, node_id, title, body, username, issue_type = get_event_content()
     available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
     if issue_type == "discussion":
-        # For discussions, labels may need to be fetched differently or adjusted
-        current_labels = []  # Adjust as needed if discussions have labels
+        current_labels = []  # For discussions, labels may need to be fetched differently or adjusted
     else:
         current_labels = [label["name"].lower() for label in get_github_data(f"issues/{number}/labels")]
     relevant_labels = get_relevant_labels(issue_type, title, body, available_labels, current_labels)
