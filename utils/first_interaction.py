@@ -127,7 +127,7 @@ Thank you 🙏
             }
         }
         """
-        variables = {"discussionId": node_id,"title": new_title,"body": new_body}
+        variables = {"discussionId": node_id, "title": new_title, "body": new_body}
         response = graphql_request(mutation, variables)
         if response.get("data"):
             print(f"Successfully updated discussion #{number} title and body.")
