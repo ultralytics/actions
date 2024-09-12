@@ -126,8 +126,7 @@ mutation($discussionId: ID!, $title: String!, $body: String!) {
         graphql_request(mutation, variables={"discussionId": node_id, "title": new_title, "body": new_body})
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
-        data = {"title": new_title, "body": new_body}
-        r = requests.patch(url, json=data, headers=GITHUB_HEADERS)
+        r = requests.patch(url, json={"title": new_title, "body": new_body}, headers=GITHUB_HEADERS)
         if r.status_code == 200:
             print(f"Successfully updated issue/PR #{number} title and body.")
         else:
@@ -149,8 +148,7 @@ mutation($discussionId: ID!) {
         graphql_request(mutation, variables={"discussionId": node_id})
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
-        data = {"state": "closed"}
-        r = requests.patch(url, json=data, headers=GITHUB_HEADERS)
+        r = requests.patch(url, json={"state": "closed"}, headers=GITHUB_HEADERS)
         if r.status_code == 200:
             print(f"Successfully closed issue/PR #{number}.")
         else:
@@ -174,8 +172,7 @@ mutation($lockableId: ID!, $lockReason: LockReason) {
         graphql_request(mutation, variables={"lockableId": node_id, "lockReason": "OFF_TOPIC"})
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/lock"
-        data = {"lock_reason": "off-topic"}
-        r = requests.put(url, json=data, headers=GITHUB_HEADERS)
+        r = requests.put(url, json={"lock_reason": "off-topic"}, headers=GITHUB_HEADERS)
         if r.status_code in [200, 204]:
             print(f"Successfully locked issue/PR #{number}.")
         else:
@@ -328,8 +325,7 @@ mutation($discussionId: ID!, $body: String!) {
         graphql_request(mutation, variables={"discussionId": node_id, "body": comment})
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/comments"
-        data = {"body": comment}
-        r = requests.post(url, json=data, headers=GITHUB_HEADERS)
+        r = requests.post(url, json={"body": comment}, headers=GITHUB_HEADERS)
         if r.status_code in [200, 201]:
             print(f"Successfully added comment to {issue_type} #{number}.")
         else:
