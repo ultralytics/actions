@@ -295,6 +295,15 @@ CONTEXT:
 - Repository URL: {repo_url}
 - User: {username}
 
+{issue_type.upper()} TITLE:
+{title}
+
+{issue_type.upper()} DESCRIPTION:
+{body[:16000]}
+
+{"PULL REQUEST DIFF:" if issue_type == "pull request" else ""}
+{diff if issue_type == "pull request" else ""}
+
 INSTRUCTIONS:
 - Provide an optimal answer if a bug report or question
 - Provide highly detailed best-practices guidelines for issue/PR submission
@@ -307,22 +316,13 @@ INSTRUCTIONS:
 EXAMPLE:
 {example}
 
-{issue_type.upper()} TITLE:
-{title}
-
-{issue_type.upper()} DESCRIPTION:
-{body[:16000]}
-
-{"PULL REQUEST DIFF:" if issue_type == "pull request" else ""}
-{diff if issue_type == "pull request" else ""}
-
 YOUR RESPONSE:
 """
     print(f"\n\n{prompt}\n\n")  # for debug
     messages = [
         {
             "role": "system",
-            "content": f"You are a helpful assistant responding to GitHub {issue_type}s for the {org_name} organization.",
+            "content": f"You are a helpful assistant responding to GitHub {issue_type}s for the {org_name} org.",
         },
         {"role": "user", "content": prompt},
     ]
