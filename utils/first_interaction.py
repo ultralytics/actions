@@ -287,7 +287,7 @@ For more guidance, please refer to our [Contributing Guide](https://docs.ultraly
     repo_url = f"https://github.com/{REPO_NAME}"
     diff = get_pr_diff(number)[:32000] if issue_type == "pull request" else ""
 
-    prompt = f"""Generate a tailored response for a new GitHub {issue_type} based on the following context and content:
+    prompt = f"""Generate a customized response to the new GitHub {issue_type} below:
 
 CONTEXT:
 - Repository: {repo_name}
@@ -299,7 +299,7 @@ INSTRUCTIONS:
 - Provide a detailed, optimal answer if a bug report or question, using code examples if helpful
 - Provide highly detailed best-practices guidelines for issue/PR submission
 - INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
-- Inform the a human reviewer should respond soon with additional help
+- In your response mention to the user that this is an automated response and that an Ultralytics employee will also assist soon
 - Do not add a sign-off or valediction like "best regards" at the end of your response
 - Only link to files or URLs in the example below, do not add external links
 - Use a few emojis to enliven your response
