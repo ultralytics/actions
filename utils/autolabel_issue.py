@@ -15,6 +15,8 @@ GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
+FIRST_INTERACTION_ISSUE_INSTRUCTIONS = os.getenv("FIRST_INTERACTION_ISSUE_INSTRUCTIONS")
+FIRST_INTERACTION_PR_INSTRUCTIONS = os.getenv("FIRST_INTERACTION_PR_INSTRUCTIONS")
 
 # OpenAI settings
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # update as required
@@ -215,8 +217,43 @@ def is_org_member(username: str) -> bool:
     return response.status_code == 204  # 204 means the user is a member
 
 
+def get_first_interaction_response(issue_type: str, title: str, body: str) -> str:
+    """Generates a custom response using LLM based on the issue/PR content and instructions."""
+    instructions = FIRST_INTERACTION_ISSUE_INSTRUCTIONS if issue_type == "issue" else FIRST_INTERACTION_PR_INSTRUCTIONS
+
+    prompt = f"""Generate a response for a new GitHub {issue_type} based on the following instructions and content:
+
+INSTRUCTIONS:
+{instructions}
+
+{issue_type.upper()} TITLE:
+{title}
+
+{issue_type.upper()} DESCRIPTION:
+{body[:8000]}
+
+YOUR RESPONSE:
+"""
+    messages = [
+        {"role": "system", "content": f"You are a helpful assistant responding to GitHub {issue_type}s."},
+        {"role": "user", "content": prompt},
+    ]
+    return get_completion(messages)
+
+
+def add_comment(number: int, comment: str):
+    """Adds a comment to the issue or pull request."""
+    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/comments"
+    data = {"body": comment}
+    response = requests.post(url, json=data, headers=GITHUB_HEADERS)
+    if response.status_code == 201:
+        print(f"Successfully added comment to {GITHUB_EVENT_NAME} #{number}.")
+    else:
+        print(f"Failed to add comment. Status code: {response.status_code}")
+
+
 def main():
-    """Runs autolabel action."""
+    """Runs autolabel action and adds custom response for new issues/PRs."""
     number, title, body, username = get_event_content()
     available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
     current_labels = [label["name"].lower() for label in get_github_data(f"issues/{number}/labels")]
@@ -232,6 +269,15 @@ def main():
                 block_user(username=get_github_data(f"issues/{number}")["user"]["login"])
     else:
         print("No relevant labels found or applied.")
+
+    # Generate and add custom response for new issues/PRs
+    with open(GITHUB_EVENT_PATH) as f:
+        event_data = json.load(f)
+
+    if event_data.get("action") == "opened":
+        issue_type = "issue" if GITHUB_EVENT_NAME == "issues" else "pull request"
+        custom_response = get_first_interaction_response(issue_type, title, body)
+        add_comment(number, custom_response)
 
 
 if __name__ == "__main__":
