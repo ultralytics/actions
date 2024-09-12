@@ -78,29 +78,25 @@ def graphql_request(query: str, variables: dict = None) -> dict:
     return result
 
 
-def get_event_content() -> Tuple[int, str, str, str, str]:
+def get_event_content() -> Tuple[int, str, str, str, str, str]:
     """Extracts the number, node_id, title, body, and username from the issue, pull request, or discussion."""
     with open(GITHUB_EVENT_PATH) as f:
         event_data = json.load(f)
-
     if GITHUB_EVENT_NAME == "issues":
         item = event_data["issue"]
         body = remove_html_comments(item.get("body", ""))
-        return item["number"], item["node_id"], item["title"], body, item["user"]["login"]
-
+        return item["number"], item["node_id"], item["title"], body, item["user"]["login"], "issue"
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
         pr_number = event_data["pull_request"]["number"]
         item = get_github_data(f"pulls/{pr_number}")
         body = remove_html_comments(item.get("body", ""))
-        return (item["number"], item["node_id"], item["title"], body, item["user"]["login"])
-
+        return item["number"], item["node_id"], item["title"], body, item["user"]["login"], "pull request"
     elif GITHUB_EVENT_NAME == "discussion":
         item = event_data["discussion"]
         discussion_id = item["node_id"]  # GraphQL node ID
         number = item["number"]
         body = remove_html_comments(item.get("body", ""))
-        return number, discussion_id, item["title"], body, item["user"]["login"]
-
+        return number, discussion_id, item["title"], body, item["user"]["login"], "discussion"
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
@@ -119,14 +115,14 @@ Thank you 🙏
 """
     if issue_type == "discussion":
         mutation = """
-        mutation($discussionId: ID!, $title: String!, $body: String!) {
-            updateDiscussion(input: {discussionId: $discussionId, title: $title, body: $body}) {
-                discussion {
-                    id
-                }
-            }
+mutation($discussionId: ID!, $title: String!, $body: String!) {
+    updateDiscussion(input: {discussionId: $discussionId, title: $title, body: $body}) {
+        discussion {
+            id
         }
-        """
+    }
+}
+"""
         variables = {"discussionId": node_id, "title": new_title, "body": new_body}
         response = graphql_request(mutation, variables)
         if response.get("data"):
@@ -147,14 +143,14 @@ def close_issue_pr(number: int, node_id: str, issue_type: str):
     """Closes the issue, pull request, or discussion."""
     if issue_type == "discussion":
         mutation = """
-        mutation($discussionId: ID!) {
-            closeDiscussion(input: {discussionId: $discussionId}) {
-                discussion {
-                    id
-                }
-            }
+mutation($discussionId: ID!) {
+    closeDiscussion(input: {discussionId: $discussionId}) {
+        discussion {
+            id
         }
-        """
+    }
+}
+"""
         variables = {"discussionId": node_id}
         response = graphql_request(mutation, variables)
         if response.get("data"):
@@ -175,16 +171,16 @@ def lock_issue_pr(number: int, node_id: str, issue_type: str):
     """Locks the issue, pull request, or discussion."""
     if issue_type == "discussion":
         mutation = """
-        mutation($lockableId: ID!, $lockReason: LockReason) {
-            lockLockable(input: {lockableId: $lockableId, lockReason: $lockReason}) {
-                lockedRecord {
-                    ... on Discussion {
-                        id
-                    }
-                }
+mutation($lockableId: ID!, $lockReason: LockReason) {
+    lockLockable(input: {lockableId: $lockableId, lockReason: $lockReason}) {
+        lockedRecord {
+            ... on Discussion {
+                id
             }
         }
-        """
+    }
+}
+"""
         variables = {"lockableId": node_id, "lockReason": "OFF_TOPIC"}
         response = graphql_request(mutation, variables)
         if response.get("data"):
@@ -298,16 +294,16 @@ def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
             return
         # Use GraphQL to apply labels to the discussion
         mutation = """
-        mutation($labelableId: ID!, $labelIds: [ID!]!) {
-            addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
-                labelable {
-                    ... on Discussion {
-                        id
-                    }
-                }
+mutation($labelableId: ID!, $labelIds: [ID!]!) {
+    addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
+        labelable {
+            ... on Discussion {
+                id
             }
         }
-        """
+    }
+}
+"""
         variables = {"labelableId": node_id, "labelIds": label_ids}
         response = graphql_request(mutation, variables)
         if response.get("data"):
@@ -343,14 +339,14 @@ def add_comment(number: int, node_id: str, comment: str, issue_type: str):
     """Adds a comment to the issue, pull request, or discussion."""
     if issue_type == "discussion":
         mutation = """
-        mutation($discussionId: ID!, $body: String!) {
-            addDiscussionComment(input: {discussionId: $discussionId, body: $body}) {
-                comment {
-                    id
-                }
-            }
+mutation($discussionId: ID!, $body: String!) {
+    addDiscussionComment(input: {discussionId: $discussionId, body: $body}) {
+        comment {
+            id
         }
-        """
+    }
+}
+"""
         variables = {"discussionId": node_id, "body": comment}
         response = graphql_request(mutation, variables)
         if response.get("data"):
@@ -462,14 +458,7 @@ YOUR RESPONSE:
 
 def main():
     """Runs autolabel action and adds custom response for new issues/PRs/Discussions."""
-    number, node_id, title, body, username = get_event_content()
-    issue_type = (
-        "issue"
-        if GITHUB_EVENT_NAME == "issues"
-        else "pull request"
-        if GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]
-        else "discussion"
-    )
+    number, node_id, title, body, username, issue_type = get_event_content()
     available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
     if issue_type == "discussion":
         # For discussions, labels may need to be fetched differently or adjusted
