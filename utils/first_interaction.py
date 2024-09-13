@@ -264,6 +264,7 @@ query($owner: String!, $name: String!) {
 
 
 def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
+    """Applies the given labels to the issue, pull request, or discussion."""
     if "Alert" in labels:
         create_alert_label()
 
