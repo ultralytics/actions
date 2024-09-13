@@ -72,7 +72,7 @@ def graphql_request(query: str, variables: dict = None) -> dict:
     r.raise_for_status()
     result = r.json()
     success = "data" in result and not result.get("errors")
-    print(f"{'Successful' if success else 'Failed'} discussion GraphQL request: {result.get('errors', 'No errors')}")
+    print(f"{'Successful' if success else 'Fail'} discussion GraphQL request: {result.get('errors', 'No errors')}")
     return result
 
 
@@ -123,10 +123,7 @@ mutation($discussionId: ID!, $title: String!, $body: String!) {
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
         r = requests.patch(url, json={"title": new_title, "body": new_body}, headers=GITHUB_HEADERS)
-        if r.status_code == 200:
-            print(f"Successfully updated issue/PR #{number} title and body.")
-        else:
-            print(f"Failed to update issue/PR. Status code: {r.status_code}")
+        print(f"{'Successful' if r.status_code == 200 else 'Fail'} issue/PR #{number} update: {r.status_code}")
 
 
 def close_issue_pr(number: int, node_id: str, issue_type: str):
@@ -145,10 +142,7 @@ mutation($discussionId: ID!) {
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
         r = requests.patch(url, json={"state": "closed"}, headers=GITHUB_HEADERS)
-        if r.status_code == 200:
-            print(f"Successfully closed issue/PR #{number}.")
-        else:
-            print(f"Failed to close issue/PR. Status code: {r.status_code}")
+        print(f"{'Successful' if r.status_code == 200 else 'Fail'} issue/PR #{number} close: {r.status_code}")
 
 
 def lock_issue_pr(number: int, node_id: str, issue_type: str):
@@ -169,20 +163,13 @@ mutation($lockableId: ID!, $lockReason: LockReason) {
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/lock"
         r = requests.put(url, json={"lock_reason": "off-topic"}, headers=GITHUB_HEADERS)
-        if r.status_code in [200, 204]:
-            print(f"Successfully locked issue/PR #{number}.")
-        else:
-            print(f"Failed to lock issue/PR. Status code: {r.status_code}")
-
+        print(f"{'Successful' if r.status_code in [200, 204] else 'Fail'} issue/PR #{number} lock: {r.status_code}")
 
 def block_user(username: str):
     """Blocks a user from the organization."""
     url = f"{GITHUB_API_URL}/orgs/{REPO_NAME.split('/')[0]}/blocks/{username}"
     r = requests.put(url, headers=GITHUB_HEADERS)
-    if r.status_code == 204:
-        print(f"Successfully blocked user: {username}.")
-    else:
-        print(f"Failed to block user. Status code: {r.status_code}")
+    print(f"{'Successful' if r.status_code == 204 else 'Fail'} user block for {username}: {r.status_code}")
 
 
 def get_relevant_labels(
@@ -286,10 +273,7 @@ mutation($labelableId: ID!, $labelIds: [ID!]!) {
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
         r = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS)
-        if r.status_code == 200:
-            print(f"Successfully applied labels: {', '.join(labels)}")
-        else:
-            print(f"Failed to apply labels. Status code: {r.status_code}")
+        print(f"{'Successful' if r.status_code == 200 else 'Fail'} apply labels {', '.join(labels)}: {r.status_code}")
 
 
 def create_alert_label():
@@ -322,10 +306,7 @@ mutation($discussionId: ID!, $body: String!) {
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/comments"
         r = requests.post(url, json={"body": comment}, headers=GITHUB_HEADERS)
-        if r.status_code in [200, 201]:
-            print(f"Successfully added comment to {issue_type} #{number}.")
-        else:
-            print(f"Failed to add comment. Status code: {r.status_code}")
+        print(f"{'Successful' if r.status_code in [200, 201] else 'Fail'} issue/PR #{number} comment: {r.status_code}")
 
 
 def get_first_interaction_response(issue_type: str, title: str, body: str, username: str, number: int) -> str:
