@@ -99,7 +99,7 @@ def get_event_content() -> Tuple[int, str, str, str, str, str, str]:
     title = item["title"]
     body = remove_html_comments(item.get("body", ""))
     username = item["user"]["login"]
-   
+
     print("RUNNING GET_EVENT_CONTENT()")
     print(f"ACTION: {action}")
     print(f"NUMBER: {number}")
