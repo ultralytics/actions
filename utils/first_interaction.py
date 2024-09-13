@@ -165,6 +165,7 @@ mutation($lockableId: ID!, $lockReason: LockReason) {
         r = requests.put(url, json={"lock_reason": "off-topic"}, headers=GITHUB_HEADERS)
         print(f"{'Successful' if r.status_code in [200, 204] else 'Fail'} issue/PR #{number} lock: {r.status_code}")
 
+
 def block_user(username: str):
     """Blocks a user from the organization."""
     url = f"{GITHUB_API_URL}/orgs/{REPO_NAME.split('/')[0]}/blocks/{username}"
