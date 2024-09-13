@@ -76,7 +76,7 @@ def graphql_request(query: str, variables: dict = None) -> dict:
     return result
 
 
-def get_event_content() -> Tuple[int, str, str, str, str, str]:
+def get_event_content() -> Tuple[int, str, str, str, str, str, str]:
     """Extracts the number, node_id, title, body, username, and issue_type."""
     with open(GITHUB_EVENT_PATH) as f:
         data = json.load(f)
@@ -93,13 +93,19 @@ def get_event_content() -> Tuple[int, str, str, str, str, str]:
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
+    action = item["action"]  # 'opened', 'closed', 'created' (discussion), etc.
     number = item["number"]
     node_id = item.get("node_id") or item.get("id")
     title = item["title"]
     body = remove_html_comments(item.get("body", ""))
     username = item["user"]["login"]
-    print("NODE_ID", node_id)
-    return number, node_id, title, body, username, issue_type
+
+    print("RUNNING GET_EVENT_CONTENT()")
+    print(f"ACTION: {action}")
+    print(f"NUMBER: {number}")
+    print(f"NOTE_ID: {node_id}")
+    print("TITLE: {title}")
+    return number, node_id, title, body, username, issue_type, action
 
 
 def update_issue_pr_content(number: int, node_id: str, issue_type: str):
@@ -422,7 +428,7 @@ YOUR RESPONSE:
 
 def main():
     """Runs autolabel action and adds custom response for new issues/PRs/Discussions."""
-    number, node_id, title, body, username, issue_type = get_event_content()
+    number, node_id, title, body, username, issue_type, action = get_event_content()
     available_labels = get_github_data("labels")
     label_descriptions = {label["name"]: label.get("description", "") for label in available_labels}
     if issue_type == "discussion":
@@ -443,11 +449,7 @@ def main():
     else:
         print("No relevant labels found or applied.")
 
-    # Generate and add custom response for new issues/PRs/Discussions
-    with open(GITHUB_EVENT_PATH) as f:
-        event_data = json.load(f)
-
-    if event_data.get("action") in ["opened", "created"]:
+    if action in {"opened", "created"}:
         custom_response = get_first_interaction_response(issue_type, title, body, username, number)
         add_comment(number, node_id, custom_response, issue_type)
 
