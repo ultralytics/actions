@@ -1,5 +1,6 @@
 # Ultralytics YOLO 🚀, AGPL-3.0 License https://ultralytics.com/license
 
+import base64
 import json
 import os
 import re
@@ -238,43 +239,53 @@ YOUR RESPONSE (label names only):
     ]
 
 
-def get_label_ids(labels: List[str]) -> List[str]:
-    """Fetches the label IDs for given label names."""
-    # This function remains unchanged and continues to use REST API
-    label_ids = []
-    for label_name in labels:
-        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels/{label_name}"
-        r = requests.get(url, headers=GITHUB_HEADERS)
-        if r.status_code == 200:
-            label_data = r.json()
-            label_ids.append(label_data["id"])
-        else:
-            print(f"Label '{label_name}' not found.")
-    return label_ids
-
-
 def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
     """Applies the given labels to the issue, pull request, or discussion."""
     if "Alert" in labels:
         create_alert_label()
+
     if issue_type == "discussion":
+
+        def get_label_ids(labels: List[str]) -> List[str]:
+            query = """
+            query($owner: String!, $name: String!, $labels: [String!]!) {
+                repository(owner: $owner, name: $name) {
+                    labels(first: 100, query: $labels) {
+                        nodes {
+                            id
+                            name
+                        }
+                    }
+                }
+            }
+            """
+            owner, repo = REPO_NAME.split("/")
+            result = graphql_request(query, {"owner": owner, "name": repo, "labels": labels})
+            label_map = {node["name"]: node["id"] for node in result["data"]["repository"]["labels"]["nodes"]}
+            return [label_map.get(label) for label in labels if label in label_map]
+
         label_ids = get_label_ids(labels)
         if not label_ids:
             print("No valid labels to apply.")
             return
-        # Use GraphQL to apply labels to the discussion
+
+        # Encode the node_id
+        encoded_id = base64.b64encode(f"Discussion:{node_id}".encode()).decode()
+
         mutation = """
-mutation($labelableId: ID!, $labelIds: [ID!]!) {
-    addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
-        labelable {
-            ... on Discussion {
-                id
+        mutation($labelableId: ID!, $labelIds: [ID!]!) {
+            addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
+                labelable {
+                    ... on Discussion {
+                        id
+                    }
+                }
             }
         }
-    }
-}
-"""
-        graphql_request(mutation, variables={"labelableId": node_id, "labelIds": label_ids})
+        """
+        variables = {"labelableId": encoded_id, "labelIds": label_ids}
+        print(f"Applying labels to discussion. Variables: {variables}")
+        graphql_request(mutation, variables)
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
         r = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS)
@@ -378,7 +389,7 @@ INSTRUCTIONS:
 - INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
 - In your response mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
 - Do not add a sign-off or valediction like "best regards" at the end of your response
-- Do not insert extra newlines between list items
+- Do not add spaces between bullet points or numbered lists
 - Only link to files or URLs in the example below, do not add external links
 - Use a few emojis to enliven your response
 
@@ -410,12 +421,13 @@ YOUR RESPONSE:
 def main():
     """Runs autolabel action and adds custom response for new issues/PRs/Discussions."""
     number, node_id, title, body, username, issue_type = get_event_content()
-    available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
+    available_labels = get_github_data("labels")
+    label_descriptions = {label["name"]: label.get("description", "") for label in available_labels}
     if issue_type == "discussion":
         current_labels = []  # For discussions, labels may need to be fetched differently or adjusted
     else:
         current_labels = [label["name"].lower() for label in get_github_data(f"issues/{number}/labels")]
-    relevant_labels = get_relevant_labels(issue_type, title, body, available_labels, current_labels)
+    relevant_labels = get_relevant_labels(issue_type, title, body, label_descriptions, current_labels)
 
     if relevant_labels:
         apply_labels(number, node_id, relevant_labels, issue_type)
