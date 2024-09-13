@@ -444,7 +444,7 @@ def main():
     else:
         print("No relevant labels found or applied.")
 
-    if action in ["opened", "created"]:
+    if action in {"opened", "created"}:
         custom_response = get_first_interaction_response(issue_type, title, body, username, number)
         add_comment(number, node_id, custom_response, issue_type)
 
