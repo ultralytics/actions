@@ -80,6 +80,7 @@ def get_event_content() -> Tuple[int, str, str, str, str, str, str]:
     """Extracts the number, node_id, title, body, username, and issue_type."""
     with open(GITHUB_EVENT_PATH) as f:
         data = json.load(f)
+    action = data["action"]  # 'opened', 'closed', 'created' (discussion), etc.
     if GITHUB_EVENT_NAME == "issues":
         item = data["issue"]
         issue_type = "issue"
@@ -93,18 +94,11 @@ def get_event_content() -> Tuple[int, str, str, str, str, str, str]:
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
 
-    action = item["action"]  # 'opened', 'closed', 'created' (discussion), etc.
     number = item["number"]
     node_id = item.get("node_id") or item.get("id")
     title = item["title"]
     body = remove_html_comments(item.get("body", ""))
     username = item["user"]["login"]
-
-    print("RUNNING GET_EVENT_CONTENT()")
-    print(f"ACTION: {action}")
-    print(f"NUMBER: {number}")
-    print(f"NOTE_ID: {node_id}")
-    print("TITLE: {title}")
     return number, node_id, title, body, username, issue_type, action
 
 
