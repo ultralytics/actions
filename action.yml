@@ -216,7 +216,7 @@ runs:
 
     # Autolabel Issues and PRs ----------------------------------------------------------------------------------------
     - name: Autolabel Issues and PRs
-      if: (github.event_name == 'issues' || github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.labels == 'true' && github.event.action == 'opened'
+      if: inputs.labels == 'true' && github.event.action == 'opened'
       env:
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ inputs.token }}
