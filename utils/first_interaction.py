@@ -252,11 +252,11 @@ def get_label_ids(labels: List[str]) -> List[str]:
         }
     }
     """
-    owner, repo = REPO_NAME.split('/')
+    owner, repo = REPO_NAME.split("/")
     result = graphql_request(query, variables={"owner": owner, "name": repo})
-    if 'data' in result and 'repository' in result['data']:
-        all_labels = result['data']['repository']['labels']['nodes']
-        label_map = {label['name'].lower(): label['id'] for label in all_labels}
+    if "data" in result and "repository" in result["data"]:
+        all_labels = result["data"]["repository"]["labels"]["nodes"]
+        label_map = {label["name"].lower(): label["id"] for label in all_labels}
         return [label_map.get(label.lower()) for label in labels if label.lower() in label_map]
     else:
         print(f"Failed to fetch labels: {result.get('errors', 'Unknown error')}")
