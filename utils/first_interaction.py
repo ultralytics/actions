@@ -245,6 +245,7 @@ def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
         create_alert_label()
 
     if issue_type == "discussion":
+
         def get_label_ids(labels: List[str]) -> List[str]:
             query = """
             query($owner: String!, $name: String!, $labels: [String!]!) {
@@ -258,9 +259,9 @@ def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
                 }
             }
             """
-            owner, repo = REPO_NAME.split('/')
+            owner, repo = REPO_NAME.split("/")
             result = graphql_request(query, {"owner": owner, "name": repo, "labels": labels})
-            label_map = {node['name']: node['id'] for node in result['data']['repository']['labels']['nodes']}
+            label_map = {node["name"]: node["id"] for node in result["data"]["repository"]["labels"]["nodes"]}
             return [label_map.get(label) for label in labels if label in label_map]
 
         label_ids = get_label_ids(labels)
