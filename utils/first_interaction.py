@@ -81,14 +81,17 @@ def get_event_content() -> Tuple[int, str, str, str, str, str]:
     with open(GITHUB_EVENT_PATH) as f:
         event_data = json.load(f)
     if GITHUB_EVENT_NAME == "issues":
+        item = event_data["issue"]
         issue_type = "issue"
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
+        item = event_data["pull_request"]  # with underscore
         issue_type = "pull request"
     elif GITHUB_EVENT_NAME == "discussion":
+        item = event_data["discussion"]
         issue_type = "discussion"
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
-    item = event_data[issue_type]
+
     number = item["number"]
     node_id = item.get("node_id") or item.get("id")
     title = item["title"]
