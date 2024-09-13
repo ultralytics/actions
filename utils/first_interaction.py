@@ -388,7 +388,7 @@ INSTRUCTIONS:
 - INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
 - In your response mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
 - Do not add a sign-off or valediction like "best regards" at the end of your response
-- Do not insert newlines between bullet point or numbered lists
+- Do not add spaces between bullet point or numbered lists
 - Only link to files or URLs in the example below, do not add external links
 - Use a few emojis to enliven your response
 
