@@ -93,10 +93,10 @@ runs:
 
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
-      if: github.event_name != 'issues' && github.event.action != 'closed'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
       run: |
         pip install -q \
-        ruff docformatter codespell tomli requests
+        ruff docformatter codespell tomli
       shell: bash
 
     # PR Summary -------------------------------------------------------------------------------------------------------
@@ -110,6 +110,7 @@ runs:
         OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
+        pip install requests
         curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/summarize_pr.py" | python -
       shell: bash
       continue-on-error: true
@@ -215,7 +216,7 @@ runs:
 
     # Autolabel Issues and PRs ----------------------------------------------------------------------------------------
     - name: Autolabel Issues and PRs
-      if: (github.event_name == 'issues' || github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.labels == 'true' && github.event.action == 'opened'
+      if: inputs.labels == 'true' && github.event.action == 'opened'
       env:
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ inputs.token }}
@@ -226,6 +227,7 @@ runs:
         OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
+        pip install requests
         curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/first_interaction.py" | python -
       shell: bash
       continue-on-error: true
