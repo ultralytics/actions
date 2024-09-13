@@ -1,5 +1,6 @@
 # Ultralytics YOLO 🚀, AGPL-3.0 License https://ultralytics.com/license
 
+import base64
 import json
 import os
 import re
@@ -238,31 +239,18 @@ YOUR RESPONSE (label names only):
     ]
 
 
-def get_label_ids(labels: List[str]) -> List[str]:
-    """Fetches the label IDs for given label names."""
-    # This function remains unchanged and continues to use REST API
-    label_ids = []
-    for label_name in labels:
-        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels/{label_name}"
-        r = requests.get(url, headers=GITHUB_HEADERS)
-        if r.status_code == 200:
-            label_data = r.json()
-            label_ids.append(label_data["id"])
-        else:
-            print(f"Label '{label_name}' not found.")
-    return label_ids
 
-
-def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
+def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str, label_ids: dict):
     """Applies the given labels to the issue, pull request, or discussion."""
     if "Alert" in labels:
         create_alert_label()
     if issue_type == "discussion":
-        label_ids = get_label_ids(labels)
+        label_ids = [label_ids(x) for x in labels]
         if not label_ids:
             print("No valid labels to apply.")
             return
-        # Use GraphQL to apply labels to the discussion
+         # Use GraphQL to apply labels to the discussion
+        encoded_id = base64.b64encode(f"Discussion:{node_id}".encode()).decode()  # Encode the node_id
         mutation = """
 mutation($labelableId: ID!, $labelIds: [ID!]!) {
     addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
@@ -274,7 +262,7 @@ mutation($labelableId: ID!, $labelIds: [ID!]!) {
     }
 }
 """
-        graphql_request(mutation, variables={"labelableId": node_id, "labelIds": label_ids})
+        graphql_request(mutation, variables={"labelableId": encoded_id, "labelIds": label_ids})
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
         r = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS)
@@ -410,15 +398,17 @@ YOUR RESPONSE:
 def main():
     """Runs autolabel action and adds custom response for new issues/PRs/Discussions."""
     number, node_id, title, body, username, issue_type = get_event_content()
-    available_labels = {label["name"]: label.get("description", "") for label in get_github_data("labels")}
+    available_labels = get_github_data("labels")
+    label_descriptions = {label["name"]: label.get("description", "") for label in available_labels}
+    label_ids = {label["name"]: label.get("id", "") for label in available_labels}
     if issue_type == "discussion":
         current_labels = []  # For discussions, labels may need to be fetched differently or adjusted
     else:
         current_labels = [label["name"].lower() for label in get_github_data(f"issues/{number}/labels")]
-    relevant_labels = get_relevant_labels(issue_type, title, body, available_labels, current_labels)
+    relevant_labels = get_relevant_labels(issue_type, title, body, label_descriptions, current_labels)
 
     if relevant_labels:
-        apply_labels(number, node_id, relevant_labels, issue_type)
+        apply_labels(number, node_id, relevant_labels, issue_type, label_ids)
         if "Alert" in relevant_labels and not is_org_member(username):
             update_issue_pr_content(number, node_id, issue_type)
             if issue_type != "pull request":
