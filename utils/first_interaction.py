@@ -239,38 +239,40 @@ YOUR RESPONSE (label names only):
     ]
 
 
+def get_label_ids(labels: List[str]) -> List[str]:
+    query = """
+    query($owner: String!, $name: String!) {
+        repository(owner: $owner, name: $name) {
+            labels(first: 100, query: "") {
+                nodes {
+                    id
+                    name
+                }
+            }
+        }
+    }
+    """
+    owner, repo = REPO_NAME.split('/')
+    result = graphql_request(query, variables={"owner": owner, "name": repo})
+    if 'data' in result and 'repository' in result['data']:
+        all_labels = result['data']['repository']['labels']['nodes']
+        label_map = {label['name'].lower(): label['id'] for label in all_labels}
+        return [label_map.get(label.lower()) for label in labels if label.lower() in label_map]
+    else:
+        print(f"Failed to fetch labels: {result.get('errors', 'Unknown error')}")
+        return []
+
+
 def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
     """Applies the given labels to the issue, pull request, or discussion."""
     if "Alert" in labels:
         create_alert_label()
 
     if issue_type == "discussion":
-
-        def get_label_ids(labels: List[str]) -> List[str]:
-            query = """
-            query($owner: String!, $name: String!, $labels: [String!]!) {
-                repository(owner: $owner, name: $name) {
-                    labels(first: 100, query: $labels) {
-                        nodes {
-                            id
-                            name
-                        }
-                    }
-                }
-            }
-            """
-            owner, repo = REPO_NAME.split("/")
-            result = graphql_request(query, {"owner": owner, "name": repo, "labels": labels})
-            label_map = {node["name"]: node["id"] for node in result["data"]["repository"]["labels"]["nodes"]}
-            return [label_map.get(label) for label in labels if label in label_map]
-
         label_ids = get_label_ids(labels)
         if not label_ids:
             print("No valid labels to apply.")
             return
-
-        # Encode the node_id
-        encoded_id = base64.b64encode(f"Discussion:{node_id}".encode()).decode()
 
         mutation = """
         mutation($labelableId: ID!, $labelIds: [ID!]!) {
@@ -283,9 +285,12 @@ def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
             }
         }
         """
-        variables = {"labelableId": encoded_id, "labelIds": label_ids}
-        print(f"Applying labels to discussion. Variables: {variables}")
-        graphql_request(mutation, variables)
+        encoded_id = base64.b64encode(f"Discussion:{node_id}".encode()).decode()
+        result = graphql_request(mutation, variables={"labelableId": encoded_id, "labelIds": label_ids})
+        if "errors" in result:
+            print(f"Failed to apply labels. Errors: {result['errors']}")
+        else:
+            print(f"Successfully applied labels: {', '.join(labels)}")
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
         r = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS)
