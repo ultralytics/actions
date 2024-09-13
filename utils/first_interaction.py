@@ -79,15 +79,16 @@ def graphql_request(query: str, variables: dict = None) -> dict:
 def get_event_content() -> Tuple[int, str, str, str, str, str]:
     """Extracts the number, node_id, title, body, username, and issue_type."""
     with open(GITHUB_EVENT_PATH) as f:
-        event_data = json.load(f)
+        data = json.load(f)
     if GITHUB_EVENT_NAME == "issues":
-        item = event_data["issue"]
+        item = data["issue"]
         issue_type = "issue"
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
-        item = event_data["pull_request"]  # with underscore
+        pr_number = data["pull_request"]["number"]
+        item = get_github_data(f"pulls/{pr_number}")
         issue_type = "pull request"
     elif GITHUB_EVENT_NAME == "discussion":
-        item = event_data["discussion"]
+        item = data["discussion"]
         issue_type = "discussion"
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
