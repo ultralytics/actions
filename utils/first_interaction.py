@@ -1,6 +1,5 @@
 # Ultralytics YOLO 🚀, AGPL-3.0 License https://ultralytics.com/license
 
-import base64
 import json
 import os
 import re
@@ -242,17 +241,17 @@ YOUR RESPONSE (label names only):
 
 def get_label_ids(labels: List[str]) -> List[str]:
     query = """
-    query($owner: String!, $name: String!) {
-        repository(owner: $owner, name: $name) {
-            labels(first: 100, query: "") {
-                nodes {
-                    id
-                    name
-                }
+query($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) {
+        labels(first: 100, query: "") {
+            nodes {
+                id
+                name
             }
         }
     }
-    """
+}
+"""
     owner, repo = REPO_NAME.split("/")
     result = graphql_request(query, variables={"owner": owner, "name": repo})
     if "data" in result and "repository" in result["data"]:
@@ -270,28 +269,25 @@ def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
         create_alert_label()
 
     if issue_type == "discussion":
+        print(f"Using node_id: {node_id}")  # Debug print
         label_ids = get_label_ids(labels)
         if not label_ids:
             print("No valid labels to apply.")
             return
 
         mutation = """
-        mutation($labelableId: ID!, $labelIds: [ID!]!) {
-            addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
-                labelable {
-                    ... on Discussion {
-                        id
-                    }
-                }
+mutation($labelableId: ID!, $labelIds: [ID!]!) {
+    addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
+        labelable {
+            ... on Discussion {
+                id
             }
         }
-        """
-        encoded_id = base64.b64encode(f"Discussion:{node_id}".encode()).decode()
-        result = graphql_request(mutation, variables={"labelableId": encoded_id, "labelIds": label_ids})
-        if "errors" in result:
-            print(f"Failed to apply labels. Errors: {result['errors']}")
-        else:
-            print(f"Successfully applied labels: {', '.join(labels)}")
+    }
+}
+"""
+        graphql_request(mutation, {"labelableId": node_id, "labelIds": label_ids})
+        print(f"Successfully applied labels: {', '.join(labels)}")
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
         r = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS)
