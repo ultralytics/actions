@@ -40,26 +40,26 @@ def get_completion(messages: list) -> str:
         headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
         data = {"model": "gpt-4o-2024-08-06", "messages": messages}
 
-    response = requests.post(url, headers=headers, json=data)
-    response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"].strip()
+    r = requests.post(url, headers=headers, json=data)
+    r.raise_for_status()
+    return r.json()["choices"][0]["message"]["content"].strip()
 
 
 def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str) -> str:
     """Get the diff between two tags."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
-    response = requests.get(url, headers=headers)
-    return response.text if response.status_code == 200 else f"Failed to get diff: {response.content}"
+    r = requests.get(url, headers=headers)
+    return r.text if r.status_code == 200 else f"Failed to get diff: {r.content}"
 
 
 def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> list:
     """Get PRs merged between two tags using the compare API."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
-    response = requests.get(url, headers=GITHUB_HEADERS)
-    response.raise_for_status()
+    r = requests.get(url, headers=GITHUB_HEADERS)
+    r.raise_for_status()
 
-    data = response.json()
+    data = r.json()
     pr_numbers = set()
 
     for commit in data["commits"]:
@@ -96,9 +96,9 @@ def get_new_contributors(repo: str, prs: list) -> set:
         author = pr["author"]
         # Check if this is the author's first contribution
         url = f"{GITHUB_API_URL}/search/issues?q=repo:{repo}+author:{author}+is:pr+is:merged&sort=created&order=asc"
-        response = requests.get(url, headers=GITHUB_HEADERS)
-        if response.status_code == 200:
-            data = response.json()
+        r = requests.get(url, headers=GITHUB_HEADERS)
+        if r.status_code == 200:
+            data = r.json()
             if data["total_count"] > 0:
                 first_pr = data["items"][0]
                 if first_pr["number"] == pr["number"]:
@@ -164,8 +164,8 @@ def create_github_release(repo_name: str, tag_name: str, name: str, body: str) -
     """Create a release on GitHub."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/releases"
     data = {"tag_name": tag_name, "name": name, "body": body, "draft": False, "prerelease": False}
-    response = requests.post(url, headers=GITHUB_HEADERS, json=data)
-    return response.status_code
+    r = requests.post(url, headers=GITHUB_HEADERS, json=data)
+    return r.status_code
 
 
 def get_previous_tag() -> str:
