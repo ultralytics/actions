@@ -80,6 +80,10 @@ runs:
         echo "github.ref: $REF"
         echo "github.head_ref: $HEAD_REF"
         echo "github.base_ref: ${{ github.base_ref }}"
+        if [ "${{ github.event_name }}" = "discussion" ]; then
+          echo "github.event.discussion.node_id: ${{ github.event.discussion.node_id }}"
+          echo "github.event.discussion.number: ${{ github.event.discussion.number }}"
+        fi
       shell: bash
 
     - name: Checkout Repository
