@@ -386,10 +386,11 @@ CONTEXT:
 - User: {username}
 
 INSTRUCTIONS:
-- Provide a detailed, optimal answer if a bug report or question, using code examples if helpful
-- Provide highly detailed best-practices guidelines for {issue_type} submission
-- INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
-- In your response mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
+- Do not answer the question or resolve the issue directly
+- Adapt the example response below to request any missing information from the user
+- For bug reports, specifically request a minimum reproducible example (MRE) if not provided
+- Include all links and instructions from the example, customized as appropriate
+- In your response, mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
 - Do not add a sign-off or valediction like "best regards" at the end of your response
 - Do not add spaces between bullet points or numbered lists
 - Only link to files or URLs in the example below, do not add external links
@@ -418,6 +419,7 @@ YOUR RESPONSE:
         {"role": "user", "content": prompt},
     ]
     return get_completion(messages)
+
 
 
 def main():
