@@ -396,7 +396,7 @@ INSTRUCTIONS:
 - Only link to files or URLs in the example below, do not add external links
 - Use a few emojis to enliven your response
 
-EXAMPLE issue_type.upper() RESPONSE:
+EXAMPLE {issue_type.upper()} RESPONSE:
 {example}
 
 {issue_type.upper()} TITLE:
@@ -408,7 +408,7 @@ EXAMPLE issue_type.upper() RESPONSE:
 {"PULL REQUEST DIFF:" if issue_type == "pull request" else ""}
 {diff if issue_type == "pull request" else ""}
 
-YOUR RESPONSE:
+YOUR {issue_type.upper()} RESPONSE:
 """
     print(f"\n\n{prompt}\n\n")  # for debug
     messages = [
