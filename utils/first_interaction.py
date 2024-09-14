@@ -389,7 +389,7 @@ INSTRUCTIONS:
 - Do not answer the question or resolve the issue directly
 - Adapt the example response below to request any missing information from the user
 - For bug reports, specifically request a minimum reproducible example (MRE) if not provided
-- Include all links and instructions from the example, customized as appropriate
+- INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
 - In your response, mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
 - Do not add a sign-off or valediction like "best regards" at the end of your response
 - Do not add spaces between bullet points or numbered lists
