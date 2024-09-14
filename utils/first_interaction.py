@@ -386,16 +386,17 @@ CONTEXT:
 - User: {username}
 
 INSTRUCTIONS:
-- Provide a detailed, optimal answer if a bug report or question, using code examples if helpful
-- Provide highly detailed best-practices guidelines for {issue_type} submission
+- Do not answer the question or resolve the issue directly
+- Adapt the example {issue_type} response below as appropriate, keeping all badges, links and references provided
+- For bug reports, specifically request a minimum reproducible example (MRE) if not provided
 - INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
-- In your response mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
+- In your response, mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
 - Do not add a sign-off or valediction like "best regards" at the end of your response
 - Do not add spaces between bullet points or numbered lists
 - Only link to files or URLs in the example below, do not add external links
 - Use a few emojis to enliven your response
 
-EXAMPLE:
+EXAMPLE {issue_type.upper()} RESPONSE:
 {example}
 
 {issue_type.upper()} TITLE:
@@ -407,7 +408,7 @@ EXAMPLE:
 {"PULL REQUEST DIFF:" if issue_type == "pull request" else ""}
 {diff if issue_type == "pull request" else ""}
 
-YOUR RESPONSE:
+YOUR {issue_type.upper()} RESPONSE:
 """
     print(f"\n\n{prompt}\n\n")  # for debug
     messages = [
