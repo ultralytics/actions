@@ -387,7 +387,7 @@ CONTEXT:
 
 INSTRUCTIONS:
 - Do not answer the question or resolve the issue directly
-- Adapt the example response below to request any missing information from the user
+- Adapt the example {issue_type} response below as appropriate, keeping all badges, links and references provided
 - For bug reports, specifically request a minimum reproducible example (MRE) if not provided
 - INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
 - In your response, mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
@@ -396,7 +396,7 @@ INSTRUCTIONS:
 - Only link to files or URLs in the example below, do not add external links
 - Use a few emojis to enliven your response
 
-EXAMPLE:
+EXAMPLE issue_type.upper() RESPONSE:
 {example}
 
 {issue_type.upper()} TITLE:
