@@ -421,7 +421,6 @@ YOUR RESPONSE:
     return get_completion(messages)
 
 
-
 def main():
     """Runs autolabel action and adds custom response for new issues/PRs/Discussions."""
     number, node_id, title, body, username, issue_type, action = get_event_content()
