@@ -4,6 +4,7 @@ import os
 import re
 import subprocess
 from datetime import datetime
+import time
 
 import requests
 
@@ -67,7 +68,8 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> 
         pr_numbers.update(pr_matches)
 
     prs = []
-    for pr_number in pr_numbers:
+    time.sleep(30)  # sleep 30 seconds to allow final PR summary to update on merge
+    for pr_number in sorted(pr_numbers):  # earliest to latest
         pr_url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
         pr_response = requests.get(pr_url, headers=GITHUB_HEADERS)
         if pr_response.status_code == 200:
