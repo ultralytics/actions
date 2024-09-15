@@ -3,8 +3,8 @@
 import os
 import re
 import subprocess
-from datetime import datetime
 import time
+from datetime import datetime
 
 import requests
 
