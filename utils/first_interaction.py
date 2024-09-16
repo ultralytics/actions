@@ -43,7 +43,11 @@ def get_completion(messages: list) -> str:
 
     r = requests.post(url, headers=headers, json=data)
     r.raise_for_status()
-    return r.json()["choices"][0]["message"]["content"].strip()
+    content = r.json()["choices"][0]["message"]["content"].strip()
+    remove = [" @giscus[bot]"]
+    for x in remove:
+        content = content.replace(x, "")
+    return content
 
 
 def get_pr_diff(pr_number):
