@@ -73,10 +73,7 @@ dev = [
 "Changelog" = "https://github.com/ultralytics/actions/releases"
 
 [tool.setuptools]
-# Name the package "actions"
 packages = { find = { where = ["."], include = ["actions", "actions.*"] } }
-# OR name the package "ultralytics_actions":
-package-dir = {"ultralytics_actions" = "actions"}
 
 [tool.setuptools.dynamic]
-version = { attr = "ultralytics_actions.__version__" }
+version = { attr = "actions.__version__" }
