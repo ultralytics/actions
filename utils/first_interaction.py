@@ -172,7 +172,7 @@ mutation($lockableId: ID!, $lockReason: LockReason) {
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/lock"
         r = requests.put(url, json={"lock_reason": "off-topic"}, headers=GITHUB_HEADERS)
-        print(f"{'Successful' if r.status_code in [200, 204] else 'Fail'} issue/PR #{number} lock: {r.status_code}")
+        print(f"{'Successful' if r.status_code in {200, 204} else 'Fail'} issue/PR #{number} lock: {r.status_code}")
 
 
 def block_user(username: str):
@@ -244,6 +244,7 @@ YOUR RESPONSE (label names only):
 
 
 def get_label_ids(labels: List[str]) -> List[str]:
+    """Retrieves GitHub label IDs for a list of label names using the GraphQL API."""
     query = """
 query($owner: String!, $name: String!) {
     repository(owner: $owner, name: $name) {
@@ -328,7 +329,7 @@ mutation($discussionId: ID!, $body: String!) {
     else:
         url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/comments"
         r = requests.post(url, json={"body": comment}, headers=GITHUB_HEADERS)
-        print(f"{'Successful' if r.status_code in [200, 201] else 'Fail'} issue/PR #{number} comment: {r.status_code}")
+        print(f"{'Successful' if r.status_code in {200, 201} else 'Fail'} issue/PR #{number} comment: {r.status_code}")
 
 
 def get_first_interaction_response(issue_type: str, title: str, body: str, username: str, number: int) -> str:
