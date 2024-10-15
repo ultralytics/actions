@@ -1,17 +1,26 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
-# ultralytics_actions/
-# ├── __init__.py
-# ├── utils/
+# project_root/
+# ├── pyproject.toml
+# ├── README.md
+# ├── LICENSE
+# ├── .gitignore
+# ├── actions/
 # │   ├── __init__.py
-# │   ├── github_utils.py
-# │   ├── openai_utils.py
-# │   └── common_utils.py
-# ├── first_interaction.py
-# ├── summarize_pr.py
-# ├── summarize_release.py
-# ├── update_markdown_code_blocks.py
-# └── pyproject.toml
+# │   ├── utils/
+# │   │   ├── __init__.py
+# │   │   ├── github_utils.py
+# │   │   ├── openai_utils.py
+# │   │   └── common_utils.py
+# │   ├── first_interaction.py
+# │   ├── summarize_pr.py
+# │   ├── summarize_release.py
+# │   └── update_markdown_code_blocks.py
+# └── tests/
+#     ├── __init__.py
+#     ├── test_first_interaction.py
+#     ├── test_summarize_pr.py
+#     └── ...
 
 from .first_interaction import main as first_interaction_main
 from .summarize_pr import main as summarize_pr_main
