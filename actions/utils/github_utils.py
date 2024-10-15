@@ -15,9 +15,9 @@ GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
 GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
 
 
-def get_pr_diff(repo_name: str, pr_number: int) -> str:
+def get_pr_diff(pr_number: int) -> str:
     """Retrieves the diff content for a specified pull request in a GitHub repository."""
-    url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
+    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/pulls/{pr_number}"
     r = requests.get(url, headers=GITHUB_HEADERS_DIFF)
     return r.text if r.status_code == 200 else ""
 
