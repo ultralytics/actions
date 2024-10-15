@@ -19,16 +19,12 @@
 # For comprehensive documentation and usage instructions, visit: https://github.com/ultralytics/actions
 
 
-[
-build-system
-]
+[build-system]
 requires = ["setuptools>=70.0.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
-[
-project
-]
-name = "ultralytics_actions"  # Changed from "ultralytics-actions" to match import name
+[project]
+name = "ultralytics_actions"
 dynamic = ["version"]
 description = "Ultralytics Actions for GitHub automation and PR management."
 readme = "README.md"
@@ -63,30 +59,22 @@ dependencies = [
     "docformatter>=1.7.5",
 ]
 
-[
-project.optional-dependencies
-]
+[project.optional-dependencies]
 dev = [
     "pytest",
     "black",
 ]
 
-[
-project.urls
-]
+[project.urls]
 "Homepage" = "https://ultralytics.com"
 "Source" = "https://github.com/ultralytics/actions"
 "Documentation" = "https://docs.ultralytics.com"
 "Bug Reports" = "https://github.com/ultralytics/actions/issues"
 "Changelog" = "https://github.com/ultralytics/actions/releases"
 
-[
-tool.setuptools
-]
+[tool.setuptools]
 packages = { find = { where = ["."], include = ["actions", "actions.*"] } }
-package-dir = { "ultralytics_actions" = "actions" }  # Add this line to map package name to directory
+package-dir = {"ultralytics_actions" = "actions"}
 
-[
-tool.setuptools.dynamic
-]
-version = { attr = "ultralytics_actions.__version__" }  # Changed from "actions.__version__"
+[tool.setuptools.dynamic]
+version = { attr = "ultralytics_actions.__version__" }
