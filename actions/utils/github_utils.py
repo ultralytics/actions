@@ -22,9 +22,9 @@ def get_pr_diff(repo_name: str, pr_number: int) -> str:
     return r.text if r.status_code == 200 else ""
 
 
-def get_github_data(repo_name: str, endpoint: str) -> dict:
+def get_github_data(endpoint: str) -> dict:
     """Fetches GitHub repository data from a specified endpoint using the GitHub API."""
-    r = requests.get(f"{GITHUB_API_URL}/repos/{repo_name}/{endpoint}", headers=GITHUB_HEADERS)
+    r = requests.get(f"{GITHUB_API_URL}/repos/{REPO_NAME}/{endpoint}", headers=GITHUB_HEADERS)
     r.raise_for_status()
     return r.json()
 
