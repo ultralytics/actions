@@ -22,11 +22,6 @@ GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
 GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 
-# OpenAI settings
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # update as required
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
-
 def get_event_content() -> Tuple[int, str, str, str, str, str, str]:
     """Extracts the number, node_id, title, body, username, and issue_type."""
     with open(GITHUB_EVENT_PATH) as f:

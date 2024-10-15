@@ -9,6 +9,10 @@ GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 GITHUB_HEADERS_DIFF = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
 
+REPO_NAME = os.getenv("GITHUB_REPOSITORY")
+GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
+GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
+
 
 def get_pr_diff(repo_name: str, pr_number: int) -> str:
     url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
