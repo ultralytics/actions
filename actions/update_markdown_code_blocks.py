@@ -4,7 +4,6 @@ import hashlib
 import re
 import shutil
 import subprocess
-import time
 from pathlib import Path
 
 
@@ -143,7 +142,7 @@ def update_markdown_file(file_path, markdown_content, temp_files):
         print(f"Error writing file {file_path}: {e}")
 
 
-def main(root_dir, verbose=False):
+def main(root_dir=Path.cwd(), verbose=False):
     """Processes all markdown files in a specified directory and its subdirectories."""
     root_path = Path(root_dir)
     markdown_files = list(root_path.rglob("*.md"))
@@ -170,8 +169,5 @@ def main(root_dir, verbose=False):
     shutil.rmtree(temp_dir)
 
 
-# Usage
 if __name__ == "__main__":
-    t = time.time()
-    main(root_dir=Path.cwd())
-    print(f"Processing time: {time.time() - t} seconds")
+    main()
