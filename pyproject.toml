@@ -74,7 +74,8 @@ dev = [
 
 [tool.setuptools]
 # Name the package "actions"
-packages = ["actions"]
+# packages = ["actions"]
+packages = { find = { where = ["."], include = ["actions", "actions.*"] } }
 # OR name the package "ultralytics_actions":
 # packages = ["ultralytics_actions"]
 # package-dir = {"ultralytics_actions" = "actions"}
