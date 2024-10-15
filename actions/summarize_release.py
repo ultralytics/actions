@@ -8,7 +8,13 @@ from datetime import datetime
 
 import requests
 
-from .utils import GITHUB_API_URL, GITHUB_HEADERS, GITHUB_HEADERS_DIFF, get_completion, remove_html_comments
+from .utils import (
+    GITHUB_API_URL,
+    GITHUB_HEADERS,
+    GITHUB_HEADERS_DIFF,
+    get_completion,
+    remove_html_comments,
+)
 
 # Environment variables
 REPO_NAME = os.getenv("GITHUB_REPOSITORY")
