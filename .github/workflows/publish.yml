@@ -94,6 +94,8 @@ jobs:
         continue-on-error: true
         if: (github.event_name == 'push' || github.event.inputs.pypi == 'true') && steps.check_pypi.outputs.increment == 'True'
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
       - name: Publish new tag
         continue-on-error: true
         if: (github.event_name == 'push' || github.event.inputs.pypi == 'true')  && steps.check_pypi.outputs.increment == 'True'
