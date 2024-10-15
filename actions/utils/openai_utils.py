@@ -9,6 +9,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 def get_completion(messages: list) -> str:
+    """Generates a completion using OpenAI's API based on input messages."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
     url = "https://api.openai.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}

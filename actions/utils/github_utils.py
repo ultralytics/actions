@@ -16,18 +16,21 @@ GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
 
 
 def get_pr_diff(repo_name: str, pr_number: int) -> str:
+    """Retrieves the diff content for a specified pull request in a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
     r = requests.get(url, headers=GITHUB_HEADERS_DIFF)
     return r.text if r.status_code == 200 else ""
 
 
 def get_github_data(repo_name: str, endpoint: str) -> dict:
+    """Fetches GitHub repository data from a specified endpoint using the GitHub API."""
     r = requests.get(f"{GITHUB_API_URL}/repos/{repo_name}/{endpoint}", headers=GITHUB_HEADERS)
     r.raise_for_status()
     return r.json()
 
 
 def graphql_request(query: str, variables: dict = None) -> dict:
+    """Executes a GraphQL query against the GitHub API and returns the response as a dictionary."""
     headers = {
         "Authorization": f"Bearer {GITHUB_TOKEN}",
         "Content-Type": "application/json",
