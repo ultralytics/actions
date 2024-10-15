@@ -14,7 +14,7 @@ on:
 
 jobs:
   publish:
-    if: github.repository == 'ultralytics/mkdocs' && github.actor == 'glenn-jocher'
+    if: github.repository == 'ultralytics/actions' && github.actor == 'glenn-jocher'
     name: Publish
     runs-on: ubuntu-latest
     permissions:
