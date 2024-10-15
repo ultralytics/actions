@@ -19,9 +19,6 @@ PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
 # OpenAI settings
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # update as required
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-AZURE_API_KEY = os.getenv("OPENAI_AZURE_API_KEY")
-AZURE_ENDPOINT = os.getenv("OPENAI_AZURE_ENDPOINT")
-AZURE_API_VERSION = os.getenv("OPENAI_AZURE_API_VERSION", "2024-05-01-preview")  # update as required
 
 
 def remove_html_comments(body: str) -> str:
@@ -30,16 +27,11 @@ def remove_html_comments(body: str) -> str:
 
 
 def get_completion(messages: list) -> str:
-    """Get completion from OpenAI or Azure OpenAI."""
-    if AZURE_API_KEY and AZURE_ENDPOINT:
-        url = f"{AZURE_ENDPOINT}/openai/deployments/{OPENAI_MODEL}/chat/completions?api-version={AZURE_API_VERSION}"
-        headers = {"api-key": AZURE_API_KEY, "Content-Type": "application/json"}
-        data = {"messages": messages}
-    else:
-        assert OPENAI_API_KEY, "OpenAI API key is required."
-        url = "https://api.openai.com/v1/chat/completions"
-        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
-        data = {"model": "gpt-4o-2024-08-06", "messages": messages}
+    """Get chat completion from OpenAI."""
+    assert OPENAI_API_KEY, "OpenAI API key is required."
+    url = "https://api.openai.com/v1/chat/completions"
+    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+    data = {"model": "gpt-4o-2024-08-06", "messages": messages}
 
     r = requests.post(url, headers=headers, json=data)
     r.raise_for_status()

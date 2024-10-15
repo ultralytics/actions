@@ -45,12 +45,6 @@ inputs:
   openai_api_key:
     description: "OpenAI API Key"
     required: false
-  openai_azure_api_key:
-    description: "OpenAI Azure API Key"
-    required: false
-  openai_azure_endpoint:
-    description: "OpenAI Azure Endpoint"
-    required: false
   openai_model:
     description: "OpenAI Model"
     required: false
@@ -110,8 +104,6 @@ runs:
         PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
-        OPENAI_AZURE_API_KEY: ${{ inputs.openai_azure_api_key }}
-        OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
         pip install requests
@@ -227,8 +219,6 @@ runs:
         FIRST_ISSUE_RESPONSE: ${{ inputs.first_issue_response }}
         FIRST_PR_RESPONSE: ${{ inputs.first_pr_response }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
-        OPENAI_AZURE_API_KEY: ${{ inputs.openai_azure_api_key }}
-        OPENAI_AZURE_ENDPOINT: ${{ inputs.openai_azure_endpoint }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
         pip install requests
