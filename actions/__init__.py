@@ -18,4 +18,4 @@ from .summarize_pr import main as summarize_pr_main
 from .summarize_release import main as summarize_release_main
 from .update_markdown_code_blocks import process_all_markdown_files
 
-__all__ = ['first_interaction_main', 'summarize_pr_main', 'summarize_release_main', 'process_all_markdown_files']
+__all__ = ["first_interaction_main", "summarize_pr_main", "summarize_release_main", "process_all_markdown_files"]
