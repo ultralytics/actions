@@ -1,4 +1,4 @@
-# Ultralytics Actions 🚀, AGPL-3.0 license
+# Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
 from .utils import get_completion, get_pr_diff, GITHUB_API_URL, GITHUB_HEADERS
 

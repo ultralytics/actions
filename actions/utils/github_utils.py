@@ -1,4 +1,4 @@
-# Ultralytics Actions 🚀, AGPL-3.0 license
+# Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
 import os
 
