@@ -1,4 +1,4 @@
-# Ultralytics YOLO 🚀, AGPL-3.0 License https://ultralytics.com/license
+# Ultralytics Actions 🚀, AGPL-3.0 License https://ultralytics.com/license
 
 name: "Ultralytics Actions"
 author: "Ultralytics"
@@ -93,8 +93,7 @@ runs:
       # Note tomli required for codespell with pyproject.toml
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
       run: |
-        pip install -q \
-        ruff docformatter codespell tomli
+        pip install ultralytics-actions codespell tomli
       shell: bash
 
     # PR Summary -------------------------------------------------------------------------------------------------------
@@ -106,8 +105,7 @@ runs:
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
-        pip install requests
-        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/summarize_pr.py" | python -
+        ultralytics-actions-summarize-pr
       shell: bash
       continue-on-error: true
 
@@ -152,7 +150,8 @@ runs:
     - name: Run Prettier
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
       run: |
-        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/update_markdown_code_blocks.py" | python -
+        ultralytics-actions-update-markdown-code-blocks
+
         npm install --global prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
         npx prettier --write "**/*.{css,json,yml,yaml}"
@@ -221,8 +220,7 @@ runs:
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
-        pip install requests
-        curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/first_interaction.py" | python -
+        ultralytics-actions-first-interaction
       shell: bash
       continue-on-error: true
 
