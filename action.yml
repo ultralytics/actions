@@ -93,6 +93,7 @@ runs:
       # Note tomli required for codespell with pyproject.toml
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
       run: |
+        python -m pip install --upgrade pip wheel
         pip install git+https://github.com/ultralytics/mkdocs@main
         # pip install -q ruff docformatter codespell tomli
         pip list
