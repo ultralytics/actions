@@ -7,12 +7,12 @@ import requests
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+GITHUB_HEADERS_DIFF = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
 
 
 def get_pr_diff(repo_name: str, pr_number: int) -> str:
     url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
-    r = requests.get(url, headers=headers)
+    r = requests.get(url, headers=GITHUB_HEADERS_DIFF)
     return r.text if r.status_code == 200 else ""
 
 

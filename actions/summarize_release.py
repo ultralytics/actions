@@ -8,7 +8,7 @@ from datetime import datetime
 
 import requests
 
-from .utils import GITHUB_API_URL, GITHUB_HEADERS, get_completion, remove_html_comments
+from .utils import GITHUB_API_URL, GITHUB_HEADERS, GITHUB_HEADERS_DIFF, get_completion, remove_html_comments
 
 # Environment variables
 REPO_NAME = os.getenv("GITHUB_REPOSITORY")
@@ -24,8 +24,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str) -> str:
     """Get the diff between two tags."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
-    r = requests.get(url, headers=headers)
+    r = requests.get(url, headers=GITHUB_HEADERS_DIFF)
     return r.text if r.status_code == 200 else f"Failed to get diff: {r.content}"
 
 

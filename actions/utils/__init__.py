@@ -4,6 +4,7 @@ from .common_utils import remove_html_comments
 from .github_utils import (
     GITHUB_API_URL,
     GITHUB_HEADERS,
+    GITHUB_HEADERS_DIFF,
     GITHUB_TOKEN,
     get_github_data,
     get_pr_diff,
@@ -15,6 +16,7 @@ __all__ = (
     "GITHUB_TOKEN",
     "GITHUB_API_URL",
     "GITHUB_HEADERS",
+    "GITHUB_HEADERS_DIFF",
     "get_pr_diff",
     "get_github_data",
     "graphql_request",
