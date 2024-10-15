@@ -1,3 +1,5 @@
+# Ultralytics Actions 🚀, AGPL-3.0 license
+
 from .github_utils import (
     GITHUB_TOKEN,
     GITHUB_API_URL,
