@@ -93,10 +93,10 @@ runs:
       # Note tomli required for codespell with pyproject.toml
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
       run: |
+        # only needed for building with pip install git+
         python -m pip install --upgrade pip wheel
-        pip install git+https://github.com/ultralytics/mkdocs@main
-        # pip install -q ruff docformatter codespell tomli
-        pip list
+        pip install git+https://github.com/ultralytics/actions@actions-package
+        pip install -q ruff docformatter codespell tomli
       shell: bash
 
     # PR Summary -------------------------------------------------------------------------------------------------------
@@ -110,7 +110,7 @@ runs:
       run: |
         pip install requests
         # curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/summarize_pr.py" | python -
-        python -c "import mkdocs_ultralytics_plugin"
+        python -c "from actions.summarize_pr import main; main()"
       shell: bash
       continue-on-error: true
 
