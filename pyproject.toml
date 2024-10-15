@@ -74,11 +74,9 @@ dev = [
 
 [tool.setuptools]
 # Name the package "actions"
-# packages = ["actions"]
 packages = { find = { where = ["."], include = ["actions", "actions.*"] } }
 # OR name the package "ultralytics_actions":
-# packages = ["ultralytics_actions"]
-# package-dir = {"ultralytics_actions" = "actions"}
+package-dir = {"ultralytics_actions" = "actions"}
 
 [tool.setuptools.dynamic]
-version = { attr = "actions.__version__" }
+version = { attr = "ultralytics_actions.__version__" }
