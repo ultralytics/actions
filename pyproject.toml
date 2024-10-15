@@ -72,6 +72,12 @@ dev = [
 "Bug Reports" = "https://github.com/ultralytics/actions/issues"
 "Changelog" = "https://github.com/ultralytics/actions/releases"
 
+[project.scripts]
+ultralytics-actions-first-interaction = "ultralytics_actions.first_interaction:main"
+ultralytics-actions-summarize-pr = "ultralytics_actions.summarize_pr:main"
+ultralytics-actions-summarize-release = "ultralytics_actions.summarize_release:main"
+ultralytics-actions-update-markdown = "ultralytics_actions.update_markdown_code_blocks:main"
+
 [tool.setuptools]
 packages = { find = { where = ["."], include = ["actions", "actions.*"] } }
 package-dir = {"ultralytics_actions" = "actions"}
