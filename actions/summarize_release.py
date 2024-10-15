@@ -1,7 +1,5 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
-from .utils import remove_html_comments, get_completion, GITHUB_API_URL, GITHUB_HEADERS
-
 import os
 import re
 import subprocess
@@ -9,6 +7,8 @@ import time
 from datetime import datetime
 
 import requests
+
+from .utils import GITHUB_API_URL, GITHUB_HEADERS, get_completion, remove_html_comments
 
 # Environment variables
 REPO_NAME = os.getenv("GITHUB_REPOSITORY")

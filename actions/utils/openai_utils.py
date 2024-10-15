@@ -1,10 +1,12 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
 import os
+
 import requests
 
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+
 
 def get_completion(messages: list) -> str:
     assert OPENAI_API_KEY, "OpenAI API key is required."

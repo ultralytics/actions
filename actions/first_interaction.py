@@ -1,20 +1,20 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
-from .utils import (
-    remove_html_comments,
-    get_completion,
-    get_pr_diff,
-    get_github_data,
-    graphql_request,
-    GITHUB_API_URL,
-    GITHUB_HEADERS,
-)
-
 import json
 import os
 from typing import Dict, List, Tuple
 
 import requests
+
+from .utils import (
+    GITHUB_API_URL,
+    GITHUB_HEADERS,
+    get_completion,
+    get_github_data,
+    get_pr_diff,
+    graphql_request,
+    remove_html_comments,
+)
 
 # Environment variables
 REPO_NAME = os.getenv("GITHUB_REPOSITORY")
@@ -25,7 +25,6 @@ BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 # OpenAI settings
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # update as required
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-
 
 
 def get_event_content() -> Tuple[int, str, str, str, str, str, str]:

@@ -1,11 +1,10 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
-from .utils import get_completion, get_pr_diff, GITHUB_API_URL, GITHUB_HEADERS
-
-
 import os
 
 import requests
+
+from .utils import GITHUB_API_URL, GITHUB_HEADERS, get_completion, get_pr_diff
 
 # Environment variables
 REPO_NAME = os.getenv("GITHUB_REPOSITORY")
