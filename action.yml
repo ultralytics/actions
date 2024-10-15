@@ -94,7 +94,7 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
       run: |
         pip install -q \
-        ruff git+https://github.com/ultralytics/actions@actions-package docformatter codespell tomli
+        ruff "git+https://github.com/ultralytics/actions@actions-package" docformatter codespell tomli
       shell: bash
 
     # PR Summary -------------------------------------------------------------------------------------------------------
