@@ -110,7 +110,7 @@ runs:
       run: |
         pip install requests
         # curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/summarize_pr.py" | python -
-        python -c "from actions.summarize_pr import main; main()"
+        ultralytics-actions-summarize-pr
       shell: bash
       continue-on-error: true
 
@@ -156,7 +156,7 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
       run: |
         curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/update_markdown_code_blocks.py" | python -
-        python -c "from actions.update_markdown_code_blocks import main; main()"
+        ultralytics-actions-update-markdown-code-blocks
 
         npm install --global prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
@@ -228,7 +228,7 @@ runs:
       run: |
         pip install requests
         # curl -s "https://raw.githubusercontent.com/ultralytics/actions/main/utils/first_interaction.py" | python -
-        python -c "from actions.first_interaction import main; main()"
+        ultralytics-actions-first-interaction
       shell: bash
       continue-on-error: true
 

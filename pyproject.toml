@@ -76,7 +76,7 @@ dev = [
 ultralytics-actions-first-interaction = "ultralytics_actions.first_interaction:main"
 ultralytics-actions-summarize-pr = "ultralytics_actions.summarize_pr:main"
 ultralytics-actions-summarize-release = "ultralytics_actions.summarize_release:main"
-ultralytics-actions-update-markdown = "ultralytics_actions.update_markdown_code_blocks:main"
+ultralytics-actions-update-markdown-code-blocks = "ultralytics_actions.update_markdown_code_blocks:main"
 
 [tool.setuptools]
 packages = { find = { where = ["."], include = ["actions", "actions.*"] } }
