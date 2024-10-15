@@ -12,10 +12,10 @@ from .utils import (
     GITHUB_API_URL,
     GITHUB_HEADERS,
     GITHUB_HEADERS_DIFF,
-    get_completion,
-    remove_html_comments,
     GITHUB_TOKEN,
     REPO_NAME,
+    get_completion,
+    remove_html_comments,
 )
 
 # Environment variables

@@ -2,7 +2,14 @@
 
 import requests
 
-from .utils import GITHUB_API_URL, GITHUB_HEADERS, get_completion, get_pr_diff, REPO_NAME, PR_NUMBER
+from .utils import (
+    GITHUB_API_URL,
+    GITHUB_HEADERS,
+    PR_NUMBER,
+    REPO_NAME,
+    get_completion,
+    get_pr_diff,
+)
 
 # Action settings
 SUMMARY_START = (
