@@ -9,6 +9,7 @@ GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 GITHUB_HEADERS_DIFF = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
 
+PR_NUMBER = os.getenv("PR_NUMBER")
 REPO_NAME = os.getenv("GITHUB_REPOSITORY")
 GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
 GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")

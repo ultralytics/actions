@@ -14,17 +14,13 @@ from .utils import (
     GITHUB_HEADERS_DIFF,
     get_completion,
     remove_html_comments,
+    GITHUB_TOKEN,
+    REPO_NAME,
 )
 
 # Environment variables
-REPO_NAME = os.getenv("GITHUB_REPOSITORY")
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 CURRENT_TAG = os.getenv("CURRENT_TAG")
 PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
-
-# OpenAI settings
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # update as required
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str) -> str:

@@ -9,6 +9,9 @@ import requests
 from .utils import (
     GITHUB_API_URL,
     GITHUB_HEADERS,
+    REPO_NAME,
+    GITHUB_EVENT_PATH,
+    GITHUB_EVENT_NAME,
     get_completion,
     get_github_data,
     get_pr_diff,
@@ -17,10 +20,8 @@ from .utils import (
 )
 
 # Environment variables
-REPO_NAME = os.getenv("GITHUB_REPOSITORY")
-GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
-GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
+
 
 def get_event_content() -> Tuple[int, str, str, str, str, str, str]:
     """Extracts the number, node_id, title, body, username, and issue_type."""

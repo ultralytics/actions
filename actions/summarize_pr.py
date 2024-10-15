@@ -1,21 +1,8 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
-import os
-
 import requests
 
-from .utils import GITHUB_API_URL, GITHUB_HEADERS, get_completion, get_pr_diff
-
-# Environment variables
-REPO_NAME = os.getenv("GITHUB_REPOSITORY")
-PR_NUMBER = os.getenv("PR_NUMBER")
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
-GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
-
-# OpenAI settings
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")  # update as required
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+from .utils import GITHUB_API_URL, GITHUB_HEADERS, get_completion, get_pr_diff, REPO_NAME, PR_NUMBER
 
 # Action settings
 SUMMARY_START = (
