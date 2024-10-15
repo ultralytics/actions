@@ -143,7 +143,7 @@ def update_markdown_file(file_path, markdown_content, temp_files):
         print(f"Error writing file {file_path}: {e}")
 
 
-def process_all_markdown_files(root_dir, verbose=False):
+def main(root_dir, verbose=False):
     """Processes all markdown files in a specified directory and its subdirectories."""
     root_path = Path(root_dir)
     markdown_files = list(root_path.rglob("*.md"))
@@ -173,5 +173,5 @@ def process_all_markdown_files(root_dir, verbose=False):
 # Usage
 if __name__ == "__main__":
     t = time.time()
-    process_all_markdown_files(root_dir=Path.cwd())
+    main(root_dir=Path.cwd())
     print(f"Processing time: {time.time() - t} seconds")
