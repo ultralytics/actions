@@ -8,10 +8,10 @@ import requests
 
 from .utils import (
     GITHUB_API_URL,
+    GITHUB_EVENT_NAME,
+    GITHUB_EVENT_PATH,
     GITHUB_HEADERS,
     REPO_NAME,
-    GITHUB_EVENT_PATH,
-    GITHUB_EVENT_NAME,
     get_completion,
     get_github_data,
     get_pr_diff,
