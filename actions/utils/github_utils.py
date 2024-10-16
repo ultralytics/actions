@@ -85,10 +85,4 @@ def check_pypi_version(pyproject_toml='pyproject.toml'):
     else:
         publish = True  # First release
 
-    os.system(f'echo "increment={publish}" >> $GITHUB_OUTPUT')
-    os.system(f'echo "current_tag=v{local_version}" >> $GITHUB_OUTPUT')
-    os.system(f'echo "previous_tag=v{online_version}" >> $GITHUB_OUTPUT')
-    if publish:
-        print('Ready to publish new version to PyPI ✅.')
-
     return local_version, online_version, publish
