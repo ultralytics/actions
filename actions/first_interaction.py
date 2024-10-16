@@ -24,7 +24,7 @@ BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 
 
 def get_event_content() -> Tuple[int, str, str, str, str, str, str]:
-    """Extracts the number, node_id, title, body, username, and issue_type."""
+    """Extracts key information from GitHub event data for issues, pull requests, or discussions."""
     with open(GITHUB_EVENT_PATH) as f:
         data = json.load(f)
     action = data["action"]  # 'opened', 'closed', 'created' (discussion), etc.
@@ -50,7 +50,7 @@ def get_event_content() -> Tuple[int, str, str, str, str, str, str]:
 
 
 def update_issue_pr_content(number: int, node_id: str, issue_type: str):
-    """Updates the title and body of the issue, pull request, or discussion."""
+    """Updates the title and body of an issue, pull request, or discussion with predefined content."""
     new_title = "Content Under Review"
     new_body = """This post has been flagged for review by [Ultralytics Actions](https://ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
 
@@ -79,7 +79,7 @@ mutation($discussionId: ID!, $title: String!, $body: String!) {
 
 
 def close_issue_pr(number: int, node_id: str, issue_type: str):
-    """Closes the issue, pull request, or discussion."""
+    """Closes the specified issue, pull request, or discussion using the GitHub API."""
     if issue_type == "discussion":
         mutation = """
 mutation($discussionId: ID!) {
@@ -98,7 +98,7 @@ mutation($discussionId: ID!) {
 
 
 def lock_issue_pr(number: int, node_id: str, issue_type: str):
-    """Locks the issue, pull request, or discussion."""
+    """Locks an issue, pull request, or discussion to prevent further interactions."""
     if issue_type == "discussion":
         mutation = """
 mutation($lockableId: ID!, $lockReason: LockReason) {
@@ -119,7 +119,7 @@ mutation($lockableId: ID!, $lockReason: LockReason) {
 
 
 def block_user(username: str):
-    """Blocks a user from the organization."""
+    """Blocks a user from the organization using the GitHub API."""
     url = f"{GITHUB_API_URL}/orgs/{REPO_NAME.split('/')[0]}/blocks/{username}"
     r = requests.put(url, headers=GITHUB_HEADERS)
     print(f"{'Successful' if r.status_code == 204 else 'Fail'} user block for {username}: {r.status_code}")
@@ -128,7 +128,7 @@ def block_user(username: str):
 def get_relevant_labels(
     issue_type: str, title: str, body: str, available_labels: Dict, current_labels: List
 ) -> List[str]:
-    """Uses OpenAI to determine the most relevant labels."""
+    """Determines relevant labels for GitHub issues/PRs using OpenAI, considering title, body, and existing labels."""
     # Remove mutually exclusive labels like both 'bug' and 'question' or inappropriate labels like 'help wanted'
     for label in ["help wanted", "TODO"]:  # normal case
         available_labels.pop(label, None)  # remove as should only be manually added
@@ -212,7 +212,7 @@ query($owner: String!, $name: String!) {
 
 
 def apply_labels(number: int, node_id: str, labels: List[str], issue_type: str):
-    """Applies the given labels to the issue, pull request, or discussion."""
+    """Applies specified labels to a GitHub issue, pull request, or discussion using the appropriate API."""
     if "Alert" in labels:
         create_alert_label()
 
@@ -243,13 +243,13 @@ mutation($labelableId: ID!, $labelIds: [ID!]!) {
 
 
 def create_alert_label():
-    """Creates the 'Alert' label in the repository if it doesn't exist."""
+    """Creates the 'Alert' label in the repository if it doesn't exist, with a red color and description."""
     alert_label = {"name": "Alert", "color": "FF0000", "description": "Potential spam, abuse, or off-topic."}
     requests.post(f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels", json=alert_label, headers=GITHUB_HEADERS)
 
 
 def is_org_member(username: str) -> bool:
-    """Checks if a user is a member of the organization."""
+    """Checks if a user is a member of the organization using the GitHub API."""
     org_name = REPO_NAME.split("/")[0]
     url = f"{GITHUB_API_URL}/orgs/{org_name}/members/{username}"
     r = requests.get(url, headers=GITHUB_HEADERS)
@@ -257,7 +257,7 @@ def is_org_member(username: str) -> bool:
 
 
 def add_comment(number: int, node_id: str, comment: str, issue_type: str):
-    """Adds a comment to the issue, pull request, or discussion."""
+    """Adds a comment to the specified issue, pull request, or discussion using the GitHub API."""
     if issue_type == "discussion":
         mutation = """
 mutation($discussionId: ID!, $body: String!) {
@@ -276,7 +276,7 @@ mutation($discussionId: ID!, $body: String!) {
 
 
 def get_first_interaction_response(issue_type: str, title: str, body: str, username: str, number: int) -> str:
-    """Generates a custom response using LLM based on the issue/PR content and instructions."""
+    """Generates a custom LLM response for GitHub issues, PRs, or discussions based on content."""
     issue_discussion_response = f"""
 👋 Hello @{username}, thank you for submitting a `{REPO_NAME}` 🚀 {issue_type.capitalize()}. To help us address your concern efficiently, please ensure you've provided the following information:
 
@@ -370,7 +370,7 @@ YOUR {issue_type.upper()} RESPONSE:
 
 
 def main():
-    """Runs autolabel action and adds custom response for new issues/PRs/Discussions."""
+    """Executes autolabeling and custom response generation for new GitHub issues, PRs, and discussions."""
     number, node_id, title, body, username, issue_type, action = get_event_content()
     available_labels = get_github_data("labels")
     label_descriptions = {label["name"]: label.get("description", "") for label in available_labels}

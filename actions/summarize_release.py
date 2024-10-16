@@ -24,14 +24,14 @@ PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
 
 
 def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str) -> str:
-    """Get the diff between two tags."""
+    """Retrieves the differences between two specified Git tags in a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
     r = requests.get(url, headers=GITHUB_HEADERS_DIFF)
     return r.text if r.status_code == 200 else f"Failed to get diff: {r.content}"
 
 
 def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> list:
-    """Get PRs merged between two tags using the compare API."""
+    """Retrieves and processes pull requests merged between two specified tags in a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
     r = requests.get(url, headers=GITHUB_HEADERS)
     r.raise_for_status()
@@ -68,7 +68,7 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> 
 
 
 def get_new_contributors(repo: str, prs: list) -> set:
-    """Identify genuinely new contributors in the current release."""
+    """Identify new contributors who made their first merged PR in the current release."""
     new_contributors = set()
     for pr in prs:
         author = pr["author"]
@@ -85,7 +85,7 @@ def get_new_contributors(repo: str, prs: list) -> set:
 
 
 def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag: str, repo_name: str) -> str:
-    """Generate a summary for the release."""
+    """Generate a concise release summary with key changes, purpose, and impact for a new Ultralytics version."""
     pr_summaries = "\n\n".join(
         [f"PR #{pr['number']}: {pr['title']} by @{pr['author']}\n{pr['body'][:1000]}" for pr in prs]
     )
@@ -139,7 +139,7 @@ def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag
 
 
 def create_github_release(repo_name: str, tag_name: str, name: str, body: str) -> int:
-    """Create a release on GitHub."""
+    """Creates a GitHub release with specified tag, name, and body content for the given repository."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/releases"
     data = {"tag_name": tag_name, "name": name, "body": body, "draft": False, "prerelease": False}
     r = requests.post(url, headers=GITHUB_HEADERS, json=data)
@@ -147,7 +147,7 @@ def create_github_release(repo_name: str, tag_name: str, name: str, body: str) -
 
 
 def get_previous_tag() -> str:
-    """Get the previous tag from git tags."""
+    """Retrieves the previous Git tag, excluding the current tag, using the git describe command."""
     cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", CURRENT_TAG]
     try:
         return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()

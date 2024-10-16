@@ -18,7 +18,7 @@ SUMMARY_START = (
 
 
 def generate_pr_summary(repo_name, diff_text):
-    """Generates a professionally written yet accessible summary of a PR using OpenAI's API."""
+    """Generates a concise, professional summary of a PR using OpenAI's API for Ultralytics repositories."""
     if not diff_text:
         diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
     ratio = 3.3  # about 3.3 characters per token
@@ -45,7 +45,7 @@ def generate_pr_summary(repo_name, diff_text):
 
 
 def update_pr_description(repo_name, pr_number, new_summary):
-    """Updates the original PR description with a new summary, replacing an existing summary if found."""
+    """Updates the PR description with a new summary, replacing existing summary if present."""
     # Fetch the current PR description
     pr_url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
     pr_response = requests.get(pr_url, headers=GITHUB_HEADERS)
@@ -64,7 +64,7 @@ def update_pr_description(repo_name, pr_number, new_summary):
 
 
 def main():
-    """Summarize PR."""
+    """Summarize a pull request and update its description with an AI-generated summary."""
     diff = get_pr_diff(PR_NUMBER)
 
     # Generate PR summary
