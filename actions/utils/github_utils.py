@@ -69,7 +69,6 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
     print(f"Online Version: {online_version or 'Not Found'}")
 
     # Determine if a new version should be published
-    publish = False
     if online_version:
         local_ver = tuple(map(int, local_version.split(".")))
         online_ver = tuple(map(int, online_version.split(".")))
@@ -81,8 +80,8 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
             (major_diff == 0 and minor_diff == 0 and 0 < patch_diff <= 2)
             or (major_diff == 0 and minor_diff == 1 and local_ver[2] == 0)
             or (major_diff == 1 and local_ver[1] == 0 and local_ver[2] == 0)
-        )
+        )  # should publish an update
     else:
-        publish = True  # First release
+        publish = True  # publish as this is likely a first release
 
     return local_version, online_version, publish
