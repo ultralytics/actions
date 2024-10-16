@@ -1,7 +1,6 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
 import os
-import tomllib  # requires Python>=3.11
 
 import requests
 
@@ -45,9 +44,11 @@ def graphql_request(query: str, variables: dict = None) -> dict:
     return result
 
 
-def check_pypi_version():
+def check_pypi_version(pyproject_toml='pyproject.toml'):
     """Compares local and PyPI versions of a package to determine if a new version should be published."""
-    with open('pyproject.toml', 'rb') as f:
+    import tomllib  # requires Python>=3.11
+
+    with open(pyproject_toml, 'rb') as f:
         pyproject = tomllib.load(f)
 
     package_name = pyproject['project']['name']
