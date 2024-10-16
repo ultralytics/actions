@@ -44,43 +44,43 @@ def graphql_request(query: str, variables: dict = None) -> dict:
     return result
 
 
-def check_pypi_version(pyproject_toml='pyproject.toml'):
+def check_pypi_version(pyproject_toml="pyproject.toml"):
     """Compares local and PyPI package versions to determine if a new version should be published."""
     import tomllib  # requires Python>=3.11
 
-    with open(pyproject_toml, 'rb') as f:
+    with open(pyproject_toml, "rb") as f:
         pyproject = tomllib.load(f)
 
-    package_name = pyproject['project']['name']
-    local_version = pyproject['project'].get('version', 'dynamic')
+    package_name = pyproject["project"]["name"]
+    local_version = pyproject["project"].get("version", "dynamic")
 
     # If version is dynamic, extract it from the specified file
-    if local_version == 'dynamic':
-        version_attr = pyproject['tool']['setuptools']['dynamic']['version']['attr']
-        module_path, attr_name = version_attr.rsplit('.', 1)
+    if local_version == "dynamic":
+        version_attr = pyproject["tool"]["setuptools"]["dynamic"]["version"]["attr"]
+        module_path, attr_name = version_attr.rsplit(".", 1)
         with open(f"{module_path.replace('.', '/')}/__init__.py") as f:
-            local_version = next(line.split('=')[1].strip().strip("'\"") for line in f if line.startswith(attr_name))
+            local_version = next(line.split("=")[1].strip().strip("'\"") for line in f if line.startswith(attr_name))
 
     print(f"Local Version: {local_version}")
 
     # Get online version from PyPI
     response = requests.get(f"https://pypi.org/pypi/{package_name}/json")
-    online_version = response.json()['info']['version'] if response.status_code == 200 else None
+    online_version = response.json()["info"]["version"] if response.status_code == 200 else None
     print(f"Online Version: {online_version or 'Not Found'}")
 
     # Determine if a new version should be published
     publish = False
     if online_version:
-        local_ver = tuple(map(int, local_version.split('.')))
-        online_ver = tuple(map(int, online_version.split('.')))
+        local_ver = tuple(map(int, local_version.split(".")))
+        online_ver = tuple(map(int, online_version.split(".")))
         major_diff = local_ver[0] - online_ver[0]
         minor_diff = local_ver[1] - online_ver[1]
         patch_diff = local_ver[2] - online_ver[2]
 
         publish = (
-                (major_diff == 0 and minor_diff == 0 and 0 < patch_diff <= 2) or
-                (major_diff == 0 and minor_diff == 1 and local_ver[2] == 0) or
-                (major_diff == 1 and local_ver[1] == 0 and local_ver[2] == 0)
+            (major_diff == 0 and minor_diff == 0 and 0 < patch_diff <= 2)
+            or (major_diff == 0 and minor_diff == 1 and local_ver[2] == 0)
+            or (major_diff == 1 and local_ver[1] == 0 and local_ver[2] == 0)
         )
     else:
         publish = True  # First release
