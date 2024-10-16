@@ -191,6 +191,21 @@ runs:
       shell: bash
       continue-on-error: true
 
+    # Autolabel Issues and PRs (run before commit changes in case commit fails) ----------------------------------------
+    - name: Autolabel Issues and PRs
+      if: inputs.labels == 'true' && (github.event.action == 'opened' || github.event.action == 'created')
+      env:
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+        FIRST_ISSUE_RESPONSE: ${{ inputs.first_issue_response }}
+        FIRST_PR_RESPONSE: ${{ inputs.first_pr_response }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        OPENAI_MODEL: ${{ inputs.openai_model }}
+      run: |
+        ultralytics-actions-first-interaction
+      shell: bash
+      continue-on-error: true
+
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
@@ -208,21 +223,6 @@ runs:
         fi
       shell: bash
       continue-on-error: false
-
-    # Autolabel Issues and PRs ----------------------------------------------------------------------------------------
-    - name: Autolabel Issues and PRs
-      if: inputs.labels == 'true' && (github.event.action == 'opened' || github.event.action == 'created')
-      env:
-        PR_NUMBER: ${{ github.event.pull_request.number }}
-        GITHUB_TOKEN: ${{ inputs.token }}
-        FIRST_ISSUE_RESPONSE: ${{ inputs.first_issue_response }}
-        FIRST_PR_RESPONSE: ${{ inputs.first_pr_response }}
-        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
-        OPENAI_MODEL: ${{ inputs.openai_model }}
-      run: |
-        ultralytics-actions-first-interaction
-      shell: bash
-      continue-on-error: true
 
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker

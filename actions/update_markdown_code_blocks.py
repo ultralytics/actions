@@ -8,21 +8,21 @@ from pathlib import Path
 
 
 def extract_code_blocks(markdown_content):
-    """Extract Python code blocks with ``` followed by "python", "py", or "{ .py .annotate }"."""
+    """Extracts Python code blocks from markdown content using regex pattern matching."""
     pattern = r"^( *)```(?:python|py|\{[ ]*\.py[ ]*\.annotate[ ]*\})\n(.*?)\n\1```"
     code_block_pattern = re.compile(pattern, re.DOTALL | re.MULTILINE)
     return code_block_pattern.findall(markdown_content)
 
 
 def remove_indentation(code_block, num_spaces):
-    """Removes `num_spaces` leading spaces from each line in `code_block` and returns the modified string."""
+    """Removes specified leading spaces from each line in a code block to adjust indentation."""
     lines = code_block.split("\n")
     stripped_lines = [line[num_spaces:] if len(line) >= num_spaces else line for line in lines]
     return "\n".join(stripped_lines)
 
 
 def add_indentation(code_block, num_spaces):
-    """Adds `num_spaces` leading spaces to each non-empty line in `code_block`."""
+    """Adds specified number of leading spaces to non-empty lines in a code block."""
     indent = " " * num_spaces
     lines = code_block.split("\n")
     indented_lines = [indent + line if line.strip() != "" else line for line in lines]
@@ -30,7 +30,7 @@ def add_indentation(code_block, num_spaces):
 
 
 def format_code_with_ruff(temp_dir):
-    """Formats all Python code files in the `temp_dir` directory using the 'ruff' linter tool."""
+    """Formats Python code files in the specified directory using ruff linter and docformatter tools."""
     try:
         # Run ruff format
         subprocess.run(
@@ -86,14 +86,14 @@ def format_code_with_ruff(temp_dir):
 
 
 def generate_temp_filename(file_path, index):
-    """Generates a unique temporary filename based on the file path and index."""
+    """Generates a unique temporary filename using a hash of the file path and index."""
     unique_string = f"{file_path.parent}_{file_path.stem}_{index}"
     unique_hash = hashlib.md5(unique_string.encode()).hexdigest()
     return f"temp_{unique_hash}.py"
 
 
 def process_markdown_file(file_path, temp_dir, verbose=False):
-    """Reads a markdown file, extracts Python code blocks, saves them to temp files, and updates the file."""
+    """Processes a markdown file, extracting Python code blocks for formatting and updating the original file."""
     try:
         markdown_content = Path(file_path).read_text()
         code_blocks = extract_code_blocks(markdown_content)
@@ -119,7 +119,7 @@ def process_markdown_file(file_path, temp_dir, verbose=False):
 
 
 def update_markdown_file(file_path, markdown_content, temp_files):
-    """Updates the markdown file with formatted code blocks."""
+    """Updates a markdown file with formatted Python code blocks extracted and processed externally."""
     for num_spaces, original_code_block, temp_file_path in temp_files:
         try:
             with open(temp_file_path) as temp_file:
@@ -143,7 +143,7 @@ def update_markdown_file(file_path, markdown_content, temp_files):
 
 
 def main(root_dir=Path.cwd(), verbose=False):
-    """Processes all markdown files in a specified directory and its subdirectories."""
+    """Processes markdown files, extracts and formats Python code blocks, and updates the original files."""
     root_path = Path(root_dir)
     markdown_files = list(root_path.rglob("*.md"))
     temp_dir = Path("temp_code_blocks")

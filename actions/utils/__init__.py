@@ -10,6 +10,7 @@ from .github_utils import (
     GITHUB_TOKEN,
     PR_NUMBER,
     REPO_NAME,
+    check_pypi_version,
     get_github_data,
     get_pr_diff,
     graphql_request,
@@ -32,4 +33,5 @@ __all__ = (
     "OPENAI_API_KEY",
     "OPENAI_MODEL",
     "get_completion",
+    "check_pypi_version",
 )
