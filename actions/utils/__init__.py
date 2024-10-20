@@ -14,6 +14,7 @@ from .github_utils import (
     get_github_data,
     get_pr_diff,
     graphql_request,
+    print_github_action_info,
 )
 from .openai_utils import OPENAI_API_KEY, OPENAI_MODEL, get_completion
 
@@ -34,4 +35,5 @@ __all__ = (
     "OPENAI_MODEL",
     "get_completion",
     "check_pypi_version",
+    "print_github_action_info",
 )
