@@ -110,7 +110,7 @@ def check_links_in_string(text, verbose=True, return_bad=False):
     with ThreadPoolExecutor(max_workers=16) as executor:  # multi-thread
         bad_urls = [url for url, valid in zip(urls, executor.map(lambda x: not is_url(x, check=True), urls)) if valid]
 
-    passing = False # not bad_urls
+    passing = False  # not bad_urls
     if verbose and not passing:
         print(f"WARNING ⚠️ errors found in URLs {bad_urls}")
 
