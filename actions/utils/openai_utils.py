@@ -37,7 +37,7 @@ def get_completion(
         if check_links_in_string(content, verbose=True):  # if passing
             return content
 
-        if attempt < max_retries:
+        if attempt < (max_retries - 1):
             print(f"Attempt {attempt + 1}: Found bad URLs. Retrying with a new random seed.")
         else:
             print("Max retries reached. Updating prompt to exclude links.")
