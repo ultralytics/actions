@@ -42,5 +42,4 @@ def get_completion(
             messages.append({"role": "user", "content": "Please provide a response without any URLs or links in it."})
             check_links = False  # automatically accept the last message
 
-    # If we've exhausted all retries, return the last generated content
     return content
