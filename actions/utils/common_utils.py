@@ -75,7 +75,6 @@ def check_links_in_string(text, verbose=True, return_bad=False):
         r"(?:/[^\s\"')\]]*)?"  # Optional path
         r")"
     )
-    # all_urls.extend([url for url in match if url and parse.urlparse(url).scheme])
     all_urls = []
     for md_text, md_url, plain_url in re.findall(pattern, text):
         url = md_url or plain_url
