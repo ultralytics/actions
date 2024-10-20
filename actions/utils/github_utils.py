@@ -1,6 +1,7 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
-
+import json
 import os
+from pathlib import Path
 
 import requests
 
@@ -85,3 +86,39 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
         publish = True  # publish as this is likely a first release
 
     return local_version, online_version, publish
+
+
+def print_github_action_info():
+    """Print Ultralytics Actions information."""
+    event_data = {}
+    if GITHUB_EVENT_PATH:
+        event_path = Path(GITHUB_EVENT_PATH)
+        if event_path.exists():
+            event_data = json.loads(event_path.read_text())
+
+    pr = event_data.get('pull_request', {})
+    pr_head_ref = pr.get('head', {}).get('ref')
+    head_ref = Path('/github/head_ref').read_text().strip() if Path('/github/head_ref').exists() else None
+    ref = Path('/github/ref').read_text().strip() if Path('/github/ref').exists() else None
+
+    info = {
+        "github.event_name": GITHUB_EVENT_NAME,
+        "github.event.action": event_data.get('action'),
+        "github.repository": REPO_NAME,
+        "github.event.pull_request.number": pr.get('number'),
+        "github.event.pull_request.head.repo.full_name": pr.get('head', {}).get('repo', {}).get('full_name'),
+        "github.actor": Path('/github/actor').read_text().strip() if Path('/github/actor').exists() else None,
+        "github.event.pull_request.head.ref": pr_head_ref,
+        "github.ref": ref,
+        "github.head_ref": head_ref,
+        "github.base_ref": Path('/github/base_ref').read_text().strip() if Path('/github/base_ref').exists() else None,
+    }
+
+    if GITHUB_EVENT_NAME == "discussion":
+        info.update({
+            "github.event.discussion.node_id": event_data.get('discussion', {}).get('node_id'),
+            "github.event.discussion.number": event_data.get('discussion', {}).get('number'),
+        })
+
+    for key, value in info.items():
+        print(f"{key}: {value}")
