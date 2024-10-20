@@ -1,6 +1,7 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
-
+import json
 import os
+from pathlib import Path
 
 import requests
 
@@ -85,3 +86,44 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
         publish = True  # publish as this is likely a first release
 
     return local_version, online_version, publish
+
+
+def ultralytics_actions_info():
+    """Print Ultralytics Actions information."""
+    event_data = {}
+    if GITHUB_EVENT_PATH:
+        event_path = Path(GITHUB_EVENT_PATH)
+        if event_path.exists():
+            event_data = json.loads(event_path.read_text())
+
+    pr = event_data.get("pull_request", {})
+    pr_head_ref = pr.get("head", {}).get("ref")
+
+    info = {
+        "github.event_name": GITHUB_EVENT_NAME,
+        "github.event.action": event_data.get("action"),
+        "github.repository": REPO_NAME,
+        "github.event.pull_request.number": pr.get("number"),
+        "github.event.pull_request.head.repo.full_name": pr.get("head", {}).get("repo", {}).get("full_name"),
+        "github.actor": os.environ.get("GITHUB_ACTOR"),
+        "github.event.pull_request.head.ref": pr_head_ref,
+        "github.ref": os.environ.get("GITHUB_REF"),
+        "github.head_ref": os.environ.get("GITHUB_HEAD_REF"),
+        "github.base_ref": os.environ.get("GITHUB_BASE_REF"),
+    }
+
+    if GITHUB_EVENT_NAME == "discussion":
+        discussion = event_data.get("discussion", {})
+        info.update(
+            {
+                "github.event.discussion.node_id": discussion.get("node_id"),
+                "github.event.discussion.number": discussion.get("number"),
+            }
+        )
+
+    # Print information
+    max_key_length = max(len(key) for key in info.keys())
+    print("Ultralytics Actions Information " + "-" * 40)  # header (72 long)
+    for key, value in info.items():
+        print(f"{key:<{max_key_length + 5}}{value}")
+    print("-" * 72)  # footer
