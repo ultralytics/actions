@@ -2,7 +2,7 @@
 
 import os
 import random
-from typing import List, Dict
+from typing import Dict, List
 
 import requests
 
@@ -13,7 +13,8 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 def get_completion(
-    messages: List[Dict[str, str]], check_links: bool = True,
+    messages: List[Dict[str, str]],
+    check_links: bool = True,
     remove: List[str] = (" @giscus[bot]",),  # strings to remove from response
 ) -> str:
     """Generates a completion using OpenAI's API based on input messages."""
