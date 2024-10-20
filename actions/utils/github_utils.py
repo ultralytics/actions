@@ -88,7 +88,7 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
     return local_version, online_version, publish
 
 
-def print_github_action_info():
+def ultralytics_actions_info():
     """Print Ultralytics Actions information."""
     event_data = {}
     if GITHUB_EVENT_PATH:
@@ -96,31 +96,27 @@ def print_github_action_info():
         if event_path.exists():
             event_data = json.loads(event_path.read_text())
 
-    pr = event_data.get("pull_request", {})
-    pr_head_ref = pr.get("head", {}).get("ref")
-    head_ref = Path("/github/head_ref").read_text().strip() if Path("/github/head_ref").exists() else None
-    ref = Path("/github/ref").read_text().strip() if Path("/github/ref").exists() else None
+    pr_head_ref = event_data.get('pull_request', {}).get('head', {}).get('ref')
 
     info = {
         "github.event_name": GITHUB_EVENT_NAME,
-        "github.event.action": event_data.get("action"),
+        "github.event.action": event_data.get('action'),
         "github.repository": REPO_NAME,
-        "github.event.pull_request.number": pr.get("number"),
-        "github.event.pull_request.head.repo.full_name": pr.get("head", {}).get("repo", {}).get("full_name"),
-        "github.actor": Path("/github/actor").read_text().strip() if Path("/github/actor").exists() else None,
+        "github.event.pull_request.number": event_data.get('pull_request', {}).get('number'),
+        "github.event.pull_request.head.repo.full_name": event_data.get('pull_request', {}).get('head', {}).get('repo', {}).get('full_name'),
+        "github.actor": os.environ.get('GITHUB_ACTOR'),
         "github.event.pull_request.head.ref": pr_head_ref,
-        "github.ref": ref,
-        "github.head_ref": head_ref,
-        "github.base_ref": Path("/github/base_ref").read_text().strip() if Path("/github/base_ref").exists() else None,
+        "github.ref": os.environ.get('GITHUB_REF'),
+        "github.head_ref": os.environ.get('GITHUB_HEAD_REF'),
+        "github.base_ref": os.environ.get('GITHUB_BASE_REF'),
     }
 
     if GITHUB_EVENT_NAME == "discussion":
-        info.update(
-            {
-                "github.event.discussion.node_id": event_data.get("discussion", {}).get("node_id"),
-                "github.event.discussion.number": event_data.get("discussion", {}).get("number"),
-            }
-        )
+        info.update({
+            "github.event.discussion.node_id": event_data.get('discussion', {}).get('node_id'),
+            "github.event.discussion.number": event_data.get('discussion', {}).get('number'),
+        })
 
     for key, value in info.items():
-        print(f"{key}: {value}")
+        if value is not None:
+            print(f"{key}: {value}")
