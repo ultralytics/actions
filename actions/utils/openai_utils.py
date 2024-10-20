@@ -33,7 +33,7 @@ def get_completion(
             content = content.replace(x, "")
         if not check_links:
             return content
-        if check_links_in_string(content, verbose=False):  # if passing
+        if check_links_in_string(content, verbose=True):  # if passing
             return content
 
         if attempt < max_retries:
