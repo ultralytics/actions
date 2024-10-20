@@ -96,7 +96,9 @@ runs:
       #   pip install -q git+https://github.com/ultralytics/actions@main codespell tomli
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
       run: |
-        pip install -q ultralytics-actions codespell tomli
+        # pip install -q ultralytics-actions codespell tomli
+        python -m pip install --upgrade pip wheel
+        pip install -q git+https://github.com/ultralytics/actions@main codespell tomli
       shell: bash
 
     - name: Print Action Information NEW
