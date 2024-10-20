@@ -63,30 +63,7 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
 
 
 def check_links_in_string(text, verbose=True, return_bad=False):
-    """
-    Process a given text, find unique URLs within it, and check for any 404 errors.
-
-    This function can handle URLs in various formats:
-    - HTML links
-    - Markdown links
-    - Plaintext URLs
-
-    Example:
-        from assistant.utils import check_links_in_string
-        text = "A <a href='https://1.com'>https://2.eu</a> and [https://3.io](https://4.net) and https://5.edu."
-        check_links_in_string(text)
-        # Expected output: ['https://1.com', 'https://3.io', 'https://4.net', 'https://5.edu']
-        # Note https://2.eu skipped as not an HTML hyperlink
-
-    Args:
-        text (str): The input text containing URLs to be checked.
-        verbose (bool): If True, print warnings for bad URLs. Defaults to True.
-        return_bad (bool): If True, returns a tuple with the passing status and list of bad URLs.
-
-    Returns:
-        bool or (bool, list): True if all URLs are valid, False otherwise.
-                              If return_bad is True, also returns a list of bad URLs.
-    """
+    """Process a given text, find unique URLs within it, and check for any 404 errors."""
     pattern = (
         r"\[([^\]]+)\]\(([^)]+)\)"  # Matches Markdown links [text](url)
         r"|"
