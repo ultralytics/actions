@@ -1,45 +1,45 @@
 # Ultralytics Actions 🚀, AGPL-3.0 License https://ultralytics.com/license
 
-name: 'Ultralytics CLA'
-description: 'Checks if contributors have signed the Ultralytics Contributor License Agreement'
+name: "Ultralytics CLA"
+description: "Checks if contributors have signed the Ultralytics Contributor License Agreement"
 
 inputs:
   github-token:
-    description: 'GitHub token'
+    description: "GitHub token"
     required: true
   organization:
-    description: 'GitHub organization name'
+    description: "GitHub organization name"
     required: true
   repository:
-    description: 'GitHub repository name'
+    description: "GitHub repository name"
     required: true
   branch:
-    description: 'Branch to store CLA signatures'
+    description: "Branch to store CLA signatures"
     required: true
-    default: 'cla-signatures'
+    default: "cla-signatures"
   path-to-signatures:
-    description: 'Path to the JSON file containing CLA signatures'
+    description: "Path to the JSON file containing CLA signatures"
     required: true
-    default: 'signatures/version1/cla.json'
+    default: "signatures/version1/cla.json"
   path-to-document:
-    description: 'URL to the CLA document'
+    description: "URL to the CLA document"
     required: true
-    default: 'https://docs.ultralytics.com/help/CLA'
+    default: "https://docs.ultralytics.com/help/CLA"
   allowlist:
-    description: 'Comma-separated list of users/bots to ignore'
+    description: "Comma-separated list of users/bots to ignore"
     required: false
-    default: 'dependabot[bot],github-actions,bot*'
+    default: "dependabot[bot],github-actions,bot*"
   pr-sign-comment:
-    description: 'Comment to trigger CLA signing'
+    description: "Comment to trigger CLA signing"
     required: true
-    default: 'I have read the CLA Document and I sign the CLA'
+    default: "I have read the CLA Document and I sign the CLA"
   allsigned-prcomment:
-    description: 'Comment to post when all contributors have signed'
+    description: "Comment to post when all contributors have signed"
     required: true
-    default: 'All Contributors have signed the CLA. ✅'
+    default: "All Contributors have signed the CLA. ✅"
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Checkout code
       uses: actions/checkout@v3
@@ -47,7 +47,7 @@ runs:
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
-        python-version: '3.x'
+        python-version: "3.x"
 
     - name: Install dependencies
       run: |
