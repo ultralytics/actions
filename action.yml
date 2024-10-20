@@ -98,7 +98,7 @@ runs:
       run: |
         # pip install -q ultralytics-actions codespell tomli
         python -m pip install --upgrade pip wheel
-        pip install -q git+https://github.com/ultralytics/actions@main codespell tomli
+        pip install -q git+https://github.com/ultralytics/actions@info codespell tomli
       shell: bash
 
     - name: Print Action Information NEW
