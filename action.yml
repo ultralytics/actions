@@ -94,10 +94,10 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
       run: |
         # Debug ---
-        # python -m pip install --upgrade pip wheel
-        # pip install -q git+https://github.com/ultralytics/actions@check_urls codespell tomli
+        python -m pip install --upgrade pip wheel
+        pip install -q git+https://github.com/ultralytics/actions@check_urls codespell tomli
         # Production ---
-        pip install -q ultralytics-actions codespell tomli
+        # pip install -q ultralytics-actions codespell tomli
       shell: bash
 
     # PR Summary -------------------------------------------------------------------------------------------------------
