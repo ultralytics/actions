@@ -124,11 +124,8 @@ def ultralytics_actions_info():
     max_key_length = max(len(key) for key in info.keys())
 
     # Print a header
-    print("\nUltralytics Actions Information")
+    print("\nUltralytics Actions Information" + "-" * 30)
 
     # Print the information in a formatted way
     for key, value in info.items():
-        print(f"{key:<{max_key_length + 2}}: {value}")
-
-    # Print a footer
-    print("\n")
+        print(f"{key:<{max_key_length + 5}}{value}")
