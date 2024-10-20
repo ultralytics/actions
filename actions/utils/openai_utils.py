@@ -32,7 +32,7 @@ def get_completion(
         content = r.json()["choices"][0]["message"]["content"].strip()
         for x in remove:
             content = content.replace(x, "")
-        if not check_links or check_links_in_string(content, verbose=True):  # if no checks or checks are passing
+        if not check_links or check_links_in_string(content):  # if no checks or checks are passing return response
             return content
 
         if attempt < max_retries:
