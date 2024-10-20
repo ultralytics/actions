@@ -99,6 +99,10 @@ runs:
         pip install -q ultralytics-actions codespell tomli
       shell: bash
 
+    - name: Print Action Information NEW
+      run: ultralytics-actions-info
+      shell: bash
+
     # PR Summary -------------------------------------------------------------------------------------------------------
     - name: PR Summary
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize'
