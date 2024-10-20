@@ -96,26 +96,31 @@ def ultralytics_actions_info():
         if event_path.exists():
             event_data = json.loads(event_path.read_text())
 
-    pr_head_ref = event_data.get('pull_request', {}).get('head', {}).get('ref')
+    pr_head_ref = event_data.get("pull_request", {}).get("head", {}).get("ref")
 
     info = {
         "github.event_name": GITHUB_EVENT_NAME,
-        "github.event.action": event_data.get('action'),
+        "github.event.action": event_data.get("action"),
         "github.repository": REPO_NAME,
-        "github.event.pull_request.number": event_data.get('pull_request', {}).get('number'),
-        "github.event.pull_request.head.repo.full_name": event_data.get('pull_request', {}).get('head', {}).get('repo', {}).get('full_name'),
-        "github.actor": os.environ.get('GITHUB_ACTOR'),
+        "github.event.pull_request.number": event_data.get("pull_request", {}).get("number"),
+        "github.event.pull_request.head.repo.full_name": event_data.get("pull_request", {})
+        .get("head", {})
+        .get("repo", {})
+        .get("full_name"),
+        "github.actor": os.environ.get("GITHUB_ACTOR"),
         "github.event.pull_request.head.ref": pr_head_ref,
-        "github.ref": os.environ.get('GITHUB_REF'),
-        "github.head_ref": os.environ.get('GITHUB_HEAD_REF'),
-        "github.base_ref": os.environ.get('GITHUB_BASE_REF'),
+        "github.ref": os.environ.get("GITHUB_REF"),
+        "github.head_ref": os.environ.get("GITHUB_HEAD_REF"),
+        "github.base_ref": os.environ.get("GITHUB_BASE_REF"),
     }
 
     if GITHUB_EVENT_NAME == "discussion":
-        info.update({
-            "github.event.discussion.node_id": event_data.get('discussion', {}).get('node_id'),
-            "github.event.discussion.number": event_data.get('discussion', {}).get('number'),
-        })
+        info.update(
+            {
+                "github.event.discussion.node_id": event_data.get("discussion", {}).get("node_id"),
+                "github.event.discussion.number": event_data.get("discussion", {}).get("number"),
+            }
+        )
 
     for key, value in info.items():
         if value is not None:
