@@ -58,37 +58,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Print Action Information
-      env:
-        PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
-        HEAD_REF: ${{ github.head_ref }}
-        REF: ${{ github.ref }}
-      run: |
-        echo "github.event_name: ${{ github.event_name }}"  # i.e. "pull_request"
-        echo "github.event.action: ${{ github.event.action }}"  # i.e. "opened" or "closed"
-        echo "github.repository: ${{ github.repository }}"
-        echo "github.event.pull_request.number: ${{ github.event.pull_request.number }}"
-        echo "github.event.pull_request.head.repo.full_name: ${{ github.event.pull_request.head.repo.full_name }}"
-        echo "github.actor: ${{ github.actor }}"
-        echo "github.event.pull_request.head.ref: $PR_HEAD_REF"
-        echo "github.ref: $REF"
-        echo "github.head_ref: $HEAD_REF"
-        echo "github.base_ref: ${{ github.base_ref }}"
-        if [ "${{ github.event_name }}" = "discussion" ]; then
-          echo "github.event.discussion.node_id: ${{ github.event.discussion.node_id }}"
-          echo "github.event.discussion.number: ${{ github.event.discussion.number }}"
-        fi
-      shell: bash
-
-    - name: Checkout Repository
-      if: github.event.action != 'closed'
-      uses: actions/checkout@v4
-      with:
-        repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
-        token: ${{ inputs.token }}
-        ref: ${{ github.head_ref || github.ref }}
-        fetch-depth: 0
-
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
       # For debug:
@@ -99,11 +68,18 @@ runs:
         # pip install -q ultralytics-actions codespell tomli
         python -m pip install --upgrade pip wheel
         pip install -q git+https://github.com/ultralytics/actions@info codespell tomli
+        ultralytics-actions-info
       shell: bash
 
-    - name: Print Action Information NEW
-      run: ultralytics-actions-info
-      shell: bash
+    # Checkout Repository ----------------------------------------------------------------------------------------------
+    - name: Checkout Repository
+      if: github.event.action != 'closed'
+      uses: actions/checkout@v4
+      with:
+        repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        token: ${{ inputs.token }}
+        ref: ${{ github.head_ref || github.ref }}
+        fetch-depth: 0
 
     # PR Summary -------------------------------------------------------------------------------------------------------
     - name: PR Summary
