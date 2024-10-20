@@ -121,12 +121,9 @@ def ultralytics_actions_info():
             }
         )
 
-    # Calculate the maximum length of the keys for alignment
+    # Print information
     max_key_length = max(len(key) for key in info.keys())
-
-    # Print a header
-    print("\nUltralytics Actions Information" + "-" * 30)
-
-    # Print the information in a formatted way
+    print("\nUltralytics Actions Information " + "-" * 40)  # header (72 long)
     for key, value in info.items():
         print(f"{key:<{max_key_length + 5}}{value}")
+    print("-" * 72 + "\n")  # footer
