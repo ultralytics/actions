@@ -78,9 +78,9 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
         patch_diff = local_ver[2] - online_ver[2]
 
         publish = (
-            (major_diff == 0 and minor_diff == 0 and 0 < patch_diff <= 2)
-            or (major_diff == 0 and minor_diff == 1 and local_ver[2] == 0)
-            or (major_diff == 1 and local_ver[1] == 0 and local_ver[2] == 0)
+                (major_diff == 0 and minor_diff == 0 and 0 < patch_diff <= 2)
+                or (major_diff == 0 and minor_diff == 1 and local_ver[2] == 0)
+                or (major_diff == 1 and local_ver[1] == 0 and local_ver[2] == 0)
         )  # should publish an update
     else:
         publish = True  # publish as this is likely a first release
@@ -113,10 +113,11 @@ def ultralytics_actions_info():
     }
 
     if GITHUB_EVENT_NAME == "discussion":
+        discussion = event_data.get("discussion", {})
         info.update(
             {
-                "github.event.discussion.node_id": event_data.get("discussion", {}).get("node_id"),
-                "github.event.discussion.number": event_data.get("discussion", {}).get("number"),
+                "github.event.discussion.node_id": discussion.get("node_id"),
+                "github.event.discussion.number": discussion.get("number"),
             }
         )
 
