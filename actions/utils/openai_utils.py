@@ -23,8 +23,8 @@ def get_completion(
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
 
     content = ""
-    max_retries = 3
-    for attempt in range(max_retries + 1):
+    max_retries = 2
+    for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
         data = {"model": OPENAI_MODEL, "messages": messages, "seed": random.randint(1, 1000000)}
 
         r = requests.post(url, headers=headers, json=data)
@@ -32,16 +32,15 @@ def get_completion(
         content = r.json()["choices"][0]["message"]["content"].strip()
         for x in remove:
             content = content.replace(x, "")
-        if not check_links:
-            return content
-        if check_links_in_string(content, verbose=True):  # if passing
+        if not check_links or check_links_in_string(content, verbose=True):  # if no checks or checks are passing
             return content
 
-        if attempt < (max_retries - 1):
+        if attempt < max_retries:
             print(f"Attempt {attempt + 1}: Found bad URLs. Retrying with a new random seed.")
         else:
             print("Max retries reached. Updating prompt to exclude links.")
             messages.append({"role": "user", "content": "Please provide a response without any URLs or links in it."})
+            check_links = False  # automatically accept the last message
 
     # If we've exhausted all retries, return the last generated content
     return content
