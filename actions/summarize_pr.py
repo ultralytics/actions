@@ -66,7 +66,7 @@ def update_pr_description(repo_name, pr_number, new_summary):
 def main():
     """Summarize a pull request and update its description with an AI-generated summary."""
     pr_number = PR["number"]
-    
+
     print(f"Retrieving diff for PR {pr_number}")
     diff = get_pr_diff(PR["number"])
 
