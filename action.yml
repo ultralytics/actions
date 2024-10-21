@@ -86,6 +86,8 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize'
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
         ultralytics-actions-summarize-pr
       shell: bash
@@ -180,6 +182,8 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
         FIRST_ISSUE_RESPONSE: ${{ inputs.first_issue_response }}
         FIRST_PR_RESPONSE: ${{ inputs.first_pr_response }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
         ultralytics-actions-first-interaction
       shell: bash
