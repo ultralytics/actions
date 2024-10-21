@@ -5,8 +5,8 @@ import requests
 from .utils import (
     GITHUB_API_URL,
     GITHUB_HEADERS,
-    PR_NUMBER,
-    REPO_NAME,
+    GITHUB_REPOSITORY,
+    PR,
     get_completion,
     get_pr_diff,
 )
@@ -65,13 +65,13 @@ def update_pr_description(repo_name, pr_number, new_summary):
 
 def main():
     """Summarize a pull request and update its description with an AI-generated summary."""
-    diff = get_pr_diff(PR_NUMBER)
+    diff = get_pr_diff(PR["number"])
 
     # Generate PR summary
-    summary = generate_pr_summary(REPO_NAME, diff)
+    summary = generate_pr_summary(GITHUB_REPOSITORY, diff)
 
     # Update PR description
-    status_code = update_pr_description(REPO_NAME, PR_NUMBER, summary)
+    status_code = update_pr_description(GITHUB_REPOSITORY, PR["number"], summary)
     if status_code == 200:
         print("PR description updated successfully.")
     else:

@@ -1,17 +1,16 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
-import json
 import os
 from typing import Dict, List, Tuple
 
 import requests
 
 from .utils import (
+    EVENT_DATA,
     GITHUB_API_URL,
     GITHUB_EVENT_NAME,
-    GITHUB_EVENT_PATH,
     GITHUB_HEADERS,
-    REPO_NAME,
+    GITHUB_REPOSITORY,
     get_completion,
     get_github_data,
     get_pr_diff,
@@ -25,18 +24,16 @@ BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 
 def get_event_content() -> Tuple[int, str, str, str, str, str, str]:
     """Extracts key information from GitHub event data for issues, pull requests, or discussions."""
-    with open(GITHUB_EVENT_PATH) as f:
-        data = json.load(f)
-    action = data["action"]  # 'opened', 'closed', 'created' (discussion), etc.
+    action = EVENT_DATA["action"]  # 'opened', 'closed', 'created' (discussion), etc.
     if GITHUB_EVENT_NAME == "issues":
-        item = data["issue"]
+        item = EVENT_DATA["issue"]
         issue_type = "issue"
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
-        pr_number = data["pull_request"]["number"]
+        pr_number = EVENT_DATA["pull_request"]["number"]
         item = get_github_data(f"pulls/{pr_number}")
         issue_type = "pull request"
     elif GITHUB_EVENT_NAME == "discussion":
-        item = data["discussion"]
+        item = EVENT_DATA["discussion"]
         issue_type = "discussion"
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
@@ -73,7 +70,7 @@ mutation($discussionId: ID!, $title: String!, $body: String!) {
 """
         graphql_request(mutation, variables={"discussionId": node_id, "title": new_title, "body": new_body})
     else:
-        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
+        url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{number}"
         r = requests.patch(url, json={"title": new_title, "body": new_body}, headers=GITHUB_HEADERS)
         print(f"{'Successful' if r.status_code == 200 else 'Fail'} issue/PR #{number} update: {r.status_code}")
 
@@ -92,7 +89,7 @@ mutation($discussionId: ID!) {
 """
         graphql_request(mutation, variables={"discussionId": node_id})
     else:
-        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}"
+        url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{number}"
         r = requests.patch(url, json={"state": "closed"}, headers=GITHUB_HEADERS)
         print(f"{'Successful' if r.status_code == 200 else 'Fail'} issue/PR #{number} close: {r.status_code}")
 
@@ -113,14 +110,14 @@ mutation($lockableId: ID!, $lockReason: LockReason) {
 """
         graphql_request(mutation, variables={"lockableId": node_id, "lockReason": "OFF_TOPIC"})
     else:
-        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/lock"
+        url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{number}/lock"
         r = requests.put(url, json={"lock_reason": "off-topic"}, headers=GITHUB_HEADERS)
         print(f"{'Successful' if r.status_code in {200, 204} else 'Fail'} issue/PR #{number} lock: {r.status_code}")
 
 
 def block_user(username: str):
     """Blocks a user from the organization using the GitHub API."""
-    url = f"{GITHUB_API_URL}/orgs/{REPO_NAME.split('/')[0]}/blocks/{username}"
+    url = f"{GITHUB_API_URL}/orgs/{GITHUB_REPOSITORY.split('/')[0]}/blocks/{username}"
     r = requests.put(url, headers=GITHUB_HEADERS)
     print(f"{'Successful' if r.status_code == 204 else 'Fail'} user block for {username}: {r.status_code}")
 
@@ -200,7 +197,7 @@ query($owner: String!, $name: String!) {
     }
 }
 """
-    owner, repo = REPO_NAME.split("/")
+    owner, repo = GITHUB_REPOSITORY.split("/")
     result = graphql_request(query, variables={"owner": owner, "name": repo})
     if "data" in result and "repository" in result["data"]:
         all_labels = result["data"]["repository"]["labels"]["nodes"]
@@ -237,7 +234,7 @@ mutation($labelableId: ID!, $labelIds: [ID!]!) {
         graphql_request(mutation, {"labelableId": node_id, "labelIds": label_ids})
         print(f"Successfully applied labels: {', '.join(labels)}")
     else:
-        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/labels"
+        url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{number}/labels"
         r = requests.post(url, json={"labels": labels}, headers=GITHUB_HEADERS)
         print(f"{'Successful' if r.status_code == 200 else 'Fail'} apply labels {', '.join(labels)}: {r.status_code}")
 
@@ -245,12 +242,12 @@ mutation($labelableId: ID!, $labelIds: [ID!]!) {
 def create_alert_label():
     """Creates the 'Alert' label in the repository if it doesn't exist, with a red color and description."""
     alert_label = {"name": "Alert", "color": "FF0000", "description": "Potential spam, abuse, or off-topic."}
-    requests.post(f"{GITHUB_API_URL}/repos/{REPO_NAME}/labels", json=alert_label, headers=GITHUB_HEADERS)
+    requests.post(f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/labels", json=alert_label, headers=GITHUB_HEADERS)
 
 
 def is_org_member(username: str) -> bool:
     """Checks if a user is a member of the organization using the GitHub API."""
-    org_name = REPO_NAME.split("/")[0]
+    org_name = GITHUB_REPOSITORY.split("/")[0]
     url = f"{GITHUB_API_URL}/orgs/{org_name}/members/{username}"
     r = requests.get(url, headers=GITHUB_HEADERS)
     return r.status_code == 204  # 204 means the user is a member
@@ -270,7 +267,7 @@ mutation($discussionId: ID!, $body: String!) {
 """
         graphql_request(mutation, variables={"discussionId": node_id, "body": comment})
     else:
-        url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/issues/{number}/comments"
+        url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{number}/comments"
         r = requests.post(url, json={"body": comment}, headers=GITHUB_HEADERS)
         print(f"{'Successful' if r.status_code in {200, 201} else 'Fail'} issue/PR #{number} comment: {r.status_code}")
 
@@ -278,7 +275,7 @@ mutation($discussionId: ID!, $body: String!) {
 def get_first_interaction_response(issue_type: str, title: str, body: str, username: str, number: int) -> str:
     """Generates a custom LLM response for GitHub issues, PRs, or discussions based on content."""
     issue_discussion_response = f"""
-👋 Hello @{username}, thank you for submitting a `{REPO_NAME}` 🚀 {issue_type.capitalize()}. To help us address your concern efficiently, please ensure you've provided the following information:
+👋 Hello @{username}, thank you for submitting a `{GITHUB_REPOSITORY}` 🚀 {issue_type.capitalize()}. To help us address your concern efficiently, please ensure you've provided the following information:
 
 1. For bug reports:
    - A clear and concise description of the bug
@@ -303,10 +300,10 @@ Thank you for your contribution to improving our project!
 """
 
     pr_response = f"""
-👋 Hello @{username}, thank you for submitting an `{REPO_NAME}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
+👋 Hello @{username}, thank you for submitting an `{GITHUB_REPOSITORY}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
 
-- ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{REPO_NAME}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
-- ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{REPO_NAME}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
+- ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{GITHUB_REPOSITORY}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
+- ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{GITHUB_REPOSITORY}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
 - ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI/) checks are passing. If any checks fail, please address the issues.
 - ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com) for any new or modified features.
 - ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
@@ -321,8 +318,8 @@ For more guidance, please refer to our [Contributing Guide](https://docs.ultraly
     else:
         example = os.getenv("FIRST_ISSUE_RESPONSE") or issue_discussion_response
 
-    org_name, repo_name = REPO_NAME.split("/")
-    repo_url = f"https://github.com/{REPO_NAME}"
+    org_name, repo_name = GITHUB_REPOSITORY.split("/")
+    repo_url = f"https://github.com/{GITHUB_REPOSITORY}"
     diff = get_pr_diff(number)[:32000] if issue_type == "pull request" else ""
 
     prompt = f"""Generate a customized response to the new GitHub {issue_type} below:

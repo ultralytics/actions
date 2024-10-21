@@ -12,8 +12,8 @@ from .utils import (
     GITHUB_API_URL,
     GITHUB_HEADERS,
     GITHUB_HEADERS_DIFF,
+    GITHUB_REPOSITORY,
     GITHUB_TOKEN,
-    REPO_NAME,
     get_completion,
     remove_html_comments,
 )
@@ -164,14 +164,14 @@ def main():
     previous_tag = PREVIOUS_TAG or get_previous_tag()
 
     # Get the diff between the tags
-    diff = get_release_diff(REPO_NAME, previous_tag, CURRENT_TAG)
+    diff = get_release_diff(GITHUB_REPOSITORY, previous_tag, CURRENT_TAG)
 
     # Get PRs merged between the tags
-    prs = get_prs_between_tags(REPO_NAME, previous_tag, CURRENT_TAG)
+    prs = get_prs_between_tags(GITHUB_REPOSITORY, previous_tag, CURRENT_TAG)
 
     # Generate release summary
     try:
-        summary = generate_release_summary(diff, prs, CURRENT_TAG, previous_tag, REPO_NAME)
+        summary = generate_release_summary(diff, prs, CURRENT_TAG, previous_tag, GITHUB_REPOSITORY)
     except Exception as e:
         print(f"Failed to generate summary: {str(e)}")
         summary = "Failed to generate summary."
@@ -181,7 +181,7 @@ def main():
     commit_message = subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.split("\n")[0].strip()
 
     # Create the release on GitHub
-    status_code = create_github_release(REPO_NAME, CURRENT_TAG, f"{CURRENT_TAG} - {commit_message}", summary)
+    status_code = create_github_release(GITHUB_REPOSITORY, CURRENT_TAG, f"{CURRENT_TAG} - {commit_message}", summary)
     if status_code == 201:
         print(f"Successfully created release {CURRENT_TAG}")
     else:
