@@ -31,10 +31,10 @@ def generate_pr_summary(repo_name, diff_text):
         {
             "role": "user",
             "content": f"Summarize this '{repo_name}' PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:\n\n"
-                       f"### 🌟 Summary (single-line synopsis)\n"
-                       f"### 📊 Key Changes (bullet points highlighting any major changes)\n"
-                       f"### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n"
-                       f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}",
+            f"### 🌟 Summary (single-line synopsis)\n"
+            f"### 📊 Key Changes (bullet points highlighting any major changes)\n"
+            f"### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n"
+            f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}",
         },
     ]
     reply = get_completion(messages)

@@ -55,7 +55,7 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
                 except (urllib.error.URLError, socket.timeout):
                     if attempt == max_attempts - 1:  # last attempt
                         return False
-                    time.sleep(2 ** attempt)  # exponential backoff
+                    time.sleep(2**attempt)  # exponential backoff
             return False
         return True
     except Exception:
