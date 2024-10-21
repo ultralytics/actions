@@ -83,7 +83,6 @@ runs:
     - name: PR Summary
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize'
       env:
-        PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
@@ -178,7 +177,6 @@ runs:
     - name: Autolabel Issues and PRs
       if: inputs.labels == 'true' && (github.event.action == 'opened' || github.event.action == 'created')
       env:
-        PR_NUMBER: ${{ github.event.pull_request.number }}
         GITHUB_TOKEN: ${{ inputs.token }}
         FIRST_ISSUE_RESPONSE: ${{ inputs.first_issue_response }}
         FIRST_PR_RESPONSE: ${{ inputs.first_pr_response }}

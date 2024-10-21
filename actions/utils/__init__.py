@@ -2,14 +2,16 @@
 
 from .common_utils import remove_html_comments
 from .github_utils import (
+    DISCUSSION,
+    EVENT_DATA,
     GITHUB_API_URL,
     GITHUB_EVENT_NAME,
     GITHUB_EVENT_PATH,
     GITHUB_HEADERS,
     GITHUB_HEADERS_DIFF,
+    GITHUB_REPOSITORY,
     GITHUB_TOKEN,
-    PR_NUMBER,
-    REPO_NAME,
+    PR,
     check_pypi_version,
     get_github_data,
     get_pr_diff,
@@ -20,12 +22,14 @@ from .openai_utils import OPENAI_API_KEY, OPENAI_MODEL, get_completion
 
 __all__ = (
     "remove_html_comments",
+    "EVENT_DATA",
     "GITHUB_API_URL",
     "GITHUB_HEADERS",
     "GITHUB_HEADERS_DIFF",
     "GITHUB_TOKEN",
-    "REPO_NAME",
-    "PR_NUMBER",
+    "GITHUB_REPOSITORY",
+    "PR",
+    "DISCUSSION",
     "GITHUB_EVENT_NAME",
     "GITHUB_EVENT_PATH",
     "get_github_data",
