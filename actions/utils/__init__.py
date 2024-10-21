@@ -2,6 +2,7 @@
 
 from .common_utils import remove_html_comments
 from .github_utils import (
+    DISCUSSION,
     EVENT_DATA,
     GITHUB_API_URL,
     GITHUB_EVENT_NAME,
@@ -11,7 +12,6 @@ from .github_utils import (
     GITHUB_REPOSITORY,
     GITHUB_TOKEN,
     PR,
-    DISCUSSION,
     check_pypi_version,
     get_github_data,
     get_pr_diff,
