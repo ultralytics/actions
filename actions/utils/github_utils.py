@@ -15,6 +15,12 @@ GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY")
 GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
 GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
 
+EVENT_DATA = {}
+if GITHUB_EVENT_PATH:
+    event_path = Path(GITHUB_EVENT_PATH)
+    if event_path.exists():
+        EVENT_DATA = json.loads(event_path.read_text())
+
 
 def get_pr_diff(pr_number: int) -> str:
     """Retrieves the diff content for a specified pull request in a GitHub repository."""
@@ -90,18 +96,12 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
 
 def ultralytics_actions_info():
     """Print Ultralytics Actions information."""
-    event_data = {}
-    if GITHUB_EVENT_PATH:
-        event_path = Path(GITHUB_EVENT_PATH)
-        if event_path.exists():
-            event_data = json.loads(event_path.read_text())
-
-    pr = event_data.get("pull_request", {})
+    pr = EVENT_DATA.get("pull_request", {})
     pr_head_ref = pr.get("head", {}).get("ref")
 
     info = {
         "github.event_name": GITHUB_EVENT_NAME,
-        "github.event.action": event_data.get("action"),
+        "github.event.action": EVENT_DATA.get("action"),
         "github.repository": GITHUB_REPOSITORY,
         "github.event.pull_request.number": pr.get("number"),
         "github.event.pull_request.head.repo.full_name": pr.get("head", {}).get("repo", {}).get("full_name"),
@@ -113,7 +113,7 @@ def ultralytics_actions_info():
     }
 
     if GITHUB_EVENT_NAME == "discussion":
-        discussion = event_data.get("discussion", {})
+        discussion = EVENT_DATA.get("discussion", {})
         info.update(
             {
                 "github.event.discussion.node_id": discussion.get("node_id"),
