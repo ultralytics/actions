@@ -6,20 +6,18 @@ from pathlib import Path
 import requests
 
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
-GITHUB_API_URL = "https://api.github.com"
-GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
-GITHUB_HEADERS_DIFF = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
-
 GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY")
 GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
 GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
+GITHUB_API_URL = "https://api.github.com"
+GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
+GITHUB_HEADERS_DIFF = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
 
 EVENT_DATA = {}
 if GITHUB_EVENT_PATH:
     event_path = Path(GITHUB_EVENT_PATH)
     if event_path.exists():
         EVENT_DATA = json.loads(event_path.read_text())
-
 PR = EVENT_DATA.get("pull_request", {})
 DISCUSSION = EVENT_DATA.get("discussion", {})
 
