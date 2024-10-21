@@ -6,7 +6,7 @@ from .utils import (
     GITHUB_API_URL,
     GITHUB_HEADERS,
     PR_NUMBER,
-    REPO_NAME,
+    GITHUB_REPOSITORY,
     get_completion,
     get_pr_diff,
 )
@@ -68,10 +68,10 @@ def main():
     diff = get_pr_diff(PR_NUMBER)
 
     # Generate PR summary
-    summary = generate_pr_summary(REPO_NAME, diff)
+    summary = generate_pr_summary(GITHUB_REPOSITORY, diff)
 
     # Update PR description
-    status_code = update_pr_description(REPO_NAME, PR_NUMBER, summary)
+    status_code = update_pr_description(GITHUB_REPOSITORY, PR_NUMBER, summary)
     if status_code == 200:
         print("PR description updated successfully.")
     else:

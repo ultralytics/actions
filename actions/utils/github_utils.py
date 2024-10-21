@@ -11,21 +11,21 @@ GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "applicati
 GITHUB_HEADERS_DIFF = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
 
 PR_NUMBER = os.getenv("PR_NUMBER")
-REPO_NAME = os.getenv("GITHUB_REPOSITORY")
+GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY")
 GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
 GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
 
 
 def get_pr_diff(pr_number: int) -> str:
     """Retrieves the diff content for a specified pull request in a GitHub repository."""
-    url = f"{GITHUB_API_URL}/repos/{REPO_NAME}/pulls/{pr_number}"
+    url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/pulls/{pr_number}"
     r = requests.get(url, headers=GITHUB_HEADERS_DIFF)
     return r.text if r.status_code == 200 else ""
 
 
 def get_github_data(endpoint: str) -> dict:
     """Fetches GitHub repository data from a specified endpoint using the GitHub API."""
-    r = requests.get(f"{GITHUB_API_URL}/repos/{REPO_NAME}/{endpoint}", headers=GITHUB_HEADERS)
+    r = requests.get(f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/{endpoint}", headers=GITHUB_HEADERS)
     r.raise_for_status()
     return r.json()
 
@@ -102,7 +102,7 @@ def ultralytics_actions_info():
     info = {
         "github.event_name": GITHUB_EVENT_NAME,
         "github.event.action": event_data.get("action"),
-        "github.repository": REPO_NAME,
+        "github.repository": GITHUB_REPOSITORY,
         "github.event.pull_request.number": pr.get("number"),
         "github.event.pull_request.head.repo.full_name": pr.get("head", {}).get("repo", {}).get("full_name"),
         "github.actor": os.environ.get("GITHUB_ACTOR"),
