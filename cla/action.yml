@@ -33,6 +33,13 @@ inputs:
     description: "Comment to post when all contributors have signed"
     required: true
     default: "All Contributors have signed the CLA. ✅"
+  openai_api_key:
+    description: "OpenAI API Key"
+    required: false
+  openai_model:
+    description: "OpenAI Model"
+    required: false
+    default: "gpt-4o"
 
 runs:
   using: "composite"
