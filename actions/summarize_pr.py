@@ -65,13 +65,18 @@ def update_pr_description(repo_name, pr_number, new_summary):
 
 def main():
     """Summarize a pull request and update its description with an AI-generated summary."""
+    pr_number = PR["number"]
+
+    print(f"Retrieving diff for PR {pr_number}")
     diff = get_pr_diff(PR["number"])
 
     # Generate PR summary
+    print("Generating PR summary...")
     summary = generate_pr_summary(GITHUB_REPOSITORY, diff)
 
     # Update PR description
-    status_code = update_pr_description(GITHUB_REPOSITORY, PR["number"], summary)
+    print("Updating PR description...")
+    status_code = update_pr_description(GITHUB_REPOSITORY, pr_number, summary)
     if status_code == 200:
         print("PR description updated successfully.")
     else:
