@@ -63,9 +63,12 @@ runs:
       # For debug:
       #   python -m pip install --upgrade pip wheel
       #   pip install -q git+https://github.com/ultralytics/actions@main codespell tomli
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
       run: |
-        pip install -q ultralytics-actions codespell tomli
+        packages="ultralytics-actions"
+        if [ "${{ inputs.spelling }}" = "true" ]; then
+          packages="$packages codespell tomli"
+        fi
+        pip install -q $packages
         ultralytics-actions-info
       shell: bash
 
