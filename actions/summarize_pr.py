@@ -5,8 +5,8 @@ import requests
 from .utils import (
     GITHUB_API_URL,
     GITHUB_HEADERS,
-    PR_NUMBER,
     GITHUB_REPOSITORY,
+    PR_NUMBER,
     get_completion,
     get_pr_diff,
 )

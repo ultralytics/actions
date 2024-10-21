@@ -12,8 +12,8 @@ from .utils import (
     GITHUB_API_URL,
     GITHUB_HEADERS,
     GITHUB_HEADERS_DIFF,
-    GITHUB_TOKEN,
     GITHUB_REPOSITORY,
+    GITHUB_TOKEN,
     get_completion,
     remove_html_comments,
 )
