@@ -10,7 +10,6 @@ GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 GITHUB_HEADERS_DIFF = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
 
-PR_NUMBER = os.getenv("PR_NUMBER")
 GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY")
 GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
 GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
@@ -20,6 +19,9 @@ if GITHUB_EVENT_PATH:
     event_path = Path(GITHUB_EVENT_PATH)
     if event_path.exists():
         EVENT_DATA = json.loads(event_path.read_text())
+
+PR = EVENT_DATA.get("pull_request", {})
+DISCUSSION = EVENT_DATA.get("discussion", {})
 
 
 def get_pr_diff(pr_number: int) -> str:
@@ -84,9 +86,9 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
         patch_diff = local_ver[2] - online_ver[2]
 
         publish = (
-            (major_diff == 0 and minor_diff == 0 and 0 < patch_diff <= 2)
-            or (major_diff == 0 and minor_diff == 1 and local_ver[2] == 0)
-            or (major_diff == 1 and local_ver[1] == 0 and local_ver[2] == 0)
+                (major_diff == 0 and minor_diff == 0 and 0 < patch_diff <= 2)
+                or (major_diff == 0 and minor_diff == 1 and local_ver[2] == 0)
+                or (major_diff == 1 and local_ver[1] == 0 and local_ver[2] == 0)
         )  # should publish an update
     else:
         publish = True  # publish as this is likely a first release
@@ -96,28 +98,24 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
 
 def ultralytics_actions_info():
     """Print Ultralytics Actions information."""
-    pr = EVENT_DATA.get("pull_request", {})
-    pr_head_ref = pr.get("head", {}).get("ref")
-
     info = {
         "github.event_name": GITHUB_EVENT_NAME,
         "github.event.action": EVENT_DATA.get("action"),
         "github.repository": GITHUB_REPOSITORY,
-        "github.event.pull_request.number": pr.get("number"),
-        "github.event.pull_request.head.repo.full_name": pr.get("head", {}).get("repo", {}).get("full_name"),
+        "github.event.pull_request.number": PR.get("number"),
+        "github.event.pull_request.head.repo.full_name": PR.get("head", {}).get("repo", {}).get("full_name"),
         "github.actor": os.environ.get("GITHUB_ACTOR"),
-        "github.event.pull_request.head.ref": pr_head_ref,
+        "github.event.pull_request.head.ref": PR.get("head", {}).get("ref"),
         "github.ref": os.environ.get("GITHUB_REF"),
         "github.head_ref": os.environ.get("GITHUB_HEAD_REF"),
         "github.base_ref": os.environ.get("GITHUB_BASE_REF"),
     }
 
     if GITHUB_EVENT_NAME == "discussion":
-        discussion = EVENT_DATA.get("discussion", {})
         info.update(
             {
-                "github.event.discussion.node_id": discussion.get("node_id"),
-                "github.event.discussion.number": discussion.get("number"),
+                "github.event.discussion.node_id": DISCUSSION.get("node_id"),
+                "github.event.discussion.number": DISCUSSION.get("number"),
             }
         )
 
