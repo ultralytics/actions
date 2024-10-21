@@ -6,18 +6,18 @@ inputs:
   github-token:
     description: "GitHub token"
     required: true
-  repository:
-    description: "GitHub repository name (including organization, e.g., 'org/repo')"
+  cla_repository:
+    description: "GitHub repository name for storing CLA signatures (including organization, e.g., 'org/repo')"
     required: true
-  branch:
+  cla_branch:
     description: "Branch to store CLA signatures"
     required: true
     default: "cla-signatures"
-  path-to-signatures:
+  cla_signatures_path:
     description: "Path to the JSON file containing CLA signatures"
     required: true
     default: "signatures/version1/cla.json"
-  cla-document-url:
+  cla_document_url:
     description: "URL to the CLA document"
     required: true
     default: "https://docs.ultralytics.com/help/CLA"
@@ -25,11 +25,11 @@ inputs:
     description: "Comma-separated list of users/bots to ignore"
     required: false
     default: "dependabot[bot],github-actions,bot*"
-  pr-sign-comment:
+  sign_comment:
     description: "Comment to trigger CLA signing"
     required: true
     default: "I have read the CLA Document and I sign the CLA"
-  allsigned-prcomment:
+  allsigned_comment:
     description: "Comment to post when all contributors have signed"
     required: true
     default: "All Contributors have signed the CLA. ✅"
@@ -39,27 +39,24 @@ runs:
   steps:
     - name: Checkout code
       uses: actions/checkout@v3
-
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.x"
-
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install ultralytics-action
       shell: bash
-
     - name: Check CLA
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
-        REPOSITORY: ${{ inputs.repository }}
-        BRANCH: ${{ inputs.branch }}
-        PATH_TO_SIGNATURES: ${{ inputs.path-to-signatures }}
-        CLA_DOCUMENT_URL: ${{ inputs.cla-document-url }}
+        CLA_REPOSITORY: ${{ inputs.cla_repository }}
+        CLA_BRANCH: ${{ inputs.cla_branch }}
+        CLA_SIGNATURES_PATH: ${{ inputs.cla_signatures_path }}
+        CLA_DOCUMENT_URL: ${{ inputs.cla_document_url }}
         ALLOWLIST: ${{ inputs.allowlist }}
-        PR_SIGN_COMMENT: ${{ inputs.pr-sign-comment }}
-        ALLSIGNED_PRCOMMENT: ${{ inputs.allsigned-prcomment }}
+        SIGN_COMMENT: ${{ inputs.sign_comment }}
+        ALLSIGNED_COMMENT: ${{ inputs.allsigned_comment }}
       run: ultralytics-actions-check-cla
       shell: bash
