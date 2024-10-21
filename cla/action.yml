@@ -2,16 +2,12 @@
 
 name: "Ultralytics CLA"
 description: "Checks if contributors have signed the Ultralytics Contributor License Agreement"
-
 inputs:
   github-token:
     description: "GitHub token"
     required: true
-  organization:
-    description: "GitHub organization name"
-    required: true
   repository:
-    description: "GitHub repository name"
+    description: "GitHub repository name (including organization, e.g., 'org/repo')"
     required: true
   branch:
     description: "Branch to store CLA signatures"
@@ -21,7 +17,7 @@ inputs:
     description: "Path to the JSON file containing CLA signatures"
     required: true
     default: "signatures/version1/cla.json"
-  path-to-document:
+  cla-document-url:
     description: "URL to the CLA document"
     required: true
     default: "https://docs.ultralytics.com/help/CLA"
@@ -43,18 +39,27 @@ runs:
   steps:
     - name: Checkout code
       uses: actions/checkout@v3
-
+      
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.x"
-
+        
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
         pip install ultralytics-action
       shell: bash
-
+      
     - name: Check CLA
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        REPOSITORY: ${{ inputs.repository }}
+        BRANCH: ${{ inputs.branch }}
+        PATH_TO_SIGNATURES: ${{ inputs.path-to-signatures }}
+        CLA_DOCUMENT_URL: ${{ inputs.cla-document-url }}
+        ALLOWLIST: ${{ inputs.allowlist }}
+        PR_SIGN_COMMENT: ${{ inputs.pr-sign-comment }}
+        ALLSIGNED_PRCOMMENT: ${{ inputs.allsigned-prcomment }}
       run: ultralytics-actions-check-cla
       shell: bash
