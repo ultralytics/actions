@@ -68,5 +68,7 @@ runs:
         ALLOWLIST: ${{ inputs.allowlist }}
         SIGN_COMMENT: ${{ inputs.sign_comment }}
         ALLSIGNED_COMMENT: ${{ inputs.allsigned_comment }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        OPENAI_MODEL: ${{ inputs.openai_model }}
       run: ultralytics-actions-check-cla
       shell: bash
