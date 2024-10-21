@@ -10,7 +10,11 @@ from actions.utils.common_utils import check_links_in_string
 
 print(os.environ.items())
 INPUTS = {k[6:].lower(): v for k, v in os.environ.items() if k.startswith("INPUT_")}  # actions inputs dictionary
-print(INPUTS)
+
+for key, value in os.environ.items():
+    print(f"{key:<{40}}{value}")
+
+
 OPENAI_MODEL = INPUTS["openai_model"] or "gpt-4o"
 OPENAI_API_KEY = INPUTS["openai_api_key"]
 
