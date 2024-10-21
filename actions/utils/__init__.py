@@ -2,6 +2,7 @@
 
 from .common_utils import remove_html_comments
 from .github_utils import (
+    EVENT_DATA,
     GITHUB_API_URL,
     GITHUB_EVENT_NAME,
     GITHUB_EVENT_PATH,
@@ -20,6 +21,7 @@ from .openai_utils import OPENAI_API_KEY, OPENAI_MODEL, get_completion
 
 __all__ = (
     "remove_html_comments",
+    "EVENT_DATA",
     "GITHUB_API_URL",
     "GITHUB_HEADERS",
     "GITHUB_HEADERS_DIFF",

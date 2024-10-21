@@ -1,15 +1,14 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
-import json
 import os
 from typing import Dict, List, Tuple
 
 import requests
 
 from .utils import (
+    EVENT_DATA,
     GITHUB_API_URL,
     GITHUB_EVENT_NAME,
-    GITHUB_EVENT_PATH,
     GITHUB_HEADERS,
     GITHUB_REPOSITORY,
     get_completion,
@@ -25,18 +24,16 @@ BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 
 def get_event_content() -> Tuple[int, str, str, str, str, str, str]:
     """Extracts key information from GitHub event data for issues, pull requests, or discussions."""
-    with open(GITHUB_EVENT_PATH) as f:
-        data = json.load(f)
-    action = data["action"]  # 'opened', 'closed', 'created' (discussion), etc.
+    action = EVENT_DATA["action"]  # 'opened', 'closed', 'created' (discussion), etc.
     if GITHUB_EVENT_NAME == "issues":
-        item = data["issue"]
+        item = EVENT_DATA["issue"]
         issue_type = "issue"
     elif GITHUB_EVENT_NAME in ["pull_request", "pull_request_target"]:
-        pr_number = data["pull_request"]["number"]
+        pr_number = EVENT_DATA["pull_request"]["number"]
         item = get_github_data(f"pulls/{pr_number}")
         issue_type = "pull request"
     elif GITHUB_EVENT_NAME == "discussion":
-        item = data["discussion"]
+        item = EVENT_DATA["discussion"]
         issue_type = "discussion"
     else:
         raise ValueError(f"Unsupported event type: {GITHUB_EVENT_NAME}")
