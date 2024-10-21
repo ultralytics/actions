@@ -21,7 +21,7 @@ if GITHUB_EVENT_PATH:
 PR = EVENT_DATA.get("pull_request", {})
 DISCUSSION = EVENT_DATA.get("discussion", {})
 
-INPUTS = {k[6:].lower(): v for k, v in os.environ.items() if k.startswith('INPUT_')}  # actions inputs dictionary
+INPUTS = {k[6:].lower(): v for k, v in os.environ.items() if k.startswith("INPUT_")}  # actions inputs dictionary
 
 
 def get_pr_diff(pr_number: int) -> str:
