@@ -8,8 +8,9 @@ import requests
 
 from actions.utils.common_utils import check_links_in_string
 
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o")
-OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+INPUTS = {k[6:].lower(): v for k, v in os.environ.items() if k.startswith('INPUT_')}  # actions inputs dictionary
+OPENAI_MODEL = INPUTS["openai_model"] or os.getenv("OPENAI_MODEL", "gpt-4o")
+OPENAI_API_KEY = INPUTS["openai_api_key"]
 
 
 def get_completion(
