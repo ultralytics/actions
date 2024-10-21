@@ -71,11 +71,11 @@ def main():
     diff = get_pr_diff(PR["number"])
 
     # Generate PR summary
-    print("Generating summary...")
+    print("Generating PR summary...")
     summary = generate_pr_summary(GITHUB_REPOSITORY, diff)
 
     # Update PR description
-    print("Updating description...")
+    print("Updating PR description...")
     status_code = update_pr_description(GITHUB_REPOSITORY, pr_number, summary)
     if status_code == 200:
         print("PR description updated successfully.")
