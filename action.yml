@@ -64,11 +64,13 @@ runs:
       #   python -m pip install --upgrade pip wheel
       #   pip install -q git+https://github.com/ultralytics/actions@main codespell tomli
       run: |
-        packages="ultralytics-actions"
-        if [ "${{ inputs.spelling }}" = "true" ]; then
-          packages="$packages codespell tomli"
-        fi
-        pip install -q $packages
+        # packages="ultralytics-actions"
+        # if [ "${{ inputs.spelling }}" = "true" ]; then
+        #   packages="$packages codespell tomli"
+        # fi
+        # pip install -q $packages
+        python -m pip install --upgrade pip wheel
+        pip install -q git+https://github.com/ultralytics/actions@cla-branch codespell tomli
         ultralytics-actions-info
       shell: bash
 
