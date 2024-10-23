@@ -20,7 +20,11 @@ def clean_url(url):
 
 
 def is_url(url, check=True, max_attempts=3, timeout=2):
-    """Check if string is URL and check if URL exists. Uses browser-like headers."""
+    """
+    Check if string is URL and check if URL exists.
+
+    Uses browser-like headers.
+    """
     allow_list = (
         "localhost",
         "127.0.0",
@@ -55,7 +59,7 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
                         url,
                         method="HEAD",
                         headers={
-                            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
                         },
                     )
                     with urllib.request.urlopen(req, timeout=timeout) as response:
