@@ -34,6 +34,9 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
         "url",
         "example",
         "mailto:",
+        "github.com",  # ignore GitHub links that may be private repos
+        "kaggle.com",  # blocks automated header requests
+        "reddit.com",  # blocks automated header requests
     )
     try:
         # Check allow list
@@ -49,7 +52,13 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
         if check:
             for attempt in range(max_attempts):
                 try:
-                    req = urllib.request.Request(url, method="HEAD", headers={"User-Agent": "Chrome/120.0.0.0"})
+                    req = urllib.request.Request(
+                        url,
+                        method="HEAD",
+                        headers={
+                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+                        },
+                    )
                     with urllib.request.urlopen(req, timeout=timeout) as response:
                         return response.getcode() < 400
                 except (urllib.error.URLError, socket.timeout):
