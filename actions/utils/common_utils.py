@@ -34,6 +34,7 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
         "url",
         "example",
         "mailto:",
+        "://github.com"  # ignore GitHub links that may be private repos
     )
     try:
         # Check allow list
