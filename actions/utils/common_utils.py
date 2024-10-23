@@ -20,11 +20,7 @@ def clean_url(url):
 
 
 def is_url(url, check=True, max_attempts=3, timeout=2):
-    """
-    Check if string is URL and check if URL exists.
-
-    Uses browser-like headers.
-    """
+    """Check if string is URL and check if URL exists."""
     allow_list = (
         "localhost",
         "127.0.0",
