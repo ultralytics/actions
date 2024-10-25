@@ -34,7 +34,7 @@ runs:
         import sys
         import time
         import subprocess
-        
+
         def run_command():
             timeout_minutes = int(sys.argv[1])
             max_attempts = int(sys.argv[2])
@@ -71,25 +71,25 @@ runs:
                     print(f"Retrying in {retry_delay} seconds...")
                     time.sleep(retry_delay)
                     attempt += 1
-        
+
         if __name__ == "__main__":
             run_command()
         EOL
-        
+
         # Create bash retry script
         cat > ${{ github.action_path }}/retry.sh << 'EOL'
         #!/bin/bash
-        
+
         timeout_minutes=$1
         max_attempts=$2
         retry_delay=$3
         shift 3
         command="$*"
-        
+
         start_time=$(date +%s)
         timeout_seconds=$((timeout_minutes * 60))
         attempt=1
-        
+
         while true; do
             if [ $attempt -gt 1 ]; then
                 echo "::group::Attempt $attempt of $max_attempts"
