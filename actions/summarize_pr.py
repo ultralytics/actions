@@ -53,7 +53,7 @@ def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
             break
         if i < max_retries:
             print("No current PR description found, retrying...")
-        time.sleep(1)
+            time.sleep(1)
 
     # Check if existing summary is present and update accordingly
     if SUMMARY_START in current_description:
