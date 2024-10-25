@@ -1,8 +1,6 @@
 # Ultralytics Actions 🚀, AGPL-3.0 License https://ultralytics.com/license
-
 name: "Step-Level Retry"
 description: "Retries a step while preserving its full context"
-
 inputs:
   timeout_minutes:
     description: "Maximum time in minutes for each attempt"
@@ -23,7 +21,6 @@ inputs:
     description: "Working directory for the command"
     required: false
     default: "."
-
 runs:
   using: "composite"
   steps:
@@ -32,13 +29,15 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env: ${{ env }}
       run: |
-
         start_time=$(date +%s)
         timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
         attempt=1
-
+        
         while true; do
-          echo "::group::Attempt $attempt of ${{ inputs.max_attempts }}"
+          # Only show group and attempt info after first failure
+          if [ $attempt -gt 1 ]; then
+            echo "::group::Attempt $attempt of ${{ inputs.max_attempts }}"
+          fi
           
           # Check timeout
           current_time=$(date +%s)
@@ -57,12 +56,15 @@ runs:
           set -e
           
           if [ $exit_code -eq 0 ]; then
-            echo "::endgroup::"
+            [ $attempt -gt 1 ] && echo "::endgroup::"
             exit 0
           fi
           
-          echo "Attempt $attempt failed with exit code $exit_code"
-          echo "::endgroup::"
+          # Only show verbose output after first failure
+          if [ $attempt -gt 1 ]; then
+            echo "Attempt $attempt failed with exit code $exit_code"
+            echo "::endgroup::"
+          fi
           
           if [ $attempt -ge ${{ inputs.max_attempts }} ]; then
             echo "::error::Step failed after $attempt attempts"
