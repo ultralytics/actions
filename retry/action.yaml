@@ -32,6 +32,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env: ${{ env }}
       run: |
+
         start_time=$(date +%s)
         timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
         attempt=1
