@@ -32,7 +32,7 @@ runs:
         start_time=$(date +%s)
         timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
         attempt=1
-        
+
         while true; do
           # Only show group and attempt info after first failure
           if [ $attempt -gt 1 ]; then
