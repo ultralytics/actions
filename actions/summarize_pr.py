@@ -1,5 +1,7 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
+import time
+
 import requests
 
 from .utils import (
@@ -39,27 +41,26 @@ def generate_pr_summary(repo_name, diff_text):
     ]
     reply = get_completion(messages)
     if len(diff_text) > limit:
-        return SUMMARY_START + "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
-    else:
-        return SUMMARY_START + reply
+        reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
+    return reply
 
 
 def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
     """Updates PR description with new summary, retrying if description is None."""
     pr_url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
+    description = ""
     for i in range(max_retries + 1):
-        current_description = requests.get(pr_url, headers=GITHUB_HEADERS).json().get("body") or ""
-        if current_description:
+        description = requests.get(pr_url, headers=GITHUB_HEADERS).json().get("body") or ""
+        if description:
             break
         if i < max_retries:
             print("No current PR description found, retrying...")
             time.sleep(1)
 
     # Check if existing summary is present and update accordingly
-    if SUMMARY_START in current_description:
-        updated_description = current_description.split(SUMMARY_START)[0] + new_summary
-    else:
-        updated_description = current_description + "\n\n" + new_summary
+    if SUMMARY_START not in description:
+        print(f"No existing summary found in description:\n\n{description}")
+    updated_description = description.split(SUMMARY_START)[0] + SUMMARY_START + new_summary
 
     # Update the PR description
     update_response = requests.patch(pr_url, json={"body": updated_description}, headers=GITHUB_HEADERS)
