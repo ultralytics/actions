@@ -1,5 +1,7 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
+import time
+
 import requests
 
 from .utils import (
@@ -39,24 +41,30 @@ def generate_pr_summary(repo_name, diff_text):
     ]
     reply = get_completion(messages)
     if len(diff_text) > limit:
-        return SUMMARY_START + "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
-    else:
-        return SUMMARY_START + reply
+        reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
+    return SUMMARY_START + reply
 
 
-def update_pr_description(repo_name, pr_number, new_summary):
-    """Updates the PR description with a new summary, replacing existing summary if present."""
-    # Fetch the current PR description
+def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
+    """Updates PR description with new summary, retrying if description is None."""
     pr_url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
-    pr_response = requests.get(pr_url, headers=GITHUB_HEADERS)
-    pr_data = pr_response.json()
-    current_description = pr_data.get("body") or ""  # warning, can be None
+    description = ""
+    for i in range(max_retries + 1):
+        description = requests.get(pr_url, headers=GITHUB_HEADERS).json().get("body") or ""
+        if description:
+            break
+        if i < max_retries:
+            print("No current PR description found, retrying...")
+            time.sleep(1)
 
     # Check if existing summary is present and update accordingly
-    if SUMMARY_START in current_description:
-        updated_description = current_description.split(SUMMARY_START)[0] + new_summary
+    start = "## 🛠️ PR Summary"
+    if start in description:
+        print("Existing PR Summary found, replacing.")
+        updated_description = description.split(start)[0] + new_summary
     else:
-        updated_description = current_description + "\n\n" + new_summary
+        print("PR Summary not found, appending.")
+        updated_description = description + "\n\n" + new_summary
 
     # Update the PR description
     update_response = requests.patch(pr_url, json={"body": updated_description}, headers=GITHUB_HEADERS)
