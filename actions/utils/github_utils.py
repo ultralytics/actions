@@ -88,9 +88,9 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
         patch_diff = local_ver[2] - online_ver[2]
 
         publish = (
-                (major_diff == 0 and minor_diff == 0 and 0 < patch_diff <= 2)
-                or (major_diff == 0 and minor_diff == 1 and local_ver[2] == 0)
-                or (major_diff == 1 and local_ver[1] == 0 and local_ver[2] == 0)
+            (major_diff == 0 and minor_diff == 0 and 0 < patch_diff <= 2)
+            or (major_diff == 0 and minor_diff == 1 and local_ver[2] == 0)
+            or (major_diff == 1 and local_ver[1] == 0 and local_ver[2] == 0)
         )  # should publish an update
     else:
         publish = True  # publish as this is likely a first release
