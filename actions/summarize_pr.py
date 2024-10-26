@@ -58,13 +58,13 @@ def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
             time.sleep(1)
 
     # Check if existing summary is present and update accordingly
-    START = "## 🛠️ PR Summary"
-    if START in current_description:
+    start = "## 🛠️ PR Summary"
+    if start in description:
         print("Existing PR Summary found, replacing.")
-        updated_description = current_description.split(START)[0] + new_summary
+        updated_description = description.split(start)[0] + new_summary
     else:
         print("PR Summary not found, appending.")
-        updated_description = current_description + "\n\n" + new_summary
+        updated_description = description + "\n\n" + new_summary
 
     # Update the PR description
     update_response = requests.patch(pr_url, json={"body": updated_description}, headers=GITHUB_HEADERS)
