@@ -60,9 +60,10 @@ def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
     # Check if existing summary is present and update accordingly
     START = "## 🛠️ PR Summary"
     if START in current_description:
+        print("Existing PR Summary found, replacing.")
         updated_description = current_description.split(START)[0] + new_summary
     else:
-        print("No existing summary found.")
+        print("PR Summary not found, appending.")
         updated_description = current_description + "\n\n" + new_summary
 
     # Update the PR description
