@@ -42,7 +42,7 @@ def generate_pr_summary(repo_name, diff_text):
     reply = get_completion(messages)
     if len(diff_text) > limit:
         reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
-    return reply
+    return SUMMARY_START + reply
 
 
 def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
