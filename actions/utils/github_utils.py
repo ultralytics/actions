@@ -5,6 +5,8 @@ from pathlib import Path
 
 import requests
 
+from actions import __version__
+
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY")
 GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
@@ -121,7 +123,8 @@ def ultralytics_actions_info():
 
     # Print information
     max_key_length = max(len(key) for key in info.keys())
-    print("Ultralytics Actions Information " + "-" * 40)  # header (72 long)
+    header = f"Ultralytics Actions {__version__} Information " + "-" * 40
+    print(header)
     for key, value in info.items():
         print(f"{key:<{max_key_length + 5}}{value}")
-    print("-" * 72)  # footer
+    print("-" * len(header))  # footer
