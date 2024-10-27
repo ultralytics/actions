@@ -11,8 +11,7 @@ runs:
       run: |
         echo "Free space before deletion:"
         df -h /
-        # Remove tool cache and Android per https://github.com/ultralytics/ultralytics/pull/15848
+        # Remove tool cache to free up ~15GB of space per https://github.com/ultralytics/ultralytics/pull/15848
         rm -rf /opt/hostedtoolcache || true
-        rm -rf /usr/local/lib/android || true
         echo "Free space after deletion:"
         df -h /
