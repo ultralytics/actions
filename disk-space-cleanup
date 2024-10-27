@@ -1,0 +1,18 @@
+# Ultralytics Actions 🚀, AGPL-3.0 License https://ultralytics.com/license
+
+name: "Disk Space Cleanup"
+author: "Ultralytics"
+description: "Cleans up disk space by removing unnecessary tool caches and packages"
+runs:
+  using: "composite"
+  steps:
+    - name: Cleanup disk space
+      shell: bash
+      run: |
+        echo "Free space before deletion:"
+        df -h /
+        # Remove tool cache and Android per https://github.com/ultralytics/ultralytics/pull/15848
+        rm -rf /opt/hostedtoolcache || true
+        rm -rf /usr/local/lib/android || true
+        echo "Free space after deletion:"
+        df -h /
