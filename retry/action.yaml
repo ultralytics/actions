@@ -7,7 +7,7 @@ inputs:
     description: "Maximum time in minutes for each attempt"
     required: false
     default: "60"
-  max_attempts:
+  retries:
     description: "Maximum number of retry attempts"
     required: false
     default: "3"
@@ -39,7 +39,7 @@ runs:
 
         while True:
             if attempt > 1:
-                print(f"::group::Attempt {attempt} of ${{ inputs.max_attempts }}")
+                print(f"::group::Attempt {attempt} of ${{ inputs.retries }}")
             
             if (time.time() - start_time) > timeout_seconds:
                 print(f"::error::Step timed out after ${{ inputs.timeout_minutes }} minutes")
@@ -55,7 +55,7 @@ runs:
                     print(f"Attempt {attempt} failed with error: {str(e)}")
                     print("::endgroup::")
                 
-                if attempt >= ${{ inputs.max_attempts }}:
+                if attempt >= ${{ inputs.retries }}:
                     print(f"::error::Step failed after {attempt} attempts")
                     exit(1)
                 
@@ -75,7 +75,7 @@ runs:
             
             while true; do
                 if [ $attempt -gt 1 ]; then
-                    echo "::group::Attempt $attempt of ${{ inputs.max_attempts }}"
+                    echo "::group::Attempt $attempt of ${{ inputs.retries }}"
                 fi
                 
                 local current_time=$(date +%s)
@@ -102,7 +102,7 @@ runs:
                     echo "::endgroup::"
                 fi
                 
-                if [ $attempt -ge ${{ inputs.max_attempts }} ]; then
+                if [ $attempt -ge ${{ inputs.retries }} ]; then
                     echo "::error::Step failed after $attempt attempts"
                     return $exit_code
                 fi
