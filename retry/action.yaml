@@ -11,7 +11,7 @@ inputs:
     description: "Maximum number of retry attempts"
     required: false
     default: "3"
-  retry_delay:
+  retry_delay_seconds:
     description: "Delay between retries in seconds"
     required: false
     default: "30"
@@ -59,8 +59,8 @@ runs:
                     print(f"::error::Step failed after {attempt} attempts")
                     exit(1)
                 
-                print(f"Retrying in ${{ inputs.retry_delay }} seconds...")
-                time.sleep(${{ inputs.retry_delay }})
+                print(f"Retrying in ${{ inputs.retry_delay_seconds }} seconds...")
+                time.sleep(${{ inputs.retry_delay_seconds }})
                 attempt += 1
 
     - name: Execute with retry (Bash)
@@ -107,8 +107,8 @@ runs:
                     return $exit_code
                 fi
                 
-                echo "Retrying in ${{ inputs.retry_delay }} seconds..."
-                sleep ${{ inputs.retry_delay }}
+                echo "Retrying in ${{ inputs.retry_delay_seconds }} seconds..."
+                sleep ${{ inputs.retry_delay_seconds }}
                 attempt=$((attempt + 1))
             done
         }
