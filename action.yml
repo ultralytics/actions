@@ -202,8 +202,8 @@ runs:
     - name: Commit and Push Changes
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
       run: |
-        git config --global user.name "UltralyticsAssistant"
-        git config --global user.email "web@ultralytics.com"
+        git config --global user.name "${{ inputs.github_username }}"
+        git config --global user.email "${{ inputs.github_email }}"
         git pull origin ${{ github.head_ref || github.ref }}
         git add .
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
