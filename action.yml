@@ -55,6 +55,14 @@ inputs:
   first_pr_response:
     description: "Example response to a new PR"
     required: false
+  github_username:
+    description: "GitHub username for commits"
+    required: false
+    default: "UltralyticsAssistant"
+  github_email:
+    description: "GitHub email for commits"
+    required: false
+    default: "web@ultralytics.com"
 runs:
   using: "composite"
   steps:
