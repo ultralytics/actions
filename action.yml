@@ -55,6 +55,14 @@ inputs:
   first_pr_response:
     description: "Example response to a new PR"
     required: false
+  github_username:
+    description: "GitHub username for commits"
+    required: false
+    default: "UltralyticsAssistant"
+  github_email:
+    description: "GitHub email for commits"
+    required: false
+    default: "web@ultralytics.com"
 runs:
   using: "composite"
   steps:
@@ -194,8 +202,8 @@ runs:
     - name: Commit and Push Changes
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
       run: |
-        git config --global user.name "UltralyticsAssistant"
-        git config --global user.email "web@ultralytics.com"
+        git config --global user.name "${{ inputs.github_username }}"
+        git config --global user.email "${{ inputs.github_email }}"
         git pull origin ${{ github.head_ref || github.ref }}
         git add .
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
