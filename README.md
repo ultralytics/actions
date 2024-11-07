@@ -12,9 +12,6 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) rep
 
 Ultralytics Actions automatically applies formats, updates, and enhancements:
 
-
-
-
 ## 🛠 How It Works
 
 Ultralytics Actions triggers on various GitHub events:
