@@ -55,6 +55,14 @@ inputs:
   first_pr_response:
     description: "Example response to a new PR"
     required: false
+  github_username:
+    description: "GitHub username for commits"
+    required: false
+    default: "UltralyticsAssistant"
+  github_email:
+    description: "GitHub email for commits"
+    required: false
+    default: "web@ultralytics.com"
 runs:
   using: "composite"
   steps:
@@ -141,7 +149,7 @@ runs:
 
         npm install --global prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
-        npx prettier --write "**/*.{css,json,yml,yaml}"
+        npx prettier --write "**/*.{css,json,yml,yaml}" '!**/*lock.{json,yaml,yml}' '!**/*.lock'
         find . -name "*.md" ! -path "*/docs/*" -exec npx prettier --write {} +
         find ./docs -name "*.md" ! -path "*/reference/*" -exec npx prettier --tab-width 4 --write {} + || true  # error if no /docs dir
       shell: bash
@@ -174,7 +182,7 @@ runs:
         codespell \
           --write-changes \
           --ignore-words-list "crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall,skelton,goin" \
-          --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,__pycache__*,*.ico,*.jpg,*.png,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml"
+          --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,*lock*,__pycache__*,*.ico,*.jpg,*.png,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml"
       shell: bash
       continue-on-error: true
 
@@ -196,8 +204,8 @@ runs:
     - name: Commit and Push Changes
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
       run: |
-        git config --global user.name "UltralyticsAssistant"
-        git config --global user.email "web@ultralytics.com"
+        git config --global user.name "${{ inputs.github_username }}"
+        git config --global user.email "${{ inputs.github_email }}"
         git pull origin ${{ github.head_ref || github.ref }}
         git add .
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
@@ -213,7 +221,7 @@ runs:
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
       if: inputs.links == 'true' && github.event.action != 'closed'
-      uses: lycheeverse/lychee-action@v1.10.0
+      uses: lycheeverse/lychee-action@v2.0.2
       with:
         # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:
         #   - 403(OpenVINO, "forbidden")

@@ -7,11 +7,11 @@ inputs:
     description: "Maximum time in minutes for each attempt"
     required: false
     default: "60"
-  max_attempts:
+  retries:
     description: "Maximum number of retry attempts"
     required: false
     default: "3"
-  retry_delay:
+  retry_delay_seconds:
     description: "Delay between retries in seconds"
     required: false
     default: "30"
@@ -39,7 +39,7 @@ runs:
 
         while True:
             if attempt > 1:
-                print(f"::group::Attempt {attempt} of ${{ inputs.max_attempts }}")
+                print(f"::group::Attempt {attempt} of ${{ inputs.retries }}")
             
             if (time.time() - start_time) > timeout_seconds:
                 print(f"::error::Step timed out after ${{ inputs.timeout_minutes }} minutes")
@@ -55,12 +55,12 @@ runs:
                     print(f"Attempt {attempt} failed with error: {str(e)}")
                     print("::endgroup::")
                 
-                if attempt >= ${{ inputs.max_attempts }}:
+                if attempt >= ${{ inputs.retries }}:
                     print(f"::error::Step failed after {attempt} attempts")
                     exit(1)
                 
-                print(f"Retrying in ${{ inputs.retry_delay }} seconds...")
-                time.sleep(${{ inputs.retry_delay }})
+                print(f"Retrying in ${{ inputs.retry_delay_seconds }} seconds...")
+                time.sleep(${{ inputs.retry_delay_seconds }})
                 attempt += 1
 
     - name: Execute with retry (Bash)
@@ -75,7 +75,7 @@ runs:
             
             while true; do
                 if [ $attempt -gt 1 ]; then
-                    echo "::group::Attempt $attempt of ${{ inputs.max_attempts }}"
+                    echo "::group::Attempt $attempt of ${{ inputs.retries }}"
                 fi
                 
                 local current_time=$(date +%s)
@@ -102,13 +102,13 @@ runs:
                     echo "::endgroup::"
                 fi
                 
-                if [ $attempt -ge ${{ inputs.max_attempts }} ]; then
+                if [ $attempt -ge ${{ inputs.retries }} ]; then
                     echo "::error::Step failed after $attempt attempts"
                     return $exit_code
                 fi
                 
-                echo "Retrying in ${{ inputs.retry_delay }} seconds..."
-                sleep ${{ inputs.retry_delay }}
+                echo "Retrying in ${{ inputs.retry_delay_seconds }} seconds..."
+                sleep ${{ inputs.retry_delay_seconds }}
                 attempt=$((attempt + 1))
             done
         }
