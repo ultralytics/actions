@@ -122,7 +122,7 @@ def ultralytics_actions_info():
         )
 
     # Print information
-    max_key_length = max(len(key) for key in info.keys())
+    max_key_length = max(len(key) for key in info)
     header = f"Ultralytics Actions {__version__} Information " + "-" * 40
     print(header)
     for key, value in info.items():
