@@ -22,6 +22,7 @@ inputs:
     description: "Shell to use (bash or python)"
     required: false
     default: "bash"
+
 runs:
   using: "composite"
   steps:
