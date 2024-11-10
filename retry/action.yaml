@@ -20,7 +20,6 @@
 #       retry_delay_seconds: 60 # Wait 60 seconds between retries
 #       shell: bash            # Use python or bash shell
 
-
 name: "Step-Level Retry"
 description: "Retries a step while preserving its full context"
 inputs:
