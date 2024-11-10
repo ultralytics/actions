@@ -97,7 +97,7 @@ runs:
                 echo -e "\n$1" >> $GITHUB_STEP_SUMMARY
             fi
         }
-        
+
         function retry_command {
             local start_time=$(date +%s)
             local timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
