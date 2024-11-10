@@ -91,51 +91,65 @@ runs:
       env: ${{ env }}
       run: |
         write_summary() {
-            if [ "$2" = "error" ]; then
-                echo -e "\n\n### ❌ Error\n$1" >> $GITHUB_STEP_SUMMARY
-            else
-                echo -e "\n$1" >> $GITHUB_STEP_SUMMARY
-            fi
+          if [ "$2" = "error" ]; then
+            echo -e "\n\n### ❌ Error\n$1" >> $GITHUB_STEP_SUMMARY
+          else
+            echo -e "\n$1" >> $GITHUB_STEP_SUMMARY
+          fi
         }
-
+        
         retry_command() {
-            local start=$(date +%s)
-            local env_file=$(mktemp)
+          local start=$(date +%s)
+          local env_file=$(mktemp)
+          local cmd_file=$(mktemp)
+          
+          # Write command to temporary file to preserve formatting
+          cat > "$cmd_file" << 'EOL'
+${{ inputs.run }}
+EOL
+          
+          for ((attempt=0; attempt <= ${{ inputs.retries }}; attempt++)); do
+            [ $attempt -gt 0 ] && echo "::group::Retry $attempt of ${{ inputs.retries }}"
             
-            for ((attempt=0; attempt <= ${{ inputs.retries }}; attempt++)); do
-                [ $attempt -gt 0 ] && echo "::group::Retry $attempt of ${{ inputs.retries }}"
-                
-                if [ $(($(date +%s) - start)) -gt $((${{ inputs.timeout_minutes }} * 60)) ]; then
-                    write_summary "Step timed out after ${{ inputs.timeout_minutes }} minutes" error
-                    return 1
-                fi
-                
-                # Run command and capture output
-                output=$(set -o pipefail; {
-                    eval "$(echo '${{ inputs.run }}' | sed 's/>>.*GITHUB_ENV/>>'$env_file'/g')"
-                } 2>&1)
-                exit_code=$?
-                
-                # Always write output to summary
-                write_summary "$output"
-                
-                if [ $exit_code -eq 0 ]; then
-                    [ -f "$env_file" ] && cat "$env_file" | grep "^[^<].*=.*" | while read line; do
-                        echo "::set-env name=${line%%=*}::${line#*=}"
-                    done
-                    [ $attempt -gt 0 ] && echo "::endgroup::"
-                    rm "$env_file"
-                    return 0
-                fi
-                
-                if [ $attempt -eq ${{ inputs.retries }} ]; then
-                    write_summary "Final error after $((attempt + 1)) attempts:\n\`\`\`\n$output\n\`\`\`" error
-                    rm "$env_file"
-                    return $exit_code
-                fi
-                
-                echo "Retrying in ${{ inputs.retry_delay_seconds }} seconds..."
-                sleep ${{ inputs.retry_delay_seconds }}
-            done
+            if [ $(($(date +%s) - start)) -gt $((${{ inputs.timeout_minutes }} * 60)) ]; then
+              write_summary "Step timed out after ${{ inputs.timeout_minutes }} minutes" error
+              rm -f "$cmd_file" "$env_file"
+              return 1
+            fi
+            
+            # Run command and capture output
+            output=$({ source "$cmd_file" > >(tee >(grep -v '^GITHUB_ENV=' >> "$env_file")) 2>&1; } || echo "exit $?")
+            exit_code=${output##*exit }
+            output=${output%exit *}
+            
+            # Always write output to summary
+            write_summary "$output"
+            
+            if [ "$exit_code" = "$output" ]; then
+              exit_code=0
+            fi
+            
+            if [ $exit_code -eq 0 ]; then
+              if [ -f "$env_file" ]; then
+                while IFS= read -r line; do
+                  [[ "$line" =~ ^GITHUB_ENV= ]] && continue
+                  [[ "$line" =~ ^[^<].*=.* ]] && echo "::set-env name=${line%%=*}::${line#*=}"
+                done < "$env_file"
+              fi
+              [ $attempt -gt 0 ] && echo "::endgroup::"
+              rm -f "$cmd_file" "$env_file"
+              return 0
+            fi
+            
+            if [ $attempt -eq ${{ inputs.retries }} ]; then
+              write_summary "Final error after $((attempt + 1)) attempts:\n\`\`\`\n$output\n\`\`\`" error
+              rm -f "$cmd_file" "$env_file"
+              return $exit_code
+            fi
+            
+            echo "Retrying in ${{ inputs.retry_delay_seconds }} seconds..."
+            sleep ${{ inputs.retry_delay_seconds }}
+          done
         }
+        
         retry_command
