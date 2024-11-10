@@ -52,96 +52,89 @@ runs:
       env: ${{ env }}
       run: |
         import time
-        import os
-        import tempfile
+        start_time = time.time()
+        timeout_seconds = ${{ inputs.timeout_minutes }} * 60
+        attempt = 1
+        max_attempts = 1 + ${{ inputs.retries }}  # Initial run + retries
 
-        def write_summary(msg, is_error=False):
-            with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
-                f.write(f"\n\n{'### ❌ Error' if is_error else ''}\n{msg}")
-
-        with tempfile.NamedTemporaryFile(mode='w+') as env_file:
-            start = time.time()
-            for attempt in range(${{ inputs.retries }} + 1):
-                if attempt > 0:
-                    print(f"::group::Retry {attempt} of ${{ inputs.retries }}")
-
-                if time.time() - start > ${{ inputs.timeout_minutes }} * 60:
-                    write_summary(f"Step timed out after ${{ inputs.timeout_minutes }} minutes", True)
+        while True:
+            if attempt > 1:
+                print(f"::group::Retry {attempt-1} of ${{ inputs.retries }}")
+            
+            if (time.time() - start_time) > timeout_seconds:
+                print(f"::error::Step timed out after ${{ inputs.timeout_minutes }} minutes")
+                exit(1)
+            
+            try:
+                ${{ inputs.run }}
+                if attempt > 1:
+                    print("::endgroup::")
+                exit(0)
+            except Exception as e:
+                if attempt > 1:
+                    print(f"Retry {attempt-1} failed with error: {str(e)}")
+                    print("::endgroup::")
+                else:
+                    print(f"Initial attempt failed with error: {str(e)}")
+                
+                if attempt >= max_attempts:
+                    print(f"::error::Step failed after initial attempt and {attempt-1} retries")
                     exit(1)
-
-                try:
-                    exec(f"""
-def set_env(name, value):
-    with open('{env_file.name}', 'a') as f:
-        f.write(f'::set-env name={{name}}::{value}\\n')
-{${{ inputs.run }}}
-                    """)
-                    print(env_file.read())
-                    exit(0)
-                except Exception as e:
-                    msg = f"{'Retry' if attempt > 0 else 'Initial attempt'} failed: {str(e)}"
-                    print(msg)
-                    if attempt > 0:
-                        print("::endgroup::")
-                    
-                    if attempt == ${{ inputs.retries }}:
-                        write_summary(f"Final error after {attempt + 1} attempts: {str(e)}", True)
-                        exit(1)
-                    
-                    print(f"Retrying in ${{ inputs.retry_delay_seconds }} seconds...")
-                    time.sleep(${{ inputs.retry_delay_seconds }})
+                
+                print(f"Retrying in ${{ inputs.retry_delay_seconds }} seconds...")
+                time.sleep(${{ inputs.retry_delay_seconds }})
+                attempt += 1
 
     - name: Execute with retry (Bash)
       if: inputs.shell != 'python'
       shell: bash
       env: ${{ env }}
       run: |
-        write_summary() {
-            if [ "$2" = "error" ]; then
-                echo -e "\n\n### ❌ Error\n$1" >> $GITHUB_STEP_SUMMARY
-            else
-                echo -e "\n$1" >> $GITHUB_STEP_SUMMARY
-            fi
-        }
-
-        retry_command() {
-            local start=$(date +%s)
-            local env_file=$(mktemp)
+        function retry_command {
+            local start_time=$(date +%s)
+            local timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
+            local attempt=1
+            local max_attempts=$(( 1 + ${{ inputs.retries }} ))  # Initial run + retries
             
-            for ((attempt=0; attempt <= ${{ inputs.retries }}; attempt++)); do
-                [ $attempt -gt 0 ] && echo "::group::Retry $attempt of ${{ inputs.retries }}"
+            while true; do
+                if [ $attempt -gt 1 ]; then
+                    echo "::group::Retry $((attempt-1)) of ${{ inputs.retries }}"
+                fi
                 
-                if [ $(($(date +%s) - start)) -gt $((${{ inputs.timeout_minutes }} * 60)) ]; then
-                    write_summary "Step timed out after ${{ inputs.timeout_minutes }} minutes" error
+                local current_time=$(date +%s)
+                if [ $((current_time - start_time)) -gt $timeout_seconds ]; then
+                    echo "::error::Step timed out after ${{ inputs.timeout_minutes }} minutes"
                     return 1
                 fi
                 
-                # Run command and capture output
-                output=$(set -o pipefail; {
-                    eval "$(echo '${{ inputs.run }}' | sed 's/>>.*GITHUB_ENV/>>'$env_file'/g')"
-                } 2>&1)
-                exit_code=$?
-                
-                # Always write output to summary
-                write_summary "$output"
+                set +e
+                (
+                    set -e
+                    ${{ inputs.run }}
+                )
+                local exit_code=$?
+                set -e
                 
                 if [ $exit_code -eq 0 ]; then
-                    [ -f "$env_file" ] && cat "$env_file" | grep "^[^<].*=.*" | while read line; do
-                        echo "::set-env name=${line%%=*}::${line#*=}"
-                    done
-                    [ $attempt -gt 0 ] && echo "::endgroup::"
-                    rm "$env_file"
+                    [ $attempt -gt 1 ] && echo "::endgroup::"
                     return 0
                 fi
                 
-                if [ $attempt -eq ${{ inputs.retries }} ]; then
-                    write_summary "Final error after $((attempt + 1)) attempts:\n\`\`\`\n$output\n\`\`\`" error
-                    rm "$env_file"
+                if [ $attempt -gt 1 ]; then
+                    echo "Retry $((attempt-1)) failed with exit code $exit_code"
+                    echo "::endgroup::"
+                else
+                    echo "Initial attempt failed with exit code $exit_code"
+                fi
+                
+                if [ $attempt -ge $max_attempts ]; then
+                    echo "::error::Step failed after initial attempt and $((attempt-1)) retries"
                     return $exit_code
                 fi
                 
                 echo "Retrying in ${{ inputs.retry_delay_seconds }} seconds..."
                 sleep ${{ inputs.retry_delay_seconds }}
+                attempt=$((attempt + 1))
             done
         }
         retry_command
