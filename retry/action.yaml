@@ -69,10 +69,10 @@ runs:
                 
                 try:
                     exec(f"""
-def set_env(name, value):
-    with open('{env_file.name}', 'a') as f:
-        f.write(f'::set-env name={{name}}::{value}\\n')
-{${{ inputs.run }}}
+                    def set_env(name, value):
+                        with open('{env_file.name}', 'a') as f:
+                            f.write(f'::set-env name={{name}}::{value}\\n')
+                    {${{ inputs.run }}}
                     """)
                     print(env_file.read())
                     exit(0)
