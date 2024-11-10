@@ -52,11 +52,11 @@ runs:
       env: ${{ env }}
       run: |
         import time, os, tempfile
-        
+
         def write_summary(msg, is_error=False):
             with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
                 f.write(f"\n\n{'### ❌ Error' if is_error else ''}\n{msg}")
-        
+
         with tempfile.NamedTemporaryFile(mode='w+') as env_file:
             start = time.time()
             for attempt in range(${{ inputs.retries }} + 1):
@@ -101,7 +101,7 @@ runs:
                 echo -e "\n$1" >> $GITHUB_STEP_SUMMARY
             fi
         }
-        
+
         retry_command() {
             local start=$(date +%s)
             local env_file=$(mktemp)
