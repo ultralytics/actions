@@ -20,7 +20,6 @@
 #       retry_delay_seconds: 60 # Wait 60 seconds between retries
 #       shell: bash            # Use python or bash shell
 
-
 name: "Step-Level Retry"
 description: "Retries a step while preserving its full context"
 inputs:
@@ -52,24 +51,22 @@ runs:
       shell: python
       env: ${{ env }}
       run: |
-        import time
-        import os
-        import tempfile
-
+        import time, os, tempfile
+        
         def write_summary(msg, is_error=False):
             with open(os.environ['GITHUB_STEP_SUMMARY'], 'a') as f:
                 f.write(f"\n\n{'### ❌ Error' if is_error else ''}\n{msg}")
-
+        
         with tempfile.NamedTemporaryFile(mode='w+') as env_file:
             start = time.time()
             for attempt in range(${{ inputs.retries }} + 1):
                 if attempt > 0:
                     print(f"::group::Retry {attempt} of ${{ inputs.retries }}")
-
+                
                 if time.time() - start > ${{ inputs.timeout_minutes }} * 60:
                     write_summary(f"Step timed out after ${{ inputs.timeout_minutes }} minutes", True)
                     exit(1)
-
+                
                 try:
                     exec(f"""
 def set_env(name, value):
@@ -104,7 +101,7 @@ def set_env(name, value):
                 echo -e "\n$1" >> $GITHUB_STEP_SUMMARY
             fi
         }
-
+        
         retry_command() {
             local start=$(date +%s)
             local env_file=$(mktemp)
