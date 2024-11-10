@@ -97,7 +97,7 @@ runs:
                 echo -e "\n$1" >> $GITHUB_STEP_SUMMARY
             fi
         }
-        
+
         retry_command() {
             local start=$(date +%s)
             local env_file=$(mktemp)
