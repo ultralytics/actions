@@ -108,10 +108,7 @@ runs:
                 fi
                 
                 set +e
-                (
-                    set -e
-                    ${{ inputs.run }}
-                )
+                ${{ inputs.run }}
                 local exit_code=$?
                 set -e
                 
