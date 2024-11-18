@@ -77,7 +77,7 @@ runs:
         if [ "${{ inputs.spelling }}" = "true" ]; then
           packages="$packages codespell tomli"
         fi
-        uv pip install --system --user -q $packages --index-strategy unsafe-best-match
+        sudo uv pip install --system -q $packages --index-strategy unsafe-best-match
         ultralytics-actions-info
       shell: bash
 
