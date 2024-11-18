@@ -79,7 +79,7 @@ runs:
         if [ "${{ inputs.spelling }}" = "true" ]; then
           packages="$packages codespell tomli"
         fi
-        sudo uv pip install $packages --system
+        sudo env "PATH=$PATH" uv pip install $packages --system
         ultralytics-actions-info
       shell: bash
 
