@@ -79,8 +79,8 @@ runs:
         fi
             sudo env "PATH=$PATH" uv pip install $packages --system
         curl -LsSf https://astral.sh/uv/install.sh | sh
-        uv pip install $packages --system
-        # sudo env "PATH=$PATH" uv pip install $packages --system
+        # uv pip install $packages --system
+        sudo env "PATH=$PATH" uv pip install $packages --system
         ultralytics-actions-info
       shell: bash
 
