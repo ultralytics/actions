@@ -77,8 +77,6 @@ runs:
         # if [ "${{ inputs.spelling }}" = "true" ]; then
         #   packages="$packages codespell tomli"
         # fi
-        # pip install -q $packages
-        # python -m pip install --upgrade pip wheel
         sudo env "PATH=$PATH" uv pip install git+https://github.com/ultralytics/actions@cla-branch codespell tomli --system
         ultralytics-actions-info
       shell: bash
