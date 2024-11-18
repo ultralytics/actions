@@ -67,8 +67,6 @@ runs:
   using: "composite"
   steps:
     - uses: astral-sh/setup-uv@v3
-      with:
-        github-token: ${{ inputs.token }}
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
       # For debug:
