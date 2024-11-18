@@ -1,4 +1,24 @@
 # Ultralytics Actions 🚀, AGPL-3.0 License https://ultralytics.com/license
+#
+# Example usage:
+#
+# Basic usage (will retry failed step 3 times):
+# steps:
+#   - uses: ultralytics/actions/retry@main
+#     with:
+#       run: python train.py
+#
+# Advanced usage:
+# steps:
+#   - uses: ultralytics/actions/retry@main
+#     with:
+#       run: |
+#         python setup.py install
+#         pytest tests/
+#       retries: 2             # Retry twice after initial attempt (3 total runs)
+#       timeout_minutes: 30    # Each attempt times out after 30 minutes
+#       retry_delay_seconds: 60 # Wait 60 seconds between retries
+#       shell: bash            # Use python or bash shell
 
 name: "Step-Level Retry"
 description: "Retries a step while preserving its full context"
@@ -8,7 +28,7 @@ inputs:
     required: false
     default: "60"
   retries:
-    description: "Maximum number of retry attempts"
+    description: "Number of retry attempts after initial run"
     required: false
     default: "3"
   retry_delay_seconds:
@@ -32,14 +52,14 @@ runs:
       env: ${{ env }}
       run: |
         import time
-
         start_time = time.time()
         timeout_seconds = ${{ inputs.timeout_minutes }} * 60
         attempt = 1
+        max_attempts = 1 + ${{ inputs.retries }}  # Initial run + retries
 
         while True:
             if attempt > 1:
-                print(f"::group::Attempt {attempt} of ${{ inputs.retries }}")
+                print(f"::group::Retry {attempt-1} of ${{ inputs.retries }}")
             
             if (time.time() - start_time) > timeout_seconds:
                 print(f"::error::Step timed out after ${{ inputs.timeout_minutes }} minutes")
@@ -52,11 +72,13 @@ runs:
                 exit(0)
             except Exception as e:
                 if attempt > 1:
-                    print(f"Attempt {attempt} failed with error: {str(e)}")
+                    print(f"Retry {attempt-1} failed with error: {str(e)}")
                     print("::endgroup::")
+                else:
+                    print(f"Initial attempt failed with error: {str(e)}")
                 
-                if attempt >= ${{ inputs.retries }}:
-                    print(f"::error::Step failed after {attempt} attempts")
+                if attempt >= max_attempts:
+                    print(f"::error::Step failed after initial attempt and {attempt-1} retries")
                     exit(1)
                 
                 print(f"Retrying in ${{ inputs.retry_delay_seconds }} seconds...")
@@ -72,10 +94,11 @@ runs:
             local start_time=$(date +%s)
             local timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
             local attempt=1
+            local max_attempts=$(( 1 + ${{ inputs.retries }} ))  # Initial run + retries
             
             while true; do
                 if [ $attempt -gt 1 ]; then
-                    echo "::group::Attempt $attempt of ${{ inputs.retries }}"
+                    echo "::group::Retry $((attempt-1)) of ${{ inputs.retries }}"
                 fi
                 
                 local current_time=$(date +%s)
@@ -85,10 +108,7 @@ runs:
                 fi
                 
                 set +e
-                (
-                    set -e
-                    ${{ inputs.run }}
-                )
+                ${{ inputs.run }}
                 local exit_code=$?
                 set -e
                 
@@ -98,12 +118,14 @@ runs:
                 fi
                 
                 if [ $attempt -gt 1 ]; then
-                    echo "Attempt $attempt failed with exit code $exit_code"
+                    echo "Retry $((attempt-1)) failed with exit code $exit_code"
                     echo "::endgroup::"
+                else
+                    echo "Initial attempt failed with exit code $exit_code"
                 fi
                 
-                if [ $attempt -ge ${{ inputs.retries }} ]; then
-                    echo "::error::Step failed after $attempt attempts"
+                if [ $attempt -ge $max_attempts ]; then
+                    echo "::error::Step failed after initial attempt and $((attempt-1)) retries"
                     return $exit_code
                 fi
                 
@@ -112,5 +134,4 @@ runs:
                 attempt=$((attempt + 1))
             done
         }
-
         retry_command
