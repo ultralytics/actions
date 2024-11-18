@@ -78,7 +78,7 @@ runs:
           packages="$packages codespell tomli"
         fi
         # pip install $packages
-        sudo env "PATH=$PATH" uv pip install $packages
+        sudo env "PATH=$PATH" uv pip install $packages --system
         ultralytics-actions-info
       shell: bash
 
