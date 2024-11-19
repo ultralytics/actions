@@ -77,7 +77,14 @@ runs:
         if [ "${{ inputs.spelling }}" = "true" ]; then
           packages="$packages codespell tomli"
         fi
-        sudo env "PATH=$PATH" uv pip install $packages --system
+        
+        # On macOS, don't use sudo as it can cause environment issues
+        if [ "$(uname)" = "Darwin" ]; then
+          uv pip install --system $packages
+        else
+          sudo env "PATH=$PATH" uv pip install --system $packages
+        fi
+
         ultralytics-actions-info
       shell: bash
 
