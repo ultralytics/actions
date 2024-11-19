@@ -77,7 +77,7 @@ runs:
         if [ "${{ inputs.spelling }}" = "true" ]; then
           packages="$packages codespell tomli"
         fi
-        
+
         # On macOS, don't use sudo as it can cause environment issues
         if [ "$(uname)" = "Darwin" ]; then
           pip install -q $packages
