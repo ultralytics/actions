@@ -80,7 +80,7 @@ runs:
         
         # On macOS, don't use sudo as it can cause environment issues
         if [ "$(uname)" = "Darwin" ]; then
-          uv pip install $packages
+          pip install -q $packages
         else
           sudo env "PATH=$PATH" uv pip install --system $packages
         fi
