@@ -155,7 +155,7 @@ runs:
 
         npm install --global prettier
         # npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,md,mdx,yml,yaml,html,vue,svelte}"
-        npx prettier --write "**/*.{css,json,yml,yaml}" '!**/*lock.{json,yaml,yml}' '!**/*.lock'
+        npx prettier --write "**/*.{css,json,yml,yaml,vue,ts,js}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json'
         find . -name "*.md" ! -path "*/docs/*" -exec npx prettier --write {} +
         find ./docs -name "*.md" ! -path "*/reference/*" -exec npx prettier --tab-width 4 --write {} + || true  # error if no /docs dir
       shell: bash
