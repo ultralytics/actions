@@ -156,20 +156,22 @@ runs:
         npx prettier --write "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json'
         # Handle Markdown separately
         find . -name "*.md" ! -path "*/docs/*" -exec npx prettier --write {} +
-        find ./docs -name "*.md" ! -path "*/reference/*" -exec npx prettier --tab-width 4 --write {} + || true  # error if no /docs dir
+        if [ -d "./docs" ]; then
+          find ./docs -name "*.md" ! -path "*/reference/*" -exec npx prettier --write {} +
+        fi
       shell: bash
       continue-on-error: true
 
-    - name: Update unordered Markdown list indents to 4 spaces for MkDocs compatibility
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
-      run: |
-        from pathlib import Path
-        for file in Path("./docs").rglob('*.md'):
-            content = file.read_text()
-            updated_content = content.replace("| - ","| -   ").replace('-   ', '- ').replace("** ","**   ").replace("*   ","* ")
-            file.write_text(updated_content)
-      shell: python
-      continue-on-error: true
+    # - name: Fix MkDocs reference section changes
+    #   if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
+    #   run: |
+    #     from pathlib import Path
+    #     for file in Path("./docs").rglob('*.md'):
+    #         content = file.read_text()
+    #         updated_content = content.replace(".\_","._")
+    #         file.write_text(updated_content)
+    #   shell: python
+    #   continue-on-error: true
 
     # Swift formatting -------------------------------------------------------------------------------------------------
     - name: Run Swift Formatter
