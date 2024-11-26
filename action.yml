@@ -48,7 +48,7 @@ inputs:
   openai_model:
     description: "OpenAI Model"
     required: false
-    default: "gpt-4o"
+    default: "gpt-4o-2024-11-20"
   first_issue_response:
     description: "Example response to a new issue"
     required: false
