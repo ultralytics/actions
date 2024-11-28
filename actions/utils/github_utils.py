@@ -111,6 +111,7 @@ def ultralytics_actions_info():
         "github.ref": os.environ.get("GITHUB_REF"),
         "github.head_ref": os.environ.get("GITHUB_HEAD_REF"),
         "github.base_ref": os.environ.get("GITHUB_BASE_REF"),
+        "github.base_sha": PR.get("base", {}).get("sha")
     }
 
     if GITHUB_EVENT_NAME == "discussion":
