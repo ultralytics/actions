@@ -57,10 +57,11 @@ def graphql_request(query: str, variables: dict = None) -> dict:
 
 def check_pypi_version(pyproject_toml="pyproject.toml"):
     """Compares local and PyPI package versions to determine if a new version should be published."""
-    import tomllib  # requires Python>=3.11
     import re
 
-    version_pattern = re.compile(r'^\d+\.\d+\.\d+$')  # e.g. 0.0.0
+    import tomllib  # requires Python>=3.11
+
+    version_pattern = re.compile(r"^\d+\.\d+\.\d+$")  # e.g. 0.0.0
 
     with open(pyproject_toml, "rb") as f:
         pyproject = tomllib.load(f)
