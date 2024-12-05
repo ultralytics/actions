@@ -72,9 +72,11 @@ runs:
       # For debug:
       #   python -m pip install --upgrade pip wheel
       #   pip install -q git+https://github.com/ultralytics/actions@main codespell tomli
+      env:
+        INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
         packages="ultralytics-actions"
-        if [ "${{ inputs.spelling }}" = "true" ]; then
+        if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
 
@@ -213,7 +215,7 @@ runs:
       run: |
         git config --global user.name "${{ inputs.github_username }}"
         git config --global user.email "${{ inputs.github_email }}"
-        git pull origin ${{ github.head_ref || github.ref }}
+        git pull
         git add .
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
         if ! git diff --staged --quiet; then
