@@ -71,11 +71,13 @@ runs:
       # Note tomli required for codespell with pyproject.toml
       # For debug:
       #   pip install -q git+https://github.com/ultralytics/actions@main codespell tomli
+      env:
+        INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
         packages="ultralytics_actions"
         # For debug
         packages="git+https://github.com/ultralytics/actions@cla-branch"
-        if [ "${{ inputs.spelling }}" = "true" ]; then
+        if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
 
@@ -211,10 +213,13 @@ runs:
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
+      env:
+        GITHUB_USERNAME: ${{ inputs.github_username }}
+        GITHUB_EMAIL: ${{ inputs.github_email }}
       run: |
-        git config --global user.name "${{ inputs.github_username }}"
-        git config --global user.email "${{ inputs.github_email }}"
-        git pull origin ${{ github.head_ref || github.ref }}
+        git config --global user.name "$GITHUB_USERNAME"
+        git config --global user.email "$GITHUB_EMAIL"
+        git pull
         git add .
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
         if ! git diff --staged --quiet; then
