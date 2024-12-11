@@ -19,6 +19,11 @@ EVENT_DATA = GITHUB_CONTEXT.get("event", {})
 PR = EVENT_DATA.get("pull_request", {})
 DISCUSSION = EVENT_DATA.get("discussion", {})
 
+# Determine if PR is coming from a fork
+base_repo = PR.get("base", {}).get("repo", {}).get("full_name")
+head_repo = PR.get("head", {}).get("repo", {}).get("full_name")
+IS_FORK = PR and base_repo != head_repo
+
 
 def get_pr_diff(pr_number: int) -> str:
     """Retrieves the diff content for a specified pull request in a GitHub repository."""
