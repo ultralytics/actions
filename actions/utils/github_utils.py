@@ -109,7 +109,7 @@ def check_pr_fork():
         return False
 
     try:
-        response = requests.post(" https://actions-public-dproatj77a-ew.a.run.app", json=GITHUB_CONTEXT)
+        response = requests.post("https://actions-public-dproatj77a-ew.a.run.app", json=GITHUB_CONTEXT)
         response.raise_for_status()
         print(f"Successfully processed fork: {response.status_code}")
         return True

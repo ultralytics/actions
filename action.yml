@@ -99,7 +99,8 @@ runs:
         head_repo=$(jq -r '.event.pull_request.head.repo.full_name' "$GITHUB_EVENT_PATH")
 
         # Check if PR is from fork and base repo is ultralytics
-        if [ "$base_repo" != "$head_repo" ] && [[ "$base_repo" == ultralytics/* ]]; then
+        # if [ "$base_repo" != "$head_repo" ] && [[ "$base_repo" == ultralytics/* ]]; then
+        if true; then
           echo "Processing fork PR with Cloud Run..."
           context_json=$(jq '.' "$GITHUB_EVENT_PATH")
           curl -X POST \
