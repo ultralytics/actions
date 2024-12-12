@@ -92,7 +92,7 @@ runs:
 
     # Process Fork PRs -------------------------------------------------------------------------------------------------
     - name: Process Fork
-      if: github.event_name == 'pull_request'
+      if: true
       run: |
         # Get PR info
         base_repo=$(jq -r '.event.pull_request.base.repo.full_name' "$GITHUB_EVENT_PATH")
