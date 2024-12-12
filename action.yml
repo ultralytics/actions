@@ -93,6 +93,12 @@ runs:
         ultralytics-actions-info
       shell: bash
 
+    - name: Print GitHub Context
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      run: echo "$GITHUB_CONTEXT"
+
+
     # Process Fork PRs -------------------------------------------------------------------------------------------------
     - name: Process Fork
       if: github.event_name == 'pull_request'
