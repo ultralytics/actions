@@ -11,9 +11,8 @@ GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 GITHUB_HEADERS_DIFF = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
 
-github_context_str = os.getenv("GITHUB_CONTEXT", "{}")
-print("PRINTING GITHUB CONTEXT STRING")
-print(github_context_str)
+github_context_str = os.getenv("GITHUB_CONTEXT")
+print("PRINTING GITHUB CONTEXT STRING:", github_context_str)
 GITHUB_CONTEXT = json.loads(github_context_str)
 GITHUB_REPOSITORY = GITHUB_CONTEXT.get("repository")
 GITHUB_EVENT_NAME = GITHUB_CONTEXT.get("event_name")
