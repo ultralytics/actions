@@ -1,23 +1,26 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 import json
 import os
+from pathlib import Path
 
 import requests
 
 from actions import __version__
 
-GITHUB_API_URL = "https://api.github.com"
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_REPOSITORY = os.getenv("GITHUB_REPOSITORY")
+GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
+GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
+GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 GITHUB_HEADERS_DIFF = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
 
-github_context_str = os.getenv("GITHUB_CONTEXT")
-print("PRINTING GITHUB CONTEXT STRING:", github_context_str)
-GITHUB_CONTEXT = json.loads(github_context_str)
-GITHUB_REPOSITORY = GITHUB_CONTEXT.get("repository")
-GITHUB_EVENT_NAME = GITHUB_CONTEXT.get("event_name")
 
-EVENT_DATA = GITHUB_CONTEXT.get("event", {})
+EVENT_DATA = {}
+if GITHUB_EVENT_PATH:
+    event_path = Path(GITHUB_EVENT_PATH)
+    if event_path.exists():
+        EVENT_DATA = json.loads(event_path.read_text())
 PR = EVENT_DATA.get("pull_request", {})
 DISCUSSION = EVENT_DATA.get("discussion", {})
 
@@ -127,11 +130,11 @@ def ultralytics_actions_info():
         "github.repository": GITHUB_REPOSITORY,
         "github.event.pull_request.number": PR.get("number"),
         "github.event.pull_request.head.repo.full_name": PR.get("head", {}).get("repo", {}).get("full_name"),
-        "github.actor": GITHUB_CONTEXT.get("actor"),
+        "github.actor": os.environ.get("GITHUB_ACTOR"),
         "github.event.pull_request.head.ref": PR.get("head", {}).get("ref"),
-        "github.ref": GITHUB_CONTEXT.get("ref"),
-        "github.head_ref": GITHUB_CONTEXT.get("head_ref"),
-        "github.base_ref": GITHUB_CONTEXT.get("base_ref"),
+        "github.ref": os.environ.get("GITHUB_REF"),
+        "github.head_ref": os.environ.get("GITHUB_HEAD_REF"),
+        "github.base_ref": os.environ.get("GITHUB_BASE_REF"),
         "github.base_sha": PR.get("base", {}).get("sha"),
     }
 
