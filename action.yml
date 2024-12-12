@@ -75,43 +75,23 @@ runs:
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
-        packages="ultralytics-actions"
-        if [ "$INPUTS_SPELLING" = "true" ]; then
-          packages="$packages codespell tomli"
-        fi
+        #packages="ultralytics-actions"
+        #if [ "$INPUTS_SPELLING" = "true" ]; then
+        #  packages="$packages codespell tomli"
+        #fi
 
         # On macOS, don't use sudo as it can cause environment issues
-        if [ "$(uname)" = "Darwin" ]; then
-          pip install -q $packages
-        else
-          sudo env "PATH=$PATH" uv pip install --system $packages
-        fi
+        #if [ "$(uname)" = "Darwin" ]; then
+        #  pip install -q $packages
+        #else
+        #  sudo env "PATH=$PATH" uv pip install --system $packages
+        #fi
+
+        python -m pip install --upgrade pip wheel
+        pip install -q git+https://github.com/ultralytics/actions@glenn-jocher-patch-1 codespell tomli
 
         ultralytics-actions-info
       shell: bash
-
-    # Process Fork PRs -------------------------------------------------------------------------------------------------
-    - name: Process Fork
-      if: true
-      run: |
-        # Get PR info
-        base_repo=$(jq -r '.event.pull_request.base.repo.full_name' "$GITHUB_EVENT_PATH")
-        head_repo=$(jq -r '.event.pull_request.head.repo.full_name' "$GITHUB_EVENT_PATH")
-
-        # Check if PR is from fork and base repo is ultralytics
-        # if [ "$base_repo" != "$head_repo" ] && [[ "$base_repo" == ultralytics/* ]]; then
-        if true; then
-          echo "Processing fork PR with Cloud Run..."
-          context_json=$(jq '.' "$GITHUB_EVENT_PATH")
-          curl -X POST \
-            -H "Content-Type: application/json" \
-            -d "$context_json" \
-            "https://actions-public-dproatj77a-ew.a.run.app"
-          echo "Fork detected and processed, skipping remaining steps"
-          exit 0
-        fi
-      shell: bash
-      continue-on-error: true
 
     # Process Fork PRs -------------------------------------------------------------------------------------------------
     - name: Process Fork

