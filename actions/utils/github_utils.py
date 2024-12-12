@@ -33,11 +33,7 @@ def check_pr_fork():
     # if not (is_fork and is_ultralytics):
     #    return False
 
-    payload = {
-        "event": EVENT_DATA,
-        "event_name": GITHUB_EVENT_NAME,
-        "repository": GITHUB_REPOSITORY
-    }
+    payload = {"event": EVENT_DATA, "event_name": GITHUB_EVENT_NAME, "repository": GITHUB_REPOSITORY}
 
     try:
         response = requests.post("https://actions-public-dproatj77a-ew.a.run.app", json=payload)
