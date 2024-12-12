@@ -90,7 +90,7 @@ runs:
         ultralytics-actions-info
       shell: bash
 
-    # Checkout Repository ----------------------------------------------------------------------------------------------
+    # Process Fork PRs -------------------------------------------------------------------------------------------------
     - name: Process Fork
       if: github.event_name == 'pull_request'
       run: |
