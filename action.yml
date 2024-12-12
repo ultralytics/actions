@@ -58,11 +58,11 @@ inputs:
   github_username:
     description: "GitHub username for commits"
     required: false
-    default: "UltralyticsAssistant"
+    # default: "UltralyticsAssistant"
   github_email:
     description: "GitHub email for commits"
     required: false
-    default: "web@ultralytics.com"
+    # default: "web@ultralytics.com"
 runs:
   using: "composite"
   steps:
