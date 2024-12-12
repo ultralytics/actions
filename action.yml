@@ -96,6 +96,8 @@ runs:
     # Process Fork PRs -------------------------------------------------------------------------------------------------
     - name: Process Fork
       if: github.event_name == 'pull_request'
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
       run: |
         from actions import check_pr_fork
         if check_pr_fork():
