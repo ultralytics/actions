@@ -59,10 +59,12 @@ inputs:
     description: "GitHub username for commits"
     required: false
     # default: "UltralyticsAssistant"
+    default: "github-actions[bot]"
   github_email:
     description: "GitHub email for commits"
     required: false
     # default: "web@ultralytics.com"
+    default: "41898282+github-actions[bot]@users.noreply.github.com"
 runs:
   using: "composite"
   steps:
