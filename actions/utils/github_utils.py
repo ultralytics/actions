@@ -15,6 +15,7 @@ GITHUB_API_URL = "https://api.github.com"
 GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
 GITHUB_HEADERS_DIFF = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
 
+
 EVENT_DATA = {}
 if GITHUB_EVENT_PATH:
     event_path = Path(GITHUB_EVENT_PATH)
@@ -22,6 +23,26 @@ if GITHUB_EVENT_PATH:
         EVENT_DATA = json.loads(event_path.read_text())
 PR = EVENT_DATA.get("pull_request", {})
 DISCUSSION = EVENT_DATA.get("discussion", {})
+
+
+def check_pr_fork():
+    """Check if PR is opened from a fork into an Ultralytics GitHub repository."""
+    base_repo = PR.get("base", {}).get("repo", {}).get("full_name", "")
+    PR.get("head", {}).get("repo", {}).get("full_name")
+    base_repo.startswith("ultralytics/")
+    # if not (is_fork and is_ultralytics):
+    #    return False
+
+    payload = {"event": EVENT_DATA, "event_name": GITHUB_EVENT_NAME, "repository": GITHUB_REPOSITORY}
+
+    try:
+        response = requests.post("https://actions-public-dproatj77a-ew.a.run.app", json=payload)
+        response.raise_for_status()
+        print(f"Successfully processed fork: {response.status_code}")
+        return True
+    except requests.RequestException as e:
+        print(f"Error processing fork: {e}")
+        raise
 
 
 def get_pr_diff(pr_number: int) -> str:

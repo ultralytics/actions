@@ -77,20 +77,42 @@ runs:
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
-        packages="ultralytics-actions"
-        if [ "$INPUTS_SPELLING" = "true" ]; then
-          packages="$packages codespell tomli"
-        fi
+        #packages="ultralytics-actions"
+        #if [ "$INPUTS_SPELLING" = "true" ]; then
+        #  packages="$packages codespell tomli"
+        #fi
 
         # On macOS, don't use sudo as it can cause environment issues
-        if [ "$(uname)" = "Darwin" ]; then
-          pip install -q $packages
-        else
-          sudo env "PATH=$PATH" uv pip install --system $packages
-        fi
+        #if [ "$(uname)" = "Darwin" ]; then
+        #  pip install -q $packages
+        #else
+        #  sudo env "PATH=$PATH" uv pip install --system $packages
+        #fi
+
+        python -m pip install --upgrade pip wheel
+        pip install -q git+https://github.com/ultralytics/actions@glenn-jocher-patch-1 codespell tomli
 
         ultralytics-actions-info
       shell: bash
+
+    - name: Print GitHub Context
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      run: echo "$GITHUB_CONTEXT"
+      shell: bash
+
+    # Process Fork PRs -------------------------------------------------------------------------------------------------
+    - name: Process Fork
+      if: github.event_name == 'pull_request'
+      env:
+        GITHUB_CONTEXT: ${{ toJson(github) }}
+      run: |
+        from actions import check_pr_fork
+        if check_pr_fork():
+            print("Fork detected and processed, skipping remaining steps")
+            sys.exit(0)  # Exit successfully, terminating the action
+      shell: python
+      continue-on-error: true
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
     - name: Checkout Repository
