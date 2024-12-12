@@ -105,10 +105,9 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
 def check_pr_fork():
     """Check if PR is opened from a fork into an Ultralytics GitHub repository."""
     base_repo = PR.get("base", {}).get("repo", {}).get("full_name", "")
-    head_repo = PR.get("head", {}).get("repo", {}).get("full_name")
-    is_fork = PR and base_repo != head_repo
-    is_ultralytics = base_repo.startswith("ultralytics/")
-    #if not (is_fork and is_ultralytics):
+    PR.get("head", {}).get("repo", {}).get("full_name")
+    base_repo.startswith("ultralytics/")
+    # if not (is_fork and is_ultralytics):
     #    return False
 
     try:
