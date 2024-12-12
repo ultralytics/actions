@@ -97,6 +97,7 @@ runs:
       env:
         GITHUB_CONTEXT: ${{ toJson(github) }}
       run: echo "$GITHUB_CONTEXT"
+      shell: bash
 
 
     # Process Fork PRs -------------------------------------------------------------------------------------------------
