@@ -76,7 +76,7 @@ def label_fixed_issues(pr_number):
     pr_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/pulls/{pr_number}"
     pr_response = requests.get(pr_url, headers=GITHUB_HEADERS)
 
-    if pr_response.status_code != 200 or not pr_response.json().get('merged'):
+    if pr_response.status_code != 200 or not pr_response.json().get("merged"):
         return
 
     connected_issues_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/pulls/{pr_number}/issues"
@@ -87,9 +87,9 @@ def label_fixed_issues(pr_number):
         return
 
     for issue in response.json():
-        issue_number = issue['number']
+        issue_number = issue["number"]
         label_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/labels"
-        label_response = requests.post(label_url, json={'labels': ['fixed']}, headers=GITHUB_HEADERS)
+        label_response = requests.post(label_url, json={"labels": ["fixed"]}, headers=GITHUB_HEADERS)
 
         if label_response.status_code == 200:
             print(f"Added 'fixed' label to issue #{issue_number}")
