@@ -71,6 +71,32 @@ def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
     return update_response.status_code
 
 
+def label_fixed_issues(pr_number):
+    """Labels currently linked issues as 'fixed' when PR is merged."""
+    pr_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/pulls/{pr_number}"
+    pr_response = requests.get(pr_url, headers=GITHUB_HEADERS)
+
+    if pr_response.status_code != 200 or not pr_response.json().get('merged'):
+        return
+
+    connected_issues_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/pulls/{pr_number}/issues"
+    response = requests.get(connected_issues_url, headers=GITHUB_HEADERS)
+
+    if response.status_code != 200:
+        print(f"Failed to fetch connected issues. Status code: {response.status_code}")
+        return
+
+    for issue in response.json():
+        issue_number = issue['number']
+        label_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/labels"
+        label_response = requests.post(label_url, json={'labels': ['fixed']}, headers=GITHUB_HEADERS)
+
+        if label_response.status_code == 200:
+            print(f"Added 'fixed' label to issue #{issue_number}")
+        else:
+            print(f"Failed to add label to issue #{issue_number}. Status: {label_response.status_code}")
+
+
 def main():
     """Summarize a pull request and update its description with an AI-generated summary."""
     pr_number = PR["number"]
@@ -89,6 +115,11 @@ def main():
         print("PR description updated successfully.")
     else:
         print(f"Failed to update PR description. Status code: {status_code}")
+
+    # Update linked issues
+    if PR.get("merged"):
+        print("PR is merged, labeling fixed issues...")
+        label_fixed_issues(PR["number"])
 
 
 if __name__ == "__main__":
