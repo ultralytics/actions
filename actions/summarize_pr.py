@@ -73,14 +73,6 @@ def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
 
 def label_fixed_issues(pr_number):
     """Labels issues that are closed by this PR when it's merged."""
-    # Check if PR is merged
-    # pr_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/pulls/{pr_number}"
-    # pr_response = requests.get(pr_url, headers=GITHUB_HEADERS)
-    # if pr_response.status_code != 200 or not pr_response.json().get("merged"):
-    #    return
-    if not PR.get("merged"):
-        return
-
     # GraphQL query to get closing issues
     query = """
 query($owner: String!, $repo: String!, $pr_number: Int!) {
