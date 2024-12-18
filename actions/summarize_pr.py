@@ -102,7 +102,6 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             issue_number = issue["number"]
             label_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/labels"
             label_response = requests.post(label_url, json={"labels": ["fixed"]}, headers=GITHUB_HEADERS)
-
             if label_response.status_code == 200:
                 print(f"Added 'fixed' label to issue #{issue_number}")
             else:
