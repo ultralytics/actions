@@ -72,29 +72,57 @@ def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
 
 
 def label_fixed_issues(pr_number):
-    """Labels currently linked issues as 'fixed' when PR is merged."""
+    """Labels issues that are closed by this PR when it's merged."""
+    # Check if PR is merged
     pr_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/pulls/{pr_number}"
     pr_response = requests.get(pr_url, headers=GITHUB_HEADERS)
-
-    if pr_response.status_code != 200 or not pr_response.json().get("merged"):
+    
+    if pr_response.status_code != 200 or not pr_response.json().get('merged'):
         return
-
-    connected_issues_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/pulls/{pr_number}/issues"
-    response = requests.get(connected_issues_url, headers=GITHUB_HEADERS)
-
+        
+    # GraphQL query to get closing issues
+    query = """
+    query($owner: String!, $repo: String!, $pr_number: Int!) {
+        repository(owner: $owner, name: $repo) {
+            pullRequest(number: $pr_number) {
+                closingIssuesReferences(first: 50) {
+                    nodes {
+                        number
+                    }
+                }
+            }
+        }
+    }
+    """
+    
+    owner, repo = GITHUB_REPOSITORY.split('/')
+    variables = {
+        "owner": owner,
+        "repo": repo,
+        "pr_number": pr_number
+    }
+    
+    graphql_url = "https://api.github.com/graphql"
+    response = requests.post(graphql_url, json={"query": query, "variables": variables}, headers=GITHUB_HEADERS)
+    
     if response.status_code != 200:
-        print(f"Failed to fetch connected issues. Status code: {response.status_code}")
+        print(f"Failed to fetch linked issues. Status code: {response.status_code}")
         return
-
-    for issue in response.json():
-        issue_number = issue["number"]
-        label_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/labels"
-        label_response = requests.post(label_url, json={"labels": ["fixed"]}, headers=GITHUB_HEADERS)
-
-        if label_response.status_code == 200:
-            print(f"Added 'fixed' label to issue #{issue_number}")
-        else:
-            print(f"Failed to add label to issue #{issue_number}. Status: {label_response.status_code}")
+        
+    try:
+        issues = response.json()['data']['repository']['pullRequest']['closingIssuesReferences']['nodes']
+        for issue in issues:
+            issue_number = issue['number']
+            label_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/labels"
+            label_response = requests.post(label_url, json={'labels': ['Fixed']}, headers=GITHUB_HEADERS)
+            
+            if label_response.status_code == 200:
+                print(f"Added 'Fixed' label to issue #{issue_number}")
+            else:
+                print(f"Failed to add label to issue #{issue_number}. Status: {label_response.status_code}")
+    except KeyError as e:
+        print(f"Error parsing GraphQL response: {e}")
+        return
 
 
 def main():
