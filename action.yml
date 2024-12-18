@@ -79,7 +79,7 @@ runs:
       run: |
 
         python -m pip install uv
-        uv pip install git+https://github.com/ultralytics/actions@pr-merge-mark-fixed codespell tomli
+        uv pip install --system git+https://github.com/ultralytics/actions@pr-merge-mark-fixed codespell tomli
 
         ultralytics-actions-info
       shell: bash
