@@ -71,23 +71,12 @@ runs:
     - uses: astral-sh/setup-uv@v4
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
-      # For debug:
-      #   python -m pip install --upgrade pip wheel
-      #   pip install -q git+https://github.com/ultralytics/actions@main codespell tomli
+
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
-        packages="ultralytics-actions"
-        if [ "$INPUTS_SPELLING" = "true" ]; then
-          packages="$packages codespell tomli"
-        fi
-
-        # On macOS, don't use sudo as it can cause environment issues
-        if [ "$(uname)" = "Darwin" ]; then
-          pip install -q $packages
-        else
-          sudo env "PATH=$PATH" uv pip install --system $packages
-        fi
+        python -m pip install --upgrade pip wheel
+        pip install -q git+https://github.com/ultralytics/actions@pr-merge-mark-fixed codespell tomli
 
         ultralytics-actions-info
       shell: bash
