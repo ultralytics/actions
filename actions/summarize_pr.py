@@ -71,6 +71,46 @@ def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
     return update_response.status_code
 
 
+def label_fixed_issues(pr_number):
+    """Labels issues that are closed by this PR when it's merged."""
+    # GraphQL query to get closing issues
+    query = """
+query($owner: String!, $repo: String!, $pr_number: Int!) {
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr_number) {
+            closingIssuesReferences(first: 50) {
+                nodes {
+                    number
+                }
+            }
+        }
+    }
+}
+"""
+
+    owner, repo = GITHUB_REPOSITORY.split("/")
+    variables = {"owner": owner, "repo": repo, "pr_number": pr_number}
+    graphql_url = "https://api.github.com/graphql"
+    response = requests.post(graphql_url, json={"query": query, "variables": variables}, headers=GITHUB_HEADERS)
+    if response.status_code != 200:
+        print(f"Failed to fetch linked issues. Status code: {response.status_code}")
+        return
+
+    try:
+        issues = response.json()["data"]["repository"]["pullRequest"]["closingIssuesReferences"]["nodes"]
+        for issue in issues:
+            issue_number = issue["number"]
+            label_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/labels"
+            label_response = requests.post(label_url, json={"labels": ["fixed"]}, headers=GITHUB_HEADERS)
+            if label_response.status_code == 200:
+                print(f"Added 'fixed' label to issue #{issue_number}")
+            else:
+                print(f"Failed to add label to issue #{issue_number}. Status: {label_response.status_code}")
+    except KeyError as e:
+        print(f"Error parsing GraphQL response: {e}")
+        return
+
+
 def main():
     """Summarize a pull request and update its description with an AI-generated summary."""
     pr_number = PR["number"]
@@ -89,6 +129,11 @@ def main():
         print("PR description updated successfully.")
     else:
         print(f"Failed to update PR description. Status code: {status_code}")
+
+    # Update linked issues
+    if PR.get("merged"):
+        print("PR is merged, labeling fixed issues...")
+        label_fixed_issues(PR["number"])
 
 
 if __name__ == "__main__":
