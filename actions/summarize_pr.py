@@ -82,18 +82,18 @@ def label_fixed_issues(pr_number):
         
     # GraphQL query to get closing issues
     query = """
-    query($owner: String!, $repo: String!, $pr_number: Int!) {
-        repository(owner: $owner, name: $repo) {
-            pullRequest(number: $pr_number) {
-                closingIssuesReferences(first: 50) {
-                    nodes {
-                        number
-                    }
+query($owner: String!, $repo: String!, $pr_number: Int!) {
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr_number) {
+            closingIssuesReferences(first: 50) {
+                nodes {
+                    number
                 }
             }
         }
     }
-    """
+}
+"""
     
     owner, repo = GITHUB_REPOSITORY.split('/')
     variables = {
