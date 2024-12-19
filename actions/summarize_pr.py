@@ -112,10 +112,12 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
 
 
 def remove_todos_on_merge(pr_number):
-    """Removes TODO label from PR."""
-    requests.delete(
-        f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{pr_number}/labels/TODO", headers=GITHUB_HEADERS
-    )
+   """Removes specified labels from PR."""
+   for label in ["TODO"]:  # Can be extended with more labels in the future
+       requests.delete(
+           f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{pr_number}/labels/{label}", 
+           headers=GITHUB_HEADERS
+       )
 
 
 def main():
