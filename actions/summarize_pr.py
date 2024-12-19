@@ -13,7 +13,7 @@ from .utils import (
     get_pr_diff,
 )
 
-# Action settings
+# Constants
 SUMMARY_START = (
     "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
 )
@@ -111,12 +111,20 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         return
 
 
+def remove_todos_on_merge(pr_number):
+    """Removes specified labels from PR."""
+    for label in ["TODO"]:  # Can be extended with more labels in the future
+        requests.delete(
+            f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{pr_number}/labels/{label}", headers=GITHUB_HEADERS
+        )
+
+
 def main():
     """Summarize a pull request and update its description with an AI-generated summary."""
     pr_number = PR["number"]
 
     print(f"Retrieving diff for PR {pr_number}")
-    diff = get_pr_diff(PR["number"])
+    diff = get_pr_diff(pr_number)
 
     # Generate PR summary
     print("Generating PR summary...")
@@ -133,7 +141,9 @@ def main():
     # Update linked issues
     if PR.get("merged"):
         print("PR is merged, labeling fixed issues...")
-        label_fixed_issues(PR["number"])
+        label_fixed_issues(pr_number)
+        print("Removing TODO label from PR...")
+        remove_todos_on_merge(pr_number)
 
 
 if __name__ == "__main__":
