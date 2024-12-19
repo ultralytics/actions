@@ -142,7 +142,7 @@ def main():
     if PR.get("merged"):
         print("PR is merged, labeling fixed issues...")
         label_fixed_issues(pr_number)
-        print("Removing TODOs from merged files...")
+        print("Removing TODO label from PR...")
         remove_todos_on_merge(pr_number)
 
 
