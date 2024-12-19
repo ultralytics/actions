@@ -1,8 +1,17 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
 import time
+
 import requests
-from .utils import GITHUB_API_URL, GITHUB_HEADERS, GITHUB_REPOSITORY, PR, get_completion, get_pr_diff
+
+from .utils import (
+    GITHUB_API_URL,
+    GITHUB_HEADERS,
+    GITHUB_REPOSITORY,
+    PR,
+    get_completion,
+    get_pr_diff,
+)
 
 # Constants
 SUMMARY_START = (
