@@ -110,6 +110,9 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         print(f"Error parsing GraphQL response: {e}")
         return
 
+def remove_todos_on_merge(pr_number):
+    """Removes TODO label from PR."""
+    requests.delete(f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{pr_number}/labels/TODO", headers=GITHUB_HEADERS)
 
 def main():
     """Summarize a pull request and update its description with an AI-generated summary."""
@@ -134,6 +137,8 @@ def main():
     if PR.get("merged"):
         print("PR is merged, labeling fixed issues...")
         label_fixed_issues(PR["number"])
+        print("Removing TODOs from merged files...")
+        remove_todos_on_merge(PR["number"])
 
 
 if __name__ == "__main__":
