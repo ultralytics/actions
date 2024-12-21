@@ -11,6 +11,7 @@ from .utils import (
     PR,
     get_completion,
     get_pr_diff,
+    get_github_username,
 )
 
 # Constants
@@ -233,8 +234,10 @@ def main():
         contributors, author = label_fixed_issues(pr_number)
         print("Removing TODO label from PR...")
         remove_todos_on_merge(pr_number)
-        if author:  # Only post if we successfully got the author
+        username = get_github_username()  # get GITHUB_TOKEN username
+        if author and author != username:
             print("Posting PR author thank you message...")
+            contributors.discard(username)
             post_merge_message(pr_number, author, contributors, summary)
 
 

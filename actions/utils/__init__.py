@@ -17,6 +17,7 @@ from .github_utils import (
     get_pr_diff,
     graphql_request,
     ultralytics_actions_info,
+    get_github_username,
 )
 from .openai_utils import OPENAI_API_KEY, OPENAI_MODEL, get_completion
 
@@ -38,6 +39,7 @@ __all__ = (
     "OPENAI_API_KEY",
     "OPENAI_MODEL",
     "get_completion",
+    "get_github_username",
     "check_pypi_version",
     "ultralytics_actions_info",
 )
