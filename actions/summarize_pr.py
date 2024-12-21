@@ -36,8 +36,8 @@ def generate_merge_message(pr_author, contributors, pr_summary=None):
             "role": "user",
             "content": f"Write a friendly thank you for a merged PR by these GitHub contributors: {mention_str}. "
                        f"Context from PR:\n{pr_summary}\n\n"
-                       f"Start with the exciting message that this PR is now merged. "
-                       f"Include an inspiring quote from a famous figure in science, technology, AI, startups, philosophy or stoicism. "
+                       f"Start with the exciting message that this PR is now merged, and weave in an inspiring quote "
+                       f"from a famous figure in science, technology, AI, startups, philosophy or stoicism. "
                        f"Make the message relevant to the specific contributions in this PR. "
                        f"We want them to feel their hard work is acknowledged and will make a difference in the world.",
         },
