@@ -19,6 +19,27 @@ SUMMARY_START = (
 )
 
 
+def generate_issue_comment(pr_url, pr_body):
+    """Generates a personalized issue comment using AI based on the PR context."""
+    messages = [
+        {
+            "role": "system",
+            "content": "You are an Ultralytics AI assistant notifying users about merged PR fixes for GitHub issues."
+        },
+        {
+            "role": "user",
+            "content": f"Generate a comment for an Ultralytics GitHub issue that has been fixed. Use this PR summary for context:\n\n{pr_body}\n\n"
+                      f"The comment should:\n"
+                      f"1. Be friendly and professional\n"
+                      f"2. Reference the PR {pr_url} that fixed their original issue\n"
+                      f"3. Include relevant details from the PR summary\n"
+                      f"4. Request independent confirmation from the issue author that the fix works\n"
+                      f"5. Encourage them to raise any additional issues they encounter"
+        }
+    ]
+    return get_completion(messages)
+
+
 def generate_pr_summary(repo_name, diff_text):
     """Generates a concise, professional summary of a PR using OpenAI's API for Ultralytics repositories."""
     if not diff_text:
@@ -72,8 +93,7 @@ def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
 
 
 def label_fixed_issues(pr_number):
-    """Labels issues that are closed by this PR when it's merged."""
-    # GraphQL query to get closing issues
+    """Labels issues closed by this PR when merged and notifies users about the fix with AI-generated comments."""
     query = """
 query($owner: String!, $repo: String!, $pr_number: Int!) {
     repository(owner: $owner, name: $repo) {
@@ -83,6 +103,8 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
                     number
                 }
             }
+            url
+            body
         }
     }
 }
@@ -97,15 +119,27 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         return
 
     try:
-        issues = response.json()["data"]["repository"]["pullRequest"]["closingIssuesReferences"]["nodes"]
+        data = response.json()["data"]["repository"]["pullRequest"]
+        issues = data["closingIssuesReferences"]["nodes"]
+
+        # Generate personalized comment
+        comment = generate_issue_comment(pr_url=data["url"], pr_body=data["body"])
+
         for issue in issues:
             issue_number = issue["number"]
+            # Add fixed label
             label_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/labels"
             label_response = requests.post(label_url, json={"labels": ["fixed"]}, headers=GITHUB_HEADERS)
-            if label_response.status_code == 200:
-                print(f"Added 'fixed' label to issue #{issue_number}")
+
+            # Add AI-generated comment
+            comment_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/comments"
+            comment_response = requests.post(comment_url, json={"body": comment}, headers=GITHUB_HEADERS)
+
+            if label_response.status_code == 200 and comment_response.status_code == 201:
+                print(f"Added 'fixed' label and AI-generated comment to issue #{issue_number}")
             else:
-                print(f"Failed to add label to issue #{issue_number}. Status: {label_response.status_code}")
+                print(f"Failed to update issue #{issue_number}. Label status: {label_response.status_code}, "
+                      f"Comment status: {comment_response.status_code}")
     except KeyError as e:
         print(f"Error parsing GraphQL response: {e}")
         return
