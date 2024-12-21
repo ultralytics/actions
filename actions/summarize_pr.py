@@ -28,14 +28,15 @@ def generate_issue_comment(pr_url, pr_body):
         },
         {
             "role": "user",
-            "content": f"Write a comment for a fixed GitHub issue using this merged PR context:\n\n{pr_body}\n\n"
+            "content": f"Write a comment for a GitHub issue where a potential fix has been merged in PR: {pr_url}\n\n"
+            f"Context from PR:\n{pr_body}\n\n"
             f"Include:\n"
-            f"1. Reference to fix PR: {pr_url}\n"
-            f"2. Key changes in the PR and instructions to test the fix with:\n"
-            f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # immediate testing\n"
+            f"1. Note that changes addressing this issue have been merged\n"
+            f"2. Key changes and testing options:\n"
+            f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # test latest changes\n"
             f"   - or await next release\n"
-            f"3. Request verification that PR fix works\n"
-            f"4. Thank 🙏 for reporting the issue and encourage reporting any new issues in the future\n\n",
+            f"3. Request feedback on whether these changes resolve the issue\n"
+            f"4. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
         },
     ]
     return get_completion(messages)
