@@ -137,7 +137,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             comment_response = requests.post(comment_url, json={"body": comment}, headers=GITHUB_HEADERS)
 
             if label_response.status_code == 200 and comment_response.status_code == 201:
-                print(f"Added 'fixed' label and AI-generated comment to issue #{issue_number}")
+                print(f"Added 'fixed' label and comment to issue #{issue_number}")
             else:
                 print(
                     f"Failed to update issue #{issue_number}. Label status: {label_response.status_code}, "
