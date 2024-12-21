@@ -24,19 +24,19 @@ def generate_issue_comment(pr_url, pr_body):
     messages = [
         {
             "role": "system",
-            "content": "You are the Ultralytics AI assistant. Generate concise, friendly GitHub issue comments."
+            "content": "You are the Ultralytics AI assistant. Generate concise, friendly GitHub issue comments.",
         },
         {
             "role": "user",
             "content": f"Write a comment for a fixed GitHub issue using this merged PR context:\n\n{pr_body}\n\n"
-                      f"Include:\n"
-                      f"1. Reference to fix PR: {pr_url}\n"
-                      f"2. Key changes and instructions:\n"
-                      f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # immediate testing\n"
-                      f"   - or await next release\n"
-                      f"3. Request verification from user that fix works\n"
-                      f"4. Encourage reporting any new issues"
-        }
+            f"Include:\n"
+            f"1. Reference to fix PR: {pr_url}\n"
+            f"2. Key changes and instructions:\n"
+            f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # immediate testing\n"
+            f"   - or await next release\n"
+            f"3. Request verification from user that fix works\n"
+            f"4. Encourage reporting any new issues",
+        },
     ]
     return get_completion(messages)
 
