@@ -27,21 +27,17 @@ def generate_merge_message(pr_author, contributors, pr_summary=None):
     if contributors_str:
         mention_str += f" and {contributors_str}"
 
-    context = ""
-    if pr_summary:
-        context = f"\n\nPR Summary context:\n{pr_summary}"
-
     messages = [
         {
             "role": "system",
-            "content": "You are the Ultralytics AI assistant. Generate friendly GitHub issue comments.",
+            "content": "You are an Ultralytics AI assistant. Generate friendly and inspiring messages to GitHub users.",
         },
         {
             "role": "user",
-            "content": f"Write a thank you message for a merged PR. Thank these GitHub users: {mention_str}. "
-                      f"Include either an inspiring quote about AI and open source from a known figure, or a custom "
-                      f"inspiring message about AI and open source changing the world for the better. "
-                      f"Make the message relevant to their specific contribution if context is provided.{context}",
+            "content": f"Write a thank you message for a merged PR by these GitHub contributors: {mention_str}. "
+                       f"Context from PR:\n{pr_summary}\n\n"
+                       f"Include an inspiring quote about AI and open source from a known figure. "
+                       f"Make the message relevant to their specific contributions in this PR.",
         },
     ]
     return get_completion(messages)
@@ -60,7 +56,7 @@ def generate_issue_comment(pr_url, pr_body):
     messages = [
         {
             "role": "system",
-            "content": "You are the Ultralytics AI assistant. Generate friendly GitHub issue comments. No @ mentions or direct addressing.",
+            "content": "You are an Ultralytics AI assistant. Generate friendly GitHub issue comments. No @ mentions or direct addressing.",
         },
         {
             "role": "user",
