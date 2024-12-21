@@ -35,7 +35,7 @@ def generate_issue_comment(pr_url, pr_body):
             f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # immediate testing\n"
             f"   - or await next release\n"
             f"3. Request verification that PR fix works\n"
-            f"4. Thank 🙏 for reporting the issue and encourage reporting any new issues in the future\n\n"
+            f"4. Thank 🙏 for reporting the issue and encourage reporting any new issues in the future\n\n",
         },
     ]
     return get_completion(messages)
