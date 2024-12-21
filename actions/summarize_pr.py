@@ -30,7 +30,7 @@ def generate_merge_message(pr_author, contributors, pr_summary=None):
     messages = [
         {
             "role": "system",
-            "content": "You are an Ultralytics AI assistant. Generate concise and inspiring messages to GitHub users.",
+            "content": "You are an Ultralytics AI assistant. Generate meaningful, inspiring messages to GitHub users.",
         },
         {
             "role": "user",
