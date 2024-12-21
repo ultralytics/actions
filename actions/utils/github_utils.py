@@ -44,6 +44,7 @@ def get_github_username():
         print(f"Error parsing authenticated user response: {e}")
         return None
 
+
 def get_pr_diff(pr_number: int) -> str:
     """Retrieves the diff content for a specified pull request in a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/pulls/{pr_number}"

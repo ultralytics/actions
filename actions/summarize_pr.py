@@ -10,8 +10,8 @@ from .utils import (
     GITHUB_REPOSITORY,
     PR,
     get_completion,
-    get_pr_diff,
     get_github_username,
+    get_pr_diff,
 )
 
 # Constants
@@ -35,11 +35,11 @@ def generate_merge_message(pr_author, contributors, pr_summary=None):
         {
             "role": "user",
             "content": f"Write a friendly thank you for a merged PR by these GitHub contributors: {mention_str}. "
-                       f"Context from PR:\n{pr_summary}\n\n"
-                       f"Start with the exciting message that this PR is now merged, and weave in an inspiring quote "
-                       f"from a famous figure in science, philosophy or stoicism. "
-                       f"Make the message relevant to the specific contributions in this PR. "
-                       f"We want them to feel their hard work is acknowledged and will make a difference in the world.",
+            f"Context from PR:\n{pr_summary}\n\n"
+            f"Start with the exciting message that this PR is now merged, and weave in an inspiring quote "
+            f"from a famous figure in science, technology, AI, startups, philosophy or stoicism. "
+            f"Make the message relevant to the specific contributions in this PR. "
+            f"We want them to feel their hard work is acknowledged and will make a difference in the world.",
         },
     ]
     return get_completion(messages)
@@ -63,14 +63,14 @@ def generate_issue_comment(pr_url, pr_summary):
         {
             "role": "user",
             "content": f"Write a comment for a GitHub issue where a potential fix has been merged in PR: {pr_url}\n\n"
-                       f"Context from PR:\n{pr_summary}\n\n"
-                       f"Include:\n"
-                       f"1. An explanation of key changes from the PR that may resolve this issue\n"
-                       f"2. Testing options:\n"
-                       f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # test latest changes\n"
-                       f"   - or await next official PyPI release\n"
-                       f"3. Request feedback on whether these changes resolve the issue\n"
-                       f"4. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
+            f"Context from PR:\n{pr_summary}\n\n"
+            f"Include:\n"
+            f"1. An explanation of key changes from the PR that may resolve this issue\n"
+            f"2. Testing options:\n"
+            f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # test latest changes\n"
+            f"   - or await next official PyPI release\n"
+            f"3. Request feedback on whether these changes resolve the issue\n"
+            f"4. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
         },
     ]
     return get_completion(messages)
@@ -90,10 +90,10 @@ def generate_pr_summary(repo_name, diff_text):
         {
             "role": "user",
             "content": f"Summarize this '{repo_name}' PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:\n\n"
-                       f"### 🌟 Summary (single-line synopsis)\n"
-                       f"### 📊 Key Changes (bullet points highlighting any major changes)\n"
-                       f"### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n"
-                       f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}",
+            f"### 🌟 Summary (single-line synopsis)\n"
+            f"### 📊 Key Changes (bullet points highlighting any major changes)\n"
+            f"### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n"
+            f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}",
         },
     ]
     reply = get_completion(messages)
