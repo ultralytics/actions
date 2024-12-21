@@ -175,13 +175,14 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         # Generate personalized comment
         comment = generate_issue_comment(pr_url=data["url"], pr_body=data["body"])
 
+        # Update linked issues
         for issue in issues:
             issue_number = issue["number"]
             # Add fixed label
             label_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/labels"
             label_response = requests.post(label_url, json={"labels": ["fixed"]}, headers=GITHUB_HEADERS)
 
-            # Add AI-generated comment
+            # Add comment
             comment_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/comments"
             comment_response = requests.post(comment_url, json={"body": comment}, headers=GITHUB_HEADERS)
 
@@ -233,7 +234,7 @@ def main():
         print("Removing TODO label from PR...")
         remove_todos_on_merge(pr_number)
         if author:  # Only post if we successfully got the author
-            print("Posting AI thank you message...")
+            print("Posting PR author thank you message...")
             post_merge_message(pr_number, author, contributors, summary)
 
 
