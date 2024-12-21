@@ -172,7 +172,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         contributors.discard(author)  # Remove author from contributors list
 
         # Generate personalized comment
-        comment = generate_issue_comment(pr_url=data["url"], pr_body=pr_summary)
+        comment = generate_issue_comment(pr_url=data["url"], pr_summary=pr_summary)
 
         # Update linked issues
         for issue in issues:
