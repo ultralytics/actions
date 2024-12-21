@@ -53,7 +53,7 @@ def post_merge_message(pr_number, pr_author, contributors, summary):
     return response.status_code == 201
 
 
-def generate_issue_comment(pr_url, pr_body):
+def generate_issue_comment(pr_url, pr_summary):
     """Generates a personalized issue comment using AI based on the PR context."""
     messages = [
         {
@@ -63,7 +63,7 @@ def generate_issue_comment(pr_url, pr_body):
         {
             "role": "user",
             "content": f"Write a comment for a GitHub issue where a potential fix has been merged in PR: {pr_url}\n\n"
-                       f"Context from PR:\n{pr_body}\n\n"
+                       f"Context from PR:\n{pr_summary}\n\n"
                        f"Include:\n"
                        f"1. An explanation of key changes from the PR that may resolve this issue\n"
                        f"2. Testing options:\n"
@@ -128,7 +128,7 @@ def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
     return update_response.status_code
 
 
-def label_fixed_issues(pr_number):
+def label_fixed_issues(pr_number, pr_summary):
     """Labels issues closed by this PR when merged, notifies users, and returns PR contributors."""
     query = """
 query($owner: String!, $repo: String!, $pr_number: Int!) {
@@ -172,7 +172,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         contributors.discard(author)  # Remove author from contributors list
 
         # Generate personalized comment
-        comment = generate_issue_comment(pr_url=data["url"], pr_body=data["body"])
+        comment = generate_issue_comment(pr_url=data["url"], pr_body=pr_summary)
 
         # Update linked issues
         for issue in issues:
@@ -229,7 +229,7 @@ def main():
     # Update linked issues and post thank you message if merged
     if PR.get("merged"):
         print("PR is merged, labeling fixed issues...")
-        contributors, author = label_fixed_issues(pr_number)
+        contributors, author = label_fixed_issues(pr_number, summary)
         print("Removing TODO label from PR...")
         remove_todos_on_merge(pr_number)
         username = get_github_username()  # get GITHUB_TOKEN username
