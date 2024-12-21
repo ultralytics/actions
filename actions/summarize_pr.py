@@ -24,7 +24,7 @@ def generate_issue_comment(pr_url, pr_body):
     messages = [
         {
             "role": "system",
-            "content": "You are the Ultralytics AI assistant. Generate concise, friendly GitHub issue comments.",
+            "content": "You are the Ultralytics AI assistant. Generate concise, friendly GitHub issue comments. No @ mentions or direct addressing.",
         },
         {
             "role": "user",
@@ -34,7 +34,7 @@ def generate_issue_comment(pr_url, pr_body):
             f"2. Key changes and instructions:\n"
             f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # immediate testing\n"
             f"   - or await next release\n"
-            f"3. Request verification from user that fix works\n"
+            f"3. Request verification that PR fix works\n"
             f"4. Encourage reporting any new issues",
         },
     ]
