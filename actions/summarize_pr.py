@@ -195,7 +195,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
                     f"Comment status: {comment_response.status_code}"
                 )
 
-        return list(contributors), author
+        return contributors, author
     except KeyError as e:
         print(f"Error parsing GraphQL response: {e}")
         return [], None
