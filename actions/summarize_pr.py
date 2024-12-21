@@ -24,18 +24,18 @@ def generate_issue_comment(pr_url, pr_body):
     messages = [
         {
             "role": "system",
-            "content": "You are an Ultralytics AI assistant notifying users about merged PR fixes for GitHub issues."
+            "content": "You are an Ultralytics AI assistant notifying users about merged PR fixes for GitHub issues.",
         },
         {
             "role": "user",
             "content": f"Generate a comment for an Ultralytics GitHub issue that has been fixed. Use this PR summary for context:\n\n{pr_body}\n\n"
-                      f"The comment should:\n"
-                      f"1. Be friendly and professional\n"
-                      f"2. Reference the PR {pr_url} that fixed their original issue\n"
-                      f"3. Include relevant details from the PR summary\n"
-                      f"4. Request independent confirmation from the issue author that the fix works\n"
-                      f"5. Encourage them to raise any additional issues they encounter"
-        }
+            f"The comment should:\n"
+            f"1. Be friendly and professional\n"
+            f"2. Reference the PR {pr_url} that fixed their original issue\n"
+            f"3. Include relevant details from the PR summary\n"
+            f"4. Request independent confirmation from the issue author that the fix works\n"
+            f"5. Encourage them to raise any additional issues they encounter",
+        },
     ]
     return get_completion(messages)
 
@@ -138,8 +138,10 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             if label_response.status_code == 200 and comment_response.status_code == 201:
                 print(f"Added 'fixed' label and AI-generated comment to issue #{issue_number}")
             else:
-                print(f"Failed to update issue #{issue_number}. Label status: {label_response.status_code}, "
-                      f"Comment status: {comment_response.status_code}")
+                print(
+                    f"Failed to update issue #{issue_number}. Label status: {label_response.status_code}, "
+                    f"Comment status: {comment_response.status_code}"
+                )
     except KeyError as e:
         print(f"Error parsing GraphQL response: {e}")
         return
