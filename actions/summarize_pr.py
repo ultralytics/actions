@@ -31,10 +31,10 @@ def generate_issue_comment(pr_url, pr_body):
             "content": f"Write a comment for a GitHub issue where a potential fix has been merged in PR: {pr_url}\n\n"
             f"Context from PR:\n{pr_body}\n\n"
             f"Include:\n"
-            f"1. Note that changes addressing this issue have been merged\n"
-            f"2. Key changes and testing options:\n"
+            f"1. An explanation of key changes from the PR that may resolve this issue\n"
+            f"2. Testing options:\n"
             f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # test latest changes\n"
-            f"   - or await next release\n"
+            f"   - or await next official PyPI release\n"
             f"3. Request feedback on whether these changes resolve the issue\n"
             f"4. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
         },
