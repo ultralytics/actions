@@ -30,11 +30,11 @@ def generate_merge_message(pr_author, contributors, pr_summary=None):
     messages = [
         {
             "role": "system",
-            "content": "You are an Ultralytics AI assistant. Generate friendly and inspiring messages to GitHub users.",
+            "content": "You are an Ultralytics AI assistant. Generate concise and inspiring messages to GitHub users.",
         },
         {
             "role": "user",
-            "content": f"Write a thank you message for a merged PR by these GitHub contributors: {mention_str}. "
+            "content": f"Write a friendly thank you for a merged PR by these GitHub contributors: {mention_str}. "
                        f"Context from PR:\n{pr_summary}\n\n"
                        f"Include an inspiring quote about science, AI, startups or open source from a known figure. "
                        f"Make the message relevant to their specific contributions in this PR. "
