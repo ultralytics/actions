@@ -69,7 +69,7 @@ def generate_issue_comment(pr_url, pr_summary):
             f"2. Options for testing if PR changes have resolved this issue:\n"
             f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # test latest changes\n"
             f"   - or await next official PyPI release\n"
-            f"3. Request confirmation on whether the PR changes resolve the issue\n"
+            f"3. Request feedback on whether the PR changes resolve the issue\n"
             f"4. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
         },
     ]
