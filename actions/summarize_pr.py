@@ -38,8 +38,8 @@ def generate_merge_message(pr_author, contributors, pr_summary=None):
             f"Context from PR:\n{pr_summary}\n\n"
             f"Start with the exciting message that this PR is now merged, and weave in an inspiring quote "
             f"from a famous figure in science, philosophy or stoicism. "
-            f"Make the message relevant to the specific contributions in this PR. "
-            f"We want them to feel their hard work is acknowledged and will make a difference in the world.",
+            f"Keep the message concise yet relevant to the specific contributions in this PR. "
+            f"We want the contributors to feel their effort is appreciated and will make a difference in the world.",
         },
     ]
     return get_completion(messages)
@@ -141,12 +141,12 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             }
             url
             body
-            author { login }
+            author { login, __typename }
             reviews(first: 50) {
-                nodes { author { login } }
+                nodes { author { login, __typename } }
             }
             comments(first: 50) {
-                nodes { author { login } }
+                nodes { author { login, __typename } }
             }
         }
     }
@@ -163,19 +163,18 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
 
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
-        issues = data["closingIssuesReferences"]["nodes"]
+        comments = data["reviews"]["nodes"] | data["comments"]["nodes"]
         author = data["author"]["login"]
 
         # Get unique contributors from reviews and comments
-        contributors = {review["author"]["login"] for review in data["reviews"]["nodes"]}
-        contributors.update(comment["author"]["login"] for comment in data["comments"]["nodes"])
+        contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
         contributors.discard(author)  # Remove author from contributors list
 
         # Generate personalized comment
         comment = generate_issue_comment(pr_url=data["url"], pr_summary=pr_summary)
 
         # Update linked issues
-        for issue in issues:
+        for issue in data["closingIssuesReferences"]["nodes"]:
             issue_number = issue["number"]
             # Add fixed label
             label_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/labels"
