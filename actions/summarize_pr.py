@@ -21,7 +21,7 @@ SUMMARY_START = (
 
 
 def generate_merge_message(pr_author, contributors, pr_summary=None):
-    """Generates an AI thank you message for merged PRs using OpenAI."""
+    """Generates a thank-you message for merged PR contributors."""
     contributors_str = ", ".join(f"@{c}" for c in contributors if c != pr_author)
     mention_str = f"@{pr_author}"
     if contributors_str:
@@ -38,15 +38,15 @@ def generate_merge_message(pr_author, contributors, pr_summary=None):
             f"Context from PR:\n{pr_summary}\n\n"
             f"Start with the exciting message that this PR is now merged, and weave in an inspiring quote "
             f"from a famous figure in science, philosophy or stoicism. "
-            f"Make the message relevant to the specific contributions in this PR. "
-            f"We want them to feel their hard work is acknowledged and will make a difference in the world.",
+            f"Keep the message concise yet relevant to the specific contributions in this PR. "
+            f"We want the contributors to feel their effort is appreciated and will make a difference in the world.",
         },
     ]
     return get_completion(messages)
 
 
 def post_merge_message(pr_number, pr_author, contributors, summary):
-    """Posts AI-generated thank you message on PR after merge."""
+    """Posts thank you message on PR after merge."""
     message = generate_merge_message(pr_author, contributors, summary)
     comment_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{pr_number}/comments"
     response = requests.post(comment_url, json={"body": message}, headers=GITHUB_HEADERS)
@@ -54,7 +54,7 @@ def post_merge_message(pr_number, pr_author, contributors, summary):
 
 
 def generate_issue_comment(pr_url, pr_summary):
-    """Generates a personalized issue comment using AI based on the PR context."""
+    """Generates a personalized issue comment using based on the PR context."""
     messages = [
         {
             "role": "system",
@@ -62,14 +62,14 @@ def generate_issue_comment(pr_url, pr_summary):
         },
         {
             "role": "user",
-            "content": f"Write a comment for a GitHub issue where a potential fix has been merged in PR: {pr_url}\n\n"
+            "content": f"Write a GitHub issue comment announcing a potential fix has been merged in linked PR {pr_url}\n\n"
             f"Context from PR:\n{pr_summary}\n\n"
             f"Include:\n"
             f"1. An explanation of key changes from the PR that may resolve this issue\n"
-            f"2. Testing options:\n"
+            f"2. Options for testing if PR changes have resolved this issue:\n"
             f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # test latest changes\n"
             f"   - or await next official PyPI release\n"
-            f"3. Request feedback on whether these changes resolve the issue\n"
+            f"3. Request feedback on whether the PR changes resolve the issue\n"
             f"4. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
         },
     ]
@@ -141,12 +141,12 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             }
             url
             body
-            author { login }
+            author { login, __typename }
             reviews(first: 50) {
-                nodes { author { login } }
+                nodes { author { login, __typename } }
             }
             comments(first: 50) {
-                nodes { author { login } }
+                nodes { author { login, __typename } }
             }
         }
     }
@@ -163,19 +163,18 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
 
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
-        issues = data["closingIssuesReferences"]["nodes"]
+        comments = data["reviews"]["nodes"] | data["comments"]["nodes"]
         author = data["author"]["login"]
 
         # Get unique contributors from reviews and comments
-        contributors = {review["author"]["login"] for review in data["reviews"]["nodes"]}
-        contributors.update(comment["author"]["login"] for comment in data["comments"]["nodes"])
+        contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
         contributors.discard(author)  # Remove author from contributors list
 
         # Generate personalized comment
         comment = generate_issue_comment(pr_url=data["url"], pr_summary=pr_summary)
 
         # Update linked issues
-        for issue in issues:
+        for issue in data["closingIssuesReferences"]["nodes"]:
             issue_number = issue["number"]
             # Add fixed label
             label_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{issue_number}/labels"
@@ -208,7 +207,7 @@ def remove_todos_on_merge(pr_number):
 
 
 def main():
-    """Summarize a pull request and update its description with an AI-generated summary."""
+    """Summarize a pull request and update its description with a summary."""
     pr_number = PR["number"]
 
     print(f"Retrieving diff for PR {pr_number}")
