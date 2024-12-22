@@ -163,7 +163,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
 
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
-        comments = data["reviews"]["nodes"] + data["comments"]["nodes"]  # merge both lists
+        comments = data["reviews"]["nodes"] + data["comments"]["nodes"]  # merge lists
         author = data["author"]["login"]
 
         # Get unique contributors from reviews and comments
