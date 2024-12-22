@@ -62,7 +62,7 @@ def generate_issue_comment(pr_url, pr_summary):
         },
         {
             "role": "user",
-            "content": f"Write GitHub issue comment announcing a potential fix has been merged in PR: {pr_url}\n\n"
+            "content": f"Write a GitHub issue comment announcing a potential fix has been merged in linked PR {pr_url}\n\n"
             f"Context from PR:\n{pr_summary}\n\n"
             f"Include:\n"
             f"1. An explanation of key changes from the PR that may resolve this issue\n"
