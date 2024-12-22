@@ -21,7 +21,7 @@ SUMMARY_START = (
 
 
 def generate_merge_message(pr_author, contributors, pr_summary=None):
-    """Generates an AI thank you message for merged PRs using OpenAI."""
+    """Generates a thank-you message for merged PR contributors."""
     contributors_str = ", ".join(f"@{c}" for c in contributors if c != pr_author)
     mention_str = f"@{pr_author}"
     if contributors_str:
@@ -46,7 +46,7 @@ def generate_merge_message(pr_author, contributors, pr_summary=None):
 
 
 def post_merge_message(pr_number, pr_author, contributors, summary):
-    """Posts AI-generated thank you message on PR after merge."""
+    """Posts thank you message on PR after merge."""
     message = generate_merge_message(pr_author, contributors, summary)
     comment_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{pr_number}/comments"
     response = requests.post(comment_url, json={"body": message}, headers=GITHUB_HEADERS)
@@ -54,7 +54,7 @@ def post_merge_message(pr_number, pr_author, contributors, summary):
 
 
 def generate_issue_comment(pr_url, pr_summary):
-    """Generates a personalized issue comment using AI based on the PR context."""
+    """Generates a personalized issue comment using based on the PR context."""
     messages = [
         {
             "role": "system",
@@ -207,7 +207,7 @@ def remove_todos_on_merge(pr_number):
 
 
 def main():
-    """Summarize a pull request and update its description with an AI-generated summary."""
+    """Summarize a pull request and update its description with a summary."""
     pr_number = PR["number"]
 
     print(f"Retrieving diff for PR {pr_number}")
