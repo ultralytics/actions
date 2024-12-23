@@ -164,7 +164,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
         comments = data["reviews"]["nodes"] + data["comments"]["nodes"]  # merge lists
-        author = data["author"]["login"]
+        author = data["author"]["login"] if data["author"]["__typename"] != "Bot" else None
 
         # Get unique contributors from reviews and comments
         contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
