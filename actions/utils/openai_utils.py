@@ -1,7 +1,7 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
 import os
-import random
+import time
 from typing import Dict, List
 
 import requests
@@ -25,7 +25,7 @@ def get_completion(
     content = ""
     max_retries = 2
     for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
-        data = {"model": OPENAI_MODEL, "messages": messages, "seed": random.randint(1, 1000000)}
+        data = {"model": OPENAI_MODEL, "messages": messages, "seed": int(time.time() * 1000)}
 
         r = requests.post(url, headers=headers, json=data)
         r.raise_for_status()
