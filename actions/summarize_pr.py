@@ -179,10 +179,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
 
         # Generate personalized comment
         comment = generate_issue_comment(
-            pr_url=data["url"], 
-            pr_summary=pr_summary, 
-            pr_author=author, 
-            contributors=list(contributors)
+            pr_url=data["url"], pr_summary=pr_summary, pr_author=author, contributors=list(contributors)
         )
 
         # Update linked issues
