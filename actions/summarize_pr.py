@@ -53,8 +53,15 @@ def post_merge_message(pr_number, pr_author, contributors, summary):
     return response.status_code == 201
 
 
-def generate_issue_comment(pr_url, pr_summary):
+def generate_issue_comment(pr_url, pr_summary, pr_author, contributors=None):
     """Generates a personalized issue comment using based on the PR context."""
+    contributors = contributors or []
+    credit = f"@{pr_author}"
+    if contributors:
+        others = [f"@{c}" for c in contributors[:2]]  # Limit to 2 additional contributors
+        if others:
+            credit += f" and {', '.join(others)}"
+
     messages = [
         {
             "role": "system",
@@ -62,7 +69,7 @@ def generate_issue_comment(pr_url, pr_summary):
         },
         {
             "role": "user",
-            "content": f"Write a GitHub issue comment announcing a potential fix has been merged in linked PR {pr_url}\n\n"
+            "content": f"Write a GitHub issue comment announcing a potential fix by {credit} has been merged in linked PR {pr_url}\n\n"
             f"Context from PR:\n{pr_summary}\n\n"
             f"Include:\n"
             f"1. An explanation of key changes from the PR that may resolve this issue\n"
@@ -171,7 +178,12 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         contributors.discard(author)  # Remove author from contributors list
 
         # Generate personalized comment
-        comment = generate_issue_comment(pr_url=data["url"], pr_summary=pr_summary)
+        comment = generate_issue_comment(
+            pr_url=data["url"], 
+            pr_summary=pr_summary, 
+            pr_author=author, 
+            contributors=list(contributors)
+        )
 
         # Update linked issues
         for issue in data["closingIssuesReferences"]["nodes"]:
