@@ -85,7 +85,6 @@ runs:
         else
           sudo env "PATH=$PATH" uv pip install --system $packages
         fi
-
         ultralytics-actions-info
       shell: bash
 

@@ -32,7 +32,7 @@ def generate_merge_message(pr_summary=None, pr_credit=None):
             "content": f"Write a friendly thank you for a merged GitHub PR by {pr_credit}. "
             f"Context from PR:\n{pr_summary}\n\n"
             f"Start with the exciting message that this PR is now merged, and weave in an inspiring quote "
-            f"from a famous figure in science, philosophy or stoicism. "
+            f"from a famous figure from science, art, philosophy or stoicism. "
             f"Keep the message concise yet relevant to the specific contributions in this PR. "
             f"We want the contributors to feel their effort is appreciated and will make a difference in the world.",
         },
@@ -57,15 +57,16 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit):
         },
         {
             "role": "user",
-            "content": f"Write a GitHub issue comment announcing a potential fix by {pr_credit} has been merged in linked PR {pr_url}\n\n"
+            "content": f"Write a GitHub issue comment announcing a potential fix for this issue is now merged in linked PR {pr_url} by {pr_credit}\n\n"
             f"Context from PR:\n{pr_summary}\n\n"
             f"Include:\n"
             f"1. An explanation of key changes from the PR that may resolve this issue\n"
-            f"2. Options for testing if PR changes have resolved this issue:\n"
+            f"2. Credit to the PR author and contributors\n"
+            f"3. Options for testing if PR changes have resolved this issue:\n"
             f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # test latest changes\n"
             f"   - or await next official PyPI release\n"
-            f"3. Request feedback on whether the PR changes resolve the issue\n"
-            f"4. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
+            f"4. Request feedback on whether the PR changes resolve the issue\n"
+            f"5. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
         },
     ]
     return get_completion(messages)
@@ -124,47 +125,49 @@ def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
 
 
 def label_fixed_issues(pr_number, pr_summary):
-    """Labels issues closed by this PR when merged, notifies users, and returns PR contributors."""
+    """Labels issues closed by PR when merged, notifies users, returns PR contributors."""
     query = """
 query($owner: String!, $repo: String!, $pr_number: Int!) {
     repository(owner: $owner, name: $repo) {
         pullRequest(number: $pr_number) {
-            closingIssuesReferences(first: 50) {
-                nodes {
-                    number
-                }
-            }
+            closingIssuesReferences(first: 50) { nodes { number } }
             url
             body
             author { login, __typename }
-            reviews(first: 50) {
-                nodes { author { login, __typename } }
-            }
-            comments(first: 50) {
-                nodes { author { login, __typename } }
-            }
+            reviews(first: 50) { nodes { author { login, __typename } } }
+            comments(first: 50) { nodes { author { login, __typename } } }
+            commits(first: 100) { nodes { commit { author { user { login } }, committer { user { login } } } } }
         }
     }
 }
 """
-
     owner, repo = GITHUB_REPOSITORY.split("/")
     variables = {"owner": owner, "repo": repo, "pr_number": pr_number}
     graphql_url = "https://api.github.com/graphql"
     response = requests.post(graphql_url, json={"query": query, "variables": variables}, headers=GITHUB_HEADERS)
+
     if response.status_code != 200:
         print(f"Failed to fetch linked issues. Status code: {response.status_code}")
         return [], None
 
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
-        comments = data["reviews"]["nodes"] + data["comments"]["nodes"]  # merge lists
+        comments = data["reviews"]["nodes"] + data["comments"]["nodes"]
         token_username = get_github_username()  # get GITHUB_TOKEN username
         author = data["author"]["login"] if data["author"]["__typename"] != "Bot" else None
 
         # Get unique contributors from reviews and comments
         contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
-        contributors.discard(author)  # Remove author from contributors list
+
+        # Add commit authors and committers that have GitHub accounts linked
+        for commit in data["commits"]["nodes"]:
+            commit_data = commit["commit"]
+            for user_type in ["author", "committer"]:
+                if user := commit_data[user_type].get("user"):
+                    if login := user.get("login"):
+                        contributors.add(login)
+
+        contributors.discard(author)
         contributors.discard(token_username)
 
         # Write credit string
