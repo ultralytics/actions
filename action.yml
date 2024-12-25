@@ -224,7 +224,7 @@ runs:
           echo "No changes to commit"
         fi
       shell: bash
-      continue-on-error: false
+      continue-on-error: true
 
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
