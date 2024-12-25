@@ -20,13 +20,8 @@ SUMMARY_START = (
 )
 
 
-def generate_merge_message(pr_author, contributors, pr_summary=None):
+def generate_merge_message(pr_summary=None, pr_credit=None):
     """Generates a thank-you message for merged PR contributors."""
-    contributors_str = ", ".join(f"@{c}" for c in contributors if c != pr_author)
-    mention_str = f"@{pr_author}"
-    if contributors_str:
-        mention_str += f" and {contributors_str}"
-
     messages = [
         {
             "role": "system",
@@ -34,7 +29,7 @@ def generate_merge_message(pr_author, contributors, pr_summary=None):
         },
         {
             "role": "user",
-            "content": f"Write a friendly thank you for a merged PR by these GitHub contributors: {mention_str}. "
+            "content": f"Write a friendly thank you for a merged GitHub PR by {pr_credit}. "
             f"Context from PR:\n{pr_summary}\n\n"
             f"Start with the exciting message that this PR is now merged, and weave in an inspiring quote "
             f"from a famous figure in science, philosophy or stoicism. "
@@ -45,15 +40,15 @@ def generate_merge_message(pr_author, contributors, pr_summary=None):
     return get_completion(messages)
 
 
-def post_merge_message(pr_number, pr_author, contributors, summary):
+def post_merge_message(pr_number, summary, pr_credit):
     """Posts thank you message on PR after merge."""
-    message = generate_merge_message(pr_author, contributors, summary)
+    message = generate_merge_message(summary, pr_credit)
     comment_url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/issues/{pr_number}/comments"
     response = requests.post(comment_url, json={"body": message}, headers=GITHUB_HEADERS)
     return response.status_code == 201
 
 
-def generate_issue_comment(pr_url, pr_summary):
+def generate_issue_comment(pr_url, pr_summary, pr_credit):
     """Generates a personalized issue comment using based on the PR context."""
     messages = [
         {
@@ -62,7 +57,7 @@ def generate_issue_comment(pr_url, pr_summary):
         },
         {
             "role": "user",
-            "content": f"Write a GitHub issue comment announcing a potential fix has been merged in linked PR {pr_url}\n\n"
+            "content": f"Write a GitHub issue comment announcing a potential fix by {pr_credit} has been merged in linked PR {pr_url}\n\n"
             f"Context from PR:\n{pr_summary}\n\n"
             f"Include:\n"
             f"1. An explanation of key changes from the PR that may resolve this issue\n"
@@ -164,14 +159,23 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
         comments = data["reviews"]["nodes"] + data["comments"]["nodes"]  # merge lists
+        token_username = get_github_username()  # get GITHUB_TOKEN username
         author = data["author"]["login"] if data["author"]["__typename"] != "Bot" else None
 
         # Get unique contributors from reviews and comments
         contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
         contributors.discard(author)  # Remove author from contributors list
+        contributors.discard(token_username)
+
+        # Write credit string
+        pr_credit = ""  # i.e. "@user1 with contributions from @user2, @user3"
+        if author and author != token_username:
+            pr_credit += f"@{author}"
+        if contributors:
+            pr_credit += (" with contributions from " if pr_credit else "") + ", ".join(f"@{c}" for c in contributors)
 
         # Generate personalized comment
-        comment = generate_issue_comment(pr_url=data["url"], pr_summary=pr_summary)
+        comment = generate_issue_comment(pr_url=data["url"], pr_summary=pr_summary, pr_credit=pr_credit)
 
         # Update linked issues
         for issue in data["closingIssuesReferences"]["nodes"]:
@@ -192,7 +196,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
                     f"Comment status: {comment_response.status_code}"
                 )
 
-        return contributors, author
+        return pr_credit
     except KeyError as e:
         print(f"Error parsing GraphQL response: {e}")
         return [], None
@@ -228,14 +232,12 @@ def main():
     # Update linked issues and post thank you message if merged
     if PR.get("merged"):
         print("PR is merged, labeling fixed issues...")
-        contributors, author = label_fixed_issues(pr_number, summary)
+        pr_credit = label_fixed_issues(pr_number, summary)
         print("Removing TODO label from PR...")
         remove_todos_on_merge(pr_number)
-        username = get_github_username()  # get GITHUB_TOKEN username
-        if author and author != username:
+        if pr_credit:
             print("Posting PR author thank you message...")
-            contributors.discard(username)
-            post_merge_message(pr_number, author, contributors, summary)
+            post_merge_message(pr_number, summary, pr_credit)
 
 
 if __name__ == "__main__":
