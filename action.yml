@@ -215,7 +215,6 @@ runs:
       run: |
         git config --global user.name "$GITHUB_USERNAME"
         git config --global user.email "$GITHUB_EMAIL"
-        git pull
         git add .
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
         if ! git diff --staged --quiet; then
