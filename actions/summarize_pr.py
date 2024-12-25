@@ -124,47 +124,49 @@ def update_pr_description(repo_name, pr_number, new_summary, max_retries=2):
 
 
 def label_fixed_issues(pr_number, pr_summary):
-    """Labels issues closed by this PR when merged, notifies users, and returns PR contributors."""
+    """Labels issues closed by PR when merged, notifies users, returns PR contributors."""
     query = """
 query($owner: String!, $repo: String!, $pr_number: Int!) {
     repository(owner: $owner, name: $repo) {
         pullRequest(number: $pr_number) {
-            closingIssuesReferences(first: 50) {
-                nodes {
-                    number
-                }
-            }
+            closingIssuesReferences(first: 50) { nodes { number } }
             url
             body
             author { login, __typename }
-            reviews(first: 50) {
-                nodes { author { login, __typename } }
-            }
-            comments(first: 50) {
-                nodes { author { login, __typename } }
-            }
+            reviews(first: 50) { nodes { author { login, __typename } } }
+            comments(first: 50) { nodes { author { login, __typename } } }
+            commits(first: 100) { nodes { commit { author { user { login } }, committer { user { login } } } } }
         }
     }
 }
 """
-
     owner, repo = GITHUB_REPOSITORY.split("/")
     variables = {"owner": owner, "repo": repo, "pr_number": pr_number}
     graphql_url = "https://api.github.com/graphql"
     response = requests.post(graphql_url, json={"query": query, "variables": variables}, headers=GITHUB_HEADERS)
+
     if response.status_code != 200:
         print(f"Failed to fetch linked issues. Status code: {response.status_code}")
         return [], None
 
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
-        comments = data["reviews"]["nodes"] + data["comments"]["nodes"]  # merge lists
+        comments = data["reviews"]["nodes"] + data["comments"]["nodes"]
         token_username = get_github_username()  # get GITHUB_TOKEN username
         author = data["author"]["login"] if data["author"]["__typename"] != "Bot" else None
 
         # Get unique contributors from reviews and comments
         contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
-        contributors.discard(author)  # Remove author from contributors list
+
+        # Add commit authors and committers that have GitHub accounts linked
+        for commit in data["commits"]["nodes"]:
+            commit_data = commit["commit"]
+            for user_type in ["author", "committer"]:
+                if user := commit_data[user_type].get("user"):
+                    if login := user.get("login"):
+                        contributors.add(login)
+
+        contributors.discard(author)
         contributors.discard(token_username)
 
         # Write credit string
@@ -191,10 +193,8 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             if label_response.status_code == 200 and comment_response.status_code == 201:
                 print(f"Added 'fixed' label and comment to issue #{issue_number}")
             else:
-                print(
-                    f"Failed to update issue #{issue_number}. Label status: {label_response.status_code}, "
-                    f"Comment status: {comment_response.status_code}"
-                )
+                print(f"Failed to update issue #{issue_number}. Label status: {label_response.status_code}, "
+                    f"Comment status: {comment_response.status_code}")
 
         return pr_credit
     except KeyError as e:
