@@ -57,15 +57,16 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit):
         },
         {
             "role": "user",
-            "content": f"Write a GitHub issue comment announcing a potential fix by {pr_credit} has been merged in linked PR {pr_url}\n\n"
+            "content": f"Write a GitHub issue comment announcing a potential fix for this issue is now merged in linked PR {pr_url} by {pr_credit}\n\n"
             f"Context from PR:\n{pr_summary}\n\n"
             f"Include:\n"
             f"1. An explanation of key changes from the PR that may resolve this issue\n"
-            f"2. Options for testing if PR changes have resolved this issue:\n"
+            f"2. Credit to the PR author and contributors\n"
+            f"3. Options for testing if PR changes have resolved this issue:\n"
             f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # test latest changes\n"
             f"   - or await next official PyPI release\n"
-            f"3. Request feedback on whether the PR changes resolve the issue\n"
-            f"4. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
+            f"4. Request feedback on whether the PR changes resolve the issue\n"
+            f"5. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
         },
     ]
     return get_completion(messages)
