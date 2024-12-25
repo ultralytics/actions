@@ -32,7 +32,7 @@ def generate_merge_message(pr_summary=None, pr_credit=None):
             "content": f"Write a friendly thank you for a merged GitHub PR by {pr_credit}. "
             f"Context from PR:\n{pr_summary}\n\n"
             f"Start with the exciting message that this PR is now merged, and weave in an inspiring quote "
-            f"from a famous figure in science, philosophy or stoicism. "
+            f"from a famous figure from science, art, philosophy or stoicism. "
             f"Keep the message concise yet relevant to the specific contributions in this PR. "
             f"We want the contributors to feel their effort is appreciated and will make a difference in the world.",
         },
