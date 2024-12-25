@@ -193,8 +193,10 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             if label_response.status_code == 200 and comment_response.status_code == 201:
                 print(f"Added 'fixed' label and comment to issue #{issue_number}")
             else:
-                print(f"Failed to update issue #{issue_number}. Label status: {label_response.status_code}, "
-                    f"Comment status: {comment_response.status_code}")
+                print(
+                    f"Failed to update issue #{issue_number}. Label status: {label_response.status_code}, "
+                    f"Comment status: {comment_response.status_code}"
+                )
 
         return pr_credit
     except KeyError as e:
