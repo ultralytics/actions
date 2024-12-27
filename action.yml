@@ -76,7 +76,7 @@ runs:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
         sudo env "PATH=$PATH" uv pip install --system git+https://github.com/ultralytics/actions@glenn-jocher-patch-1 codespell tomli
-        
+
         ultralytics-actions-info
       shell: bash
 

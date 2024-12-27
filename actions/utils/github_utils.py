@@ -44,7 +44,7 @@ def check_pr_fork():
         print(f"Error processing fork: {e}")
         raise
 
-        
+
 def get_github_username():
     """Gets username associated with the GitHub token in GITHUB_HEADERS."""
     query = """
