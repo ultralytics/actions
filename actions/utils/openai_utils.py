@@ -21,7 +21,6 @@ def get_completion(
     """Generates a completion using OpenAI's API based on input messages."""
     assert OPENAI_API_KEY or GITHUB_REPOSITORY.split("/")[0] == "ultralytics", "OpenAI API key is required."
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
-
     content = ""
     max_retries = 2
     for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
