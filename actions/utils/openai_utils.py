@@ -19,10 +19,7 @@ def get_completion(
     remove: List[str] = (" @giscus[bot]",),  # strings to remove from response
 ) -> str:
     """Generates a completion using OpenAI's API based on input messages."""
-    assert OPENAI_API_KEY or GITHUB_REPOSITORY.split("/")[0] == "ultralytics", "OpenAI API key is required."
-
-    if GITHUB_REPOSITORY.split("/")[0] == "ultralytics":
-        OPENAI_API_KEY = None
+    assert OPENAI_API_KEY, "OpenAI API key is required."
 
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
     content = ""
@@ -31,7 +28,7 @@ def get_completion(
         data = {"model": OPENAI_MODEL, "messages": messages, "seed": int(time.time() * 1000)}
         r = requests.post(
             "https://api.openai.com/v1/chat/completions"
-            if OPENAI_API_KEY
+            if OPENAI_API_KEY and GITHUB_REPOSITORY.split("/")[0] != "ultralytics"
             else "https://actions-public-dproatj77a-ew.a.run.app",
             headers=headers,
             json=data,
