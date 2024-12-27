@@ -71,27 +71,12 @@ runs:
     - uses: astral-sh/setup-uv@v4
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
-      # For debug:
-      #   python -m pip install --upgrade pip wheel
-      #   pip install -q git+https://github.com/ultralytics/actions@main codespell tomli
+      # sudo env "PATH=$PATH" uv pip install --system git+https://github.com/ultralytics/actions@main codespell tomli
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
-        #packages="ultralytics-actions"
-        #if [ "$INPUTS_SPELLING" = "true" ]; then
-        #  packages="$packages codespell tomli"
-        #fi
-
-        # On macOS, don't use sudo as it can cause environment issues
-        #if [ "$(uname)" = "Darwin" ]; then
-        #  pip install -q $packages
-        #else
-        #  sudo env "PATH=$PATH" uv pip install --system $packages
-        #fi
-
-        python -m pip install --upgrade pip wheel
-        pip install -q git+https://github.com/ultralytics/actions@glenn-jocher-patch-1 codespell tomli
-
+        sudo env "PATH=$PATH" uv pip install --system git+https://github.com/ultralytics/actions@glenn-jocher-patch-1 codespell tomli
+        
         ultralytics-actions-info
       shell: bash
 
@@ -122,7 +107,6 @@ runs:
         repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
         token: ${{ inputs.token }}
         ref: ${{ github.head_ref || github.ref }}
-        fetch-depth: 0
 
     # PR Summary -------------------------------------------------------------------------------------------------------
     - name: PR Summary
@@ -242,7 +226,6 @@ runs:
       run: |
         git config --global user.name "$GITHUB_USERNAME"
         git config --global user.email "$GITHUB_EMAIL"
-        git pull
         git add .
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
         if ! git diff --staged --quiet; then
@@ -252,12 +235,12 @@ runs:
           echo "No changes to commit"
         fi
       shell: bash
-      continue-on-error: false
+      continue-on-error: true
 
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
       if: inputs.links == 'true' && github.event.action != 'closed'
-      uses: lycheeverse/lychee-action@v2.1.0
+      uses: lycheeverse/lychee-action@v2.2.0
       with:
         # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:
         #   - 403(OpenVINO, "forbidden")

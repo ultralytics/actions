@@ -167,7 +167,7 @@ YOUR RESPONSE (label names only):
     messages = [
         {
             "role": "system",
-            "content": "You are a helpful assistant that labels GitHub issues, pull requests, and discussions.",
+            "content": "You are an Ultralytics AI assistant that labels GitHub issues, PRs, and discussions.",
         },
         {"role": "user", "content": prompt},
     ]
@@ -335,7 +335,7 @@ INSTRUCTIONS:
 - Adapt the example {issue_type} response below as appropriate, keeping all badges, links and references provided
 - For bug reports, specifically request a minimum reproducible example (MRE) if not provided
 - INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
-- In your response, mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
+- Mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
 - Do not add a sign-off or valediction like "best regards" at the end of your response
 - Do not add spaces between bullet points or numbered lists
 - Only link to files or URLs in the example below, do not add external links
@@ -359,7 +359,7 @@ YOUR {issue_type.upper()} RESPONSE:
     messages = [
         {
             "role": "system",
-            "content": f"You are a helpful assistant responding to GitHub {issue_type}s for the {org_name} organization.",
+            "content": f"You are an Ultralytics AI assistant responding to GitHub {issue_type}s for {org_name}.",
         },
         {"role": "user", "content": prompt},
     ]
