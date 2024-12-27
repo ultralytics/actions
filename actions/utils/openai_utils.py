@@ -19,7 +19,7 @@ def get_completion(
     remove: List[str] = (" @giscus[bot]",),  # strings to remove from response
 ) -> str:
     """Generates a completion using OpenAI's API based on input messages."""
-    assert OPENAI_API_KEY, "OpenAI API key is required."
+    # assert OPENAI_API_KEY, "OpenAI API key is required."
 
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
     content = ""
