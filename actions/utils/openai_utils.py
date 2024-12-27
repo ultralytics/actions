@@ -27,7 +27,11 @@ def get_completion(
     for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
         data = {"model": OPENAI_MODEL, "messages": messages, "seed": int(time.time() * 1000)}
         r = requests.post(
-            "https://api.openai.com/v1/chat/completions" if OPENAI_API_KEY else "https://actions-public-dproatj77a-ew.a.run.app", headers=headers, json=data
+            "https://api.openai.com/v1/chat/completions"
+            if OPENAI_API_KEY
+            else "https://actions-public-dproatj77a-ew.a.run.app",
+            headers=headers,
+            json=data,
         )
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"].strip()
