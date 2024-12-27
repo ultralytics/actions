@@ -6,6 +6,7 @@ from typing import Dict, List
 
 import requests
 
+from actions.utils import GITHUB_REPOSITORY
 from actions.utils.common_utils import check_links_in_string
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
@@ -18,7 +19,7 @@ def get_completion(
     remove: List[str] = (" @giscus[bot]",),  # strings to remove from response
 ) -> str:
     """Generates a completion using OpenAI's API based on input messages."""
-    assert OPENAI_API_KEY, "OpenAI API key is required."
+    assert OPENAI_API_KEY or GITHUB_REPOSITORY.split("/")[0] == "ultralytics", "OpenAI API key is required."
     url = "https://api.openai.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
 
@@ -26,8 +27,11 @@ def get_completion(
     max_retries = 2
     for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
         data = {"model": OPENAI_MODEL, "messages": messages, "seed": int(time.time() * 1000)}
-
-        r = requests.post(url, headers=headers, json=data)
+        r = requests.post(
+            url if OPENAI_API_KEY else "https://actions-public-dproatj77a-ew.a.run.app",
+            headers=headers,
+            json=data
+        )
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"].strip()
         for x in remove:
