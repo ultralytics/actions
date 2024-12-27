@@ -359,7 +359,7 @@ YOUR {issue_type.upper()} RESPONSE:
     messages = [
         {
             "role": "system",
-            "content": f"You are a helpful assistant responding to GitHub {issue_type}s for {org_name}.",
+            "content": f"You are an Ultralytics AI assistant responding to GitHub {issue_type}s for {org_name}.",
         },
         {"role": "user", "content": prompt},
     ]
