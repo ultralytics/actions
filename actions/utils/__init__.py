@@ -13,6 +13,7 @@ from .github_utils import (
     GITHUB_TOKEN,
     PR,
     check_pypi_version,
+    check_pr_fork,
     get_github_data,
     get_github_username,
     get_pr_diff,
@@ -41,5 +42,6 @@ __all__ = (
     "get_completion",
     "get_github_username",
     "check_pypi_version",
+    "check_pr_fork",
     "ultralytics_actions_info",
 )

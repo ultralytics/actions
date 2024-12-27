@@ -92,7 +92,7 @@ runs:
       env:
         GITHUB_CONTEXT: ${{ toJson(github) }}
       run: |
-        from actions import check_pr_fork
+        from actions.utils import check_pr_fork
         if check_pr_fork():
             print("Fork detected and processed, skipping remaining steps")
             sys.exit(0)  # Exit successfully, terminating the action
