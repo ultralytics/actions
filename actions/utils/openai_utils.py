@@ -23,7 +23,7 @@ def get_completion(
 
     if GITHUB_REPOSITORY.split("/")[0] == "ultralytics":
         OPENAI_API_KEY = None
-    
+
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
     content = ""
     max_retries = 2
