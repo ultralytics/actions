@@ -19,9 +19,7 @@ def get_completion(
     remove: List[str] = (" @giscus[bot]",),  # strings to remove from response
 ) -> str:
     """Generates a completion using OpenAI's API based on input messages."""
-    assert (
-        OPENAI_API_KEY or GITHUB_REPOSITORY.split("/")[0] == "ultralytics"
-    ), "OpenAI API key is required."
+    assert OPENAI_API_KEY or GITHUB_REPOSITORY.split("/")[0] == "ultralytics", "OpenAI API key is required."
     headers = {
         "Authorization": f"Bearer {OPENAI_API_KEY}",
         "Content-Type": "application/json",
@@ -29,9 +27,7 @@ def get_completion(
 
     content = ""
     max_retries = 2
-    for attempt in range(
-        max_retries + 2
-    ):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
+    for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
         data = {
             "model": OPENAI_MODEL,
             "messages": messages,
@@ -48,15 +44,11 @@ def get_completion(
         content = r.json()["choices"][0]["message"]["content"].strip()
         for x in remove:
             content = content.replace(x, "")
-        if not check_links or check_links_in_string(
-            content
-        ):  # if no checks or checks are passing return response
+        if not check_links or check_links_in_string(content):  # if no checks or checks are passing return response
             return content
 
         if attempt < max_retries:
-            print(
-                f"Attempt {attempt + 1}: Found bad URLs. Retrying with a new random seed."
-            )
+            print(f"Attempt {attempt + 1}: Found bad URLs. Retrying with a new random seed.")
         else:
             print("Max retries reached. Updating prompt to exclude links.")
             messages.append(
