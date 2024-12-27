@@ -167,7 +167,7 @@ YOUR RESPONSE (label names only):
     messages = [
         {
             "role": "system",
-            "content": "You are a helpful assistant that labels GitHub issues, pull requests, and discussions.",
+            "content": "You are an Ultralytics AI assistant that labels GitHub issues, PRs, and discussions.",
         },
         {"role": "user", "content": prompt},
     ]
@@ -359,7 +359,7 @@ YOUR {issue_type.upper()} RESPONSE:
     messages = [
         {
             "role": "system",
-            "content": f"You are a helpful assistant responding to GitHub {issue_type}s for {org_name}.",
+            "content": f"You are an Ultralytics AI assistant responding to GitHub {issue_type}s for {org_name}.",
         },
         {"role": "user", "content": prompt},
     ]
