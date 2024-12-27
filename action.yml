@@ -98,7 +98,6 @@ runs:
             import sys
             sys.exit(0)  # Exit successfully, terminating the action
       shell: python
-      continue-on-error: true
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
     - name: Checkout Repository
