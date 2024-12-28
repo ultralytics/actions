@@ -21,18 +21,11 @@ if GITHUB_EVENT_PATH:
     if event_path.exists():
         EVENT_DATA = json.loads(event_path.read_text())
 PR = EVENT_DATA.get("pull_request", {})
-DISCUSSION = EVENT_DATA.get("discussion", {})
 
 
 def get_github_username():
     """Gets username associated with the GitHub token in GITHUB_HEADERS."""
-    query = """
-    query {
-        viewer {
-            login
-        }
-    }
-    """
+    query = "query { viewer { login } }"
     response = requests.post("https://api.github.com/graphql", json={"query": query}, headers=GITHUB_HEADERS)
     if response.status_code != 200:
         print(f"Failed to fetch authenticated user. Status code: {response.status_code}")
@@ -72,6 +65,40 @@ def graphql_request(query: str, variables: dict = None) -> dict:
     success = "data" in result and not result.get("errors")
     print(f"{'Successful' if success else 'Fail'} discussion GraphQL request: {result.get('errors', 'No errors')}")
     return result
+
+
+def ultralytics_actions_info():
+    """Print Ultralytics Actions information."""
+    info = {
+        "github.event_name": GITHUB_EVENT_NAME,
+        "github.event.action": EVENT_DATA.get("action"),
+        "github.repository": GITHUB_REPOSITORY,
+        "github.event.pull_request.number": PR.get("number"),
+        "github.event.pull_request.head.repo.full_name": PR.get("head", {}).get("repo", {}).get("full_name"),
+        "github.actor": os.environ.get("GITHUB_ACTOR"),
+        "github.event.pull_request.head.ref": PR.get("head", {}).get("ref"),
+        "github.ref": os.environ.get("GITHUB_REF"),
+        "github.head_ref": os.environ.get("GITHUB_HEAD_REF"),
+        "github.base_ref": os.environ.get("GITHUB_BASE_REF"),
+        "github.base_sha": PR.get("base", {}).get("sha"),
+    }
+
+    if GITHUB_EVENT_NAME == "discussion":
+        discussion = EVENT_DATA.get("discussion", {})
+        info.update(
+            {
+                "github.event.discussion.node_id": discussion.get("node_id"),
+                "github.event.discussion.number": discussion.get("number"),
+            }
+        )
+
+    # Print information
+    max_key_length = max(len(key) for key in info)
+    header = f"Ultralytics Actions {__version__} Information " + "-" * 40
+    print(header)
+    for key, value in info.items():
+        print(f"{key:<{max_key_length + 5}}{value}")
+    print("-" * len(header))  # footer
 
 
 def check_pypi_version(pyproject_toml="pyproject.toml"):
@@ -122,36 +149,3 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
         publish = True  # publish as this is likely a first release
 
     return local_version, online_version, publish
-
-
-def ultralytics_actions_info():
-    """Print Ultralytics Actions information."""
-    info = {
-        "github.event_name": GITHUB_EVENT_NAME,
-        "github.event.action": EVENT_DATA.get("action"),
-        "github.repository": GITHUB_REPOSITORY,
-        "github.event.pull_request.number": PR.get("number"),
-        "github.event.pull_request.head.repo.full_name": PR.get("head", {}).get("repo", {}).get("full_name"),
-        "github.actor": os.environ.get("GITHUB_ACTOR"),
-        "github.event.pull_request.head.ref": PR.get("head", {}).get("ref"),
-        "github.ref": os.environ.get("GITHUB_REF"),
-        "github.head_ref": os.environ.get("GITHUB_HEAD_REF"),
-        "github.base_ref": os.environ.get("GITHUB_BASE_REF"),
-        "github.base_sha": PR.get("base", {}).get("sha"),
-    }
-
-    if GITHUB_EVENT_NAME == "discussion":
-        info.update(
-            {
-                "github.event.discussion.node_id": DISCUSSION.get("node_id"),
-                "github.event.discussion.number": DISCUSSION.get("number"),
-            }
-        )
-
-    # Print information
-    max_key_length = max(len(key) for key in info)
-    header = f"Ultralytics Actions {__version__} Information " + "-" * 40
-    print(header)
-    for key, value in info.items():
-        print(f"{key:<{max_key_length + 5}}{value}")
-    print("-" * len(header))  # footer
