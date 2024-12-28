@@ -207,9 +207,9 @@ def remove_todos_on_merge(pr_number, repository, headers):
         requests.delete(f"{GITHUB_API_URL}/repos/{repository}/issues/{pr_number}/labels/{label}", headers=headers)
 
 
-def main():
+def main(*args, **kwargs):
     """Summarize a pull request and update its description with a summary."""
-    action = Action()
+    action = Action(*args, **kwargs)
     pr_number = action.pr["number"]
     headers = action.headers
     repository = action.repository

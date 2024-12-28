@@ -155,9 +155,9 @@ def get_previous_tag() -> str:
         return "HEAD~1"
 
 
-def main():
+def main(*args, **kwargs):
     """Automates generating and publishing a GitHub release summary from PRs and commit differences."""
-    action = Action()
+    action = Action(*args, **kwargs)
 
     if not all([action.token, CURRENT_TAG]):
         raise ValueError("One or more required environment variables are missing.")

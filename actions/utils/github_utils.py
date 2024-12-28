@@ -15,21 +15,21 @@ class Action:
 
     def __init__(
         self,
-        token: str = os.getenv("GITHUB_TOKEN"),
-        event_name: str = os.getenv("GITHUB_EVENT_NAME"),
+        token: str = None,
+        event_name: str = None,
         event_data: dict = None,
     ):
-        self.token = token
+        self.token = token or os.getenv("GITHUB_TOKEN")
+        self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
+        self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
+
+        self.pr = self.event_data.get("pull_request", {})
+        self.repository = self.event_data.get("repository", {}).get("full_name")
         self.headers = {"Authorization": f"token {self.token}", "Accept": "application/vnd.github.v3+json"}
         self.headers_diff = {"Authorization": f"token {self.token}", "Accept": "application/vnd.github.v3.diff"}
 
-        # Load event data from args or file
-        self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
-        self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
-        self.pr = self.event_data.get("pull_request", {})
-        self.repository = self.event_data.get("repository", {}).get("full_name")
-
-    def _load_event_data(self, event_path: str) -> dict:
+    @staticmethod
+    def _load_event_data(event_path: str) -> dict:
         """Loads GitHub event data from path if it exists."""
         if event_path and Path(event_path).exists():
             return json.loads(Path(event_path).read_text())

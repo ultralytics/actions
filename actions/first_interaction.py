@@ -362,9 +362,9 @@ YOUR {issue_type.upper()} RESPONSE:
     return get_completion(messages)
 
 
-def main():
+def main(*args, **kwargs):
     """Executes auto-labeling and custom response generation for new GitHub issues, PRs, and discussions."""
-    event = Action()
+    event = Action(*args, **kwargs)
     number, node_id, title, body, username, issue_type, action = get_event_content(event)
     available_labels = event.get_repo_data("labels")
     label_descriptions = {label["name"]: label.get("description", "") for label in available_labels}
