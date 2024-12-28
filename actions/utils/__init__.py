@@ -18,7 +18,7 @@ from .github_utils import (
     graphql_request,
     ultralytics_actions_info,
 )
-from .openai_utils import OPENAI_API_KEY, OPENAI_MODEL, get_completion
+from .openai_utils import get_completion
 
 __all__ = (
     "remove_html_comments",
@@ -34,8 +34,6 @@ __all__ = (
     "get_github_data",
     "get_pr_diff",
     "graphql_request",
-    "OPENAI_API_KEY",
-    "OPENAI_MODEL",
     "get_completion",
     "get_github_username",
     "check_pypi_version",
