@@ -109,6 +109,10 @@ class GitHubActions:
         print("-" * len(header))
 
 
+def ultralytics_actions_info():
+    GitHubActions().print_info()
+
+
 def check_pypi_version(pyproject_toml="pyproject.toml"):
     """Compares local and PyPI package versions to determine if a new version should be published."""
     import re
