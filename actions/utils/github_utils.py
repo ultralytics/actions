@@ -25,13 +25,7 @@ PR = EVENT_DATA.get("pull_request", {})
 
 def get_github_username():
     """Gets username associated with the GitHub token in GITHUB_HEADERS."""
-    query = """
-    query {
-        viewer {
-            login
-        }
-    }
-    """
+    query = "query { viewer { login } }"
     response = requests.post("https://api.github.com/graphql", json={"query": query}, headers=GITHUB_HEADERS)
     if response.status_code != 200:
         print(f"Failed to fetch authenticated user. Status code: {response.status_code}")
