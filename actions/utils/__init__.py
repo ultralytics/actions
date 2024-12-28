@@ -2,7 +2,6 @@
 
 from .common_utils import remove_html_comments
 from .github_utils import (
-    DISCUSSION,
     EVENT_DATA,
     GITHUB_API_URL,
     GITHUB_EVENT_NAME,
@@ -30,7 +29,6 @@ __all__ = (
     "GITHUB_TOKEN",
     "GITHUB_REPOSITORY",
     "PR",
-    "DISCUSSION",
     "GITHUB_EVENT_NAME",
     "GITHUB_EVENT_PATH",
     "get_github_data",
