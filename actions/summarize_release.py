@@ -10,10 +10,7 @@ import requests
 
 from .utils import (
     GITHUB_API_URL,
-    GITHUB_HEADERS,
-    GITHUB_HEADERS_DIFF,
-    GITHUB_REPOSITORY,
-    GITHUB_TOKEN,
+    Action,
     get_completion,
     remove_html_comments,
 )
@@ -23,17 +20,17 @@ CURRENT_TAG = os.getenv("CURRENT_TAG")
 PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
 
 
-def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str) -> str:
+def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str, headers: dict) -> str:
     """Retrieves the differences between two specified Git tags in a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
-    r = requests.get(url, headers=GITHUB_HEADERS_DIFF)
+    r = requests.get(url, headers=headers)
     return r.text if r.status_code == 200 else f"Failed to get diff: {r.content}"
 
 
-def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> list:
+def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str, headers: dict) -> list:
     """Retrieves and processes pull requests merged between two specified tags in a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
-    r = requests.get(url, headers=GITHUB_HEADERS)
+    r = requests.get(url, headers=headers)
     r.raise_for_status()
 
     data = r.json()
@@ -47,7 +44,7 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> 
     time.sleep(10)  # sleep 10 seconds to allow final PR summary to update on merge
     for pr_number in sorted(pr_numbers):  # earliest to latest
         pr_url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
-        pr_response = requests.get(pr_url, headers=GITHUB_HEADERS)
+        pr_response = requests.get(pr_url, headers=headers)
         if pr_response.status_code == 200:
             pr_data = pr_response.json()
             prs.append(
@@ -67,14 +64,14 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str) -> 
     return prs
 
 
-def get_new_contributors(repo: str, prs: list) -> set:
+def get_new_contributors(repo: str, prs: list, headers: dict) -> set:
     """Identify new contributors who made their first merged PR in the current release."""
     new_contributors = set()
     for pr in prs:
         author = pr["author"]
         # Check if this is the author's first contribution
         url = f"{GITHUB_API_URL}/search/issues?q=repo:{repo}+author:{author}+is:pr+is:merged&sort=created&order=asc"
-        r = requests.get(url, headers=GITHUB_HEADERS)
+        r = requests.get(url, headers=headers)
         if r.status_code == 200:
             data = r.json()
             if data["total_count"] > 0:
@@ -84,7 +81,7 @@ def get_new_contributors(repo: str, prs: list) -> set:
     return new_contributors
 
 
-def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag: str, repo_name: str) -> str:
+def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag: str, repo_name: str, headers: dict) -> str:
     """Generate a concise release summary with key changes, purpose, and impact for a new Ultralytics version."""
     pr_summaries = "\n\n".join(
         [f"PR #{pr['number']}: {pr['title']} by @{pr['author']}\n{pr['body'][:1000]}" for pr in prs]
@@ -100,7 +97,7 @@ def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag
     whats_changed = "\n".join([f"* {pr['title']} by @{pr['author']} in {pr['html_url']}" for pr in prs])
 
     # Generate New Contributors section
-    new_contributors = get_new_contributors(repo_name, prs)
+    new_contributors = get_new_contributors(repo_name, prs, headers)
     new_contributors_section = (
         "\n## New Contributors\n"
         + "\n".join(
@@ -138,11 +135,11 @@ def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag
     return get_completion(messages) + release_suffix
 
 
-def create_github_release(repo_name: str, tag_name: str, name: str, body: str) -> int:
+def create_github_release(repo_name: str, tag_name: str, name: str, body: str, headers: dict) -> int:
     """Creates a GitHub release with specified tag, name, and body content for the given repository."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/releases"
     data = {"tag_name": tag_name, "name": name, "body": body, "draft": False, "prerelease": False}
-    r = requests.post(url, headers=GITHUB_HEADERS, json=data)
+    r = requests.post(url, headers=headers, json=data)
     return r.status_code
 
 
@@ -158,20 +155,22 @@ def get_previous_tag() -> str:
 
 def main():
     """Automates generating and publishing a GitHub release summary from PRs and commit differences."""
-    if not all([GITHUB_TOKEN, CURRENT_TAG]):
+    action = Action()
+
+    if not all([action.token, CURRENT_TAG]):
         raise ValueError("One or more required environment variables are missing.")
 
     previous_tag = PREVIOUS_TAG or get_previous_tag()
 
     # Get the diff between the tags
-    diff = get_release_diff(GITHUB_REPOSITORY, previous_tag, CURRENT_TAG)
+    diff = get_release_diff(action.repository, previous_tag, CURRENT_TAG, action.headers_diff)
 
     # Get PRs merged between the tags
-    prs = get_prs_between_tags(GITHUB_REPOSITORY, previous_tag, CURRENT_TAG)
+    prs = get_prs_between_tags(action.repository, previous_tag, CURRENT_TAG, action.headers)
 
     # Generate release summary
     try:
-        summary = generate_release_summary(diff, prs, CURRENT_TAG, previous_tag, GITHUB_REPOSITORY)
+        summary = generate_release_summary(diff, prs, CURRENT_TAG, previous_tag, action.repository, action.headers)
     except Exception as e:
         print(f"Failed to generate summary: {str(e)}")
         summary = "Failed to generate summary."
@@ -181,7 +180,8 @@ def main():
     commit_message = subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.split("\n")[0].strip()
 
     # Create the release on GitHub
-    status_code = create_github_release(GITHUB_REPOSITORY, CURRENT_TAG, f"{CURRENT_TAG} - {commit_message}", summary)
+    msg = f"{CURRENT_TAG} - {commit_message}"
+    status_code = create_github_release(action.repository, CURRENT_TAG, msg, summary, action.headers)
     if status_code == 201:
         print(f"Successfully created release {CURRENT_TAG}")
     else:
