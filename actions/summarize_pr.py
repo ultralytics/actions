@@ -120,7 +120,7 @@ def update_pr_description(repository, pr_number, new_summary, headers, max_retri
     return update_response.status_code
 
 
-def label_fixed_issues(repository, pr_number, pr_summary, action, headers):
+def label_fixed_issues(repository, pr_number, pr_summary, headers, action):
     """Labels issues closed by PR when merged, notifies users, returns PR contributors."""
     query = """
 query($owner: String!, $repo: String!, $pr_number: Int!) {
