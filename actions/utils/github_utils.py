@@ -7,100 +7,101 @@ import requests
 
 from actions import __version__
 
-GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_API_URL = "https://api.github.com"
-GITHUB_HEADERS = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3+json"}
-GITHUB_HEADERS_DIFF = {"Authorization": f"token {GITHUB_TOKEN}", "Accept": "application/vnd.github.v3.diff"}
 
-GITHUB_EVENT_NAME = os.getenv("GITHUB_EVENT_NAME")
-GITHUB_EVENT_PATH = os.getenv("GITHUB_EVENT_PATH")
+class GitHubActions:
+    """Handles GitHub Actions API interactions and event processing."""
 
-EVENT_DATA = {}
-if GITHUB_EVENT_PATH:
-    event_path = Path(GITHUB_EVENT_PATH)
-    if event_path.exists():
-        EVENT_DATA = json.loads(event_path.read_text())
+    def __init__(self,
+                 token: str = os.getenv("GITHUB_TOKEN"),
+                 event_name: str = os.getenv("GITHUB_EVENT_NAME"),
+                    event_data: dict = None,
+    ):
+        self.token = token
+        self.headers = {"Authorization": f"token {self.token}", "Accept": "application/vnd.github.v3+json"}
+        self.headers_diff = {"Authorization": f"token {self.token}", "Accept": "application/vnd.github.v3.diff"}
 
-PR = EVENT_DATA.get("pull_request", {})
-GITHUB_REPOSITORY = EVENT_DATA.get("repository", {}).get("full_name")
+        # Load event data from args or file
+        self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
+        self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
+        self.pr = self.event_data.get("pull_request", {})
+        self.repository = self.event_data.get("repository", {}).get("full_name")
 
+    def _load_event_data(self, event_path: str) -> dict:
+        """Loads GitHub event data from path if it exists."""
+        if event_path and Path(event_path).exists():
+            return json.loads(Path(event_path).read_text())
+        return {}
 
-def get_github_username():
-    """Gets username associated with the GitHub token in GITHUB_HEADERS."""
-    query = "query { viewer { login } }"
-    response = requests.post("https://api.github.com/graphql", json={"query": query}, headers=GITHUB_HEADERS)
-    if response.status_code != 200:
-        print(f"Failed to fetch authenticated user. Status code: {response.status_code}")
-        return None
+    def get_username(self) -> str | None:
+        """Gets username associated with the GitHub token."""
+        query = "query { viewer { login } }"
+        response = requests.post(f"{GITHUB_API_URL}/graphql", json={"query": query}, headers=self.headers)
+        if response.status_code != 200:
+            print(f"Failed to fetch authenticated user. Status code: {response.status_code}")
+            return None
+        try:
+            return response.json()["data"]["viewer"]["login"]
+        except KeyError as e:
+            print(f"Error parsing authenticated user response: {e}")
+            return None
 
-    try:
-        return response.json()["data"]["viewer"]["login"]
-    except KeyError as e:
-        print(f"Error parsing authenticated user response: {e}")
-        return None
+    def get_pr_diff(self, pr_number: int) -> str:
+        """Retrieves the diff content for a specified pull request."""
+        url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{pr_number}"
+        r = requests.get(url, headers=self.headers_diff)
+        return r.text if r.status_code == 200 else ""
 
+    def get_repo_data(self, endpoint: str) -> dict:
+        """Fetches repository data from a specified endpoint."""
+        r = requests.get(f"{GITHUB_API_URL}/repos/{self.repository}/{endpoint}", headers=self.headers)
+        r.raise_for_status()
+        return r.json()
 
-def get_pr_diff(pr_number: int) -> str:
-    """Retrieves the diff content for a specified pull request in a GitHub repository."""
-    url = f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/pulls/{pr_number}"
-    r = requests.get(url, headers=GITHUB_HEADERS_DIFF)
-    return r.text if r.status_code == 200 else ""
+    def graphql_request(self, query: str, variables: dict = None) -> dict:
+        """Executes a GraphQL query against the GitHub API."""
+        headers = {
+            "Authorization": f"Bearer {self.token}",
+            "Content-Type": "application/json",
+            "Accept": "application/vnd.github.v4+json",
+        }
+        r = requests.post(f"{GITHUB_API_URL}/graphql", json={"query": query, "variables": variables}, headers=headers)
+        r.raise_for_status()
+        result = r.json()
+        success = "data" in result and not result.get("errors")
+        print(
+            f"{'Successful' if success else 'Failed'} discussion GraphQL request: {result.get('errors', 'No errors')}")
+        return result
 
+    def print_info(self):
+        """Print GitHub Actions information."""
+        info = {
+            "github.event_name": self.event_name,
+            "github.event.action": self.event_data.get("action"),
+            "github.repository": self.repository,
+            "github.event.pull_request.number": self.pr.get("number"),
+            "github.event.pull_request.head.repo.full_name": self.pr.get("head", {}).get("repo", {}).get("full_name"),
+            "github.actor": os.environ.get("GITHUB_ACTOR"),
+            "github.event.pull_request.head.ref": self.pr.get("head", {}).get("ref"),
+            "github.ref": os.environ.get("GITHUB_REF"),
+            "github.head_ref": os.environ.get("GITHUB_HEAD_REF"),
+            "github.base_ref": os.environ.get("GITHUB_BASE_REF"),
+            "github.base_sha": self.pr.get("base", {}).get("sha"),
+        }
 
-def get_github_data(endpoint: str) -> dict:
-    """Fetches GitHub repository data from a specified endpoint using the GitHub API."""
-    r = requests.get(f"{GITHUB_API_URL}/repos/{GITHUB_REPOSITORY}/{endpoint}", headers=GITHUB_HEADERS)
-    r.raise_for_status()
-    return r.json()
-
-
-def graphql_request(query: str, variables: dict = None) -> dict:
-    """Executes a GraphQL query against the GitHub API and returns the response as a dictionary."""
-    headers = {
-        "Authorization": f"Bearer {GITHUB_TOKEN}",
-        "Content-Type": "application/json",
-        "Accept": "application/vnd.github.v4+json",
-    }
-    r = requests.post(f"{GITHUB_API_URL}/graphql", json={"query": query, "variables": variables}, headers=headers)
-    r.raise_for_status()
-    result = r.json()
-    success = "data" in result and not result.get("errors")
-    print(f"{'Successful' if success else 'Fail'} discussion GraphQL request: {result.get('errors', 'No errors')}")
-    return result
-
-
-def ultralytics_actions_info():
-    """Print Ultralytics Actions information."""
-    info = {
-        "github.event_name": GITHUB_EVENT_NAME,
-        "github.event.action": EVENT_DATA.get("action"),
-        "github.repository": GITHUB_REPOSITORY,
-        "github.event.pull_request.number": PR.get("number"),
-        "github.event.pull_request.head.repo.full_name": PR.get("head", {}).get("repo", {}).get("full_name"),
-        "github.actor": os.environ.get("GITHUB_ACTOR"),
-        "github.event.pull_request.head.ref": PR.get("head", {}).get("ref"),
-        "github.ref": os.environ.get("GITHUB_REF"),
-        "github.head_ref": os.environ.get("GITHUB_HEAD_REF"),
-        "github.base_ref": os.environ.get("GITHUB_BASE_REF"),
-        "github.base_sha": PR.get("base", {}).get("sha"),
-    }
-
-    if GITHUB_EVENT_NAME == "discussion":
-        discussion = EVENT_DATA.get("discussion", {})
-        info.update(
-            {
+        if self.event_name == "discussion":
+            discussion = self.event_data.get("discussion", {})
+            info.update({
                 "github.event.discussion.node_id": discussion.get("node_id"),
                 "github.event.discussion.number": discussion.get("number"),
-            }
-        )
+            })
 
-    # Print information
-    max_key_length = max(len(key) for key in info)
-    header = f"Ultralytics Actions {__version__} Information " + "-" * 40
-    print(header)
-    for key, value in info.items():
-        print(f"{key:<{max_key_length + 5}}{value}")
-    print("-" * len(header))  # footer
+        max_key_length = max(len(key) for key in info)
+        header = f"Ultralytics Actions {__version__} Information " + "-" * 40
+        print(header)
+        for key, value in info.items():
+            print(f"{key:<{max_key_length + 5}}{value}")
+        print("-" * len(header))
 
 
 def check_pypi_version(pyproject_toml="pyproject.toml"):
