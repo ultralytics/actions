@@ -149,7 +149,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
         comments = data["reviews"]["nodes"] + data["comments"]["nodes"]
-        token_username = action.get_github_username()  # get GITHUB_TOKEN username
+        token_username = action.get_username()  # get GITHUB_TOKEN username
         author = data["author"]["login"] if data["author"]["__typename"] != "Bot" else None
 
         # Get unique contributors from reviews and comments
