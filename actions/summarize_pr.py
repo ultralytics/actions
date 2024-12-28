@@ -215,7 +215,7 @@ def main():
     repository = action.repository
 
     print(f"Retrieving diff for PR {pr_number}")
-    diff = action.get_pr_diff(pr_number)
+    diff = action.get_pr_diff()
 
     # Generate PR summary
     print("Generating PR summary...")

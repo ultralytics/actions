@@ -48,9 +48,9 @@ class Action:
             print(f"Error parsing authenticated user response: {e}")
             return None
 
-    def get_pr_diff(self, pr_number: int) -> str:
+    def get_pr_diff(self) -> str:
         """Retrieves the diff content for a specified pull request."""
-        url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{pr_number}"
+        url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}"
         r = requests.get(url, headers=self.headers_diff)
         return r.text if r.status_code == 200 else ""
 
