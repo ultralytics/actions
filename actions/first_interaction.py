@@ -6,8 +6,8 @@ from typing import Dict, List, Tuple
 import requests
 
 from .utils import (
-    Action,
     GITHUB_API_URL,
+    Action,
     get_completion,
     remove_html_comments,
 )
