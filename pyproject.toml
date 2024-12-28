@@ -95,3 +95,16 @@ packages = { find = { where = ["."], include = ["actions", "actions.*"] } }
 
 [tool.setuptools.dynamic]
 version = { attr = "actions.__version__" }
+
+[tool.ruff]
+line-length = 120
+
+[tool.ruff.format]
+docstring-code-format = true
+
+[tool.docformatter]
+wrap-summaries = 120
+wrap-descriptions = 120
+pre-summary-newline = true
+close-quotes-on-newline = true
+in-place = true
