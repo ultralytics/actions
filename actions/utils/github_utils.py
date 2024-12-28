@@ -9,13 +9,15 @@ from actions import __version__
 
 GITHUB_API_URL = "https://api.github.com"
 
+
 class GitHubActions:
     """Handles GitHub Actions API interactions and event processing."""
 
-    def __init__(self,
-                 token: str = os.getenv("GITHUB_TOKEN"),
-                 event_name: str = os.getenv("GITHUB_EVENT_NAME"),
-                    event_data: dict = None,
+    def __init__(
+        self,
+        token: str = os.getenv("GITHUB_TOKEN"),
+        event_name: str = os.getenv("GITHUB_EVENT_NAME"),
+        event_data: dict = None,
     ):
         self.token = token
         self.headers = {"Authorization": f"token {self.token}", "Accept": "application/vnd.github.v3+json"}
@@ -70,7 +72,8 @@ class GitHubActions:
         result = r.json()
         success = "data" in result and not result.get("errors")
         print(
-            f"{'Successful' if success else 'Failed'} discussion GraphQL request: {result.get('errors', 'No errors')}")
+            f"{'Successful' if success else 'Failed'} discussion GraphQL request: {result.get('errors', 'No errors')}"
+        )
         return result
 
     def print_info(self):
@@ -91,10 +94,12 @@ class GitHubActions:
 
         if self.event_name == "discussion":
             discussion = self.event_data.get("discussion", {})
-            info.update({
-                "github.event.discussion.node_id": discussion.get("node_id"),
-                "github.event.discussion.number": discussion.get("number"),
-            })
+            info.update(
+                {
+                    "github.event.discussion.node_id": discussion.get("node_id"),
+                    "github.event.discussion.number": discussion.get("number"),
+                }
+            )
 
         max_key_length = max(len(key) for key in info)
         header = f"Ultralytics Actions {__version__} Information " + "-" * 40
