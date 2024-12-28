@@ -10,7 +10,7 @@ from actions import __version__
 GITHUB_API_URL = "https://api.github.com"
 
 
-class GitHubActions:
+class Action:
     """Handles GitHub Actions API interactions and event processing."""
 
     def __init__(
@@ -110,7 +110,7 @@ class GitHubActions:
 
 
 def ultralytics_actions_info():
-    GitHubActions().print_info()
+    Action().print_info()
 
 
 def check_pypi_version(pyproject_toml="pyproject.toml"):
