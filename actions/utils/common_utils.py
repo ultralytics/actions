@@ -50,7 +50,7 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
 
         # Check structure
         result = parse.urlparse(url)
-        if not result.scheme or len(split)<2 or not split[0] or not split[1]:
+        if not result.scheme or len(split) < 2 or not split[0] or not split[1]:
             return False
 
         # Check response
