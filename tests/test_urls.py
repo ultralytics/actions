@@ -5,6 +5,7 @@ URLS = [
     "https://github.com/ultralytics/ultralytics",
 ]
 
+
 def test_is_url():
     """Test each URL using is_url function."""
     for url in URLS:
