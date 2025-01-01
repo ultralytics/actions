@@ -83,7 +83,7 @@ def check_links_in_string(text, verbose=True, return_bad=False):
         r"("  # Start capturing group for plaintext URLs
         r"(?:https?://)?"  # Optional http:// or https://
         r"(?:www\.)?"  # Optional www.
-        r"[\w.-]+"  # Domain name and subdomains
+        r"(?:[\w.-]+)?"  # Optional domain name and subdomains
         r"\.[a-zA-Z]{2,}"  # TLD
         r"(?:/[^\s\"')\]]*)?"  # Optional path
         r")"
