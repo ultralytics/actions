@@ -37,6 +37,10 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
         "github.com",  # ignore GitHub links that may be private repos
         "kaggle.com",  # blocks automated header requests
         "reddit.com",  # blocks automated header requests
+        "linkedin.com",
+        "twitter.com",
+        "x.com",
+        "storage.googleapis.com",  # private GCS buckets
     )
     try:
         # Check allow list
@@ -44,7 +48,7 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
             return True
 
         # Check structure
-        result = urllib.parse.urlparse(url)
+        result = parse.urlparse(url)
         if not all([result.scheme, result.netloc]):
             return False
 
@@ -52,16 +56,14 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
         if check:
             for attempt in range(max_attempts):
                 try:
-                    req = urllib.request.Request(
-                        url,
-                        method="HEAD",
-                        headers={
-                            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                        },
-                    )
-                    with urllib.request.urlopen(req, timeout=timeout) as response:
-                        return response.getcode() < 400
-                except (urllib.error.URLError, socket.timeout):
+                    headers = {
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/120.0.0.0",
+                        "Accept": "*",
+                        "Accept-Language": "*",
+                        "Accept-Encoding": "*",
+                    }
+                    return requests.head(url, headers=headers, timeout=timeout, allow_redirects=True).status_code < 400
+                except Exception:
                     if attempt == max_attempts - 1:  # last attempt
                         return False
                     time.sleep(2**attempt)  # exponential backoff
