@@ -65,7 +65,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "requests>=2.26.0",
+    "requests>=2.32.3",
     "ruff>=0.1.6",
     "docformatter>=1.7.5",
 ]
