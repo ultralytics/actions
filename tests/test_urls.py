@@ -1,16 +1,25 @@
+# Ultralytics Actions 🚀, AGPL-3.0 license
+# Continuous Integration (CI) GitHub Actions tests
+
 from actions.utils.common_utils import check_links_in_string, is_url
 
 URLS = [
+    "https://docs.ultralytics.com/help/CLA/",
     "https://docs.ultralytics.com/help/contributing",
+    "https://docs.ultralytics.com",
+    "https://ultralytics.com",
     "https://github.com/ultralytics/ultralytics",
 ]
 
+@pytest.fixture
+def verbose():
+    """Fixture that provides a verbose logging utility for detailed output during testing and debugging."""
+    return False  # Set False to suppress print statements during tests
 
 def test_is_url():
     """Test each URL using is_url function."""
     for url in URLS:
         assert is_url(url), f"URL check failed: {url}"
-
 
 def test_html_links(verbose):
     """Tests the validity of URLs within HTML anchor tags and returns any invalid URLs found."""
