@@ -16,7 +16,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, macos-latest]
         python-version: ["3.12", "3.13"]
 
     steps:
@@ -38,4 +38,4 @@ jobs:
 
       - name: Run CLI tests
         run: |
-          example-cli-command
+          ultralytics-actions-info

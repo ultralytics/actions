@@ -1,10 +1,10 @@
 from actions.utils.common_utils import is_url
 
 URLS = [
-    'https://docs.ultralytics.com/help/CLA/',
-    'https://docs.ultralytics.com/help/contributing',
-    'https://docs.ultralytics.com',
-    'https://docs.ultralytics.com/help/CI/'
+    "https://docs.ultralytics.com/help/CLA/",
+    "https://docs.ultralytics.com/help/contributing",
+    "https://docs.ultralytics.com",
+    "https://docs.ultralytics.com/help/CI/",
 ]
 
 
