@@ -68,7 +68,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: astral-sh/setup-uv@v4
+    - uses: astral-sh/setup-uv@v5
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
       # sudo env "PATH=$PATH" uv pip install --system git+https://github.com/ultralytics/actions@main codespell tomli
