@@ -50,8 +50,8 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
 
         # Check structure
         result = parse.urlparse(url)
-        split = result.netloc.split(".")  # i.e. netloc = "github.com"
-        if not result.scheme or len(split) < 2 or not split[0] or not split[1]:
+        partition = result.netloc.partition(".")  # i.e. netloc = "github.com" -> ("github", ".", "com")
+        if not result.scheme or not partition[0] or not partition[2]:
             return False
 
         # Check response
