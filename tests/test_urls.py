@@ -1,6 +1,8 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license
 # Continuous Integration (CI) GitHub Actions tests
 
+import pytest
+
 from actions.utils.common_utils import check_links_in_string, is_url
 
 URLS = [
