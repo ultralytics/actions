@@ -34,7 +34,7 @@ jobs:
 
       - name: Run Python tests
         run: |
-          pytest tests
+          python -m pytest tests
 
       - name: Run CLI tests
         run: |
