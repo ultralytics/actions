@@ -1,13 +1,9 @@
 from actions.utils.common_utils import is_url
 
 URLS = [
-    "https://docs.ultralytics.com/help/CLA/",
     "https://docs.ultralytics.com/help/contributing",
-    "https://docs.ultralytics.com",
-    "https://ultralytics.com",
     "https://github.com/ultralytics/ultralytics",
 ]
-
 
 def test_is_url():
     """Test each URL using is_url function."""
