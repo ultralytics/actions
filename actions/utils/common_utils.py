@@ -1,10 +1,9 @@
 # Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
 
 import re
-import socket
 import time
-from urllib import parse
 from concurrent.futures import ThreadPoolExecutor
+from urllib import parse
 
 
 def remove_html_comments(body: str) -> str:
