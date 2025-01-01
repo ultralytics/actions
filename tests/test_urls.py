@@ -4,7 +4,8 @@ URLS = [
     "https://docs.ultralytics.com/help/CLA/",
     "https://docs.ultralytics.com/help/contributing",
     "https://docs.ultralytics.com",
-    "https://www.ultralytics.com/license",
+    "https://ultralytics.com",
+    "https://github.com/ultralytics/ultralytics",
 ]
 
 
