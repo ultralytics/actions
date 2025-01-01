@@ -67,7 +67,7 @@ def test_no_urls(verbose):
 
 
 def test_invalid_urls(verbose):
-    """Test invalid URLs - WARNING test is currently failing."""
+    """Test invalid URLs."""
     text = "Invalid URL: http://.com"
     result, urls = check_links_in_string(text, verbose, return_bad=True)
     assert result is False
