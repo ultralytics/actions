@@ -50,7 +50,7 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
 
         # Check structure
         result = parse.urlparse(url)
-        if not all([result.scheme, result.netloc]):
+        if not result.netloc or result.netloc.count('.') < 1:
             return False
 
         # Check response
