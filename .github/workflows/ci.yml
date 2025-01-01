@@ -1,7 +1,7 @@
 # Ultralytics Template 🚀, AGPL-3.0 license
 # Continuous Integration (CI) GitHub Actions tests
 
-name: Template CI
+name: Actions CI
 
 on:
   push:
@@ -34,7 +34,7 @@ jobs:
 
       - name: Run Python tests
         run: |
-          python -m pytest tests
+          pytest tests
 
       - name: Run CLI tests
         run: |
