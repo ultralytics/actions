@@ -14,6 +14,7 @@ def test_is_url():
     for url in URLS:
         assert is_url(url), f"URL check failed: {url}"
 
+
 def test_markdown_links():
     """Test Markdown link detection."""
     text = "[Link](https://docs.ultralytics.com) and [Another](https://docs.ultralytics.com/help/CI/)."
@@ -21,16 +22,19 @@ def test_markdown_links():
     assert result
     assert not bad
 
+
 def test_plaintext_links():
     """Test plaintext URL detection."""
     text = "Visit https://docs.ultralytics.com. And also visit https://docs.ultralytics.com/help/CI/."
     result = check_links_in_string(text, verbose=False)
     assert result
 
+
 def test_mixed_format_links():
     """Test mixed format URL detection."""
     text = "<a href='https://github.com'>Link</a> and [Doc](https://github.com/help/CI/) and https://github.com"
     assert check_links_in_string(text, verbose=False)
+
 
 def test_invalid_links():
     """Test invalid URL handling."""
