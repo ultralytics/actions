@@ -5,6 +5,8 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from urllib import parse
 
+import requests
+
 
 def remove_html_comments(body: str) -> str:
     """Removes HTML comments from a string using regex pattern matching."""
