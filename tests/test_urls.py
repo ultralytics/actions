@@ -1,4 +1,4 @@
-from actions.utils.common_utils import is_url
+from actions.utils.common_utils import is_url, check_links_in_string
 
 URLS = [
     "https://docs.ultralytics.com/help/contributing",
