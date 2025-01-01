@@ -85,6 +85,7 @@ def check_links_in_string(text, verbose=True, return_bad=False):
         r"(?:/[^\s\"')\]]*)?"  # Optional path
         r")"
     )
+    # all_urls.extend([url for url in match if url and parse.urlparse(url).scheme])
     all_urls = []
     for md_text, md_url, plain_url in re.findall(pattern, text):
         url = md_url or plain_url
@@ -92,6 +93,7 @@ def check_links_in_string(text, verbose=True, return_bad=False):
             all_urls.append(url)
 
     urls = set(map(clean_url, all_urls))  # remove extra characters and make unique
+    # bad_urls = [x for x in urls if not is_url(x, check=True)]  # single-thread
     with ThreadPoolExecutor(max_workers=16) as executor:  # multi-thread
         bad_urls = [url for url, valid in zip(urls, executor.map(lambda x: not is_url(x, check=True), urls)) if valid]
 
