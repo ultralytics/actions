@@ -15,8 +15,9 @@ jobs:
   Test:
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [ubuntu-latest, macos-latest]  # does not work with windows-latest
         python-version: ["3.12", "3.13"]
 
     steps:
@@ -34,7 +35,7 @@ jobs:
 
       - name: Run Python tests
         run: |
-          python -m pytest tests
+          python -m pytest tests -v
 
       - name: Run CLI tests
         run: |
