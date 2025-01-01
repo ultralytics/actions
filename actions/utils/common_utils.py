@@ -3,7 +3,7 @@
 import re
 import socket
 import time
-import urllib
+from urllib import parse
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -89,7 +89,7 @@ def check_links_in_string(text, verbose=True, return_bad=False):
     all_urls = []
     for md_text, md_url, plain_url in re.findall(pattern, text):
         url = md_url or plain_url
-        if url and urllib.parse.urlparse(url).scheme:
+        if url and parse.urlparse(url).scheme:
             all_urls.append(url)
 
     urls = set(map(clean_url, all_urls))  # remove extra characters and make unique
