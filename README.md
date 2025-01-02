@@ -63,7 +63,7 @@ To use this action in your Ultralytics repository:
              labels: true # autolabel issues and PRs
              python: true # format Python code and docstrings
              prettier: true # format YAML, JSON, Markdown and CSS
-             swift: true # format Swift code (requires 'macos-latest')
+             swift: true # format Swift code (requires 'macos-latest' runner)
              spelling: true # check spelling
              links: true # check broken links
              summary: true # print PR summary with GPT4o (requires 'openai_api_key')
