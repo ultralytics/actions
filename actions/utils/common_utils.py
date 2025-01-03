@@ -109,16 +109,4 @@ def check_links_in_string(text, verbose=True, return_bad=False):
 
 if __name__ == "__main__":
     url = "https://ultralytics.com/images/bus.jpg"
-    # print(is_url(url=url))
-
-    import requests
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "Accept": "*/*",
-        "Accept-Language": "*,*;q=0.9",
-        "Accept-Encoding": "gzip, deflate, br",
-    }
-
-    r = requests.head(url, headers=headers, allow_redirects=True, timeout=3)
-    print(r)
+    print(is_url(url=url))
