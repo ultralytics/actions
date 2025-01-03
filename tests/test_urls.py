@@ -10,6 +10,7 @@ URLS = [
     "https://docs.ultralytics.com/help/contributing",
     "https://docs.ultralytics.com",
     "https://ultralytics.com",
+    "https://ultralytics.com/images/bus.jpg",
     "https://github.com/ultralytics/ultralytics",
 ]
 
