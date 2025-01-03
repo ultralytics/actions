@@ -108,5 +108,4 @@ def check_links_in_string(text, verbose=True, return_bad=False):
 
 
 if __name__ == "__main__":
-    url = "https://ultralytics.com/images/bus.jpg"
-    print(is_url(url=url))
+    print(is_url("https://ultralytics.com/images/bus.jpg"))
