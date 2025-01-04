@@ -163,17 +163,6 @@ runs:
       shell: bash
       continue-on-error: true
 
-    # - name: Fix MkDocs reference section changes
-    #   if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
-    #   run: |
-    #     from pathlib import Path
-    #     for file in Path("./docs").rglob('*.md'):
-    #         content = file.read_text()
-    #         updated_content = content.replace(".\_","._")
-    #         file.write_text(updated_content)
-    #   shell: python
-    #   continue-on-error: true
-
     # Swift formatting -------------------------------------------------------------------------------------------------
     - name: Run Swift Formatter
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.swift == 'true' && github.event.action != 'closed'
