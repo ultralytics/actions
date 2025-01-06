@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest]  # does not work with windows-latest
+        os: [ubuntu-latest, macos-latest] # does not work with windows-latest
         python-version: ["3.12", "3.13"]
 
     steps:
