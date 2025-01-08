@@ -53,15 +53,15 @@ runs:
       run: |
         import time
         import sys
-        
+
         def run_user_code():
             ${{ inputs.run }}
-        
+
         start_time = time.time()
         timeout_seconds = ${{ inputs.timeout_minutes }} * 60
         attempt = 1
         max_attempts = 1 + ${{ inputs.retries }}  # Initial run + retries
-        
+
         while attempt <= max_attempts:
             if attempt > 1:
                 print(f"::group::Retry {attempt-1} of ${{ inputs.retries }}")
