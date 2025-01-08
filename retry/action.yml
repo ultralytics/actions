@@ -112,5 +112,5 @@ runs:
                 attempt=$((attempt + 1))
             done
         }
-        
+
         retry_command
