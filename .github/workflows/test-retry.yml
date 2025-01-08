@@ -14,12 +14,15 @@ jobs:
       
       - name: Test retry with eventual success
         uses: ultralytics/actions/retry@test-retry
+        continue-on-error: true
+        env:
+          TEST_VAR: "hello"
         with:
           retries: 2
           retry_delay_seconds: 5
           run: |
-            echo "Running attempt" 
-            false # Force failure to trigger retry
+            echo "Running attempt with TEST_VAR=$TEST_VAR"
+            exit 1
 
       - name: Test successful command
         uses: ultralytics/actions/retry@test-retry
