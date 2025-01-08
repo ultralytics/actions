@@ -10,7 +10,7 @@ jobs:
   test-bash:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
       
       - name: Test successful command
         uses: ultralytics/actions/retry@test-retry
@@ -45,7 +45,7 @@ jobs:
   test-python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
       
       - name: Test Python success
         uses: ultralytics/actions/retry@test-retry
@@ -88,7 +88,7 @@ jobs:
   test-multiline:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v4
       
       - name: Test multiline bash
         uses: ultralytics/actions/retry@test-retry
