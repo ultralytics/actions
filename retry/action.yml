@@ -71,14 +71,14 @@ runs:
             
             if (time.time() - start_time) > timeout_seconds:
                 print(f"::error::Step timed out after ${{ inputs.timeout_minutes }} minutes")
-                temp_path.unlink()
+                temp_path.unlink(missing_ok=True)
                 sys.exit(1)
             
             try:
                 exec(temp_path.read_text())
                 if attempt > 1:
                     print("::endgroup::")
-                temp_path.unlink()
+                temp_path.unlink(missing_ok=True)
                 sys.exit(0)
             except Exception as e:
                 if attempt > 1:
@@ -89,7 +89,7 @@ runs:
                 
                 if attempt == max_attempts:
                     print(f"::error::Step failed after initial attempt and {attempt-1} retries")
-                    temp_path.unlink()
+                    temp_path.unlink(missing_ok=True)
                     sys.exit(1)
                 
                 print(f"Retrying in ${{ inputs.retry_delay_seconds }} seconds...")
