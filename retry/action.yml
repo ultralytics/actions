@@ -52,24 +52,26 @@ runs:
       env: ${{ env }}
       run: |
         import time
+        import sys
+        
         start_time = time.time()
         timeout_seconds = ${{ inputs.timeout_minutes }} * 60
         attempt = 1
         max_attempts = 1 + ${{ inputs.retries }}  # Initial run + retries
-
-        while True:
+        
+        while attempt <= max_attempts:
             if attempt > 1:
                 print(f"::group::Retry {attempt-1} of ${{ inputs.retries }}")
             
             if (time.time() - start_time) > timeout_seconds:
                 print(f"::error::Step timed out after ${{ inputs.timeout_minutes }} minutes")
-                exit(1)
+                sys.exit(1)
             
             try:
                 ${{ inputs.run }}
                 if attempt > 1:
                     print("::endgroup::")
-                exit(0)
+                sys.exit(0)
             except Exception as e:
                 if attempt > 1:
                     print(f"Retry {attempt-1} failed with error: {str(e)}")
@@ -77,9 +79,9 @@ runs:
                 else:
                     print(f"Initial attempt failed with error: {str(e)}")
                 
-                if attempt >= max_attempts:
+                if attempt == max_attempts:
                     print(f"::error::Step failed after initial attempt and {attempt-1} retries")
-                    exit(1)
+                    sys.exit(1)
                 
                 print(f"Retrying in ${{ inputs.retry_delay_seconds }} seconds...")
                 time.sleep(${{ inputs.retry_delay_seconds }})
