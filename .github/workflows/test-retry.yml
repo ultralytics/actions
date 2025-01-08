@@ -1,9 +1,5 @@
 name: Test Retry Action
 on:
-  push:
-    paths:
-      - 'action.yml'
-      - '.github/workflows/test-retry.yml'
   pull_request:
     paths:
       - 'action.yml'
