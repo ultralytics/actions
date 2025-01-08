@@ -90,12 +90,15 @@ runs:
       shell: bash
       env: ${{ env }}
       run: |
+        #!/bin/bash
+        set +e
+        
         start_time=$(date +%s)
         timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
         attempt=1
         max_attempts=$(( 1 + ${{ inputs.retries }} ))  # Initial run + retries
-
-        while true; do
+        
+        while [ $attempt -le $max_attempts ]; do
             if [ $attempt -gt 1 ]; then
                 echo "::group::Retry $((attempt-1)) of ${{ inputs.retries }}"
             fi
@@ -106,11 +109,7 @@ runs:
                 exit 1
             fi
             
-            # Execute commands in a subshell with proper error propagation
-            (
-                set -e
-                eval "${{ inputs.run }}"
-            )
+            eval "${{ inputs.run }}"
             exit_code=$?
             
             if [ $exit_code -eq 0 ]; then
@@ -125,7 +124,7 @@ runs:
                 echo "Initial attempt failed with exit code $exit_code"
             fi
             
-            if [ $attempt -ge $max_attempts ]; then
+            if [ $attempt -eq $max_attempts ]; then
                 echo "::error::Step failed after initial attempt and $((attempt-1)) retries"
                 exit $exit_code
             fi
