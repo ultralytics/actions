@@ -85,7 +85,7 @@ runs:
                 time.sleep(${{ inputs.retry_delay_seconds }})
                 attempt += 1
 
-- name: Execute with retry (Bash)
+    - name: Execute with retry (Bash)
       if: inputs.shell != 'python'
       shell: bash
       env: ${{ env }}
