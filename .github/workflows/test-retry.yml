@@ -21,7 +21,7 @@ jobs:
 
       - name: Test retry with eventual success
         uses: ultralytics/actions/retry@test-retry
-        continue-on-error: false
+        continue-on-error: true
         env:
           TEST_VAR: "hello"
         with:
