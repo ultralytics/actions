@@ -108,7 +108,11 @@ runs:
                 exit 1
             fi
             
-            eval "${{ inputs.run }}"
+            # Run in subshell to capture exit without terminating main script
+            (
+                set -e
+                bash -c "${{ inputs.run }}"
+            )
             exit_code=$?
             
             if [ $exit_code -eq 0 ]; then
