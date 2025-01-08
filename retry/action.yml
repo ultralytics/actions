@@ -85,7 +85,7 @@ runs:
                 time.sleep(${{ inputs.retry_delay_seconds }})
                 attempt += 1
 
-    - name: Execute with retry (Bash)
+- name: Execute with retry (Bash)
       if: inputs.shell != 'python'
       shell: bash
       env: ${{ env }}
@@ -97,6 +97,11 @@ runs:
         attempt=1
         max_attempts=$(( 1 + ${{ inputs.retries }} ))  # Initial run + retries
 
+        # Create a temporary script file
+        TEMP_SCRIPT=$(mktemp)
+        echo "${{ inputs.run }}" > "$TEMP_SCRIPT"
+        chmod +x "$TEMP_SCRIPT"
+
         while [ $attempt -le $max_attempts ]; do
             if [ $attempt -gt 1 ]; then
                 echo "::group::Retry $((attempt-1)) of ${{ inputs.retries }}"
@@ -105,18 +110,17 @@ runs:
             current_time=$(date +%s)
             if [ $((current_time - start_time)) -gt $timeout_seconds ]; then
                 echo "::error::Step timed out after ${{ inputs.timeout_minutes }} minutes"
+                rm "$TEMP_SCRIPT"
                 exit 1
             fi
             
-            # Run in subshell to capture exit without terminating main script
-            (
-                set -e
-                bash -c "${{ inputs.run }}"
-            )
+            # Execute the temporary script
+            bash "$TEMP_SCRIPT"
             exit_code=$?
             
             if [ $exit_code -eq 0 ]; then
                 [ $attempt -gt 1 ] && echo "::endgroup::"
+                rm "$TEMP_SCRIPT"
                 exit 0
             fi
             
@@ -129,6 +133,7 @@ runs:
             
             if [ $attempt -eq $max_attempts ]; then
                 echo "::error::Step failed after initial attempt and $((attempt-1)) retries"
+                rm "$TEMP_SCRIPT"
                 exit $exit_code
             fi
             
