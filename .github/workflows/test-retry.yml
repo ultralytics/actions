@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - '.github/workflows/test-retry.yml'
-      - 'retry/action.yaml'
+      - 'retry/action.yml'
   workflow_dispatch:
 
 jobs:
@@ -43,3 +43,45 @@ jobs:
             echo "Running line 1 with TEST_VAR=$TEST_VAR"
             echo "Running line 2 with TEST_VAR=$TEST_VAR"
             false
+
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Test successful Python command
+        uses: ultralytics/actions/retry@test-retry
+        with:
+          shell: python
+          run: |
+            print("This should succeed first try")
+            exit(0)
+
+      - name: Test Python retry with eventual success
+        uses: ultralytics/actions/retry@test-retry
+        continue-on-error: true
+        env:
+          TEST_VAR: "hello"
+        with:
+          shell: python
+          retries: 2
+          retry_delay_seconds: 5
+          run: |
+            import os
+            print(f"Running attempt with TEST_VAR={os.environ.get('TEST_VAR')}")
+            raise Exception("Forced failure")
+
+      - name: Test Python multi-line failure
+        uses: ultralytics/actions/retry@test-retry
+        continue-on-error: true
+        env:
+          TEST_VAR: "hello"
+        with:
+          shell: python
+          retries: 2
+          retry_delay_seconds: 5
+          run: |
+            import os
+            print(f"Running line 1 with TEST_VAR={os.environ.get('TEST_VAR')}")
+            print(f"Running line 2 with TEST_VAR={os.environ.get('TEST_VAR')}")
+            assert False, "Forced assertion error"
