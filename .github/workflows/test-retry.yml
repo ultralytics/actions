@@ -11,7 +11,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
+      - name: Test successful command
+        uses: ultralytics/actions/retry@test-retry
+        with:
+          run: |
+            echo "This should succeed first try"
+            true
+
       - name: Test retry with eventual success
         uses: ultralytics/actions/retry@test-retry
         continue-on-error: true
@@ -24,20 +31,15 @@ jobs:
             echo "Running attempt with TEST_VAR=$TEST_VAR"
             exit 1
 
-      - name: Test successful command
-        uses: ultralytics/actions/retry@test-retry
-        with:
-          run: |
-            echo "This should succeed first try"
-            true
-
       - name: Test multi-line failure
         uses: ultralytics/actions/retry@test-retry
         continue-on-error: true
+        env:
+          TEST_VAR: "hello"
         with:
           retries: 2
           retry_delay_seconds: 5
           run: |
-            echo "Line 1 works"
-            echo "Line 2 fails"
-            bad_command_here
+            echo "Running line 1 with TEST_VAR=$TEST_VAR"
+            echo "Running line 2 with TEST_VAR=$TEST_VAR"
+            exit 1
