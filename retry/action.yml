@@ -114,7 +114,7 @@ runs:
         #!/bin/bash
         set -e
         ${{ inputs.run }}
-EOF
+        EOF
         chmod +x "$TEMP_SCRIPT"
 
         while [ $attempt -le $max_attempts ]; do
