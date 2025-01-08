@@ -108,7 +108,7 @@ runs:
                 fi
                 
                 set +e
-                ${{ inputs.run }}
+                eval "$1"
                 local exit_code=$?
                 set -e
                 
@@ -134,4 +134,4 @@ runs:
                 attempt=$((attempt + 1))
             done
         }
-        retry_command
+        retry_command "${{ inputs.run }}"
