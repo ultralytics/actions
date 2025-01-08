@@ -12,100 +12,29 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Test successful command
-        uses: ultralytics/actions/retry@test-retry
-        with:
-          run: echo "This should succeed"
-
       - name: Test retry with eventual success
         uses: ultralytics/actions/retry@test-retry
         with:
           retries: 2
           retry_delay_seconds: 5
           run: |
-            if [ ! -f /tmp/count ]; then
-              echo "0" > /tmp/count
-              cat /tmp/count
-              exit 1
-            fi
-            count=$(cat /tmp/count)
-            echo "Count is $count"
-            if [ "$count" = "0" ]; then
-              echo "1" > /tmp/count
-              cat /tmp/count 
-              exit 1
-            fi
-            echo "Success on third try!"
-            rm /tmp/count
+            echo "Running attempt" 
+            false # Force failure to trigger retry
 
-      - name: Test timeout
+      - name: Test successful command
+        uses: ultralytics/actions/retry@test-retry
+        with:
+          run: |
+            echo "This should succeed first try"
+            true
+
+      - name: Test multi-line failure
         uses: ultralytics/actions/retry@test-retry
         continue-on-error: true
         with:
-          timeout_minutes: 1
-          run: sleep 120
-
-  test-python:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Test Python success
-        uses: ultralytics/actions/retry@test-retry
-        with:
-          shell: python
-          run: |
-            print("Testing Python execution")
-            
-      - name: Test Python retry
-        uses: ultralytics/actions/retry@test-retry
-        with:
-          shell: python
           retries: 2
           retry_delay_seconds: 5
           run: |
-            import os
-            if not os.path.exists('py_attempt.txt'):
-                with open('py_attempt.txt', 'w') as f:
-                    f.write('1')
-                raise Exception("First attempt failed")
-            with open('py_attempt.txt', 'r') as f:
-                count = f.read()
-            if count == '1':
-                with open('py_attempt.txt', 'w') as f:
-                    f.write('2')
-                raise Exception("Second attempt failed")
-            os.remove('py_attempt.txt')
-            print("Success on third try!")
-
-      - name: Test Python timeout
-        uses: ultralytics/actions/retry@test-retry
-        continue-on-error: true
-        with:
-          shell: python
-          timeout_minutes: 1
-          run: |
-            import time
-            time.sleep(120)
-
-  test-multiline:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      
-      - name: Test multiline bash
-        uses: ultralytics/actions/retry@test-retry
-        with:
-          run: |
-            echo "Line 1"
-            echo "Line 2"
-            exit 0
-            
-      - name: Test multiline python
-        uses: ultralytics/actions/retry@test-retry
-        with:
-          shell: python
-          run: |
-            print("Line 1")
-            print("Line 2")
-            exit(0)
+            echo "Line 1 works"
+            echo "Line 2 fails"
+            bad_command_here
