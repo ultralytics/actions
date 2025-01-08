@@ -1,3 +1,25 @@
+# Ultralytics Actions 🚀, AGPL-3.0 License https://ultralytics.com/license
+#
+# Example usage:
+#
+# Basic usage (will retry failed step 3 times):
+# steps:
+#   - uses: ultralytics/actions/retry@main
+#     with:
+#       run: python train.py
+#
+# Advanced usage:
+# steps:
+#   - uses: ultralytics/actions/retry@main
+#     with:
+#       run: |
+#         python setup.py install
+#         pytest tests/
+#       retries: 2             # Retry twice after initial attempt (3 total runs)
+#       timeout_minutes: 30    # Each attempt times out after 30 minutes
+#       retry_delay_seconds: 60 # Wait 60 seconds between retries
+#       shell: bash            # Use python or bash shell
+
 name: "Step-Level Retry"
 description: "Retries a step while preserving its full context"
 inputs:
@@ -68,11 +90,11 @@ runs:
       shell: bash
       env: ${{ env }}
       run: |
-        function retry_command() {
+        function retry_command {
             local start_time=$(date +%s)
             local timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
             local attempt=1
-            local max_attempts=$(( 1 + ${{ inputs.retries }} ))
+            local max_attempts=$(( 1 + ${{ inputs.retries }} ))  # Initial run + retries
             
             while true; do
                 if [ $attempt -gt 1 ]; then
@@ -85,10 +107,12 @@ runs:
                     return 1
                 fi
                 
-                set +e
-                ${{ inputs.run }}
+                # Execute commands in a subshell with proper error propagation
+                (
+                    set -e
+                    eval "${{ inputs.run }}"
+                )
                 local exit_code=$?
-                set -e
                 
                 if [ $exit_code -eq 0 ]; then
                     [ $attempt -gt 1 ] && echo "::endgroup::"
@@ -112,5 +136,4 @@ runs:
                 attempt=$((attempt + 1))
             done
         }
-
         retry_command
