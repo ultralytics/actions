@@ -13,12 +13,12 @@ jobs:
       - uses: actions/checkout@v5
       
       - name: Test successful command
-        uses: ./
+        uses: ultralytics/actions/retry@test-retry
         with:
           run: echo "This should succeed"
 
       - name: Test retry with eventual success
-        uses: ./
+        uses: ultralytics/actions/retry@test-retry
         with:
           retries: 2
           retry_delay_seconds: 5
@@ -36,7 +36,7 @@ jobs:
             rm attempt.txt
 
       - name: Test timeout
-        uses: ./
+        uses: ultralytics/actions/retry@test-retry
         continue-on-error: true
         with:
           timeout_minutes: 1
@@ -48,14 +48,14 @@ jobs:
       - uses: actions/checkout@v5
       
       - name: Test Python success
-        uses: ./
+        uses: ultralytics/actions/retry@test-retry
         with:
           shell: python
           run: |
             print("Testing Python execution")
             
       - name: Test Python retry
-        uses: ./
+        uses: ultralytics/actions/retry@test-retry
         with:
           shell: python
           retries: 2
@@ -76,7 +76,7 @@ jobs:
             print("Success on third try!")
 
       - name: Test Python timeout
-        uses: ./
+        uses: ultralytics/actions/retry@test-retry
         continue-on-error: true
         with:
           shell: python
@@ -91,7 +91,7 @@ jobs:
       - uses: actions/checkout@v5
       
       - name: Test multiline bash
-        uses: ./
+        uses: ultralytics/actions/retry@test-retry
         with:
           run: |
             echo "Line 1"
@@ -99,7 +99,7 @@ jobs:
             exit 0
             
       - name: Test multiline python
-        uses: ./
+        uses: ultralytics/actions/retry@test-retry
         with:
           shell: python
           run: |
