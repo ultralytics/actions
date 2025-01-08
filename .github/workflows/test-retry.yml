@@ -2,8 +2,8 @@ name: Test Retry Action
 on:
   pull_request:
     paths:
-      - 'action.yml'
       - '.github/workflows/test-retry.yml'
+      - 'retry/action.yaml'
   workflow_dispatch:
 
 jobs:
