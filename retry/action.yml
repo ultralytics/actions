@@ -90,7 +90,6 @@ runs:
       shell: bash
       env: ${{ env }}
       run: |
-        #!/bin/bash
         set +e
         
         start_time=$(date +%s)
