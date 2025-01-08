@@ -94,7 +94,7 @@ runs:
         timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
         attempt=1
         max_attempts=$(( 1 + ${{ inputs.retries }} ))  # Initial run + retries
-        
+
         while true; do
             if [ $attempt -gt 1 ]; then
                 echo "::group::Retry $((attempt-1)) of ${{ inputs.retries }}"
