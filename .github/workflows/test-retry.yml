@@ -54,9 +54,7 @@ jobs:
         with:
           shell: python
           run: |
-            import sys
             print("This should succeed first try")
-            sys.exit(0)
 
       - name: Test Python retry with eventual success
         uses: ultralytics/actions/retry@test-retry
