@@ -123,7 +123,7 @@ def get_relevant_labels(
 ) -> List[str]:
     """Determines relevant labels for GitHub issues/PRs using OpenAI, considering title, body, and existing labels."""
     # Remove mutually exclusive labels like both 'bug' and 'question' or inappropriate labels like 'help wanted'
-    for label in ["help wanted", "TODO"]:  # normal case
+    for label in {"help wanted", "TODO", "research", "non-reproducible", "popular", "invalid", "Stale", "wontfix", "duplicate"}:  # normal case
         available_labels.pop(label, None)  # remove as should only be manually added
     if "bug" in current_labels:
         available_labels.pop("question", None)
@@ -278,7 +278,7 @@ def get_first_interaction_response(event, issue_type: str, title: str, body: str
    - A minimum reproducible example (MRE)[https://docs.ultralytics.com/help/minimum_reproducible_example/] that demonstrates the issue
    - Your environment details (OS, Python version, package versions)
    - Expected behavior vs. actual behavior
-   - Any error messages or logs related to the issue
+   - Any error messages or stack-track related to the issue
 
 2. For feature requests:
    - A clear and concise description of the proposed feature
