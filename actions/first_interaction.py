@@ -123,7 +123,17 @@ def get_relevant_labels(
 ) -> List[str]:
     """Determines relevant labels for GitHub issues/PRs using OpenAI, considering title, body, and existing labels."""
     # Remove mutually exclusive labels like both 'bug' and 'question' or inappropriate labels like 'help wanted'
-    for label in ["help wanted", "TODO"]:  # normal case
+    for label in {
+        "help wanted",
+        "TODO",
+        "research",
+        "non-reproducible",
+        "popular",
+        "invalid",
+        "Stale",
+        "wontfix",
+        "duplicate",
+    }:  # normal case
         available_labels.pop(label, None)  # remove as should only be manually added
     if "bug" in current_labels:
         available_labels.pop("question", None)
