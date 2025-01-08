@@ -29,7 +29,7 @@ jobs:
           retry_delay_seconds: 5
           run: |
             echo "Running attempt with TEST_VAR=$TEST_VAR"
-            exit 1
+            false
 
       - name: Test multi-line failure
         uses: ultralytics/actions/retry@test-retry
@@ -42,4 +42,4 @@ jobs:
           run: |
             echo "Running line 1 with TEST_VAR=$TEST_VAR"
             echo "Running line 2 with TEST_VAR=$TEST_VAR"
-            exit 1
+            false
