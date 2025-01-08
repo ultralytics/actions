@@ -23,17 +23,19 @@ jobs:
           retries: 2
           retry_delay_seconds: 5
           run: |
-            if [[ ! -f "attempt.txt" ]]; then
-              echo "1" > attempt.txt
+            WORKDIR="/tmp/retry-test"
+            mkdir -p "$WORKDIR"
+            if [[ ! -f "$WORKDIR/attempt.txt" ]]; then
+              echo "1" > "$WORKDIR/attempt.txt"
               exit 1
             fi
-            count=$(<attempt.txt)
+            count=$(<"$WORKDIR/attempt.txt")
             if [[ $count == "1" ]]; then
-              echo "2" > attempt.txt
+              echo "2" > "$WORKDIR/attempt.txt"
               exit 1
             fi
             echo "Success on third try!"
-            rm attempt.txt
+            rm "$WORKDIR/attempt.txt"
 
       - name: Test timeout
         uses: ultralytics/actions/retry@test-retry
