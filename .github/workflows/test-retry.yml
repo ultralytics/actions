@@ -1,0 +1,112 @@
+name: Test Retry Action
+on:
+  push:
+    paths:
+      - 'action.yml'
+      - '.github/workflows/test-retry.yml'
+  pull_request:
+    paths:
+      - 'action.yml'
+      - '.github/workflows/test-retry.yml'
+  workflow_dispatch:
+
+jobs:
+  test-bash:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Test successful command
+        uses: ./
+        with:
+          run: echo "This should succeed"
+
+      - name: Test retry with eventual success
+        uses: ./
+        with:
+          retries: 2
+          retry_delay_seconds: 5
+          run: |
+            if [[ ! -f "attempt.txt" ]]; then
+              echo "1" > attempt.txt
+              exit 1
+            fi
+            count=$(<attempt.txt)
+            if [[ $count == "1" ]]; then
+              echo "2" > attempt.txt
+              exit 1
+            fi
+            echo "Success on third try!"
+            rm attempt.txt
+
+      - name: Test timeout
+        uses: ./
+        continue-on-error: true
+        with:
+          timeout_minutes: 1
+          run: sleep 120
+
+  test-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Test Python success
+        uses: ./
+        with:
+          shell: python
+          run: |
+            print("Testing Python execution")
+            
+      - name: Test Python retry
+        uses: ./
+        with:
+          shell: python
+          retries: 2
+          retry_delay_seconds: 5
+          run: |
+            import os
+            if not os.path.exists('py_attempt.txt'):
+                with open('py_attempt.txt', 'w') as f:
+                    f.write('1')
+                raise Exception("First attempt failed")
+            with open('py_attempt.txt', 'r') as f:
+                count = f.read()
+            if count == '1':
+                with open('py_attempt.txt', 'w') as f:
+                    f.write('2')
+                raise Exception("Second attempt failed")
+            os.remove('py_attempt.txt')
+            print("Success on third try!")
+
+      - name: Test Python timeout
+        uses: ./
+        continue-on-error: true
+        with:
+          shell: python
+          timeout_minutes: 1
+          run: |
+            import time
+            time.sleep(120)
+
+  test-multiline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Test multiline bash
+        uses: ./
+        with:
+          run: |
+            echo "Line 1"
+            echo "Line 2"
+            exit 0
+            
+      - name: Test multiline python
+        uses: ./
+        with:
+          shell: python
+          run: |
+            print("Line 1")
+            print("Line 2")
+            exit(0)
