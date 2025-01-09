@@ -79,7 +79,7 @@ runs:
       run: |
         # Create and activate virtual environment
         uv venv .venv
-        source .venv/bin/activate
+        . .venv/bin/activate
         
         packages="ultralytics-actions"
         if [ "$INPUTS_SPELLING" = "true" ]; then
@@ -91,6 +91,9 @@ runs:
         else
           uv pip install $packages
         fi
+        
+        # Make venv active for subsequent steps
+        echo ". $PWD/.venv/bin/activate" >> $GITHUB_ENV
         ultralytics-actions-info
       shell: bash
 
