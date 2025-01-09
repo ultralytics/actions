@@ -88,10 +88,11 @@ runs:
         if [ "$(uname)" = "Darwin" ]; then
           uv pip install -q $packages
         else
-          # Use system uv but specify venv python
           uv pip install --python .venv/bin/python $packages
-          # Add venv to path for subsequent commands
-          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+          # Store venv path for other steps
+          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+          # Modify PATH to include venv
+          echo "PATH=$PWD/.venv/bin:$PATH" >> $GITHUB_ENV
         fi
       shell: bash
 
