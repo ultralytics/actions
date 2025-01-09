@@ -88,8 +88,8 @@ runs:
         if [ "$(uname)" = "Darwin" ]; then
           uv pip install -q $packages
         else
-          # Use venv's Python but keep access to system packages
-          .venv/bin/uv pip install $packages
+          # Use system uv but specify venv python
+          uv pip install --python .venv/bin/python $packages
           # Add venv to path for subsequent commands
           echo "$PWD/.venv/bin" >> $GITHUB_PATH
         fi
