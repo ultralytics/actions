@@ -77,16 +77,22 @@ runs:
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
-        # Create and activate virtual environment
+        # Create venv with system packages accessible
+        uv venv .venv --system-site-packages
         
         packages="ultralytics-actions"
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
         
-        uv pip install --system $packages
-        
-        ultralytics-actions-info
+        if [ "$(uname)" = "Darwin" ]; then
+          uv pip install -q $packages
+        else
+          # Use venv's Python but keep access to system packages
+          .venv/bin/uv pip install $packages
+          # Add venv to path for subsequent commands
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+        fi
       shell: bash
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
