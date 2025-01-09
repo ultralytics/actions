@@ -80,7 +80,7 @@ runs:
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
-        
+
         if [ "$(uname)" = "Darwin" ]; then
           uv pip install -q $packages
         else

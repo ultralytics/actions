@@ -8,8 +8,6 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) rep
 
 [![PyPI version](https://badge.fury.io/py/ultralytics-actions.svg)](https://badge.fury.io/py/ultralytics-actions) [![Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://www.pepy.tech/projects/ultralytics-actions)
 
-
-
 ## 📄 Actions Description
 
 Ultralytics Actions automatically applies formats, updates, and enhancements:
