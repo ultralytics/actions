@@ -77,15 +77,19 @@ runs:
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
+        # Create and activate virtual environment
+        uv venv .venv
+        source .venv/bin/activate
+        
         packages="ultralytics-actions"
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
-        # On macOS, don't use sudo as it can cause environment issues
+        
         if [ "$(uname)" = "Darwin" ]; then
-          pip install -q $packages
+          uv pip install -q $packages
         else
-          sudo env "PATH=$PATH" uv pip install --system $packages
+          uv pip install $packages
         fi
         ultralytics-actions-info
       shell: bash
