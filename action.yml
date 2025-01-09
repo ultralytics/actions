@@ -72,12 +72,20 @@ runs:
       with:
         enable-cache: false
     - name: Install Dependencies
-      # Note tomli required for codespell with pyproject.toml
-      # sudo env "PATH=$PATH" uv pip install --system git+https://github.com/ultralytics/actions@main codespell tomli
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
+        PIP_BREAK_SYSTEM_PACKAGES: 1
       run: |
-        uv pip install --system ultralytics-actions ruff
+        packages="ultralytics-actions"
+        if [ "$INPUTS_SPELLING" = "true" ]; then
+          packages="$packages codespell tomli"
+        fi
+        
+        if [ "$(uname)" = "Darwin" ]; then
+          uv pip install -q $packages
+        else
+          sudo env "PATH=$PATH" uv pip install --system $packages
+        fi
       shell: bash
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
