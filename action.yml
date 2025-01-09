@@ -89,11 +89,9 @@ runs:
           uv pip install -q $packages
         else
           uv pip install --python .venv/bin/python $packages
-          # Store venv path for other steps
-          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
-          # Modify PATH to include venv
-          echo "PATH=$PWD/.venv/bin:$PATH" >> $GITHUB_ENV
         fi
+        # Add virtual environment to system PATH
+        sudo ln -sf $PWD/.venv/bin/* /usr/local/bin/
       shell: bash
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
