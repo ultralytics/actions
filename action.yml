@@ -77,7 +77,7 @@ runs:
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
-        uv pip install ultralytics-actions ruff
+        uv pip install --system ultralytics-actions ruff
       shell: bash
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
