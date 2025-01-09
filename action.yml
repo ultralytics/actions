@@ -84,7 +84,7 @@ runs:
         if [ "$(uname)" = "Darwin" ]; then
           uv pip install -q $packages
         else
-          sudo env "PATH=$PATH" uv pip install --system $packages
+          sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
         fi
       shell: bash
 
