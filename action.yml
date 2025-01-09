@@ -77,21 +77,7 @@ runs:
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
-        # Create venv with system packages accessible
-        uv venv .venv --system-site-packages
-        
-        packages="ultralytics-actions"
-        if [ "$INPUTS_SPELLING" = "true" ]; then
-          packages="$packages codespell tomli"
-        fi
-        
-        if [ "$(uname)" = "Darwin" ]; then
-          uv pip install -q $packages
-        else
-          uv pip install --python .venv/bin/python $packages
-        fi
-        # Add virtual environment to system PATH
-        sudo ln -sf $PWD/.venv/bin/* /usr/local/bin/
+        uv pip install ultralytics-actions ruff
       shell: bash
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
