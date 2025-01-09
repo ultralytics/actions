@@ -74,6 +74,8 @@ runs:
     - name: Install Dependencies
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
+      # Note tomli required for codespell with pyproject.toml
+      # sudo env "PATH=$PATH" uv pip install --system git+https://github.com/ultralytics/actions@main codespell tomli
       run: |
         packages="ultralytics-actions"
         if [ "$INPUTS_SPELLING" = "true" ]; then
