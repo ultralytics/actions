@@ -19,6 +19,7 @@ class Action:
         event_name: str = None,
         event_data: dict = None,
     ):
+        """Initializes a GitHub Actions API handler with token and event data for processing events."""
         self.token = token or os.getenv("GITHUB_TOKEN")
         self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
         self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
@@ -110,6 +111,7 @@ class Action:
 
 
 def ultralytics_actions_info():
+    """Returns GitHub Actions environment information and configuration details for Ultralytics workflows."""
     Action().print_info()
 
 
