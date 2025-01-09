@@ -86,6 +86,7 @@ runs:
         else
           sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
         fi
+        ultralytics-actions-info
       shell: bash
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
