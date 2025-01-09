@@ -85,7 +85,8 @@ runs:
         if [ "$(uname)" = "Darwin" ]; then
           uv pip install --system --break-system-packages $packages
         else
-          sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
+          uv pip install --system --break-system-packages $packages
+          # sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
         fi
         ultralytics-actions-info
       shell: bash
