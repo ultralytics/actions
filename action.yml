@@ -83,9 +83,9 @@ runs:
         fi
         # On macOS, don't use sudo as it can cause environment issues
         if [ "$(uname)" = "Darwin" ]; then
-          pip install -q $packages
+          uv pip install --system --break-system-packages $packages
         else
-          sudo env "PATH=$PATH" uv pip install --system $packages
+          sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
         fi
         ultralytics-actions-info
       shell: bash
