@@ -81,7 +81,7 @@ runs:
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
-
+        # On macOS, don't use sudo as it can cause environment issues
         if [ "$(uname)" = "Darwin" ]; then
           uv pip install --system --break-system-packages $packages
         else
