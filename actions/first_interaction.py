@@ -382,9 +382,9 @@ def main(*args, **kwargs):
         current_labels = []  # For discussions, labels may need to be fetched differently or adjusted
     else:
         current_labels = [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
-    relevant_labels = get_relevant_labels(issue_type, title, body, label_descriptions, current_labels)
-
-    if relevant_labels:
+    if relevant_labels := get_relevant_labels(
+        issue_type, title, body, label_descriptions, current_labels
+    ):
         apply_labels(event, number, node_id, relevant_labels, issue_type)
         if "Alert" in relevant_labels and not is_org_member(event, username):
             update_issue_pr_content(event, number, node_id, issue_type)
