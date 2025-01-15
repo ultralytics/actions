@@ -1,4 +1,5 @@
-# Ultralytics Actions 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
 # Continuous Integration (CI) GitHub Actions tests
 
 import pytest

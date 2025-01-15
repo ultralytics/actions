@@ -1,4 +1,4 @@
-# Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 from .common_utils import remove_html_comments
 from .github_utils import (
