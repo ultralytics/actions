@@ -22,11 +22,11 @@ PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
 
 def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str, headers: dict) -> str:
     """Retrieves the differences between two specified Git tags in a GitHub repository."""
-    if previous_tag.startswith('HEAD'):  # Handle first release case
+    if previous_tag.startswith("HEAD"):  # Handle first release case
         url = f"{GITHUB_API_URL}/repos/{repo_name}/commits"
         r = requests.get(url, headers=headers)
         return r.text if r.status_code == 200 else f"Failed to get commits: {r.content}"
-    
+
     # Normal case - comparing between tags
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
     r = requests.get(url, headers=headers)
@@ -35,22 +35,24 @@ def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str, headers
 
 def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str, headers: dict) -> list:
     """Retrieves and processes pull requests merged between two specified tags in a GitHub repository."""
-    if previous_tag.startswith('HEAD'):  # Handle first release case
+    if previous_tag.startswith("HEAD"):  # Handle first release case
         url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls?state=closed"
         r = requests.get(url, headers=headers)
         r.raise_for_status()
         prs = []
         for pr in r.json():
-            if pr['merged_at']:  # Only include merged PRs
-                prs.append({
-                    'number': pr['number'],
-                    'title': pr['title'],
-                    'body': remove_html_comments(pr['body']),
-                    'author': pr['user']['login'],
-                    'html_url': pr['html_url'],
-                    'merged_at': pr['merged_at']
-                })
-        return sorted(prs, key=lambda x: datetime.strptime(x['merged_at'], '%Y-%m-%dT%H:%M:%SZ'))
+            if pr["merged_at"]:  # Only include merged PRs
+                prs.append(
+                    {
+                        "number": pr["number"],
+                        "title": pr["title"],
+                        "body": remove_html_comments(pr["body"]),
+                        "author": pr["user"]["login"],
+                        "html_url": pr["html_url"],
+                        "merged_at": pr["merged_at"],
+                    }
+                )
+        return sorted(prs, key=lambda x: datetime.strptime(x["merged_at"], "%Y-%m-%dT%H:%M:%SZ"))
 
     # Normal case - comparing between tags
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
@@ -60,8 +62,8 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str, hea
     data = r.json()
     pr_numbers = set()
 
-    for commit in data['commits']:
-        pr_matches = re.findall(r'#(\d+)', commit['commit']['message'])
+    for commit in data["commits"]:
+        pr_matches = re.findall(r"#(\d+)", commit["commit"]["message"])
         pr_numbers.update(pr_matches)
 
     prs = []
@@ -71,16 +73,18 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str, hea
         pr_response = requests.get(pr_url, headers=headers)
         if pr_response.status_code == 200:
             pr_data = pr_response.json()
-            prs.append({
-                'number': pr_data['number'],
-                'title': pr_data['title'],
-                'body': remove_html_comments(pr_data['body']),
-                'author': pr_data['user']['login'],
-                'html_url': pr_data['html_url'],
-                'merged_at': pr_data['merged_at']
-            })
+            prs.append(
+                {
+                    "number": pr_data["number"],
+                    "title": pr_data["title"],
+                    "body": remove_html_comments(pr_data["body"]),
+                    "author": pr_data["user"]["login"],
+                    "html_url": pr_data["html_url"],
+                    "merged_at": pr_data["merged_at"],
+                }
+            )
 
-    return sorted(prs, key=lambda x: datetime.strptime(x['merged_at'], '%Y-%m-%dT%H:%M:%SZ'))
+    return sorted(prs, key=lambda x: datetime.strptime(x["merged_at"], "%Y-%m-%dT%H:%M:%SZ"))
 
 
 def get_new_contributors(repo: str, prs: list, headers: dict) -> set:
