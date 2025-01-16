@@ -170,7 +170,7 @@ def main(*args, **kwargs):
     # Get the diff between the tags
     previous_tag = (
         PREVIOUS_TAG
-        if PREVIOUS_TAG and "none" not in PREVIOUS_TAG.lower() and PREVIOUS_TAG != CURRENT_RAG
+        if PREVIOUS_TAG and "none" not in PREVIOUS_TAG.lower() and PREVIOUS_TAG != CURRENT_TAG
         else get_previous_tag()
     )
 
