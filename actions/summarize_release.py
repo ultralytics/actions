@@ -17,6 +17,7 @@ from .utils import (
 
 # Environment variables
 CURRENT_TAG = os.getenv("CURRENT_TAG")
+PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
 
 
 def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str, headers: dict) -> str:
@@ -145,15 +146,13 @@ def create_github_release(repo_name: str, tag_name: str, name: str, body: str, h
 
 
 def get_previous_tag() -> str:
-    """Returns previous Git tag or initial commit SHA if no tags exist."""
+    """Retrieves the previous Git tag, excluding the current tag, using the git describe command."""
+    cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", CURRENT_TAG]
     try:
-        # Try to get previous tag first
-        cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", CURRENT_TAG]
         return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
     except subprocess.CalledProcessError:
-        # If no tags exist, get the initial commit SHA
-        cmd = ["git", "rev-list", "--max-parents=0", "HEAD"]
-        return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
+        print("Failed to get previous tag from git. Using previous commit.")
+        return "HEAD~1"
 
 
 def main(*args, **kwargs):
@@ -163,8 +162,9 @@ def main(*args, **kwargs):
     if not all([action.token, CURRENT_TAG]):
         raise ValueError("One or more required environment variables are missing.")
 
+    previous_tag = PREVIOUS_TAG or get_previous_tag()
+
     # Get the diff between the tags
-    previous_tag = get_previous_tag()
     diff = get_release_diff(action.repository, previous_tag, CURRENT_TAG, action.headers_diff)
 
     # Get PRs merged between the tags
