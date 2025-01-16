@@ -19,6 +19,7 @@ from .utils import (
 CURRENT_TAG = os.getenv("CURRENT_TAG")
 PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
 
+
 def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str, headers: dict) -> str:
     """Retrieves the differences between two specified Git tags in a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
