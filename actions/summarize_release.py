@@ -19,6 +19,8 @@ from .utils import (
 CURRENT_TAG = os.getenv("CURRENT_TAG")
 PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
 
+print(f"CURRENT_TAG{CURRENT_TAG}")
+print(f"PREVIOUS_TAG{PREVIOUS_TAG}")
 
 def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str, headers: dict) -> str:
     """Retrieves the differences between two specified Git tags in a GitHub repository."""
@@ -165,11 +167,11 @@ def main(*args, **kwargs):
         raise ValueError("One or more required environment variables are missing.")
 
     # Get the diff between the tags
-    previous_tag = (
-        PREVIOUS_TAG
-        if PREVIOUS_TAG and "none" not in PREVIOUS_TAG.lower() and PREVIOUS_TAG != CURRENT_RAG
-        else get_previous_tag()
-    )
+    previous_tag = PREVIOUS_TAG if PREVIOUS_TAG and "none" not in PREVIOUS_TAG.lower() and PREVIOUS_TAG != CURRENT_RAG else get_previous_tag()
+
+    print(f"CURRENT_TAG{CURRENT_TAG}")
+    print(f"previous_tag{previous_tag}")
+    
     diff = get_release_diff(action.repository, previous_tag, CURRENT_TAG, action.headers_diff)
 
     # Get PRs merged between the tags
