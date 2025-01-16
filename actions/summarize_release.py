@@ -156,6 +156,7 @@ def get_previous_tag() -> str:
         cmd = ["git", "rev-list", "--max-parents=0", "HEAD"]
         return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
 
+
 def main(*args, **kwargs):
     """Automates generating and publishing a GitHub release summary from PRs and commit differences."""
     action = Action(*args, **kwargs)
