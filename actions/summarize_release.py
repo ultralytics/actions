@@ -22,12 +22,6 @@ PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
 
 def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str, headers: dict) -> str:
     """Retrieves the differences between two specified Git tags in a GitHub repository."""
-    if previous_tag.startswith("HEAD"):  # Handle first release case
-        url = f"{GITHUB_API_URL}/repos/{repo_name}/commits"
-        r = requests.get(url, headers=headers)
-        return r.text if r.status_code == 200 else f"Failed to get commits: {r.content}"
-
-    # Normal case - comparing between tags
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
     r = requests.get(url, headers=headers)
     return r.text if r.status_code == 200 else f"Failed to get diff: {r.content}"
@@ -35,26 +29,6 @@ def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str, headers
 
 def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str, headers: dict) -> list:
     """Retrieves and processes pull requests merged between two specified tags in a GitHub repository."""
-    if previous_tag.startswith("HEAD"):  # Handle first release case
-        url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls?state=closed"
-        r = requests.get(url, headers=headers)
-        r.raise_for_status()
-        prs = []
-        for pr in r.json():
-            if pr["merged_at"]:  # Only include merged PRs
-                prs.append(
-                    {
-                        "number": pr["number"],
-                        "title": pr["title"],
-                        "body": remove_html_comments(pr["body"]),
-                        "author": pr["user"]["login"],
-                        "html_url": pr["html_url"],
-                        "merged_at": pr["merged_at"],
-                    }
-                )
-        return sorted(prs, key=lambda x: datetime.strptime(x["merged_at"], "%Y-%m-%dT%H:%M:%SZ"))
-
-    # Normal case - comparing between tags
     url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
     r = requests.get(url, headers=headers)
     r.raise_for_status()
@@ -84,7 +58,10 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str, hea
                 }
             )
 
-    return sorted(prs, key=lambda x: datetime.strptime(x["merged_at"], "%Y-%m-%dT%H:%M:%SZ"))
+    # Sort PRs by merge date
+    prs.sort(key=lambda x: datetime.strptime(x["merged_at"], "%Y-%m-%dT%H:%M:%SZ"))
+
+    return prs
 
 
 def get_new_contributors(repo: str, prs: list, headers: dict) -> set:
@@ -170,15 +147,14 @@ def create_github_release(repo_name: str, tag_name: str, name: str, body: str, h
 
 def get_previous_tag() -> str:
     """Returns previous Git tag or initial commit SHA if no tags exist."""
-    # Try to get previous tag first
-    cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", CURRENT_TAG]
-    result = subprocess.run(cmd, text=True, capture_output=True)
-    if result.stdout.strip():
-        return result.stdout.strip()
-    # If no tags exist or output is empty, get the initial commit SHA
-    cmd = ["git", "rev-list", "--max-parents=0", "HEAD"]
-    return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
-
+    try:
+        # Try to get previous tag first
+        cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", CURRENT_TAG]
+        return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
+    except subprocess.CalledProcessError:
+        # If no tags exist, get the initial commit SHA
+        cmd = ["git", "rev-list", "--max-parents=0", "HEAD"]
+        return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
 
 def main(*args, **kwargs):
     """Automates generating and publishing a GitHub release summary from PRs and commit differences."""
@@ -187,8 +163,7 @@ def main(*args, **kwargs):
     if not all([action.token, CURRENT_TAG]):
         raise ValueError("One or more required environment variables are missing.")
 
-    # Get previous tag, ensure it's not None
-    previous_tag = get_previous_tag() if not PREVIOUS_TAG else PREVIOUS_TAG
+    previous_tag = PREVIOUS_TAG or get_previous_tag()
 
     # Get the diff between the tags
     diff = get_release_diff(action.repository, previous_tag, CURRENT_TAG, action.headers_diff)
