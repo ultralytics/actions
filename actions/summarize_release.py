@@ -185,7 +185,8 @@ def main(*args, **kwargs):
     if not all([action.token, CURRENT_TAG]):
         raise ValueError("One or more required environment variables are missing.")
 
-    previous_tag = PREVIOUS_TAG or get_previous_tag()
+    # Get previous tag, ensure it's not None
+    previous_tag = get_previous_tag() if not PREVIOUS_TAG else PREVIOUS_TAG
 
     # Get the diff between the tags
     diff = get_release_diff(action.repository, previous_tag, CURRENT_TAG, action.headers_diff)
