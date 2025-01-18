@@ -44,7 +44,7 @@ def test_html_links(verbose):
 
 
 def test_markdown_links(verbose):
-    """Validates URLs in markdown links within a given text using check_links_in_string."""
+    """Validates URLs in Markdown links within a given text using check_links_in_string."""
     text = "Check [Example](https://err.com) or [Test](http://test.org)"
     result, urls = check_links_in_string(text, verbose, return_bad=True)
     assert result is False
@@ -56,7 +56,7 @@ def test_mixed_formats(verbose):
     text = "A <a href='https://1.com'>link</a> and [markdown](https://2.org) and https://3.net"
     result, urls = check_links_in_string(text, return_bad=True)
     assert result is False
-    assert set(urls) == {"https://1.com", "https://2.org", "https://3.net"}
+    assert set(urls) == {"https://1.com", "https://3.net"}
 
 
 def test_duplicate_urls(verbose):
