@@ -285,7 +285,7 @@ def get_first_interaction_response(event, issue_type: str, title: str, body: str
 
 1. For bug reports:
    - A clear and concise description of the bug
-   - A minimum reproducible example (MRE)[https://docs.ultralytics.com/help/minimum_reproducible_example/] that demonstrates the issue
+   - A minimum reproducible example [MRE](https://docs.ultralytics.com/help/minimum-reproducible-example/) that demonstrates the issue
    - Your environment details (OS, Python version, package versions)
    - Expected behavior vs. actual behavior
    - Any error messages or logs related to the issue
