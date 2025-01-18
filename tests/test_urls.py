@@ -7,12 +7,19 @@ import pytest
 from actions.utils.common_utils import check_links_in_string, is_url
 
 URLS = [
-    "https://docs.ultralytics.com/help/CLA/",
     "https://docs.ultralytics.com/help/contributing",
-    "https://docs.ultralytics.com",
     "https://ultralytics.com",
     "https://ultralytics.com/images/bus.jpg",
     "https://github.com/ultralytics/ultralytics",
+    "https://azure.microsoft.com/",
+    "https://www.tableau.com/",
+    "https://openai.com/research/gpt-4",
+    "https://azure.microsoft.com/en-us/services/machine-learning/",
+    "https://azure.microsoft.com/en-us/products/storage/blobs",
+    "https://www.reuters.com/article/idUSKCN1MK08G/",
+    "https://www.kdnuggets.com/",
+    "https://www.datacamp.com/tutorial/understanding-logistic-regression-python",
+    "https://www.statisticshowto.com/probability-and-statistics/find-outliers/",
 ]
 
 
