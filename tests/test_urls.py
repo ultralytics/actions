@@ -17,7 +17,7 @@ URLS = [
     "https://azure.microsoft.com/en-us/services/machine-learning/",
     "https://azure.microsoft.com/en-us/products/storage/blobs",
     "https://www.reuters.com/article/idUSKCN1MK08G/",
-    "https://www.kdnuggets.com/",
+    # "https://www.kdnuggets.com/",
     "https://www.datacamp.com/tutorial/understanding-logistic-regression-python",
     "https://www.statisticshowto.com/probability-and-statistics/find-outliers/",
 ]
