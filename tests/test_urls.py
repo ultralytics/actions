@@ -13,7 +13,7 @@ URLS = [
     "https://github.com/ultralytics/ultralytics",
     "https://azure.microsoft.com/",
     "https://www.tableau.com/",
-    "https://openai.com/research/gpt-4",
+    # "https://openai.com/research/gpt-4",
     "https://azure.microsoft.com/en-us/services/machine-learning/",
     "https://azure.microsoft.com/en-us/products/storage/blobs",
     "https://www.reuters.com/article/idUSKCN1MK08G/",
