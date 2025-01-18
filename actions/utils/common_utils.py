@@ -73,7 +73,12 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
                         "Referer": "https://www.google.com/",
                         "Origin": "https://www.google.com/",
                     }
-                    return requests.get(url, headers=headers, timeout=timeout, allow_redirects=True, stream=True).status_code < 400
+                    return (
+                        requests.get(
+                            url, headers=headers, timeout=timeout, allow_redirects=True, stream=True
+                        ).status_code
+                        < 400
+                    )
                 except Exception:
                     if attempt == max_attempts - 1:  # last attempt
                         return False
