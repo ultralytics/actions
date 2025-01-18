@@ -47,8 +47,8 @@ def update_issue_pr_content(event, number: int, node_id: str, issue_type: str):
     new_title = "Content Under Review"
     new_body = """This post has been flagged for review by [Ultralytics Actions](https://ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
 
-- [Code of Conduct](https://docs.ultralytics.com/help/code_of_conduct)
-- [Security Policy](https://docs.ultralytics.com/help/security)
+- [Code of Conduct](https://docs.ultralytics.com/help/code-of-conduct/)
+- [Security Policy](https://docs.ultralytics.com/help/security/)
 
 For questions or bug reports related to this action please visit https://github.com/ultralytics/actions.
 
@@ -285,7 +285,7 @@ def get_first_interaction_response(event, issue_type: str, title: str, body: str
 
 1. For bug reports:
    - A clear and concise description of the bug
-   - A minimum reproducible example (MRE)[https://docs.ultralytics.com/help/minimum_reproducible_example/] that demonstrates the issue
+   - A minimum reproducible example [MRE](https://docs.ultralytics.com/help/minimum-reproducible-example/) that demonstrates the issue
    - Your environment details (OS, Python version, package versions)
    - Expected behavior vs. actual behavior
    - Any error messages or logs related to the issue
