@@ -68,8 +68,8 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
                 "Sec-Fetch-Mode": "navigate",
                 "Sec-Fetch-User": "?1",
                 "Sec-Fetch-Dest": "document",
-                "Referer": "https://www.google.com/",
-                "Origin": "https://www.google.com/",
+                "Referer": "https://www.ultralytics.com/",
+                "Origin": "https://www.ultralytics.com/",
             }
             bad_codes = {404, 410, 500, 502, 503, 504}
             for attempt in range(max_attempts):
