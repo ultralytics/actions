@@ -117,7 +117,7 @@ def check_links_in_string(text, verbose=True, return_bad=False):
 
     urls = set(map(clean_url, all_urls))  # remove extra characters and make unique
     # bad_urls = [x for x in urls if not is_url(x, check=True)]  # single-thread
-    with requests.Session() as session, ThreadPoolExecutor(max_workers=16) as executor:
+    with requests.Session() as session, ThreadPoolExecutor(max_workers=min(32, (os.cpu_count() or 1) * 4)) as executor:
         session.headers.update(REQUESTS_HEADERS)
         bad_urls = [url for url, valid in zip(urls, executor.map(lambda x: not is_url(x, session), urls)) if valid]
 
