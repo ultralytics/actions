@@ -47,7 +47,7 @@ URL_IGNORE_LIST = frozenset(
 )
 
 URL_PATTERN = re.compile(
-    r"\[([^\]]+)\]\(([^)]+)\)"  # Matches Markdown links [text](url)
+    r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
     r"("  # Start capturing group for plaintext URLs
     r"(?:https?://)?"  # Optional http:// or https://
