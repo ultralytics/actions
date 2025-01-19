@@ -78,7 +78,9 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
                     response = requests.head(url, headers=REQUESTS_HEADERS, timeout=timeout, allow_redirects=True)
                     if response.status_code not in bad_codes:
                         return True
-                    response = requests.get(url, headers=REQUESTS_HEADERS, timeout=timeout, allow_redirects=True, stream=True)
+                    response = requests.get(
+                        url, headers=REQUESTS_HEADERS, timeout=timeout, allow_redirects=True, stream=True
+                    )
                     return response.status_code not in bad_codes  # Try GET if HEAD fails
                 except Exception:
                     if attempt == max_attempts - 1:  # last attempt
