@@ -24,23 +24,23 @@ REQUESTS_HEADERS = {
 }
 
 URL_IGNORE_LIST = {
-        "localhost",
-        "127.0.0",
-        ":5000",
-        ":3000",
-        ":8000",
-        ":8080",
-        ":6006",
-        "MODEL_ID",
-        "API_KEY",
-        "url",
-        "example",
-        "mailto:",
-        "github.com",  # ignore GitHub links that may be private repos
-        "linkedin.com",
-        "twitter.com",
-        "x.com",
-        "storage.googleapis.com",  # private GCS buckets
+    "localhost",
+    "127.0.0",
+    ":5000",
+    ":3000",
+    ":8000",
+    ":8080",
+    ":6006",
+    "MODEL_ID",
+    "API_KEY",
+    "url",
+    "example",
+    "mailto:",
+    "github.com",  # ignore GitHub links that may be private repos
+    "linkedin.com",
+    "twitter.com",
+    "x.com",
+    "storage.googleapis.com",  # private GCS buckets
 }
 
 
@@ -58,7 +58,6 @@ def clean_url(url):
 
 def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
     """Check if string is URL and optionally verify it exists."""
-
     try:
         # Check allow list
         if any(x in url for x in URL_IGNORE_LIST):
