@@ -20,6 +20,8 @@ URLS = [
     "https://www.kdnuggets.com/",
     "https://www.datacamp.com/tutorial/understanding-logistic-regression-python",
     "https://www.statisticshowto.com/probability-and-statistics/find-outliers/",
+    "https://www.reddit.com/r/Ultralytics/comments/1fw3605/release_megathread/",
+    "https://www.kaggle.com/models/ultralytics/yolo11",
 ]
 
 
