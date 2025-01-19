@@ -109,14 +109,11 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
 
 def check_links_in_string(text, verbose=True, return_bad=False):
     """Process a given text, find unique URLs within it, and check for any 404 errors."""
-    all_urls = []
-    for md_text, md_url, plain_url in re.findall(URL_PATTERNS, text):
-        url = md_url or plain_url
-        if url and parse.urlparse(url).scheme:
-            all_urls.append(url)
-
-    urls = set(map(clean_url, all_urls))  # remove extra characters and make unique
-    # bad_urls = [x for x in urls if not is_url(x, check=True)]  # single-thread
+    urls = {
+        clean_url(match.group())
+        for match in URL_PATTERN.finditer(text)
+        if match.group() and parse_url(match.group()).scheme
+    }
     with requests.Session() as session, ThreadPoolExecutor(max_workers=min(32, (os.cpu_count() or 1) * 4)) as executor:
         session.headers.update(REQUESTS_HEADERS)
         bad_urls = [url for url, valid in zip(urls, executor.map(lambda x: not is_url(x, session), urls)) if valid]
