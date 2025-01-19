@@ -23,22 +23,8 @@ REQUESTS_HEADERS = {
     "Origin": "https://www.google.com/",
 }
 
-
-def remove_html_comments(body: str) -> str:
-    """Removes HTML comments from a string using regex pattern matching."""
-    return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
-
-
-def clean_url(url):
-    """Remove extra characters from URL strings."""
-    for _ in range(3):
-        url = str(url).strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
-    return url
-
-
-def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
-    """Check if string is URL and optionally verify it exists."""
-    allow_list = (
+URL_IGNORE_LIST = frozenset(
+    {
         "localhost",
         "127.0.0",
         ":5000",
@@ -56,10 +42,39 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
         "twitter.com",
         "x.com",
         "storage.googleapis.com",  # private GCS buckets
-    )
+    }
+)
+
+URL_PATTERN = re.compile(
+    r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
+    r"|"
+    r"("  # Start capturing group for plaintext URLs
+    r"(?:https?://)?"  # Optional http:// or https://
+    r"(?:www\.)?"  # Optional www.
+    r"(?:[\w.-]+)?"  # Optional domain name and subdomains
+    r"\.[a-zA-Z]{2,}"  # TLD
+    r"(?:/[^\s\"')\]]*)?"  # Optional path
+    r")"
+)
+
+
+def remove_html_comments(body: str) -> str:
+    """Removes HTML comments from a string using regex pattern matching."""
+    return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
+
+
+def clean_url(url):
+    """Remove extra characters from URL strings."""
+    for _ in range(3):
+        url = str(url).strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
+    return url
+
+
+def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
+    """Check if string is URL and optionally verify it exists."""
     try:
         # Check allow list
-        if any(x in url for x in allow_list):
+        if any(x in url for x in URL_IGNORE_LIST):
             return True
 
         # Check structure
@@ -69,7 +84,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
             return False
 
         if check:
-            requester = session if session else requests
+            requester = session or requests
             bad_codes = {404, 410, 500, 502, 503, 504}
             kwargs = {"timeout": timeout, "allow_redirects": True}
             if not session:
@@ -94,26 +109,13 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
 
 def check_links_in_string(text, verbose=True, return_bad=False):
     """Process a given text, find unique URLs within it, and check for any 404 errors."""
-    pattern = (
-        r"\[([^\]]+)\]\(([^)]+)\)"  # Matches Markdown links [text](url)
-        r"|"
-        r"("  # Start capturing group for plaintext URLs
-        r"(?:https?://)?"  # Optional http:// or https://
-        r"(?:www\.)?"  # Optional www.
-        r"(?:[\w.-]+)?"  # Optional domain name and subdomains
-        r"\.[a-zA-Z]{2,}"  # TLD
-        r"(?:/[^\s\"')\]]*)?"  # Optional path
-        r")"
-    )
-    # all_urls.extend([url for url in match if url and parse.urlparse(url).scheme])
     all_urls = []
-    for md_text, md_url, plain_url in re.findall(pattern, text):
+    for md_text, md_url, plain_url in URL_PATTERN.findall(text):
         url = md_url or plain_url
         if url and parse.urlparse(url).scheme:
             all_urls.append(url)
 
     urls = set(map(clean_url, all_urls))  # remove extra characters and make unique
-    # bad_urls = [x for x in urls if not is_url(x, check=True)]  # single-thread
     with requests.Session() as session, ThreadPoolExecutor(max_workers=16) as executor:
         session.headers.update(REQUESTS_HEADERS)
         bad_urls = [url for url, valid in zip(urls, executor.map(lambda x: not is_url(x, session), urls)) if valid]
