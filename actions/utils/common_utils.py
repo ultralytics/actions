@@ -43,6 +43,17 @@ URL_IGNORE_LIST = {
     "storage.googleapis.com",  # private GCS buckets
 }
 
+URL_PATTERNS = (
+        r"\[([^\]]+)\]\(([^)]+)\)"  # Matches Markdown links [text](url)
+        r"|"
+        r"("  # Start capturing group for plaintext URLs
+        r"(?:https?://)?"  # Optional http:// or https://
+        r"(?:www\.)?"  # Optional www.
+        r"(?:[\w.-]+)?"  # Optional domain name and subdomains
+        r"\.[a-zA-Z]{2,}"  # TLD
+        r"(?:/[^\s\"')\]]*)?"  # Optional path
+        r")"
+    )
 
 def remove_html_comments(body: str) -> str:
     """Removes HTML comments from a string using regex pattern matching."""
@@ -95,20 +106,9 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
 
 def check_links_in_string(text, verbose=True, return_bad=False):
     """Process a given text, find unique URLs within it, and check for any 404 errors."""
-    pattern = (
-        r"\[([^\]]+)\]\(([^)]+)\)"  # Matches Markdown links [text](url)
-        r"|"
-        r"("  # Start capturing group for plaintext URLs
-        r"(?:https?://)?"  # Optional http:// or https://
-        r"(?:www\.)?"  # Optional www.
-        r"(?:[\w.-]+)?"  # Optional domain name and subdomains
-        r"\.[a-zA-Z]{2,}"  # TLD
-        r"(?:/[^\s\"')\]]*)?"  # Optional path
-        r")"
-    )
-    # all_urls.extend([url for url in match if url and parse.urlparse(url).scheme])
+
     all_urls = []
-    for md_text, md_url, plain_url in re.findall(pattern, text):
+    for md_text, md_url, plain_url in re.findall(URL_PATTERNS, text):
         url = md_url or plain_url
         if url and parse.urlparse(url).scheme:
             all_urls.append(url)
