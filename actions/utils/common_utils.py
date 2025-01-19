@@ -23,25 +23,27 @@ REQUESTS_HEADERS = {
     "Origin": "https://www.google.com/",
 }
 
-URL_IGNORE_LIST = {
-    "localhost",
-    "127.0.0",
-    ":5000",
-    ":3000",
-    ":8000",
-    ":8080",
-    ":6006",
-    "MODEL_ID",
-    "API_KEY",
-    "url",
-    "example",
-    "mailto:",
-    "github.com",  # ignore GitHub links that may be private repos
-    "linkedin.com",
-    "twitter.com",
-    "x.com",
-    "storage.googleapis.com",  # private GCS buckets
-}
+URL_IGNORE_LIST = frozenset(
+    {
+        "localhost",
+        "127.0.0",
+        ":5000",
+        ":3000",
+        ":8000",
+        ":8080",
+        ":6006",
+        "MODEL_ID",
+        "API_KEY",
+        "url",
+        "example",
+        "mailto:",
+        "github.com",  # ignore GitHub links that may be private repos
+        "linkedin.com",
+        "twitter.com",
+        "x.com",
+        "storage.googleapis.com",  # private GCS buckets
+    }
+)
 
 URL_PATTERNS = (
     r"\[([^\]]+)\]\(([^)]+)\)"  # Matches Markdown links [text](url)
