@@ -81,7 +81,10 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
                 try:
                     # Try HEAD first, then GET if needed
                     for method in (requester.head, requester.get):
-                        if method(url, **kwargs, **({"stream": True} if method == requester.get else {})).status_code not in bad_codes:
+                        if (
+                            method(url, **kwargs, **({"stream": True} if method == requester.get else {})).status_code
+                            not in bad_codes
+                        ):
                             return True
                     return False
                 except Exception:
