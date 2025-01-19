@@ -2,10 +2,11 @@
 
 # Continuous Integration (CI) GitHub Actions tests
 
-import pytest
-import asyncio
-from actions.utils.common_utils import check_links_in_string_async, is_url_async
+
 import aiohttp
+import pytest
+
+from actions.utils.common_utils import check_links_in_string_async, is_url_async
 
 URLS = [
     "https://docs.ultralytics.com/help/contributing",
@@ -26,10 +27,12 @@ URLS = [
     "https://apps.apple.com/xk/app/ultralytics/id1583935240",
 ]
 
+
 @pytest.fixture
 def verbose():
     """Fixture that provides a verbose logging utility for detailed output during testing and debugging."""
     return False  # Set False to suppress print statements during tests
+
 
 @pytest.mark.asyncio
 async def test_is_url():
@@ -37,6 +40,7 @@ async def test_is_url():
     async with aiohttp.ClientSession() as session:
         for url in URLS:
             assert await is_url_async(url, session), f"URL check failed: {url}"
+
 
 @pytest.mark.asyncio
 async def test_html_links(verbose):
@@ -46,6 +50,7 @@ async def test_html_links(verbose):
     assert result is False
     assert set(urls) == {"https://err.com", "http://test.org"}
 
+
 @pytest.mark.asyncio
 async def test_markdown_links(verbose):
     """Validates URLs in Markdown links within a given text using check_links_in_string_async."""
@@ -53,6 +58,7 @@ async def test_markdown_links(verbose):
     result, urls = await check_links_in_string_async(text, verbose, return_bad=True)
     assert result is False
     assert set(urls) == {"https://err.com", "http://test.org"}
+
 
 @pytest.mark.asyncio
 async def test_mixed_formats(verbose):
@@ -62,6 +68,7 @@ async def test_mixed_formats(verbose):
     assert result is False
     assert set(urls) == {"https://1.com", "https://3.net"}
 
+
 @pytest.mark.asyncio
 async def test_duplicate_urls(verbose):
     """Tests detection of duplicate URLs in various text formats using the check_links_in_string_async function."""
@@ -69,6 +76,7 @@ async def test_duplicate_urls(verbose):
     result, urls = await check_links_in_string_async(text, verbose, return_bad=True)
     assert result is False
     assert set(urls) == {"https://err.com"}
+
 
 @pytest.mark.asyncio
 async def test_no_urls(verbose):
@@ -78,6 +86,7 @@ async def test_no_urls(verbose):
     assert result is True
     assert not set(urls)
 
+
 @pytest.mark.asyncio
 async def test_invalid_urls(verbose):
     """Test invalid URLs."""
@@ -85,6 +94,7 @@ async def test_invalid_urls(verbose):
     result, urls = await check_links_in_string_async(text, verbose, return_bad=True)
     assert result is False
     assert set(urls) == {"http://.com"}
+
 
 @pytest.mark.asyncio
 async def test_urls_with_paths_and_queries(verbose):
@@ -94,6 +104,7 @@ async def test_urls_with_paths_and_queries(verbose):
     assert result is False
     assert set(urls) == {"https://err.com/path?query=value#fragment"}
 
+
 @pytest.mark.asyncio
 async def test_urls_with_different_tlds(verbose):
     """Test URLs with various top-level domains (TLDs) to ensure correct identification and handling."""
@@ -101,6 +112,7 @@ async def test_urls_with_different_tlds(verbose):
     result, urls = await check_links_in_string_async(text, verbose, return_bad=True)
     assert result is False
     assert set(urls) == {"https://err.ml", "https://err.io", "https://err.ai"}
+
 
 @pytest.mark.asyncio
 async def test_case_sensitivity(verbose):
