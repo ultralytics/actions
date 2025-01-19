@@ -298,7 +298,7 @@ def get_first_interaction_response(event, issue_type: str, title: str, body: str
 3. For questions:
    - Provide as much context as possible about your question
    - Include any research you've already done on the topic
-   - Specify which parts of the [documentation](https://docs.ultralytics.com), if any, you've already consulted
+   - Specify which parts of the [documentation](https://docs.ultralytics.com/), if any, you've already consulted
 
 Please make sure you've searched existing {issue_type}s to avoid duplicates. If you need to add any additional information, please comment on this {issue_type}.
 
@@ -311,12 +311,12 @@ Thank you for your contribution to improving our project!
 - ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{event.repository}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
 - ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{event.repository}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
 - ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI/) checks are passing. If any checks fail, please address the issues.
-- ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com) for any new or modified features.
+- ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com/) for any new or modified features.
 - ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
 - ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA/) if this is your first Ultralytics PR by writing "I have read the CLA Document and I sign the CLA" in a new message.
 - ✅ **Minimize Changes**: Limit your changes to the **minimum** necessary for your bug fix or feature addition. _"It is not daily increase but daily decrease, hack away the unessential. The closer to the source, the less wastage there is."_  — Bruce Lee
 
-For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing). Don’t hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀
+For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing/). Don’t hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀
 """
 
     if issue_type == "pull request":
