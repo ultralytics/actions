@@ -81,7 +81,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
             return False
 
         if check:
-            requester = session if session else requests
+            requester = session or requests
             bad_codes = {404, 410, 500, 502, 503, 504}
             kwargs = {"timeout": timeout, "allow_redirects": True}
             if not session:
