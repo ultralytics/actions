@@ -23,7 +23,7 @@ REQUESTS_HEADERS = {
     "Origin": "https://www.google.com/",
 }
 
-URL_ALLOW_LIST = {
+URL_IGNORE_LIST = {
         "localhost",
         "127.0.0",
         ":5000",
@@ -61,7 +61,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
 
     try:
         # Check allow list
-        if any(x in url for x in URL_ALLOW_LIST):
+        if any(x in url for x in URL_IGNORE_LIST):
             return True
 
         # Check structure
