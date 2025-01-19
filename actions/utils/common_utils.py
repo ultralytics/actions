@@ -23,22 +23,7 @@ REQUESTS_HEADERS = {
     "Origin": "https://www.google.com/",
 }
 
-
-def remove_html_comments(body: str) -> str:
-    """Removes HTML comments from a string using regex pattern matching."""
-    return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
-
-
-def clean_url(url):
-    """Remove extra characters from URL strings."""
-    for _ in range(3):
-        url = str(url).strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
-    return url
-
-
-def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
-    """Check if string is URL and optionally verify it exists."""
-    allow_list = (
+URL_ALLOW_LIST = {
         "localhost",
         "127.0.0",
         ":5000",
@@ -56,10 +41,27 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
         "twitter.com",
         "x.com",
         "storage.googleapis.com",  # private GCS buckets
-    )
+}
+
+
+def remove_html_comments(body: str) -> str:
+    """Removes HTML comments from a string using regex pattern matching."""
+    return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
+
+
+def clean_url(url):
+    """Remove extra characters from URL strings."""
+    for _ in range(3):
+        url = str(url).strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
+    return url
+
+
+def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
+    """Check if string is URL and optionally verify it exists."""
+
     try:
         # Check allow list
-        if any(x in url for x in allow_list):
+        if any(x in url for x in URL_ALLOW_LIST):
             return True
 
         # Check structure
