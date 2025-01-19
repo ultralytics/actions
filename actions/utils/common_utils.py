@@ -46,7 +46,7 @@ URL_IGNORE_LIST = frozenset(
     }
 )
 
-URL_PATTERNS = (
+URL_PATTERN = (
     r"\[([^\]]+)\]\(([^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
     r"("  # Start capturing group for plaintext URLs
@@ -111,7 +111,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
 def check_links_in_string(text, verbose=True, return_bad=False):
     """Process a given text, find unique URLs within it, and check for any 404 errors."""
     all_urls = []
-    for md_text, md_url, plain_url in re.findall(URL_PATTERNS, text):
+    for md_text, md_url, plain_url in re.findall(URL_PATTERN, text):
         url = md_url or plain_url
         if url and parse.urlparse(url).scheme:
             all_urls.append(url)
