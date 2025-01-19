@@ -1,7 +1,8 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import asyncio
 import re
+import time
+import asyncio
 from urllib import parse
 
 import aiohttp
@@ -22,22 +23,8 @@ REQUESTS_HEADERS = {
     "Origin": "https://www.google.com/",
 }
 
-
-def remove_html_comments(body: str) -> str:
-    """Removes HTML comments from a string using regex pattern matching."""
-    return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
-
-
-def clean_url(url):
-    """Remove extra characters from URL strings."""
-    for _ in range(3):
-        url = str(url).strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
-    return url
-
-
-async def is_url_async(url, session=None, check=True, max_attempts=3, timeout=2):
-    """Check if string is URL and optionally verify it exists (async)."""
-    allow_list = (
+URL_IGNORE_LIST = frozenset(
+    {
         "localhost",
         "127.0.0",
         ":5000",
@@ -55,10 +42,36 @@ async def is_url_async(url, session=None, check=True, max_attempts=3, timeout=2)
         "twitter.com",
         "x.com",
         "storage.googleapis.com",  # private GCS buckets
-    )
+    }
+)
+
+URL_PATTERN = re.compile(
+    r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
+    r"|"
+    r"("  # Start capturing group for plaintext URLs
+    r"(?:https?://)?"  # Optional http:// or https://
+    r"(?:www\.)?"  # Optional www.
+    r"(?:[\w.-]+)?"  # Optional domain name and subdomains
+    r"\.[a-zA-Z]{2,}"  # TLD
+    r"(?:/[^\s\"')\]]*)?"  # Optional path
+    r")"
+)
+
+def remove_html_comments(body: str) -> str:
+    """Removes HTML comments from a string using regex pattern matching."""
+    return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
+
+def clean_url(url):
+    """Remove extra characters from URL strings."""
+    for _ in range(3):
+        url = str(url).strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
+    return url
+
+async def is_url_async(url, session, check=True, max_attempts=3, timeout=2):
+    """Asynchronously check if string is URL and optionally verify it exists."""
     try:
         # Check allow list
-        if any(x in url for x in allow_list):
+        if any(x in url for x in URL_IGNORE_LIST):
             return True
 
         # Check structure
@@ -68,71 +81,41 @@ async def is_url_async(url, session=None, check=True, max_attempts=3, timeout=2)
             return False
 
         if check:
-            close_session = False
-            if not session:
-                session = aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout))
-                session.headers.update(REQUESTS_HEADERS)
-                close_session = True
-
             bad_codes = {404, 410, 500, 502, 503, 504}
+            kwargs = {"timeout": aiohttp.ClientTimeout(total=timeout)}
 
             for attempt in range(max_attempts):
                 try:
                     # Try HEAD first, then GET if needed
                     for method in (session.head, session.get):
-                        async with method(url, allow_redirects=True) as response:
+                        async with method(url, **kwargs) as response:
                             if response.status not in bad_codes:
-                                if close_session:
-                                    await session.close()
                                 return True
-                    if close_session:
-                        await session.close()
                     return False
-                except Exception:
+                except (aiohttp.ClientError, asyncio.TimeoutError):
                     if attempt == max_attempts - 1:  # last attempt
-                        if close_session:
-                            await session.close()
                         return False
                     await asyncio.sleep(2**attempt)  # exponential backoff
-            if close_session:
-                await session.close()
             return False
         return True
     except Exception:
         return False
 
-
-def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
-    """Check if string is URL and optionally verify it exists (sync wrapper)."""
-    return asyncio.run(is_url_async(url, session, check, max_attempts, timeout))
-
-
 async def check_links_in_string_async(text, verbose=True, return_bad=False):
-    """Process a given text, find unique URLs within it, and check for any 404 errors (async)."""
-    pattern = (
-        r"\[([^\]]+)\]\(([^)]+)\)"  # Matches Markdown links [text](url)
-        r"|"
-        r"("  # Start capturing group for plaintext URLs
-        r"(?:https?://)?"  # Optional http:// or https://
-        r"(?:www\.)?"  # Optional www.
-        r"(?:[\w.-]+)?"  # Optional domain name and subdomains
-        r"\.[a-zA-Z]{2,}"  # TLD
-        r"(?:/[^\s\"')\]]*)?"  # Optional path
-        r")"
-    )
+    """Asynchronously process a given text, find unique URLs within it, and check for any 404 errors."""
     all_urls = []
-    for md_text, md_url, plain_url in re.findall(pattern, text):
+    for md_text, md_url, plain_url in URL_PATTERN.findall(text):
         url = md_url or plain_url
         if url and parse.urlparse(url).scheme:
             all_urls.append(url)
 
     urls = set(map(clean_url, all_urls))  # remove extra characters and make unique
 
-    async with aiohttp.ClientSession() as session:
-        session.headers.update(REQUESTS_HEADERS)
+    async with aiohttp.ClientSession(headers=REQUESTS_HEADERS) as session:
         tasks = [is_url_async(url, session) for url in urls]
         results = await asyncio.gather(*tasks)
         bad_urls = [url for url, valid in zip(urls, results) if not valid]
+        
 
     passing = not bad_urls
     if verbose and not passing:
@@ -140,16 +123,17 @@ async def check_links_in_string_async(text, verbose=True, return_bad=False):
 
     return (passing, bad_urls) if return_bad else passing
 
+async def main():
+    # Example usage
+    passing, bad_urls = await check_links_in_string_async("Check out https://ultralytics.com/images/bus.jpg and this non-existent link https://ultralytics.com/invalid")
+    print(f"Passing: {passing}")
+    if not passing:
+        print(f"Bad URLs: {bad_urls}")
 
-def check_links_in_string(text, verbose=True, return_bad=False):
-    """Process a given text, find unique URLs within it, and check for any 404 errors (sync wrapper)."""
-    return asyncio.run(check_links_in_string_async(text, verbose, return_bad))
-
+    # Test is_url_async directly
+    async with aiohttp.ClientSession() as session:
+      result = await is_url_async("https://ultralytics.com/images/bus.jpg", session)
+      print(f"Is valid URL: {result}")
 
 if __name__ == "__main__":
-    print(is_url("https://ultralytics.com/images/bus.jpg"))
-    asyncio.run(
-        check_links_in_string_async(
-            "Check out this [link](https://ultralytics.com/images/bus.jpg) and this one https://ultralytics.com/nonexistent.jpg"
-        )
-    )
+    asyncio.run(main())
