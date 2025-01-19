@@ -5,7 +5,6 @@ import re
 from urllib import parse
 
 import aiohttp
-import requests
 
 REQUESTS_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
@@ -23,15 +22,18 @@ REQUESTS_HEADERS = {
     "Origin": "https://www.google.com/",
 }
 
+
 def remove_html_comments(body: str) -> str:
     """Removes HTML comments from a string using regex pattern matching."""
     return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
+
 
 def clean_url(url):
     """Remove extra characters from URL strings."""
     for _ in range(3):
         url = str(url).strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
     return url
+
 
 async def is_url_async(url, session=None, check=True, max_attempts=3, timeout=2):
     """Check if string is URL and optionally verify it exists (async)."""
@@ -99,9 +101,11 @@ async def is_url_async(url, session=None, check=True, max_attempts=3, timeout=2)
     except Exception:
         return False
 
+
 def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
     """Check if string is URL and optionally verify it exists (sync wrapper)."""
     return asyncio.run(is_url_async(url, session, check, max_attempts, timeout))
+
 
 async def check_links_in_string_async(text, verbose=True, return_bad=False):
     """Process a given text, find unique URLs within it, and check for any 404 errors (async)."""
@@ -136,10 +140,16 @@ async def check_links_in_string_async(text, verbose=True, return_bad=False):
 
     return (passing, bad_urls) if return_bad else passing
 
+
 def check_links_in_string(text, verbose=True, return_bad=False):
     """Process a given text, find unique URLs within it, and check for any 404 errors (sync wrapper)."""
     return asyncio.run(check_links_in_string_async(text, verbose, return_bad))
 
+
 if __name__ == "__main__":
     print(is_url("https://ultralytics.com/images/bus.jpg"))
-    asyncio.run(check_links_in_string_async("Check out this [link](https://ultralytics.com/images/bus.jpg) and this one https://ultralytics.com/nonexistent.jpg"))
+    asyncio.run(
+        check_links_in_string_async(
+            "Check out this [link](https://ultralytics.com/images/bus.jpg) and this one https://ultralytics.com/nonexistent.jpg"
+        )
+    )
