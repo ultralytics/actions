@@ -52,8 +52,6 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
         "example",
         "mailto:",
         "github.com",  # ignore GitHub links that may be private repos
-        "kaggle.com",  # blocks automated header requests
-        "reddit.com",  # blocks automated header requests
         "linkedin.com",
         "twitter.com",
         "x.com",
