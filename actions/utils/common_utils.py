@@ -36,7 +36,7 @@ def clean_url(url):
     return url
 
 
-def is_url(url, check=True, max_attempts=3, timeout=2):
+def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
     """Check if string is URL and optionally verify it exists."""
     allow_list = (
         "localhost",
@@ -70,18 +70,20 @@ def is_url(url, check=True, max_attempts=3, timeout=2):
         if not result.scheme or not partition[0] or not partition[2]:
             return False
 
-        # Check response
         if check:
+            requester = session if session else requests
             bad_codes = {404, 410, 500, 502, 503, 504}
+            kwargs = {"timeout": timeout, "allow_redirects": True}
+            if not session:
+                kwargs["headers"] = REQUESTS_HEADERS
+
             for attempt in range(max_attempts):
                 try:
-                    response = requests.head(url, headers=REQUESTS_HEADERS, timeout=timeout, allow_redirects=True)
-                    if response.status_code not in bad_codes:
-                        return True
-                    response = requests.get(
-                        url, headers=REQUESTS_HEADERS, timeout=timeout, allow_redirects=True, stream=True
-                    )
-                    return response.status_code not in bad_codes  # Try GET if HEAD fails
+                    # Try HEAD first, then GET if needed
+                    for method in (requester.head, requester.get):
+                        if method(url, **kwargs, **({"stream": True} if method == requester.get else {})).status_code not in bad_codes:
+                            return True
+                    return False
                 except Exception:
                     if attempt == max_attempts - 1:  # last attempt
                         return False
@@ -114,8 +116,9 @@ def check_links_in_string(text, verbose=True, return_bad=False):
 
     urls = set(map(clean_url, all_urls))  # remove extra characters and make unique
     # bad_urls = [x for x in urls if not is_url(x, check=True)]  # single-thread
-    with ThreadPoolExecutor(max_workers=16) as executor:  # multi-thread
-        bad_urls = [url for url, valid in zip(urls, executor.map(lambda x: not is_url(x, check=True), urls)) if valid]
+    with requests.Session() as session, ThreadPoolExecutor(max_workers=16) as executor:
+        session.headers.update(REQUESTS_HEADERS)
+        bad_urls = [url for url, valid in zip(urls, executor.map(lambda x: not is_url(x, session), urls)) if valid]
 
     passing = not bad_urls
     if verbose and not passing:
