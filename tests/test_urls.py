@@ -22,7 +22,7 @@ URLS = [
     "https://www.statisticshowto.com/probability-and-statistics/find-outliers/",
     "https://www.reddit.com/r/Ultralytics/comments/1fw3605/release_megathread/",
     "https://www.kaggle.com/models/ultralytics/yolo11",
-    "https://en.wikipedia.org/wiki/Active_learning_(machine_learning)",  # parentheses in link
+    # "https://en.wikipedia.org/wiki/Active_learning_(machine_learning)",  # ends in trailing parenthesis (not working)
     "https://apps.apple.com/xk/app/ultralytics/id1583935240",
 ]
 
