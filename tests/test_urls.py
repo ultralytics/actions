@@ -44,6 +44,16 @@ def test_links_in_string_func():
     assert check_links_in_string(" abc ".join(url for url in URLS))
 
 
+def test_markdown_links_in_string_func():
+    """Test Markdown links in strings function."""
+    assert check_links_in_string(" abc ".join(f"[link]({url})" for url in URLS))
+
+
+def test_html_links_in_string_func():
+    """Test HTML links in strings function."""
+    assert check_links_in_string(" abc ".join(f'<a href="{url}">link</a>' for url in URLS))
+
+
 def test_html_links(verbose):
     """Tests the validity of URLs within HTML anchor tags and returns any invalid URLs found."""
     text = "Visit <a href='https://err.com'>our site</a> or <a href=\"http://test.org\">test site</a>"
