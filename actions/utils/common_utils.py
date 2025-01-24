@@ -53,7 +53,7 @@ URL_PATTERN = re.compile(
     r"(?:www\.)?"  # Optional www.
     r"(?:[\w.-]+)?"  # Optional domain name and subdomains
     r"\.[a-zA-Z]{2,}"  # TLD
-    r"(?:/[^\s\"')\]]*)?"  # Optional path
+    r"(?:/[^\s\"'\]]*)?"  # Optional path (modified to allow parentheses)
     r")"
 )
 
