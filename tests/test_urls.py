@@ -23,6 +23,7 @@ URLS = [
     "https://www.reddit.com/r/Ultralytics/comments/1fw3605/release_megathread/",
     "https://www.kaggle.com/models/ultralytics/yolo11",
     "https://apps.apple.com/xk/app/ultralytics/id1583935240",
+    "https://en.wikipedia.org/wiki/Active_learning_(machine_learning)",  # parentheses in link
 ]
 
 
@@ -36,6 +37,21 @@ def test_is_url():
     """Test each URL using is_url function."""
     for url in URLS:
         assert is_url(url), f"URL check failed: {url}"
+
+
+def test_links_in_string_func():
+    """Test URLs in strings function."""
+    assert check_links_in_string(" abc ".join(url for url in URLS))
+
+
+def test_markdown_links_in_string_func():
+    """Test Markdown links in strings function."""
+    assert check_links_in_string(" abc ".join(f"[text]({url})" for url in URLS))
+
+
+def test_html_links_in_string_func():
+    """Test HTML links in strings function."""
+    assert check_links_in_string(" abc ".join(f'<a href="{url}">text</a>' for url in URLS))
 
 
 def test_html_links(verbose):

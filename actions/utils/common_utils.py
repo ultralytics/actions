@@ -46,14 +46,14 @@ URL_IGNORE_LIST = frozenset(
 )
 
 URL_PATTERN = re.compile(
-    r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
+    r"\[([^]]+)]\((.*?)(?=\)(?:\s|$))\)"  # Markdown links with lookahead for space/end
     r"|"
     r"("  # Start capturing group for plaintext URLs
     r"(?:https?://)?"  # Optional http:// or https://
     r"(?:www\.)?"  # Optional www.
     r"(?:[\w.-]+)?"  # Optional domain name and subdomains
     r"\.[a-zA-Z]{2,}"  # TLD
-    r"(?:/[^\s\"')\]]*)?"  # Optional path
+    r"(?:/[^\s\"'\]]*)?"  # Optional path
     r")"
 )
 
@@ -128,4 +128,8 @@ def check_links_in_string(text, verbose=True, return_bad=False):
 
 
 if __name__ == "__main__":
-    print(is_url("https://ultralytics.com/images/bus.jpg"))
+    url = "https://ultralytics.com/images/bus.jpg"
+    string = f"This is a string with a [Markdown link]({url}) inside it."
+
+    print(f"is_url(): {is_url(url)}")
+    print(f"check_links_in_string(): {check_links_in_string(string)}")
