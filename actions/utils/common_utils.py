@@ -46,14 +46,14 @@ URL_IGNORE_LIST = frozenset(
 )
 
 URL_PATTERN = re.compile(
-    r"\[([^]]+)]\((.*?)(?=\)(?:\s|$))\)"  # Markdown links with lookahead for space/end
+    r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
     r"("  # Start capturing group for plaintext URLs
     r"(?:https?://)?"  # Optional http:// or https://
     r"(?:www\.)?"  # Optional www.
     r"(?:[\w.-]+)?"  # Optional domain name and subdomains
     r"\.[a-zA-Z]{2,}"  # TLD
-    r"(?:/[^\s\"'\]]*)?"  # Optional path
+    r"(?:/[^\s\"')\]]*)?"  # Optional path
     r")"
 )
 
