@@ -22,7 +22,18 @@ REQUESTS_HEADERS = {
     "Referer": "https://www.google.com/",
     "Origin": "https://www.google.com/",
 }
-
+BAD_HTTP_CODES = frozenset(
+   {
+       403,  # Forbidden - client lacks permission to access the resource
+       404,  # Not Found - requested resource doesn't exist
+       405,  # Method Not Allowed - HTTP method not supported for this endpoint
+       410,  # Gone - resource permanently removed
+       500,  # Internal Server Error - server encountered an error
+       502,  # Bad Gateway - upstream server sent invalid response
+       503,  # Service Unavailable - server temporarily unable to handle request
+       504,  # Gateway Timeout - upstream server didn't respond in time
+   }
+)
 URL_IGNORE_LIST = frozenset(
     {
         "localhost",
@@ -44,7 +55,6 @@ URL_IGNORE_LIST = frozenset(
         "storage.googleapis.com",  # private GCS buckets
     }
 )
-
 URL_PATTERN = re.compile(
     r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
@@ -85,7 +95,6 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
 
         if check:
             requester = session or requests
-            bad_codes = {404, 410, 500, 502, 503, 504}
             kwargs = {"timeout": timeout, "allow_redirects": True}
             if not session:
                 kwargs["headers"] = REQUESTS_HEADERS
@@ -94,7 +103,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
                 try:
                     # Try HEAD first, then GET if needed
                     for method in (requester.head, requester.get):
-                        if method(url, stream=method == requester.get, **kwargs).status_code not in bad_codes:
+                        if method(url, stream=method == requester.get, **kwargs).status_code not in BAD_HTTP_CODES:
                             return True
                     return False
                 except Exception:
