@@ -24,7 +24,7 @@ REQUESTS_HEADERS = {
 }
 BAD_HTTP_CODES = frozenset(
    {
-       403,  # Forbidden - client lacks permission to access the resource
+       # 403,  # Forbidden - client lacks permission to access the resource (commented as works in browser typically)
        404,  # Not Found - requested resource doesn't exist
        405,  # Method Not Allowed - HTTP method not supported for this endpoint
        410,  # Gone - resource permanently removed
