@@ -23,16 +23,16 @@ REQUESTS_HEADERS = {
     "Origin": "https://www.google.com/",
 }
 BAD_HTTP_CODES = frozenset(
-   {
-       403,  # Forbidden - client lacks permission to access the resource
-       404,  # Not Found - requested resource doesn't exist
-       405,  # Method Not Allowed - HTTP method not supported for this endpoint
-       410,  # Gone - resource permanently removed
-       500,  # Internal Server Error - server encountered an error
-       502,  # Bad Gateway - upstream server sent invalid response
-       503,  # Service Unavailable - server temporarily unable to handle request
-       504,  # Gateway Timeout - upstream server didn't respond in time
-   }
+    {
+        403,  # Forbidden - client lacks permission to access the resource
+        404,  # Not Found - requested resource doesn't exist
+        405,  # Method Not Allowed - HTTP method not supported for this endpoint
+        410,  # Gone - resource permanently removed
+        500,  # Internal Server Error - server encountered an error
+        502,  # Bad Gateway - upstream server sent invalid response
+        503,  # Service Unavailable - server temporarily unable to handle request
+        504,  # Gateway Timeout - upstream server didn't respond in time
+    }
 )
 URL_IGNORE_LIST = frozenset(
     {
