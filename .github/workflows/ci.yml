@@ -29,6 +29,8 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: false
 
       - name: Install dependencies
         run: |
