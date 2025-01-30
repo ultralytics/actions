@@ -26,7 +26,7 @@ def generate_merge_message(pr_summary=None, pr_credit=None, pr_url=None):
         {
             "role": "user",
             "content": (
-                f"Write a warm thank-you comment for the merged PR {pr_url} by {pr_credit}."
+                f"Write a warm thank-you comment for the merged PR {pr_url} by {pr_credit}. "
                 f"Context:\n{pr_summary}\n\n"
                 f"Start with an enthusiastic note about the merge, incorporate a relevant inspirational quote from a historical "
                 f"figure, and connect it to the PR’s impact. Keep it concise yet meaningful, ensuring contributors feel valued."
