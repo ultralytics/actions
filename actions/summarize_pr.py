@@ -16,29 +16,29 @@ SUMMARY_START = (
 )
 
 
-def generate_merge_message(pr_summary=None, pr_credit=None):
-    """Generates a thank-you message for merged PR contributors."""
+def generate_merge_message(pr_summary=None, pr_credit=None, pr_url=None):
+    """Generates a motivating thank-you message for merged PR contributors."""
     messages = [
         {
             "role": "system",
-            "content": "You are an Ultralytics AI assistant. Generate meaningful, inspiring messages to GitHub users.",
+            "content": "You are an Ultralytics AI assistant. Generate inspiring, appreciative messages for GitHub contributors.",
         },
         {
             "role": "user",
-            "content": f"Write a friendly thank you for a merged GitHub PR by {pr_credit}. "
-            f"Context from PR:\n{pr_summary}\n\n"
-            f"Start with the exciting message that this PR is now merged, and weave in an inspiring but obscure quote "
-            f"from a historical figure in science, art, stoicism and philosophy. "
-            f"Keep the message concise yet relevant to the specific contributions in this PR. "
-            f"We want the contributors to feel their effort is appreciated and will make a difference in the world.",
+            "content": (
+                f"Write a warm thank-you comment for the merged PR {pr_url} by {pr_credit}."
+                f"Context:\n{pr_summary}\n\n"
+                f"Start with an enthusiastic note about the merge, incorporate a relevant inspirational quote from a historical "
+                f"figure, and connect it to the PR’s impact. Keep it concise yet meaningful, ensuring contributors feel valued."
+            ),
         },
     ]
     return get_completion(messages)
 
 
-def post_merge_message(pr_number, repository, summary, pr_credit, headers):
+def post_merge_message(pr_number, pr_url, repository, summary, pr_credit, headers):
     """Posts thank you message on PR after merge."""
-    message = generate_merge_message(summary, pr_credit)
+    message = generate_merge_message(summary, pr_credit, pr_url)
     comment_url = f"{GITHUB_API_URL}/repos/{repository}/issues/{pr_number}/comments"
     response = requests.post(comment_url, json={"body": message}, headers=headers)
     return response.status_code == 201
@@ -94,9 +94,8 @@ def generate_pr_summary(repository, diff_text):
     return SUMMARY_START + reply
 
 
-def update_pr_description(repository, pr_number, new_summary, headers, max_retries=2):
+def update_pr_description(pr_url, new_summary, headers, max_retries=2):
     """Updates PR description with new summary, retrying if description is None."""
-    pr_url = f"{GITHUB_API_URL}/repos/{repository}/pulls/{pr_number}"
     description = ""
     for i in range(max_retries + 1):
         description = requests.get(pr_url, headers=headers).json().get("body") or ""
@@ -210,9 +209,10 @@ def remove_todos_on_merge(pr_number, repository, headers):
 def main(*args, **kwargs):
     """Summarize a pull request and update its description with a summary."""
     action = Action(*args, **kwargs)
-    pr_number = action.pr["number"]
     headers = action.headers
     repository = action.repository
+    pr_number = action.pr["number"]
+    pr_url = f"{GITHUB_API_URL}/repos/{repository}/pulls/{pr_number}"
 
     print(f"Retrieving diff for PR {pr_number}")
     diff = action.get_pr_diff()
@@ -223,7 +223,7 @@ def main(*args, **kwargs):
 
     # Update PR description
     print("Updating PR description...")
-    status_code = update_pr_description(repository, pr_number, summary, headers)
+    status_code = update_pr_description(pr_url, summary, headers)
     if status_code == 200:
         print("PR description updated successfully.")
     else:
@@ -237,7 +237,7 @@ def main(*args, **kwargs):
         remove_todos_on_merge(pr_number, repository, headers)
         if pr_credit:
             print("Posting PR author thank you message...")
-            post_merge_message(pr_number, repository, summary, pr_credit, headers)
+            post_merge_message(pr_number, pr_url, repository, summary, pr_credit, headers)
 
 
 if __name__ == "__main__":
