@@ -34,27 +34,24 @@ BAD_HTTP_CODES = frozenset(
         504,  # Gateway Timeout - upstream server didn't respond in time
     }
 )
-URL_IGNORE_LIST = frozenset(
-    {
-        "localhost",
-        "127.0.0",
-        ":5000",
-        ":3000",
-        ":8000",
-        ":8080",
-        ":6006",
-        "MODEL_ID",
-        "API_KEY",
-        "url",
-        "example",
-        "mailto:",
-        "github.com",  # ignore GitHub links that may be private repos
-        "linkedin.com",
-        "twitter.com",
-        "x.com",
-        "storage.googleapis.com",  # private GCS buckets
-    }
-)
+URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private GitHub repos
+    "localhost",
+    "127.0.0",
+    ":5000",
+    ":3000",
+    ":8000",
+    ":8080",
+    ":6006",
+    "MODEL_ID",
+    "API_KEY",
+    "url",
+    "example",
+    "mailto:",
+    "linkedin.com",
+    "twitter.com",
+    "x.com",
+    "storage.googleapis.com",  # private GCS buckets
+}
 URL_PATTERN = re.compile(
     r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
@@ -81,7 +78,7 @@ def clean_url(url):
 
 
 def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
-    """Check if string is URL and optionally verify it exists."""
+    """Check if string is URL and optionally verify it exists, with fallback for GitHub repos."""
     try:
         # Check allow list
         if any(x in url for x in URL_IGNORE_LIST):
@@ -105,6 +102,16 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
                     for method in (requester.head, requester.get):
                         if method(url, stream=method == requester.get, **kwargs).status_code not in BAD_HTTP_CODES:
                             return True
+
+                        # If GitHub and check fails (repo might be private), add the base GitHub URL to ignore list
+                        if result.hostname == "github.com":
+                            parts = result.path.strip("/").split("/")
+                            if len(parts) >= 2:
+                                base_url = f"https://github.com/{parts[0]}/{parts[1]}"  # https://github.com/org/repo
+                                if requester.head(base_url, **kwargs).status_code == 404:
+                                    URL_IGNORE_LIST.add(base_url)
+                                    return True
+
                     return False
                 except Exception:
                     if attempt == max_attempts - 1:  # last attempt
