@@ -35,23 +35,23 @@ BAD_HTTP_CODES = frozenset(
     }
 )
 URL_IGNORE_LIST = {  # use a set so the list can be expanded with private GitHub repos
-        "localhost",
-        "127.0.0",
-        ":5000",
-        ":3000",
-        ":8000",
-        ":8080",
-        ":6006",
-        "MODEL_ID",
-        "API_KEY",
-        "url",
-        "example",
-        "mailto:",
-        "linkedin.com",
-        "twitter.com",
-        "x.com",
-        "storage.googleapis.com",  # private GCS buckets
-    }
+    "localhost",
+    "127.0.0",
+    ":5000",
+    ":3000",
+    ":8000",
+    ":8080",
+    ":6006",
+    "MODEL_ID",
+    "API_KEY",
+    "url",
+    "example",
+    "mailto:",
+    "linkedin.com",
+    "twitter.com",
+    "x.com",
+    "storage.googleapis.com",  # private GCS buckets
+}
 URL_PATTERN = re.compile(
     r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
@@ -114,7 +114,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
                 except Exception:
                     if attempt == max_attempts - 1:  # last attempt
                         return False
-                    time.sleep(2 ** attempt)  # exponential backoff
+                    time.sleep(2**attempt)  # exponential backoff
             return False
         return True
     except Exception:
