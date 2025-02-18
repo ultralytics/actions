@@ -108,7 +108,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
                             base_url = f"https://github.com/{result.path.strip('/')}"  # https://github.com/org/repo
                             if requester.head(base_url, **kwargs).status_code == 404:
                                 URL_IGNORE_LIST.add(base_url)
-                                return False
+                                return True
 
                     return False
                 except Exception:
