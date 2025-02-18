@@ -144,7 +144,7 @@ def check_links_in_string(text, verbose=True, return_bad=False):
 
 
 if __name__ == "__main__":
-    url = "https://github.com/ultralytics/ultralytics/issues"
+    url = "https://github.com/ultralytics/ultralytics"
     string = f"This is a string with a [Markdown link]({url}) inside it."
 
     print(f"is_url(): {is_url(url)}")
