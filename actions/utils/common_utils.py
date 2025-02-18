@@ -34,7 +34,7 @@ BAD_HTTP_CODES = frozenset(
         504,  # Gateway Timeout - upstream server didn't respond in time
     }
 )
-URL_IGNORE_LIST = {  # use a set so the list can be expanded with private GitHub repos
+URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private GitHub repos
     "localhost",
     "127.0.0",
     ":5000",
