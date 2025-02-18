@@ -104,9 +104,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
                             return True
 
                         # If GitHub and check fails (repo might be private), add the base GitHub URL to ignore list
-                        if result.hostname and (
-                            result.hostname == "github.com" or result.hostname.endswith(".github.com")
-                        ):
+                        if result.hostname and result.hostname == "github.com":
                             base_url = f"https://{result.hostname}"
                             if requester.head(base_url, **kwargs).status_code == 404:
                                 URL_IGNORE_LIST.add(base_url)
@@ -144,7 +142,7 @@ def check_links_in_string(text, verbose=True, return_bad=False):
 
 
 if __name__ == "__main__":
-    url = "https://ultralytics.com/images/bus.jpg"
+    url = "https://github.com/ultralytics/assistant/actions/runs/13391537380"
     string = f"This is a string with a [Markdown link]({url}) inside it."
 
     print(f"is_url(): {is_url(url)}")
