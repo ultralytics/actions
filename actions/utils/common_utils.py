@@ -104,8 +104,8 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
                             return True
 
                         # If GitHub and check fails (repo might be private), add the base GitHub URL to ignore list
-                        if "github.com" in result.netloc:
-                            base_url = f"https://{result.netloc.split('/')[0]}"
+                        if result.hostname and result.hostname.endswith("github.com"):
+                            base_url = f"https://{result.hostname}"
                             if requester.head(base_url, **kwargs).status_code == 404:
                                 URL_IGNORE_LIST.add(base_url)
                                 return True
