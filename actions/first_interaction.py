@@ -177,7 +177,7 @@ YOUR RESPONSE (label names only):
         },
         {"role": "user", "content": prompt},
     ]
-    suggested_labels = get_completion(messages)
+    suggested_labels = get_completion(messages, temperature=0.2)
     if "none" in suggested_labels.lower():
         return []
 

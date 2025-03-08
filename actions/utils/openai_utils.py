@@ -16,6 +16,7 @@ def get_completion(
     messages: List[Dict[str, str]],
     check_links: bool = True,
     remove: List[str] = (" @giscus[bot]",),  # strings to remove from response
+    temperature: float = 0.7,  # default temperature value
 ) -> str:
     """Generates a completion using OpenAI's API based on input messages."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
@@ -25,7 +26,7 @@ def get_completion(
     content = ""
     max_retries = 2
     for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
-        data = {"model": OPENAI_MODEL, "messages": messages, "seed": int(time.time() * 1000)}
+        data = {"model": OPENAI_MODEL, "messages": messages, "seed": int(time.time() * 1000), "temperature": temperature}
 
         r = requests.post(url, headers=headers, json=data)
         r.raise_for_status()
