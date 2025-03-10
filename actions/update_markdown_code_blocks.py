@@ -48,6 +48,8 @@ def format_code_with_ruff(temp_dir):
 
     try:
         # Run ruff check with ignored rules:
+        # D101 Missing docstring in public class
+        # D103 Missing docstring in public function
         # F821: Undefined name
         # F841: Local variable is assigned to but never used
         subprocess.run(
@@ -58,7 +60,7 @@ def format_code_with_ruff(temp_dir):
                 "--unsafe-fixes",
                 "--extend-select=I,D,UP",
                 "--target-version=py38",
-                "--ignore=D100,D104,D203,D205,D212,D213,D401,D406,D407,D413",
+                "--ignore=D100,D101,D103,D104,D203,D205,D212,D213,D401,D406,D407,D413,F821,F841",
                 str(temp_dir),
             ],
             check=True,
