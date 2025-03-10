@@ -50,8 +50,8 @@ def format_code_with_ruff(temp_dir):
         # Run ruff check with ignored rules:
         # D101 Missing docstring in public class
         # D103 Missing docstring in public function
-        # F821: Undefined name
-        # F841: Local variable is assigned to but never used
+        # F821 Undefined name
+        # F841 Local variable is assigned to but never used
         subprocess.run(
             [
                 "ruff",
