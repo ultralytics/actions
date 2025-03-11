@@ -18,6 +18,7 @@ Guidance:
   - Tone: Adopt a professional, friendly, and concise tone.
 """
 
+
 def get_completion(
     messages: List[Dict[str, str]],
     check_links: bool = True,
