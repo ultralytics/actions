@@ -12,9 +12,10 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-11-20")
 SYSTEM_PROMPT_ADDITION = """
 Guidance:
-  - Ultralytics Branding: Use YOLO11, YOLO12, etc., not YOLOv11, YOLOv12 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB", use "Ultralytics HUB", not "The Ultralytics HUB". 
-  - Avoid Equations: Do not include equations or mathematical notations in the content.
-  - Use Markdown: Respond in Markdown.
+  - Ultralytics Branding: Use YOLO11, YOLO12, etc., not YOLOv11, YOLOv12 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
+  - Avoid Equations: Do not include equations or mathematical notations.
+  - Markdown: Always respond in Markdown.
+  - Tone: Adopt a professional, friendly, and concise tone.
 """
 
 def get_completion(
