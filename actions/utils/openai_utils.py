@@ -10,7 +10,12 @@ from actions.utils.common_utils import check_links_in_string
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4o-2024-11-20")
-
+SYSTEM_PROMPT_ADDITION = """
+Guidance:
+  - Ultralytics Branding: Use YOLO11, YOLO12, etc., not YOLOv11, YOLOv12 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB", use "Ultralytics HUB", not "The Ultralytics HUB". 
+  - Avoid Equations: Do not include equations or mathematical notations in the content.
+  - Use Markdown: Respond in Markdown.
+"""
 
 def get_completion(
     messages: List[Dict[str, str]],
@@ -22,6 +27,8 @@ def get_completion(
     assert OPENAI_API_KEY, "OpenAI API key is required."
     url = "https://api.openai.com/v1/chat/completions"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+    if messages and messages[0].get("role") == "system":
+        messages[0]["content"] += "\n\n" + SYSTEM_PROMPT_ADDITION
 
     content = ""
     max_retries = 2
