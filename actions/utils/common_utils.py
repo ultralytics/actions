@@ -51,7 +51,7 @@ URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private
     "twitter.com",
     "x.com",
     "storage.googleapis.com",  # private GCS buckets
-    "{",  # Python fstring
+    "{",  # possible Python fstring
 }
 URL_PATTERN = re.compile(
     r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
