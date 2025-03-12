@@ -14,9 +14,17 @@ SYSTEM_PROMPT_ADDITION = """
 Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO12, etc., not YOLOv11, YOLOv12 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
   - Avoid Equations: Do not include equations or mathematical notations.
-  - Markdown: Always respond in Markdown.
   - Tone: Adopt a professional, friendly, and concise tone.
 """
+
+
+def remove_outer_codeblocks(string):
+    """Removes outer code block markers and language identifiers from a string while preserving inner content."""
+    string = string.strip()
+    if string.startswith("```") and string.endswith("```"):
+        # Get everything after first ``` and newline, up to the last ```
+        string = string[string.find("\n") + 1 : string.rfind("```")].strip()
+    return string
 
 
 def get_completion(
@@ -57,4 +65,4 @@ def get_completion(
             messages.append({"role": "user", "content": "Please provide a response without any URLs or links in it."})
             check_links = False  # automatically accept the last message
 
-    return content
+    return remove_outer_codeblocks(content)
