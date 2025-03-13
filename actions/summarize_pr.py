@@ -29,7 +29,7 @@ def generate_merge_message(pr_summary=None, pr_credit=None, pr_url=None):
                 f"Write a warm thank-you comment for the merged PR {pr_url} by {pr_credit}. "
                 f"Context:\n{pr_summary}\n\n"
                 f"Start with an enthusiastic note about the merge, incorporate a relevant inspirational quote from a historical "
-                f"figure, and connect it to the PR’s impact. Keep it concise yet meaningful, ensuring contributors feel valued."
+                f"figure, and connect it to the PR's impact. Keep it concise yet meaningful, ensuring contributors feel valued."
             ),
         },
     ]
@@ -120,7 +120,7 @@ def update_pr_description(pr_url, new_summary, headers, max_retries=2):
 
 
 def label_fixed_issues(repository, pr_number, pr_summary, headers, action):
-    """Labels issues closed by PR when merged, notifies users, returns PR contributors."""
+    """Labels issues closed by PR when merged, notifies users, and returns PR contributors."""
     query = """
 query($owner: String!, $repo: String!, $pr_number: Int!) {
     repository(owner: $owner, name: $repo) {
@@ -143,7 +143,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
 
     if response.status_code != 200:
         print(f"Failed to fetch linked issues. Status code: {response.status_code}")
-        return [], None
+        return None
 
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
@@ -197,7 +197,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         return pr_credit
     except KeyError as e:
         print(f"Error parsing GraphQL response: {e}")
-        return [], None
+        return None
 
 
 def remove_todos_on_merge(pr_number, repository, headers):
