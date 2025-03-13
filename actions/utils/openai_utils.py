@@ -53,6 +53,7 @@ def get_completion(
         r = requests.post(url, headers=headers, json=data)
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"].strip()
+        content = remove_outer_codeblocks(content)
         for x in remove:
             content = content.replace(x, "")
         if not check_links or check_links_in_string(content):  # if no checks or checks are passing return response
@@ -65,4 +66,4 @@ def get_completion(
             messages.append({"role": "user", "content": "Please provide a response without any URLs or links in it."})
             check_links = False  # automatically accept the last message
 
-    return remove_outer_codeblocks(content)
+    return content
