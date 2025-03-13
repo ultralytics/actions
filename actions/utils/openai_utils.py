@@ -14,9 +14,17 @@ SYSTEM_PROMPT_ADDITION = """
 Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO12, etc., not YOLOv11, YOLOv12 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
   - Avoid Equations: Do not include equations or mathematical notations.
-  - Markdown: Always respond in Markdown.
   - Tone: Adopt a professional, friendly, and concise tone.
 """
+
+
+def remove_outer_codeblocks(string):
+    """Removes outer code block markers and language identifiers from a string while preserving inner content."""
+    string = string.strip()
+    if string.startswith("```") and string.endswith("```"):
+        # Get everything after first ``` and newline, up to the last ```
+        string = string[string.find("\n") + 1 : string.rfind("```")].strip()
+    return string
 
 
 def get_completion(
@@ -45,6 +53,7 @@ def get_completion(
         r = requests.post(url, headers=headers, json=data)
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"].strip()
+        content = remove_outer_codeblocks(content)
         for x in remove:
             content = content.replace(x, "")
         if not check_links or check_links_in_string(content):  # if no checks or checks are passing return response

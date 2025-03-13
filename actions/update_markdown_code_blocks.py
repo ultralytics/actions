@@ -158,7 +158,7 @@ def main(root_dir=Path.cwd(), verbose=False):
     for markdown_file in markdown_files:
         if verbose:
             print(f"Processing {markdown_file}")
-        markdown_content, temp_files = process_markdown_file(markdown_file, temp_dir)
+        markdown_content, temp_files = process_markdown_file(markdown_file, temp_dir, verbose)
         if markdown_content and temp_files:
             all_temp_files.append((markdown_file, markdown_content, temp_files))
 
