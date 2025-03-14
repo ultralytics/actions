@@ -182,7 +182,9 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             pr_credit += (" with contributions from " if pr_credit else "") + ", ".join(f"@{c}" for c in contributors)
 
         # Generate personalized comment
-        comment = generate_issue_comment(pr_url=data["url"], pr_summary=pr_summary, pr_credit=pr_credit, pr_title=pr_title)
+        comment = generate_issue_comment(
+            pr_url=data["url"], pr_summary=pr_summary, pr_credit=pr_credit, pr_title=pr_title
+        )
 
         # Update linked issues
         for issue in data["closingIssuesReferences"]["nodes"]:
@@ -207,6 +209,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
     except KeyError as e:
         print(f"Error parsing GraphQL response: {e}")
         return None
+
 
 def remove_todos_on_merge(pr_number, repository, headers):
     """Removes specified labels from PR."""
