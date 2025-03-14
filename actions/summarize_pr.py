@@ -44,8 +44,13 @@ def post_merge_message(pr_number, pr_url, repository, summary, pr_credit, header
     return response.status_code == 201
 
 
-def generate_issue_comment(pr_url, pr_summary, pr_credit):
-    """Generates a personalized issue comment using based on the PR context."""
+def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
+    """Generates personalized issue comment based on PR context."""
+    # Extract repo info from PR URL (format: api.github.com/repos/owner/repo/pulls/number)
+    repo_parts = pr_url.split("/repos/")[1].split("/pulls/")[0] if "/repos/" in pr_url else ""
+    owner_repo = repo_parts.split("/")
+    repo_name = owner_repo[-1] if len(owner_repo) > 1 else "package"
+
     messages = [
         {
             "role": "system",
@@ -54,13 +59,15 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit):
         {
             "role": "user",
             "content": f"Write a GitHub issue comment announcing a potential fix for this issue is now merged in linked PR {pr_url} by {pr_credit}\n\n"
+            f"PR Title: {pr_title}\n\n"
             f"Context from PR:\n{pr_summary}\n\n"
             f"Include:\n"
             f"1. An explanation of key changes from the PR that may resolve this issue\n"
             f"2. Credit to the PR author and contributors\n"
             f"3. Options for testing if PR changes have resolved this issue:\n"
-            f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # test latest changes\n"
-            f"   - or await next official PyPI release\n"
+            f"   - If the PR mentions a specific version number (like v8.0.0 or 3.1.0), include: pip install -U {repo_name}>=VERSION\n"
+            f"   - Also suggest: pip install git+https://github.com/{repo_parts}.git@main\n"
+            f"   - If appropriate, mention they can also wait for the next official PyPI release\n"
             f"4. Request feedback on whether the PR changes resolve the issue\n"
             f"5. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
         },
@@ -127,6 +134,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         pullRequest(number: $pr_number) {
             closingIssuesReferences(first: 50) { nodes { number } }
             url
+            title
             body
             author { login, __typename }
             reviews(first: 50) { nodes { author { login, __typename } } }
@@ -150,6 +158,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         comments = data["reviews"]["nodes"] + data["comments"]["nodes"]
         token_username = action.get_username()  # get GITHUB_TOKEN username
         author = data["author"]["login"] if data["author"]["__typename"] != "Bot" else None
+        pr_title = data.get("title", "")
 
         # Get unique contributors from reviews and comments
         contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
@@ -173,7 +182,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             pr_credit += (" with contributions from " if pr_credit else "") + ", ".join(f"@{c}" for c in contributors)
 
         # Generate personalized comment
-        comment = generate_issue_comment(pr_url=data["url"], pr_summary=pr_summary, pr_credit=pr_credit)
+        comment = generate_issue_comment(pr_url=data["url"], pr_summary=pr_summary, pr_credit=pr_credit, pr_title=pr_title)
 
         # Update linked issues
         for issue in data["closingIssuesReferences"]["nodes"]:
@@ -198,7 +207,6 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
     except KeyError as e:
         print(f"Error parsing GraphQL response: {e}")
         return None
-
 
 def remove_todos_on_merge(pr_number, repository, headers):
     """Removes specified labels from PR."""
