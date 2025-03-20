@@ -133,12 +133,14 @@ def format_code_with_shfmt(temp_dir):
 
 
 def generate_temp_filename(file_path, index, code_type):
-    """Generates a unique temporary filename using a hash of the file path and index."""
-    unique_string = f"{file_path.parent}_{file_path.stem}_{index}"
-    unique_hash = hashlib.md5(unique_string.encode()).hexdigest()
-    extension = ".py" if code_type == "python" else ".sh"
-    return f"temp_{unique_hash}{extension}"
-
+    """Creates unique temp filename with full path info for debugging."""
+    stem = file_path.stem
+    code_letter = code_type[0]  # 'p' for python, 'b' for bash
+    path_part = str(file_path.parent).replace("/", "_").replace("\\", "_").replace(" ", "-")
+    hash_val = hashlib.md5(f"{file_path}_{index}".encode()).hexdigest()[:6]
+    ext = ".py" if code_type == "python" else ".sh"
+    filename = f"{stem}_{path_part}_{code_letter}{index}_{hash_val}{ext}"
+    return re.sub(r"[^\w\-.]", "_", filename)
 
 def process_markdown_file(file_path, temp_dir, process_python=True, process_bash=True, verbose=False):
     """Processes a markdown file, extracting code blocks for formatting and updating the original file."""
