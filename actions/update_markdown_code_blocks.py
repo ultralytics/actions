@@ -2,7 +2,6 @@ import hashlib
 import re
 import shutil
 import subprocess
-import tempfile
 from pathlib import Path
 
 
@@ -96,25 +95,16 @@ def format_code_with_ruff(temp_dir):
 
 def format_code_with_shfmt(temp_dir):
     """Formats bash script files in the specified directory using shfmt."""
-
-    # Create a temporary prettier config file
-    with tempfile.NamedTemporaryFile("w", suffix=".json", delete=False) as tmp:
-        import json
-        json.dump({"parser": "sh", "keepComments": True}, tmp)
-        config_path = tmp.name
-
     try:
         # Run prettier with explicit config path
         result = subprocess.run(
-            f'npx prettier c --write --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs --config {config_path} "./**/*.sh"',
+            'npx prettier c --write --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs "./**/*.sh"',
             shell=True,  # must use shell=True to expand internal $(cmd)
             capture_output=True,
             text=True,
         )
-
         if result.returncode != 0:
             print(f"Error formatting bash in : {result.stderr}")
-
     except Exception as e:
         print(f"ERROR running shfmt: {e}")
 
