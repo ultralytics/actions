@@ -98,7 +98,7 @@ def format_code_with_shfmt(temp_dir):
     try:
         # Run prettier with explicit config path
         result = subprocess.run(
-            'npx prettier c --write --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs "./**/*.sh"',
+            'npx prettier c --write --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs ./**/*.sh',
             shell=True,  # must use shell=True to expand internal $(cmd)
             capture_output=True,
             text=True,
