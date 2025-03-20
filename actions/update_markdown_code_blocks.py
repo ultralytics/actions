@@ -113,9 +113,6 @@ def format_code_with_shfmt(temp_dir):
         )
 
         if result.returncode != 0:
-            # Extract original file info from temp filename
-            # Format: temp_{hash}.sh
-            # The hash is based on file_path.parent, file_path.stem, index, and "bash"
             print(f"Error formatting bash in : {result.stderr}")
 
     except Exception as e:
