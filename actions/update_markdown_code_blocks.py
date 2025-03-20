@@ -219,4 +219,4 @@ def main(root_dir=Path.cwd(), process_python=True, process_bash=True, verbose=Fa
 
 
 if __name__ == "__main__":
-    main(process_python=True, process_bash=False)
+    main(process_python=True, process_bash=True)
