@@ -8,10 +8,16 @@ from pathlib import Path
 
 
 def extract_code_blocks(markdown_content):
-    """Extracts Python code blocks from markdown content using regex pattern matching."""
-    pattern = r"^( *)```(?:python|py|\{[ ]*\.py[ ]*\.annotate[ ]*\})\n(.*?)\n\1```"
-    code_block_pattern = re.compile(pattern, re.DOTALL | re.MULTILINE)
-    return code_block_pattern.findall(markdown_content)
+    """Extracts Python and Bash code blocks from markdown content using regex pattern matching."""
+    # Python code blocks
+    py_pattern = r"^( *)```(?:python|py|\{[ ]*\.py[ ]*\.annotate[ ]*\})\n(.*?)\n\1```"
+    py_code_blocks = re.compile(py_pattern, re.DOTALL | re.MULTILINE).findall(markdown_content)
+
+    # Bash code blocks
+    bash_pattern = r"^( *)```(?:bash|sh|shell)\n(.*?)\n\1```"
+    bash_code_blocks = re.compile(bash_pattern, re.DOTALL | re.MULTILINE).findall(markdown_content)
+
+    return {"python": py_code_blocks, "bash": bash_code_blocks}
 
 
 def remove_indentation(code_block, num_spaces):
@@ -89,31 +95,62 @@ def format_code_with_ruff(temp_dir):
         print(f"ERROR running docformatter ❌ {e}")
 
 
-def generate_temp_filename(file_path, index):
-    """Generates a unique temporary filename using a hash of the file path and index."""
-    unique_string = f"{file_path.parent}_{file_path.stem}_{index}"
-    unique_hash = hashlib.md5(unique_string.encode()).hexdigest()
-    return f"temp_{unique_hash}.py"
+def format_bash_with_prettier(temp_dir):
+    """Formats bash script files in the specified directory using prettier."""
+    try:
+        # Run prettier with explicit config path
+        result = subprocess.run(
+            "npx prettier --write --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs ./**/*.sh",
+            shell=True,  # must use shell=True to expand internal $(cmd)
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"ERROR running prettier-plugin-sh ❌ {result.stderr}")
+        else:
+            print("Completed bash formatting ✅")
+    except Exception as e:
+        print(f"ERROR running prettier-plugin-sh ❌ {e}")
 
 
-def process_markdown_file(file_path, temp_dir, verbose=False):
-    """Processes a markdown file, extracting Python code blocks for formatting and updating the original file."""
+def generate_temp_filename(file_path, index, code_type):
+    """Creates unique temp filename with full path info for debugging."""
+    stem = file_path.stem
+    code_letter = code_type[0]  # 'p' for python, 'b' for bash
+    path_part = str(file_path.parent).replace("/", "_").replace("\\", "_").replace(" ", "-")
+    hash_val = hashlib.md5(f"{file_path}_{index}".encode()).hexdigest()[:6]
+    ext = ".py" if code_type == "python" else ".sh"
+    filename = f"{stem}_{path_part}_{code_letter}{index}_{hash_val}{ext}"
+    return re.sub(r"[^\w\-.]", "_", filename)
+
+
+def process_markdown_file(file_path, temp_dir, process_python=True, process_bash=True, verbose=False):
+    """Processes a markdown file, extracting code blocks for formatting and updating the original file."""
     try:
         markdown_content = Path(file_path).read_text()
-        code_blocks = extract_code_blocks(markdown_content)
+        code_blocks_by_type = extract_code_blocks(markdown_content)
         temp_files = []
 
-        for i, (num_spaces, code_block) in enumerate(code_blocks):
-            if verbose:
-                print(f"Extracting code block {i} from {file_path}")
-            num_spaces = len(num_spaces)
-            code_without_indentation = remove_indentation(code_block, num_spaces)
+        # Process all code block types based on flags
+        code_types = []
+        if process_python:
+            code_types.append(("python", 0))
+        if process_bash:
+            code_types.append(("bash", 1000))
 
-            # Generate a unique temp file path
-            temp_file_path = temp_dir / generate_temp_filename(file_path, i)
-            with open(temp_file_path, "w") as temp_file:
-                temp_file.write(code_without_indentation)
-            temp_files.append((num_spaces, code_block, temp_file_path))
+        for code_type, offset in code_types:
+            for i, (num_spaces, code_block) in enumerate(code_blocks_by_type[code_type]):
+                if verbose:
+                    print(f"Extracting {code_type} code block {i} from {file_path}")
+
+                num_spaces = len(num_spaces)
+                code_without_indentation = remove_indentation(code_block, num_spaces)
+                temp_file_path = temp_dir / generate_temp_filename(file_path, i + offset, code_type)
+
+                with open(temp_file_path, "w") as temp_file:
+                    temp_file.write(code_without_indentation)
+
+                temp_files.append((num_spaces, code_block, temp_file_path, code_type))
 
         return markdown_content, temp_files
 
@@ -123,15 +160,18 @@ def process_markdown_file(file_path, temp_dir, verbose=False):
 
 
 def update_markdown_file(file_path, markdown_content, temp_files):
-    """Updates a markdown file with formatted Python code blocks extracted and processed externally."""
-    for num_spaces, original_code_block, temp_file_path in temp_files:
+    """Updates a markdown file with formatted code blocks."""
+    for num_spaces, original_code_block, temp_file_path, code_type in temp_files:
         try:
             with open(temp_file_path) as temp_file:
                 formatted_code = temp_file.read().rstrip("\n")  # Strip trailing newlines
             formatted_code_with_indentation = add_indentation(formatted_code, num_spaces)
 
-            # Replace both `python` and `py` code blocks
-            for lang in ["python", "py", "{ .py .annotate }"]:
+            # Define the language tags for each code type
+            lang_tags = {"python": ["python", "py", "{ .py .annotate }"], "bash": ["bash", "sh", "shell"]}
+
+            # Replace the code blocks with the formatted version
+            for lang in lang_tags[code_type]:
                 markdown_content = markdown_content.replace(
                     f"{' ' * num_spaces}```{lang}\n{original_code_block}\n{' ' * num_spaces}```",
                     f"{' ' * num_spaces}```{lang}\n{formatted_code_with_indentation}\n{' ' * num_spaces}```",
@@ -146,8 +186,8 @@ def update_markdown_file(file_path, markdown_content, temp_files):
         print(f"Error writing file {file_path}: {e}")
 
 
-def main(root_dir=Path.cwd(), verbose=False):
-    """Processes markdown files, extracts and formats Python code blocks, and updates the original files."""
+def main(root_dir=Path.cwd(), process_python=True, process_bash=True, verbose=False):
+    """Processes markdown files, extracts and formats code blocks, and updates the original files."""
     root_path = Path(root_dir)
     markdown_files = list(root_path.rglob("*.md"))
     temp_dir = Path("temp_code_blocks")
@@ -158,12 +198,17 @@ def main(root_dir=Path.cwd(), verbose=False):
     for markdown_file in markdown_files:
         if verbose:
             print(f"Processing {markdown_file}")
-        markdown_content, temp_files = process_markdown_file(markdown_file, temp_dir, verbose)
+        markdown_content, temp_files = process_markdown_file(
+            markdown_file, temp_dir, process_python, process_bash, verbose
+        )
         if markdown_content and temp_files:
             all_temp_files.append((markdown_file, markdown_content, temp_files))
 
-    # Format all code blocks with ruff
-    format_code_with_ruff(temp_dir)
+    # Format code blocks based on flags
+    if process_python:
+        format_code_with_ruff(temp_dir)  # Format Python files
+    if process_bash:
+        format_bash_with_prettier(temp_dir)  # Format Bash files
 
     # Update markdown files with formatted code blocks
     for markdown_file, markdown_content, temp_files in all_temp_files:
@@ -174,4 +219,4 @@ def main(root_dir=Path.cwd(), verbose=False):
 
 
 if __name__ == "__main__":
-    main()
+    main(process_python=True, process_bash=False)
