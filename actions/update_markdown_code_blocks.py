@@ -235,4 +235,4 @@ def main(root_dir=Path.cwd(), process_python=True, process_bash=True, verbose=Fa
 
 
 if __name__ == "__main__":
-    main(process_python=True, process_bash=True)
+    main(root_dir="/Users/glennjocher/PycharmProjects/ultralytics", process_python=False, process_bash=True)
