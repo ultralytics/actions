@@ -93,8 +93,8 @@ def format_code_with_ruff(temp_dir):
         print(f"ERROR running docformatter ❌ {e}")
 
 
-def format_code_with_shfmt(temp_dir):
-    """Formats bash script files in the specified directory using shfmt."""
+def format_bash_with_prettier(temp_dir):
+    """Formats bash script files in the specified directory using prettier."""
     try:
         # Run prettier with explicit config path
         result = subprocess.run(
@@ -104,9 +104,11 @@ def format_code_with_shfmt(temp_dir):
             text=True,
         )
         if result.returncode != 0:
-            print(f"Error formatting bash in : {result.stderr}")
+            print(f"ERROR running prettier-plugin-sh ❌ {result.stderr}")
+        else:
+            print("Completed bash formatting ✅")
     except Exception as e:
-        print(f"ERROR running shfmt: {e}")
+        print(f"ERROR running prettier-plugin-sh ❌ {e}")
 
 
 def generate_temp_filename(file_path, index, code_type):
@@ -204,7 +206,7 @@ def main(root_dir=Path.cwd(), process_python=True, process_bash=True, verbose=Fa
     if process_python:
         format_code_with_ruff(temp_dir)  # Format Python files
     if process_bash:
-        format_code_with_shfmt(temp_dir)  # Format Bash files
+        format_bash_with_prettier(temp_dir)  # Format Bash files
 
     # Update markdown files with formatted code blocks
     for markdown_file, markdown_content, temp_files in all_temp_files:
@@ -215,4 +217,4 @@ def main(root_dir=Path.cwd(), process_python=True, process_bash=True, verbose=Fa
 
 
 if __name__ == "__main__":
-    main(root_dir="/Users/glennjocher/PycharmProjects/ultralytics", process_python=False, process_bash=True)
+    main(root_dir="/Users/glennjocher/PycharmProjects/ultralytics", process_python=True, process_bash=True)
