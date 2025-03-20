@@ -155,6 +155,7 @@ runs:
         npm install --global prettier prettier-plugin-sh
         ultralytics-actions-update-markdown-code-blocks
         npx prettier --write --list-different "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json'
+        npx prettier --write --list-different --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs "**/*.sh"
         # Handle Markdown separately
         find . -name "*.md" ! -path "*/docs/*" -exec npx prettier --write --list-different {} +
         if [ -d "./docs" ]; then
