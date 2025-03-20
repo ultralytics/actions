@@ -130,6 +130,7 @@ def generate_temp_filename(file_path, index, code_type):
     filename = f"{stem}_{path_part}_{code_letter}{index}_{hash_val}{ext}"
     return re.sub(r"[^\w\-.]", "_", filename)
 
+
 def process_markdown_file(file_path, temp_dir, process_python=True, process_bash=True, verbose=False):
     """Processes a markdown file, extracting code blocks for formatting and updating the original file."""
     try:
