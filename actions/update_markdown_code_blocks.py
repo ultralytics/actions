@@ -96,37 +96,25 @@ def format_code_with_ruff(temp_dir):
 def format_code_with_shfmt(temp_dir):
     """Formats bash script files in the specified directory using shfmt."""
     try:
-        # Find all .sh files in temp directory
-        bash_files = list(Path(temp_dir).glob("*.sh"))
+        # Run prettier with explicit config path
+        result = subprocess.run(
+            [
+                "npx",
+                "prettier",
+                "--write",
+                "--plugin=prettier-plugin-sh",
+                f"{temp_dir}/**/*.sh",
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
 
-        for file_path in bash_files:
-            try:
-                # Read the file content
-                with open(file_path) as f:
-                    content = f.read()
-
-                # Run shfmt with Google style (-s for simplify, -i 2 for indent with 2 spaces)
-                result = subprocess.run(
-                    ["shfmt", "-s", "-i", "2"],
-                    input=content,
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                )
-
-                if result.returncode != 0:
-                    # Extract original file info from temp filename
-                    # Format: temp_{hash}.sh
-                    # The hash is based on file_path.parent, file_path.stem, index, and "bash"
-                    print(f"Error formatting bash in {file_path.stem}: {result.stderr}")
-                    continue
-
-                # Write the formatted output back to the file
-                with open(file_path, "w") as f:
-                    f.write(result.stdout)
-
-            except Exception as e:
-                print(f"Error processing bash in {file_path.stem}: {e}")
+        if result.returncode != 0:
+            # Extract original file info from temp filename
+            # Format: temp_{hash}.sh
+            # The hash is based on file_path.parent, file_path.stem, index, and "bash"
+            print(f"Error formatting bash in : {result.stderr}")
 
     except Exception as e:
         print(f"ERROR running shfmt: {e}")
