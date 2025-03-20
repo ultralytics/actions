@@ -102,7 +102,7 @@ def format_code_with_shfmt(temp_dir):
         for file_path in bash_files:
             try:
                 # Read the file content
-                with open(file_path, "r") as f:
+                with open(file_path) as f:
                     content = f.read()
 
                 # Run shfmt with Google style (-s for simplify, -i 2 for indent with 2 spaces)
