@@ -140,15 +140,21 @@ def generate_temp_filename(file_path, index, code_type):
     return f"temp_{unique_hash}{extension}"
 
 
-def process_markdown_file(file_path, temp_dir, verbose=False):
+def process_markdown_file(file_path, temp_dir, process_python=True, process_bash=True, verbose=False):
     """Processes a markdown file, extracting code blocks for formatting and updating the original file."""
     try:
         markdown_content = Path(file_path).read_text()
         code_blocks_by_type = extract_code_blocks(markdown_content)
         temp_files = []
 
-        # Process all code block types
-        for code_type, offset in [("python", 0), ("bash", 1000)]:
+        # Process all code block types based on flags
+        code_types = []
+        if process_python:
+            code_types.append(("python", 0))
+        if process_bash:
+            code_types.append(("bash", 1000))
+
+        for code_type, offset in code_types:
             for i, (num_spaces, code_block) in enumerate(code_blocks_by_type[code_type]):
                 if verbose:
                     print(f"Extracting {code_type} code block {i} from {file_path}")
@@ -196,7 +202,7 @@ def update_markdown_file(file_path, markdown_content, temp_files):
         print(f"Error writing file {file_path}: {e}")
 
 
-def main(root_dir=Path.cwd(), verbose=False):
+def main(root_dir=Path.cwd(), process_python=True, process_bash=True, verbose=False):
     """Processes markdown files, extracts and formats code blocks, and updates the original files."""
     root_path = Path(root_dir)
     markdown_files = list(root_path.rglob("*.md"))
@@ -208,13 +214,17 @@ def main(root_dir=Path.cwd(), verbose=False):
     for markdown_file in markdown_files:
         if verbose:
             print(f"Processing {markdown_file}")
-        markdown_content, temp_files = process_markdown_file(markdown_file, temp_dir, verbose)
+        markdown_content, temp_files = process_markdown_file(
+            markdown_file, temp_dir, process_python, process_bash, verbose
+        )
         if markdown_content and temp_files:
             all_temp_files.append((markdown_file, markdown_content, temp_files))
 
-    # Format all code blocks
-    format_code_with_ruff(temp_dir)  # Format Python files
-    format_code_with_shfmt(temp_dir)  # Format Bash files
+    # Format code blocks based on flags
+    if process_python:
+        format_code_with_ruff(temp_dir)  # Format Python files
+    if process_bash:
+        format_code_with_shfmt(temp_dir)  # Format Bash files
 
     # Update markdown files with formatted code blocks
     for markdown_file, markdown_content, temp_files in all_temp_files:
@@ -225,4 +235,4 @@ def main(root_dir=Path.cwd(), verbose=False):
 
 
 if __name__ == "__main__":
-    main()
+    main(process_python=True, process_bash=True)
