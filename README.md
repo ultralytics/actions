@@ -16,25 +16,25 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) rep
 
 Ultralytics Actions automatically applies formats, updates, and enhancements using a suite of powerful tools:
 
--   **Python Code:** Formatted using [Ruff](https://github.com/astral-sh/ruff), an extremely fast Python linter and formatter.
--   **Markdown Files:** Styled with [Prettier](https://github.com/prettier/prettier) to ensure consistent documentation appearance.
--   **Docstrings:** Cleaned and standardized using [docformatter](https://github.com/PyCQA/docformatter).
--   **Swift Code:** Formatted with [`swift-format`](https://github.com/swiftlang/swift-format) to maintain a uniform coding style across Swift projects. _(Note: Requires the `macos-latest` runner.)_
--   **Spell Check:** Common misspellings are caught using [codespell](https://github.com/codespell-project/codespell).
--   **Broken Links Check:** Broken links in documentation and Markdown files are identified using [Lychee](https://github.com/lycheeverse/lychee).
--   **PR Summary:** Concise Pull Request summaries are generated using [OpenAI](https://openai.com/) GPT-4o, improving clarity and review efficiency.
--   **Auto-labeling:** Relevant labels are applied to issues and pull requests via [OpenAI](https://openai.com/) GPT-4o for intelligent categorization.
+- **Python Code:** Formatted using [Ruff](https://github.com/astral-sh/ruff), an extremely fast Python linter and formatter.
+- **Markdown Files:** Styled with [Prettier](https://github.com/prettier/prettier) to ensure consistent documentation appearance.
+- **Docstrings:** Cleaned and standardized using [docformatter](https://github.com/PyCQA/docformatter).
+- **Swift Code:** Formatted with [`swift-format`](https://github.com/swiftlang/swift-format) to maintain a uniform coding style across Swift projects. _(Note: Requires the `macos-latest` runner.)_
+- **Spell Check:** Common misspellings are caught using [codespell](https://github.com/codespell-project/codespell).
+- **Broken Links Check:** Broken links in documentation and Markdown files are identified using [Lychee](https://github.com/lycheeverse/lychee).
+- **PR Summary:** Concise Pull Request summaries are generated using [OpenAI](https://openai.com/) GPT-4o, improving clarity and review efficiency.
+- **Auto-labeling:** Relevant labels are applied to issues and pull requests via [OpenAI](https://openai.com/) GPT-4o for intelligent categorization.
 
 ## 🛠️ How It Works
 
 Ultralytics Actions triggers on various GitHub events to streamline workflows:
 
--   **Push Events:** Automatically formats code when changes are pushed to the `main` branch.
--   **Pull Requests:**
-    -   Ensures contributions meet formatting standards before merging.
-    -   Generates a concise summary of changes using GPT-4o.
-    -   Applies relevant labels using GPT-4o for intelligent categorization.
--   **Issues:** Automatically applies relevant labels using GPT-4o when new issues are created.
+- **Push Events:** Automatically formats code when changes are pushed to the `main` branch.
+- **Pull Requests:**
+  - Ensures contributions meet formatting standards before merging.
+  - Generates a concise summary of changes using GPT-4o.
+  - Applies relevant labels using GPT-4o for intelligent categorization.
+- **Issues:** Automatically applies relevant labels using GPT-4o when new issues are created.
 
 These automated actions help maintain high code quality, improve documentation clarity, and streamline the review process by providing consistent formatting, informative summaries, and appropriate categorization.
 
@@ -86,8 +86,8 @@ Ultralytics thrives on community collaboration, and we deeply value your contrib
 
 Ultralytics offers two licensing options:
 
--   **AGPL-3.0 License**: An [OSI-approved](https://opensource.org/license/agpl-v3) open-source license ideal for students, researchers, and enthusiasts who value open collaboration. See the [LICENSE](https://github.com/ultralytics/ultralytics/blob/main/LICENSE) file for details.
--   **Enterprise License**: Designed for commercial use, this license allows integrating Ultralytics software and AI models into commercial products without AGPL-3.0's open-source requirements. For enterprise solutions, contact [Ultralytics Licensing](https://www.ultralytics.com/license).
+- **AGPL-3.0 License**: An [OSI-approved](https://opensource.org/license/agpl-v3) open-source license ideal for students, researchers, and enthusiasts who value open collaboration. See the [LICENSE](https://github.com/ultralytics/ultralytics/blob/main/LICENSE) file for details.
+- **Enterprise License**: Designed for commercial use, this license allows integrating Ultralytics software and AI models into commercial products without AGPL-3.0's open-source requirements. For enterprise solutions, contact [Ultralytics Licensing](https://www.ultralytics.com/license).
 
 ## 📫 Contact
 
