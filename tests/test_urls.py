@@ -41,7 +41,7 @@ def test_is_url():
 
 def test_links_in_string_func():
     """Test URLs in strings function."""
-    assert check_links_in_string(", abc ".join(url for url in URLS))
+    assert check_links_in_string(", abc ".join(URLS))
 
 
 def test_markdown_links_in_string_func():
