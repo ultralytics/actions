@@ -26,6 +26,7 @@ REQUESTS_HEADERS = {
 }
 BAD_HTTP_CODES = frozenset(
     {
+        # 204,  # No content
         # 403,  # Forbidden - client lacks permission to access the resource (commented as works in browser typically)
         404,  # Not Found - requested resource doesn't exist
         405,  # Method Not Allowed - HTTP method not supported for this endpoint
@@ -116,7 +117,8 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
                 try:
                     # Try HEAD first, then GET if needed
                     for method in (requester.head, requester.get):
-                        if method(url, stream=method == requester.get, **kwargs).status_code not in BAD_HTTP_CODES:
+                        status_code = method(url, stream=method == requester.get, **kwargs).status_code
+                        if status_code not in BAD_HTTP_CODES:
                             return True
 
                         # If GitHub and check fails (repo might be private), add the base GitHub URL to ignore list
