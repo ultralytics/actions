@@ -82,13 +82,14 @@ def clean_url(url):
     return url
 
 
-def brave_search(query, api_key):
-    """Search for alternative URL using Brave Search API."""
+def brave_search(query, api_key, count=3):
+    """Search for alternative URLs using Brave Search API."""
     headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
-    url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query)}&count=1"
+    url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query)}&count={count}"
     response = requests.get(url, headers=headers)
     data = response.json() if response.status_code == 200 else {}
-    return data.get("web", {}).get("results", [{}])[0].get("url") if data else None
+    results = data.get("web", {}).get("results", []) if data else []
+    return [result.get("url") for result in results if result.get("url")]
 
 
 def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
@@ -158,10 +159,14 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
 
             for (title, url, is_md), valid in zip(urls, valid_results):
                 if not valid:
-                    replacement = brave_search(f"{title} {url}", BRAVE_API_KEY)
-                    if replacement:
-                        replacements[url] = replacement
-                        modified_text = modified_text.replace(url, replacement)
+                    alternative_urls = brave_search(f"{title} {url}", BRAVE_API_KEY, count=3)
+                    if alternative_urls:
+                        # Try each alternative URL until we find one that works
+                        for alt_url in alternative_urls:
+                            if is_url(alt_url, session):
+                                break
+                        replacements[url] = alt_url
+                        modified_text = modified_text.replace(url, alt_url)
 
             if verbose and replacements:
                 print(f"WARNING ⚠️ replaced {len(replacements)} broken links using Brave Search: {replacements}")
