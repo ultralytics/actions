@@ -83,7 +83,7 @@ def clean_url(url):
     return url
 
 
-def brave_search(query, api_key, count=3):
+def brave_search(query, api_key, count=5):
     """Search for alternative URLs using Brave Search API."""
     headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
     url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query)}&count={count}"
