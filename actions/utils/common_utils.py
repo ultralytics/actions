@@ -1,5 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -7,6 +8,7 @@ from urllib import parse
 
 import requests
 
+BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 REQUESTS_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -24,6 +26,7 @@ REQUESTS_HEADERS = {
 }
 BAD_HTTP_CODES = frozenset(
     {
+        # 204,  # No content
         # 403,  # Forbidden - client lacks permission to access the resource (commented as works in browser typically)
         404,  # Not Found - requested resource doesn't exist
         405,  # Method Not Allowed - HTTP method not supported for this endpoint
@@ -32,6 +35,7 @@ BAD_HTTP_CODES = frozenset(
         502,  # Bad Gateway - upstream server sent invalid response
         503,  # Service Unavailable - server temporarily unable to handle request
         504,  # Gateway Timeout - upstream server didn't respond in time
+        525,  # Cloudfare handshake error
     }
 )
 URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private GitHub repos
@@ -80,6 +84,16 @@ def clean_url(url):
     return url
 
 
+def brave_search(query, api_key, count=5):
+    """Search for alternative URLs using Brave Search API."""
+    headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
+    url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query)}&count={count}"
+    response = requests.get(url, headers=headers)
+    data = response.json() if response.status_code == 200 else {}
+    results = data.get("web", {}).get("results", []) if data else []
+    return [result.get("url") for result in results if result.get("url")]
+
+
 def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
     """Check if string is URL and optionally verify it exists, with fallback for GitHub repos."""
     try:
@@ -103,7 +117,8 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
                 try:
                     # Try HEAD first, then GET if needed
                     for method in (requester.head, requester.get):
-                        if method(url, stream=method == requester.get, **kwargs).status_code not in BAD_HTTP_CODES:
+                        status_code = method(url, stream=method == requester.get, **kwargs).status_code
+                        if status_code not in BAD_HTTP_CODES:
                             return True
 
                         # If GitHub and check fails (repo might be private), add the base GitHub URL to ignore list
@@ -126,23 +141,50 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
         return False
 
 
-def check_links_in_string(text, verbose=True, return_bad=False):
+def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
     """Process a given text, find unique URLs within it, and check for any 404 errors."""
     all_urls = []
     for md_text, md_url, plain_url in URL_PATTERN.findall(text):
         url = md_url or plain_url
         if url and parse.urlparse(url).scheme:
-            all_urls.append(url)
+            all_urls.append((md_text, url, md_url != ""))
 
-    urls = set(map(clean_url, all_urls))  # remove extra characters and make unique
+    urls = [(t, clean_url(u), is_md) for t, u, is_md in all_urls]  # clean URLs
+
     with requests.Session() as session, ThreadPoolExecutor(max_workers=16) as executor:
         session.headers.update(REQUESTS_HEADERS)
-        bad_urls = [url for url, valid in zip(urls, executor.map(lambda x: not is_url(x, session), urls)) if valid]
+        valid_results = list(executor.map(lambda x: is_url(x[1], session), urls))
+        bad_urls = [url for (_, url, _), valid in zip(urls, valid_results) if not valid]
+
+        if replace and bad_urls and BRAVE_API_KEY:
+            replacements = {}
+            modified_text = text
+
+            for (title, url, is_md), valid in zip(urls, valid_results):
+                if not valid:
+                    alternative_urls = brave_search(f"{title} {url}", BRAVE_API_KEY, count=3)
+                    if alternative_urls:
+                        # Try each alternative URL until we find one that works
+                        for alt_url in alternative_urls:
+                            if is_url(alt_url, session):
+                                break
+                        replacements[url] = alt_url
+                        modified_text = modified_text.replace(url, alt_url)
+
+            if verbose and replacements:
+                print(
+                    f"WARNING ⚠️ replaced {len(replacements)} broken links:\n"
+                    + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
+                )
+            if replacements:
+                return (True, [], modified_text) if return_bad else modified_text
 
     passing = not bad_urls
     if verbose and not passing:
         print(f"WARNING ⚠️ errors found in URLs {bad_urls}")
 
+    if replace:
+        return (passing, bad_urls, text) if return_bad else text
     return (passing, bad_urls) if return_bad else passing
 
 
@@ -152,3 +194,4 @@ if __name__ == "__main__":
 
     print(f"is_url(): {is_url(url)}")
     print(f"check_links_in_string(): {check_links_in_string(string)}")
+    print(f"check_links_in_string() with replace: {check_links_in_string(string, replace=True)}")
