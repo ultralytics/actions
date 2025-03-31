@@ -169,8 +169,10 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                         modified_text = modified_text.replace(url, alt_url)
 
             if verbose and replacements:
-                print(f"WARNING ⚠️ replaced {len(replacements)} broken links using Brave Search: {replacements}")
-
+                print(
+                    f"WARNING ⚠️ replaced {len(replacements)} broken links:\n"
+                    + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
+                )
             if replacements:
                 return (True, [], modified_text) if return_bad else modified_text
 
