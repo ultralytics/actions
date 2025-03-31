@@ -1,5 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
@@ -7,6 +8,7 @@ from urllib import parse
 
 import requests
 
+BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 REQUESTS_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -80,6 +82,15 @@ def clean_url(url):
     return url
 
 
+def brave_search(query, api_key):
+    """Search for alternative URL using Brave Search API."""
+    headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
+    url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query)}&count=1"
+    response = requests.get(url, headers=headers)
+    data = response.json() if response.status_code == 200 else {}
+    return data.get("web", {}).get("results", [{}])[0].get("url") if data else None
+
+
 def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
     """Check if string is URL and optionally verify it exists, with fallback for GitHub repos."""
     try:
@@ -126,29 +137,51 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
         return False
 
 
-def check_links_in_string(text, verbose=True, return_bad=False):
+def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
     """Process a given text, find unique URLs within it, and check for any 404 errors."""
     all_urls = []
     for md_text, md_url, plain_url in URL_PATTERN.findall(text):
         url = md_url or plain_url
         if url and parse.urlparse(url).scheme:
-            all_urls.append(url)
+            all_urls.append((md_text, url, md_url != ""))
 
-    urls = set(map(clean_url, all_urls))  # remove extra characters and make unique
+    urls = [(t, clean_url(u), is_md) for t, u, is_md in all_urls]  # clean URLs
+
     with requests.Session() as session, ThreadPoolExecutor(max_workers=16) as executor:
         session.headers.update(REQUESTS_HEADERS)
-        bad_urls = [url for url, valid in zip(urls, executor.map(lambda x: not is_url(x, session), urls)) if valid]
+        valid_results = list(executor.map(lambda x: is_url(x[1], session), urls))
+        bad_urls = [url for (_, url, _), valid in zip(urls, valid_results) if not valid]
+
+        if replace and bad_urls and BRAVE_API_KEY:
+            replacements = {}
+            modified_text = text
+
+            for (title, url, is_md), valid in zip(urls, valid_results):
+                if not valid:
+                    replacement = brave_search(f"{title} {url}", BRAVE_API_KEY)
+                    if replacement:
+                        replacements[url] = replacement
+                        modified_text = modified_text.replace(url, replacement)
+
+            if verbose and replacements:
+                print(f"WARNING ⚠️ replaced {len(replacements)} broken links using Brave Search: {replacements}")
+
+            if replacements:
+                return (True, [], modified_text) if return_bad else modified_text
 
     passing = not bad_urls
     if verbose and not passing:
         print(f"WARNING ⚠️ errors found in URLs {bad_urls}")
 
+    if replace:
+        return (passing, bad_urls, text) if return_bad else text
     return (passing, bad_urls) if return_bad else passing
 
 
 if __name__ == "__main__":
-    url = "https://ultralytics.com/images/bus.jpg"
+    url = "https://ultralytics.com/images/bus22222.jpg"
     string = f"This is a string with a [Markdown link]({url}) inside it."
 
     print(f"is_url(): {is_url(url)}")
     print(f"check_links_in_string(): {check_links_in_string(string)}")
+    print(f"check_links_in_string() with replace: {check_links_in_string(string, replace=True)}")
