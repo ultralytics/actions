@@ -8,7 +8,6 @@ from urllib import parse
 
 import requests
 
-BRAVE_API_KEY = os.getenv("BRAVE_API_KEY")
 REQUESTS_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
@@ -87,7 +86,9 @@ def clean_url(url):
 def brave_search(query, api_key, count=5):
     """Search for alternative URLs using Brave Search API."""
     headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
-    url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query)}&count={count}"
+    if len(query) > 400:
+        print(f"WARNING ⚠️ Brave search query length {len(query)} exceed limit of 400 characters, truncating.")
+    url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query.strip()[:400])}&count={count}"
     response = requests.get(url, headers=headers)
     data = response.json() if response.status_code == 200 else {}
     results = data.get("web", {}).get("results", []) if data else []
@@ -156,28 +157,29 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
         valid_results = list(executor.map(lambda x: is_url(x[1], session), urls))
         bad_urls = [url for (_, url, _), valid in zip(urls, valid_results) if not valid]
 
-        if replace and bad_urls and BRAVE_API_KEY:
-            replacements = {}
-            modified_text = text
+        if replace and bad_urls:
+            if brave_api_key := os.getenv("BRAVE_API_KEY"):
+                replacements = {}
+                modified_text = text
 
-            for (title, url, is_md), valid in zip(urls, valid_results):
-                if not valid:
-                    alternative_urls = brave_search(f"{title} {url}", BRAVE_API_KEY, count=3)
-                    if alternative_urls:
-                        # Try each alternative URL until we find one that works
-                        for alt_url in alternative_urls:
-                            if is_url(alt_url, session):
-                                break
-                        replacements[url] = alt_url
-                        modified_text = modified_text.replace(url, alt_url)
+                for (title, url, is_md), valid in zip(urls, valid_results):
+                    if not valid:
+                        alternative_urls = brave_search(f"{title[:200]} {url[:200]}", brave_api_key, count=3)
+                        if alternative_urls:
+                            # Try each alternative URL until we find one that works
+                            for alt_url in alternative_urls:
+                                if is_url(alt_url, session):
+                                    break
+                            replacements[url] = alt_url
+                            modified_text = modified_text.replace(url, alt_url)
 
-            if verbose and replacements:
-                print(
-                    f"WARNING ⚠️ replaced {len(replacements)} broken links:\n"
-                    + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
-                )
-            if replacements:
-                return (True, [], modified_text) if return_bad else modified_text
+                if verbose and replacements:
+                    print(
+                        f"WARNING ⚠️ replaced {len(replacements)} broken links:\n"
+                        + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
+                    )
+                if replacements:
+                    return (True, [], modified_text) if return_bad else modified_text
 
     passing = not bad_urls
     if verbose and not passing:
