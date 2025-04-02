@@ -191,8 +191,9 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
 
 
 if __name__ == "__main__":
-    url = "<https://ultralytics.com/images/bus.jpg>"
-    string = f"This is a string with a {url} inside it."
+    url = "https://ultralytics.com/images/bus.jpg"
+    string = f"This is a string with a [Markdown link]({url}) inside it."
 
+    print(f"is_url(): {is_url(url)}")
     print(f"check_links_in_string(): {check_links_in_string(string)}")
     print(f"check_links_in_string() with replace: {check_links_in_string(string, replace=True)}")
