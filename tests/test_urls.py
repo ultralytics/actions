@@ -7,7 +7,7 @@ import pytest
 from actions.utils.common_utils import check_links_in_string, is_url
 
 URLS = [
-    "https://docs.ultralytics.com/help/contributing",
+    "https://docs.ultralytics.com/help/contributing",  # add brackets
     "https://ultralytics.com",
     "https://ultralytics.com/images/bus.jpg",
     "https://github.com/ultralytics/ultralytics",
@@ -37,6 +37,11 @@ def test_is_url():
     """Test each URL using is_url function."""
     for url in URLS:
         assert is_url(url), f"URL check failed: {url}"
+
+
+def test_brackets():
+    """Test URLs with brackets."""
+    assert check_links_in_string(f"This is a brackets <{URLS}> link in a string.")
 
 
 def test_links_in_string_func():
