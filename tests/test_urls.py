@@ -39,11 +39,6 @@ def test_is_url():
         assert is_url(url), f"URL check failed: {url}"
 
 
-def test_brackets():
-    """Test URLs with brackets."""
-    assert check_links_in_string(f"This is a brackets <{URLS}> link in a string.")
-
-
 def test_links_in_string_func():
     """Test URLs in strings function."""
     assert check_links_in_string(", abc ".join(URLS))
@@ -53,6 +48,10 @@ def test_markdown_links_in_string_func():
     """Test Markdown links in strings function."""
     assert check_links_in_string(", abc ".join(f"[text]({url})" for url in URLS))
 
+
+def test_bracket_links_in_string_func():
+    """Test bracket links in strings function."""
+    assert check_links_in_string(", abc ".join(f"<{url}>" for url in URLS))
 
 def test_html_links_in_string_func():
     """Test HTML links in strings function."""
