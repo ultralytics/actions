@@ -7,7 +7,7 @@ import pytest
 from actions.utils.common_utils import check_links_in_string, is_url
 
 URLS = [
-    "https://docs.ultralytics.com/help/contributing",  # add brackets
+    "https://docs.ultralytics.com/help/contributing",
     "https://ultralytics.com",
     "https://ultralytics.com/images/bus.jpg",
     "https://github.com/ultralytics/ultralytics",
