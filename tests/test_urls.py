@@ -49,6 +49,11 @@ def test_markdown_links_in_string_func():
     assert check_links_in_string(", abc ".join(f"[text]({url})" for url in URLS))
 
 
+def test_bracket_links_in_string_func():
+    """Test bracket links in strings function."""
+    assert check_links_in_string(", abc ".join(f"<{url}>" for url in URLS))
+
+
 def test_html_links_in_string_func():
     """Test HTML links in strings function."""
     assert check_links_in_string(", abc ".join(f'<a href="{url}">text</a>' for url in URLS))
