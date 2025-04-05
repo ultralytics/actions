@@ -152,7 +152,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
 
     urls = [(t, clean_url(u), is_md) for t, u, is_md in all_urls]  # clean URLs
 
-    with requests.Session() as session, ThreadPoolExecutor(max_workers=16) as executor:
+    with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
         session.headers.update(REQUESTS_HEADERS)
         valid_results = list(executor.map(lambda x: is_url(x[1], session), urls))
         bad_urls = [url for (_, url, _), valid in zip(urls, valid_results) if not valid]
