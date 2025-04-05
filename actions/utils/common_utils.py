@@ -1,6 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import asyncio
+import os
 import re
 from urllib import parse
 
@@ -22,37 +23,39 @@ REQUESTS_HEADERS = {
     "Origin": "https://www.google.com/",
 }
 
-URL_IGNORE_LIST = frozenset(
-    {
-        "localhost",
-        "127.0.0",
-        ":5000",
-        ":3000",
-        ":8000",
-        ":8080",
-        ":6006",
-        "MODEL_ID",
-        "API_KEY",
-        "url",
-        "example",
-        "mailto:",
-        "github.com",  # ignore GitHub links that may be private repos
-        "linkedin.com",
-        "twitter.com",
-        "x.com",
-        "storage.googleapis.com",  # private GCS buckets
-    }
-)
+BAD_HTTP_CODES = frozenset({404, 410, 500, 502, 503, 504, 525})
+
+URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private GitHub repos
+    "localhost",
+    "127.0.0",
+    ":5000",
+    ":3000",
+    ":8000",
+    ":8080",
+    ":6006",
+    "MODEL_ID",
+    "API_KEY",
+    "url",
+    "example",
+    "mailto:",
+    "linkedin.com",
+    "twitter.com",
+    "x.com",
+    "storage.googleapis.com",
+    "{",
+    "(",
+    "api",
+}
 
 URL_PATTERN = re.compile(
-    r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
+    r"\[([^]]+)]\(([^)]+)\)"
     r"|"
-    r"("  # Start capturing group for plaintext URLs
-    r"(?:https?://)?"  # Optional http:// or https://
-    r"(?:www\.)?"  # Optional www.
-    r"(?:[\w.-]+)?"  # Optional domain name and subdomains
-    r"\.[a-zA-Z]{2,}"  # TLD
-    r"(?:/[^\s\"')\]]*)?"  # Optional path
+    r"("
+    r"(?:https?://)?"
+    r"(?:www\.)?"
+    r"(?:[\w.-]+)?"
+    r"\.[a-zA-Z]{2,}"
+    r"(?:/[^\s\"')\]<>]*)?"
     r")"
 )
 
@@ -69,8 +72,27 @@ def clean_url(url):
     return url
 
 
-async def is_url_async(url, session, check=True, max_attempts=3, timeout=2):
-    """Asynchronously check if string is URL and optionally verify it exists."""
+async def brave_search_async(query, api_key, session, count=5):
+    """Search for alternative URLs using Brave Search API asynchronously."""
+    headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
+    if len(query) > 400:
+        print(f"WARNING ⚠️ Brave search query length {len(query)} exceed limit of 400 characters, truncating.")
+    url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query.strip()[:400])}&count={count}"
+    
+    try:
+        async with session.get(url, headers=headers) as response:
+            if response.status == 200:
+                data = await response.json()
+                results = data.get("web", {}).get("results", [])
+                return [result.get("url") for result in results if result.get("url")]
+    except Exception:
+        pass
+    
+    return []
+
+
+async def is_url_async(url, session, semaphore, check=True, max_attempts=3, timeout=2):
+    """Asynchronously check if string is URL and verify it exists, with GitHub repo handling."""
     try:
         # Check allow list
         if any(x in url for x in URL_IGNORE_LIST):
@@ -78,67 +100,117 @@ async def is_url_async(url, session, check=True, max_attempts=3, timeout=2):
 
         # Check structure
         result = parse.urlparse(url)
-        partition = result.netloc.partition(".")  # i.e. netloc = "github.com" -> ("github", ".", "com")
+        partition = result.netloc.partition(".")
         if not result.scheme or not partition[0] or not partition[2]:
             return False
 
         if check:
-            bad_codes = {404, 410, 500, 502, 503, 504}
-            kwargs = {"timeout": aiohttp.ClientTimeout(total=timeout)}
+            kwargs = {"timeout": aiohttp.ClientTimeout(total=timeout), "allow_redirects": True}
 
-            for attempt in range(max_attempts):
-                try:
-                    # Try HEAD first, then GET if needed
-                    for method in (session.head, session.get):
-                        async with method(url, **kwargs) as response:
-                            if response.status not in bad_codes:
-                                return True
-                    return False
-                except (aiohttp.ClientError, asyncio.TimeoutError):
-                    if attempt == max_attempts - 1:  # last attempt
+            async with semaphore:  # Control concurrency
+                for attempt in range(max_attempts):
+                    try:
+                        # Try HEAD first, then GET if needed
+                        for method in (session.head, session.get):
+                            async with method(url, **kwargs) as response:
+                                if response.status not in BAD_HTTP_CODES:
+                                    return True
+
+                            # Handle GitHub repos specifically
+                            if result.netloc == "github.com" and response.status == 404:
+                                parts = result.path.strip("/").split("/")
+                                if len(parts) >= 2:
+                                    base_url = f"https://github.com/{parts[0]}/{parts[1]}"
+                                    async with session.head(base_url, **kwargs) as repo_response:
+                                        if repo_response.status == 404:
+                                            URL_IGNORE_LIST.add(base_url)
+                                            return True
+
                         return False
-                    await asyncio.sleep(2**attempt)  # exponential backoff
-            return False
+                    except (aiohttp.ClientError, asyncio.TimeoutError):
+                        if attempt == max_attempts - 1:
+                            return False
+                        await asyncio.sleep(2**attempt)
+                return False
         return True
     except Exception:
         return False
 
 
-async def check_links_in_string_async(text, verbose=True, return_bad=False):
-    """Asynchronously process a given text, find unique URLs within it, and check for any 404 errors."""
+async def check_links_in_string_async(text, max_concurrent=50, verbose=True, return_bad=False, replace=False):
+    """Asynchronously process text, find unique URLs, check for errors, and optionally replace broken links."""
     all_urls = []
     for md_text, md_url, plain_url in URL_PATTERN.findall(text):
         url = md_url or plain_url
         if url and parse.urlparse(url).scheme:
-            all_urls.append(url)
+            all_urls.append((md_text, url, md_url != ""))
 
-    urls = set(map(clean_url, all_urls))  # remove extra characters and make unique
+    urls = [(t, clean_url(u), is_md) for t, u, is_md in all_urls]  # clean URLs
 
-    async with aiohttp.ClientSession(headers=REQUESTS_HEADERS) as session:
-        tasks = [is_url_async(url, session) for url in urls]
+    # Set up connection pooling with higher limits
+    conn = aiohttp.TCPConnector(limit=max_concurrent, limit_per_host=10, ttl_dns_cache=300)
+    semaphore = asyncio.Semaphore(max_concurrent)
+    
+    async with aiohttp.ClientSession(headers=REQUESTS_HEADERS, connector=conn) as session:
+        tasks = [is_url_async(url, session, semaphore) for _, url, _ in urls]
         results = await asyncio.gather(*tasks)
-        bad_urls = [url for url, valid in zip(urls, results) if not valid]
+        bad_urls = [url for (_, url, _), valid in zip(urls, results) if not valid]
+
+        if replace and bad_urls and (brave_api_key := os.getenv("BRAVE_API_KEY")):
+            replacements = {}
+            modified_text = text
+
+            # Find replacements for bad URLs
+            for (title, url, _), valid in zip(urls, results):
+                if not valid:
+                    alternative_urls = await brave_search_async(
+                        f"{title[:200]} {url[:200]}", brave_api_key, session, count=3
+                    )
+                    
+                    if alternative_urls:
+                        # Check each alternative URL
+                        for alt_url in alternative_urls:
+                            if await is_url_async(alt_url, session, semaphore):
+                                replacements[url] = alt_url
+                                modified_text = modified_text.replace(url, alt_url)
+                                break
+
+            if verbose and replacements:
+                print(
+                    f"WARNING ⚠️ replaced {len(replacements)} broken links:\n"
+                    + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
+                )
+            
+            if replacements:
+                return (True, [], modified_text) if return_bad else modified_text
 
     passing = not bad_urls
     if verbose and not passing:
         print(f"WARNING ⚠️ errors found in URLs {bad_urls}")
 
+    if replace:
+        return (passing, bad_urls, text) if return_bad else text
     return (passing, bad_urls) if return_bad else passing
 
 
 async def main():
-    # Example usage
-    passing, bad_urls = await check_links_in_string_async(
-        "Check out https://ultralytics.com/images/bus.jpg and this non-existent link https://ultralytics.com/invalid"
-    )
-    print(f"Passing: {passing}")
-    if not passing:
-        print(f"Bad URLs: {bad_urls}")
+    url = "https://ultralytics.com/images/bus.jpg"
+    string = f"This is a string with a [Markdown link]({url}) inside it."
 
     # Test is_url_async directly
-    async with aiohttp.ClientSession() as session:
-        result = await is_url_async("https://ultralytics.com/images/bus.jpg", session)
-        print(f"Is valid URL: {result}")
+    conn = aiohttp.TCPConnector(limit=50, limit_per_host=10, ttl_dns_cache=300)
+    semaphore = asyncio.Semaphore(50)
+    async with aiohttp.ClientSession(headers=REQUESTS_HEADERS, connector=conn) as session:
+        result = await is_url_async(url, session, semaphore)
+        print(f"is_url_async(): {result}")
+
+    # Test check_links_in_string_async
+    result = await check_links_in_string_async(string)
+    print(f"check_links_in_string_async(): {result}")
+    
+    # Test with replace
+    result = await check_links_in_string_async(string, replace=True)
+    print(f"check_links_in_string_async() with replace: {result}")
 
 
 if __name__ == "__main__":

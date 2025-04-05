@@ -32,7 +32,7 @@ class Action:
 
     @staticmethod
     def _load_event_data(event_path: str) -> dict:
-        """Loads GitHub event data from path if it exists."""
+        """Load GitHub event data from path if it exists."""
         if event_path and Path(event_path).exists():
             return json.loads(Path(event_path).read_text())
         return {}
@@ -79,7 +79,7 @@ class Action:
         return result
 
     def print_info(self):
-        """Print GitHub Actions information."""
+        """Print GitHub Actions information including event details and repository information."""
         info = {
             "github.event_name": self.event_name,
             "github.event.action": self.event_data.get("action"),
@@ -110,7 +110,7 @@ class Action:
 
 
 def ultralytics_actions_info():
-    """Returns GitHub Actions environment information and configuration details for Ultralytics workflows."""
+    """Return GitHub Actions environment information and configuration details for Ultralytics workflows."""
     Action().print_info()
 
 

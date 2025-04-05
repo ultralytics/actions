@@ -24,6 +24,7 @@ URLS = [
     "https://www.statisticshowto.com/probability-and-statistics/find-outliers/",
     "https://www.reddit.com/r/Ultralytics/comments/1fw3605/release_megathread/",
     "https://www.kaggle.com/models/ultralytics/yolo11",
+    # "https://en.wikipedia.org/wiki/Active_learning_(machine_learning)",  # ends in trailing parenthesis (not working)
     "https://apps.apple.com/xk/app/ultralytics/id1583935240",
 ]
 
@@ -42,22 +43,42 @@ async def test_is_url():
             assert await is_url_async(url, session), f"URL check failed: {url}"
 
 
-@pytest.mark.asyncio
-async def test_html_links(verbose):
+
+def test_links_in_string_func():
+    """Test URLs in strings function."""
+    assert check_links_in_string(", abc ".join(URLS))
+
+
+def test_markdown_links_in_string_func():
+    """Test Markdown links in strings function."""
+    assert check_links_in_string(", abc ".join(f"[text]({url})" for url in URLS))
+
+
+def test_bracket_links_in_string_func():
+    """Test bracket links in strings function."""
+    assert check_links_in_string(", abc ".join(f"<{url}>" for url in URLS))
+
+
+def test_html_links_in_string_func():
+    """Test HTML links in strings function."""
+    assert check_links_in_string(", abc ".join(f'<a href="{url}">text</a>' for url in URLS))
+
+
+def test_html_links(verbose):
     """Tests the validity of URLs within HTML anchor tags and returns any invalid URLs found."""
-    text = "Visit <a href='https://err.com'>our site</a> or <a href=\"http://test.org\">test site</a>"
-    result, urls = await check_links_in_string_async(text, verbose, return_bad=True)
+    text = "Visit <a href='https://err.com'>our site</a>, or <a href=\"http://test.org\">test site</a>?"
+    result, urls = check_links_in_string(text, verbose, return_bad=True)
     assert result is False
     assert set(urls) == {"https://err.com", "http://test.org"}
 
 
 @pytest.mark.asyncio
-async def test_markdown_links(verbose):
-    """Validates URLs in Markdown links within a given text using check_links_in_string_async."""
-    text = "Check [Example](https://err.com) or [Test](http://test.org)"
-    result, urls = await check_links_in_string_async(text, verbose, return_bad=True)
+def test_markdown_links(verbose):
+    """Validates URLs in Markdown links within a given text using check_links_in_string."""
+    text = "Check [Example](https://err.com/), or [Test](http://test.org)?"
+    result, urls = check_links_in_string(text, verbose, return_bad=True)
     assert result is False
-    assert set(urls) == {"https://err.com", "http://test.org"}
+    assert set(urls) == {"https://err.com/", "http://test.org"}
 
 
 @pytest.mark.asyncio

@@ -16,36 +16,41 @@ SUMMARY_START = (
 )
 
 
-def generate_merge_message(pr_summary=None, pr_credit=None):
-    """Generates a thank-you message for merged PR contributors."""
+def generate_merge_message(pr_summary=None, pr_credit=None, pr_url=None):
+    """Generates a motivating thank-you message for merged PR contributors."""
     messages = [
         {
             "role": "system",
-            "content": "You are an Ultralytics AI assistant. Generate meaningful, inspiring messages to GitHub users.",
+            "content": "You are an Ultralytics AI assistant. Generate inspiring, appreciative messages for GitHub contributors.",
         },
         {
             "role": "user",
-            "content": f"Write a friendly thank you for a merged GitHub PR by {pr_credit}. "
-            f"Context from PR:\n{pr_summary}\n\n"
-            f"Start with the exciting message that this PR is now merged, and weave in an inspiring but obscure quote "
-            f"from a historical figure in science, art, stoicism and philosophy. "
-            f"Keep the message concise yet relevant to the specific contributions in this PR. "
-            f"We want the contributors to feel their effort is appreciated and will make a difference in the world.",
+            "content": (
+                f"Write a warm thank-you comment for the merged PR {pr_url} by {pr_credit}. "
+                f"Context:\n{pr_summary}\n\n"
+                f"Start with an enthusiastic note about the merge, incorporate a relevant inspirational quote from a historical "
+                f"figure, and connect it to the PR's impact. Keep it concise yet meaningful, ensuring contributors feel valued."
+            ),
         },
     ]
     return get_completion(messages)
 
 
-def post_merge_message(pr_number, repository, summary, pr_credit, headers):
+def post_merge_message(pr_number, pr_url, repository, summary, pr_credit, headers):
     """Posts thank you message on PR after merge."""
-    message = generate_merge_message(summary, pr_credit)
+    message = generate_merge_message(summary, pr_credit, pr_url)
     comment_url = f"{GITHUB_API_URL}/repos/{repository}/issues/{pr_number}/comments"
     response = requests.post(comment_url, json={"body": message}, headers=headers)
     return response.status_code == 201
 
 
-def generate_issue_comment(pr_url, pr_summary, pr_credit):
-    """Generates a personalized issue comment using based on the PR context."""
+def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
+    """Generates personalized issue comment based on PR context."""
+    # Extract repo info from PR URL (format: api.github.com/repos/owner/repo/pulls/number)
+    repo_parts = pr_url.split("/repos/")[1].split("/pulls/")[0] if "/repos/" in pr_url else ""
+    owner_repo = repo_parts.split("/")
+    repo_name = owner_repo[-1] if len(owner_repo) > 1 else "package"
+
     messages = [
         {
             "role": "system",
@@ -54,13 +59,15 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit):
         {
             "role": "user",
             "content": f"Write a GitHub issue comment announcing a potential fix for this issue is now merged in linked PR {pr_url} by {pr_credit}\n\n"
+            f"PR Title: {pr_title}\n\n"
             f"Context from PR:\n{pr_summary}\n\n"
             f"Include:\n"
             f"1. An explanation of key changes from the PR that may resolve this issue\n"
             f"2. Credit to the PR author and contributors\n"
             f"3. Options for testing if PR changes have resolved this issue:\n"
-            f"   - pip install git+https://github.com/ultralytics/ultralytics.git@main # test latest changes\n"
-            f"   - or await next official PyPI release\n"
+            f"   - If the PR mentions a specific version number (like v8.0.0 or 3.1.0), include: pip install -U {repo_name}>=VERSION\n"
+            f"   - Also suggest: pip install git+https://github.com/{repo_parts}.git@main\n"
+            f"   - If appropriate, mention they can also wait for the next official PyPI release\n"
             f"4. Request feedback on whether the PR changes resolve the issue\n"
             f"5. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
         },
@@ -88,15 +95,14 @@ def generate_pr_summary(repository, diff_text):
             f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}",
         },
     ]
-    reply = get_completion(messages)
+    reply = get_completion(messages, temperature=0.2)
     if len(diff_text) > limit:
         reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
     return SUMMARY_START + reply
 
 
-def update_pr_description(repository, pr_number, new_summary, headers, max_retries=2):
+def update_pr_description(pr_url, new_summary, headers, max_retries=2):
     """Updates PR description with new summary, retrying if description is None."""
-    pr_url = f"{GITHUB_API_URL}/repos/{repository}/pulls/{pr_number}"
     description = ""
     for i in range(max_retries + 1):
         description = requests.get(pr_url, headers=headers).json().get("body") or ""
@@ -121,13 +127,14 @@ def update_pr_description(repository, pr_number, new_summary, headers, max_retri
 
 
 def label_fixed_issues(repository, pr_number, pr_summary, headers, action):
-    """Labels issues closed by PR when merged, notifies users, returns PR contributors."""
+    """Labels issues closed by PR when merged, notifies users, and returns PR contributors."""
     query = """
 query($owner: String!, $repo: String!, $pr_number: Int!) {
     repository(owner: $owner, name: $repo) {
         pullRequest(number: $pr_number) {
             closingIssuesReferences(first: 50) { nodes { number } }
             url
+            title
             body
             author { login, __typename }
             reviews(first: 50) { nodes { author { login, __typename } } }
@@ -144,13 +151,14 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
 
     if response.status_code != 200:
         print(f"Failed to fetch linked issues. Status code: {response.status_code}")
-        return [], None
+        return None
 
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
         comments = data["reviews"]["nodes"] + data["comments"]["nodes"]
         token_username = action.get_username()  # get GITHUB_TOKEN username
         author = data["author"]["login"] if data["author"]["__typename"] != "Bot" else None
+        pr_title = data.get("title", "")
 
         # Get unique contributors from reviews and comments
         contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
@@ -174,7 +182,9 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             pr_credit += (" with contributions from " if pr_credit else "") + ", ".join(f"@{c}" for c in contributors)
 
         # Generate personalized comment
-        comment = generate_issue_comment(pr_url=data["url"], pr_summary=pr_summary, pr_credit=pr_credit)
+        comment = generate_issue_comment(
+            pr_url=data["url"], pr_summary=pr_summary, pr_credit=pr_credit, pr_title=pr_title
+        )
 
         # Update linked issues
         for issue in data["closingIssuesReferences"]["nodes"]:
@@ -198,7 +208,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         return pr_credit
     except KeyError as e:
         print(f"Error parsing GraphQL response: {e}")
-        return [], None
+        return None
 
 
 def remove_todos_on_merge(pr_number, repository, headers):
@@ -210,9 +220,10 @@ def remove_todos_on_merge(pr_number, repository, headers):
 def main(*args, **kwargs):
     """Summarize a pull request and update its description with a summary."""
     action = Action(*args, **kwargs)
-    pr_number = action.pr["number"]
     headers = action.headers
     repository = action.repository
+    pr_number = action.pr["number"]
+    pr_url = f"{GITHUB_API_URL}/repos/{repository}/pulls/{pr_number}"
 
     print(f"Retrieving diff for PR {pr_number}")
     diff = action.get_pr_diff()
@@ -223,7 +234,7 @@ def main(*args, **kwargs):
 
     # Update PR description
     print("Updating PR description...")
-    status_code = update_pr_description(repository, pr_number, summary, headers)
+    status_code = update_pr_description(pr_url, summary, headers)
     if status_code == 200:
         print("PR description updated successfully.")
     else:
@@ -237,7 +248,7 @@ def main(*args, **kwargs):
         remove_todos_on_merge(pr_number, repository, headers)
         if pr_credit:
             print("Posting PR author thank you message...")
-            post_merge_message(pr_number, repository, summary, pr_credit, headers)
+            post_merge_message(pr_number, pr_url, repository, summary, pr_credit, headers)
 
 
 if __name__ == "__main__":
