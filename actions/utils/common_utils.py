@@ -78,7 +78,7 @@ async def brave_search_async(query, api_key, session, count=5):
     if len(query) > 400:
         print(f"WARNING ⚠️ Brave search query length {len(query)} exceed limit of 400 characters, truncating.")
     url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query.strip()[:400])}&count={count}"
-    
+
     try:
         async with session.get(url, headers=headers) as response:
             if response.status == 200:
@@ -87,7 +87,7 @@ async def brave_search_async(query, api_key, session, count=5):
                 return [result.get("url") for result in results if result.get("url")]
     except Exception:
         pass
-    
+
     return []
 
 
@@ -150,7 +150,7 @@ async def check_links_in_string_async(text, max_concurrent=50, verbose=True, ret
     # Set up connection pooling with higher limits
     conn = aiohttp.TCPConnector(limit=max_concurrent, limit_per_host=10, ttl_dns_cache=300)
     semaphore = asyncio.Semaphore(max_concurrent)
-    
+
     async with aiohttp.ClientSession(headers=REQUESTS_HEADERS, connector=conn) as session:
         tasks = [is_url_async(url, session, semaphore) for _, url, _ in urls]
         results = await asyncio.gather(*tasks)
@@ -166,7 +166,7 @@ async def check_links_in_string_async(text, max_concurrent=50, verbose=True, ret
                     alternative_urls = await brave_search_async(
                         f"{title[:200]} {url[:200]}", brave_api_key, session, count=3
                     )
-                    
+
                     if alternative_urls:
                         # Check each alternative URL
                         for alt_url in alternative_urls:
@@ -180,7 +180,7 @@ async def check_links_in_string_async(text, max_concurrent=50, verbose=True, ret
                     f"WARNING ⚠️ replaced {len(replacements)} broken links:\n"
                     + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
                 )
-            
+
             if replacements:
                 return (True, [], modified_text) if return_bad else modified_text
 
@@ -207,7 +207,7 @@ async def main():
     # Test check_links_in_string_async
     result = await check_links_in_string_async(string)
     print(f"check_links_in_string_async(): {result}")
-    
+
     # Test with replace
     result = await check_links_in_string_async(string, replace=True)
     print(f"check_links_in_string_async() with replace: {result}")

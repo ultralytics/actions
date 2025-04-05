@@ -43,7 +43,6 @@ async def test_is_url():
             assert await is_url_async(url, session), f"URL check failed: {url}"
 
 
-
 def test_links_in_string_func():
     """Test URLs in strings function."""
     assert check_links_in_string(", abc ".join(URLS))
