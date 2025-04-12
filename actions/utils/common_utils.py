@@ -84,11 +84,11 @@ REDIRECT_IGNORE_LIST = {
     "bit.ly",
     "ow.ly",
     "https://youtu.be/",
-    "https://ultralytics.com/bilibili",
     "latex.codecogs.com",
     "svg.image",
     "?view=azureml",
     "ultralytics.com/actions",
+    "ultralytics.com/bilibili",
     "ultralytics.com/images",
     "app.gong.io/call?",
     "https://code.visualstudio.com/",  # errors
