@@ -117,10 +117,10 @@ def test_urls_with_paths_and_queries(verbose):
 
 def test_urls_with_different_tlds(verbose):
     """Test URLs with various top-level domains (TLDs) to ensure correct identification and handling."""
-    text = "Different TLDs: https://err.ml https://err.org https://err.net https://err.io https://err.ai"
+    text = "Different TLDs: https://err.ml https://err.eu https://err.net https://err.io https://err.ai"
     result, urls = check_links_in_string(text, verbose, return_bad=True)
     assert result is False
-    assert set(urls) == {"https://err.ml", "https://err.org", "https://err.io", "https://err.ai"}
+    assert set(urls) == {"https://err.ml", "https://err.eu", "https://err.io", "https://err.ai"}
 
 
 def test_case_sensitivity(verbose):
