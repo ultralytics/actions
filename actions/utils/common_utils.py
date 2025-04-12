@@ -5,7 +5,6 @@ import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from urllib import parse
-from urllib.parse import urlparse
 
 import requests
 
@@ -60,41 +59,41 @@ URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private
     "api",  # ignore api endpoints
 }
 REDIRECT_IGNORE_LIST = {
-        "{",  # possible f-string
-        "}",  # possible f-string
-        "/es/",
-        "/us/",
-        "en-us",
-        "es-es",
-        "/latest/",
-        "/2022/",
-        "/2023/",
-        "/2024/",
-        "/2025/",
-        "/2026/",
-        "/2027/",
-        "/2028/",
-        "/2029/",
-        "/2030/",
-        "credential",
-        "login",
-        "consent",
-        "verify",
-        "badge",
-        "shields.io",
-        "bit.ly",
-        "ow.ly",
-        "https://youtu.be/",
-        "https://ultralytics.com/bilibili",
-        "latex.codecogs.com",
-        "svg.image",
-        "?view=azureml",
-        "https://ultralytics.com/actions",
-        "app.gong.io/call?",
-        "https://code.visualstudio.com/",  # errors
-        "?rdt=",  # problems with reddit redirecting to https://www.reddit.com/r/ultralytics/?rdt=48616
-        "objects.githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
-    }
+    "{",  # possible f-string
+    "}",  # possible f-string
+    "/es/",
+    "/us/",
+    "en-us",
+    "es-es",
+    "/latest/",
+    "/2022/",
+    "/2023/",
+    "/2024/",
+    "/2025/",
+    "/2026/",
+    "/2027/",
+    "/2028/",
+    "/2029/",
+    "/2030/",
+    "credential",
+    "login",
+    "consent",
+    "verify",
+    "badge",
+    "shields.io",
+    "bit.ly",
+    "ow.ly",
+    "https://youtu.be/",
+    "https://ultralytics.com/bilibili",
+    "latex.codecogs.com",
+    "svg.image",
+    "?view=azureml",
+    "https://ultralytics.com/actions",
+    "app.gong.io/call?",
+    "https://code.visualstudio.com/",  # errors
+    "?rdt=",  # problems with reddit redirecting to https://www.reddit.com/r/ultralytics/?rdt=48616
+    "objects.githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
+}
 URL_PATTERN = re.compile(
     r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
