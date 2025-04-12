@@ -120,7 +120,7 @@ def test_urls_with_different_tlds(verbose):
     text = "Different TLDs: https://err.ml https://err.org https://err.net https://err.io https://err.ai"
     result, urls = check_links_in_string(text, verbose, return_bad=True)
     assert result is False
-    assert set(urls) == {"https://err.ml", "https://err.io", "https://err.ai"}
+    assert set(urls) == {"https://err.ml", "https://err.org", "https://err.io", "https://err.ai"}
 
 
 def test_case_sensitivity(verbose):
