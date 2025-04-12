@@ -58,6 +58,43 @@ URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private
     "(",  # breaks pattern matches
     "api",  # ignore api endpoints
 }
+REDIRECT_IGNORE_LIST = {
+    "{",  # possible f-string
+    "}",  # possible f-string
+    "/es/",
+    "/us/",
+    "en-us",
+    "es-es",
+    "/latest/",
+    "/2022/",
+    "/2023/",
+    "/2024/",
+    "/2025/",
+    "/2026/",
+    "/2027/",
+    "/2028/",
+    "/2029/",
+    "/2030/",
+    "credential",
+    "login",
+    "consent",
+    "verify",
+    "badge",
+    "shields.io",
+    "bit.ly",
+    "ow.ly",
+    "https://youtu.be/",
+    "https://ultralytics.com/bilibili",
+    "latex.codecogs.com",
+    "svg.image",
+    "?view=azureml",
+    "ultralytics.com/actions",
+    "ultralytics.com/images",
+    "app.gong.io/call?",
+    "https://code.visualstudio.com/",  # errors
+    "?rdt=",  # problems with reddit redirecting to https://www.reddit.com/r/ultralytics/?rdt=48616
+    "objects.githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
+}
 URL_PATTERN = re.compile(
     r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
@@ -83,8 +120,16 @@ def clean_url(url):
     return url
 
 
+def allow_redirect(url):
+    """Check if URL should be skipped based on simple rules."""
+    url_lower = url.lower()
+    return url and url.startswith("https://") and not any(item in url_lower for item in REDIRECT_IGNORE_LIST)
+
+
 def brave_search(query, api_key, count=5):
     """Search for alternative URLs using Brave Search API."""
+    if not api_key:
+        return
     headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
     if len(query) > 400:
         print(f"WARNING ⚠️ Brave search query length {len(query)} exceed limit of 400 characters, truncating.")
@@ -95,18 +140,18 @@ def brave_search(query, api_key, count=5):
     return [result.get("url") for result in results if result.get("url")]
 
 
-def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
+def is_url(url, session=None, check=True, max_attempts=3, timeout=2, return_url=False, redirect=False):
     """Check if string is URL and optionally verify it exists, with fallback for GitHub repos."""
     try:
         # Check allow list
         if any(x in url for x in URL_IGNORE_LIST):
-            return True
+            return (True, url) if return_url else True
 
         # Check structure
         result = parse.urlparse(url)
         partition = result.netloc.partition(".")  # i.e. netloc = "github.com" -> ("github", ".", "com")
         if not result.scheme or not partition[0] or not partition[2]:
-            return False
+            return (False, url) if return_url else False
 
         if check:
             requester = session or requests
@@ -118,9 +163,11 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
                 try:
                     # Try HEAD first, then GET if needed
                     for method in (requester.head, requester.get):
-                        status_code = method(url, stream=method == requester.get, **kwargs).status_code
-                        if status_code not in BAD_HTTP_CODES:
-                            return True
+                        response = method(url, stream=method == requester.get, **kwargs)
+                        if redirect and allow_redirect(response.url):
+                            url = response.url
+                        if response.status_code not in BAD_HTTP_CODES:
+                            return (True, url) if return_url else True
 
                         # If GitHub and check fails (repo might be private), add the base GitHub URL to ignore list
                         if result.hostname == "github.com":
@@ -129,57 +176,61 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2):
                                 base_url = f"https://github.com/{parts[0]}/{parts[1]}"  # https://github.com/org/repo
                                 if requester.head(base_url, **kwargs).status_code == 404:
                                     URL_IGNORE_LIST.add(base_url)
-                                    return True
+                                    return (True, url) if return_url else True
 
-                    return False
+                    return (False, url) if return_url else False
                 except Exception:
                     if attempt == max_attempts - 1:  # last attempt
-                        return False
+                        return (False, url) if return_url else False
                     time.sleep(2**attempt)  # exponential backoff
-            return False
-        return True
+            return (False, url) if return_url else False
+        return (True, url) if return_url else True
     except Exception:
-        return False
+        return (False, url) if return_url else False
 
 
-def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
-    """Process a given text, find unique URLs within it, and check for any 404 errors."""
-    all_urls = []
+def check_links_in_string(text, verbose=True, return_bad=False, replace=False, redirect=True):
+    """Process text, find URLs, check for 404s, and handle replacements with redirects or Brave search."""
+    urls = []
     for md_text, md_url, plain_url in URL_PATTERN.findall(text):
         url = md_url or plain_url
         if url and parse.urlparse(url).scheme:
-            all_urls.append((md_text, url, md_url != ""))
-
-    urls = [(t, clean_url(u), is_md) for t, u, is_md in all_urls]  # clean URLs
+            urls.append((md_text, clean_url(url)))
 
     with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
         session.headers.update(REQUESTS_HEADERS)
-        valid_results = list(executor.map(lambda x: is_url(x[1], session), urls))
-        bad_urls = [url for (_, url, _), valid in zip(urls, valid_results) if not valid]
+        results = list(executor.map(lambda x: is_url(x[1], session, return_url=True, redirect=redirect), urls))
+        bad_urls = [url for (title, url), (valid, redirect) in zip(urls, results) if not valid]
 
-        if replace and bad_urls:
-            if brave_api_key := os.getenv("BRAVE_API_KEY"):
-                replacements = {}
-                modified_text = text
+        if replace:
+            replacements = {}
+            modified_text = text
 
-                for (title, url, is_md), valid in zip(urls, valid_results):
-                    if not valid:
-                        alternative_urls = brave_search(f"{title[:200]} {url[:200]}", brave_api_key, count=3)
-                        if alternative_urls:
-                            # Try each alternative URL until we find one that works
-                            for alt_url in alternative_urls:
-                                if is_url(alt_url, session):
-                                    break
-                            replacements[url] = alt_url
-                            modified_text = modified_text.replace(url, alt_url)
+            # Process all URLs for replacements
+            brave_api_key = os.getenv("BRAVE_API_KEY")
+            for (title, url), (valid, redirect) in zip(urls, results):
+                # Handle invalid URLs with Brave search
+                if not valid and brave_api_key:
+                    alternative_urls = brave_search(f"{title[:200]} {url[:200]}", brave_api_key, count=3)
+                    if alternative_urls:
+                        # Try each alternative URL until we find one that works
+                        for alt_url in alternative_urls:
+                            if is_url(alt_url, session):
+                                replacements[url] = alt_url
+                                modified_text = modified_text.replace(url, alt_url)
+                                break
+                # Handle redirects for valid URLs
+                elif valid and redirect and redirect != url:
+                    replacements[url] = redirect
+                    modified_text = modified_text.replace(url, redirect)
 
-                if verbose and replacements:
-                    print(
-                        f"WARNING ⚠️ replaced {len(replacements)} broken links:\n"
-                        + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
-                    )
-                if replacements:
-                    return (True, [], modified_text) if return_bad else modified_text
+            if verbose and replacements:
+                print(
+                    f"WARNING ⚠️ replaced {len(replacements)} links:\n"
+                    + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
+                )
+            if replacements:
+                return (True, bad_urls, modified_text) if return_bad else modified_text
 
     passing = not bad_urls
     if verbose and not passing:
