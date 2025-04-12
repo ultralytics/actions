@@ -88,7 +88,8 @@ REDIRECT_IGNORE_LIST = {
     "latex.codecogs.com",
     "svg.image",
     "?view=azureml",
-    "https://ultralytics.com/actions",
+    "ultralytics.com/actions",
+    "ultralytics.com/images",
     "app.gong.io/call?",
     "https://code.visualstudio.com/",  # errors
     "?rdt=",  # problems with reddit redirecting to https://www.reddit.com/r/ultralytics/?rdt=48616
