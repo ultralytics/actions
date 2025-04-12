@@ -188,7 +188,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2, return_url=
         return (False, url) if return_url else False
 
 
-def check_links_in_string(text, verbose=True, return_bad=False, replace=False, redirect=False):
+def check_links_in_string(text, verbose=True, return_bad=False, replace=False, redirect=True):
     """Process text, find URLs, check for 404s, and handle replacements with redirects or Brave search."""
     urls = []
     for md_text, md_url, plain_url in URL_PATTERN.findall(text):
@@ -246,4 +246,4 @@ if __name__ == "__main__":
 
     print(f"is_url(): {is_url(url)}")
     print(f"check_links_in_string(): {check_links_in_string(string)}")
-    print(f"check_links_in_string() with replace: {check_links_in_string(string, replace=True, redirect=True)}")
+    print(f"check_links_in_string() with replace: {check_links_in_string(string, replace=True)}")
