@@ -208,7 +208,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
             modified_text = text
 
             # Process all URLs for replacements
-            brave_api_key = os.getenv("BRAVE_API_KEY", "BSA1UOG4F9vk41MEDhM8X4SlwoH-R0a")
+            brave_api_key = os.getenv("BRAVE_API_KEY")
             for (title, url), (valid, redirect) in zip(urls, results):
                 # Handle invalid URLs with Brave search
                 if not valid and brave_api_key:
