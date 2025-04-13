@@ -212,10 +212,9 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
             for (title, url), (valid, redirect) in zip(urls, results):
                 # Handle invalid URLs with Brave search
                 if not valid and brave_api_key:
-                    if alternative_urls := brave_search(f"{title[:200]} {url[:200]}", brave_api_key, count=3):
-                        best_url = alternative_urls[0]
-                        # Try each alternative URL until we find one that works with fallback to first URL
-                        for alt_url in alternative_urls:
+                    if search_urls := brave_search(f"{title[:200]} {(redirect or url)[:200]}", brave_api_key, count=3):
+                        best_url = search_urls[0]
+                        for alt_url in search_urls:
                             if is_url(alt_url, session):
                                 best_url = alt_url
                                 break
