@@ -58,7 +58,7 @@ URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private
     "(",  # breaks pattern matches
     "api",  # ignore api endpoints
 }
-REDIRECT_IGNORE_LIST = {
+REDIRECT_IGNORE_LIST = frozenset({
     "{",  # possible f-string
     "}",  # possible f-string
     "/es/",
@@ -102,7 +102,7 @@ REDIRECT_IGNORE_LIST = {
     "https://code.visualstudio.com/",  # errors
     "?rdt=",  # problems with reddit redirecting to https://www.reddit.com/r/ultralytics/?rdt=48616
     "objects.githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
-}
+})
 URL_PATTERN = re.compile(
     r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
