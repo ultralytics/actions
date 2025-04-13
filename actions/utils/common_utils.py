@@ -58,51 +58,53 @@ URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private
     "(",  # breaks pattern matches
     "api",  # ignore api endpoints
 }
-REDIRECT_IGNORE_LIST = frozenset({
-    "{",  # possible f-string
-    "}",  # possible f-string
-    "/es/",
-    "/us/",
-    "en-us",
-    "es-es",
-    "/latest/",
-    "/2022/",
-    "/2023/",
-    "/2024/",
-    "/2025/",
-    "/2026/",
-    "/2027/",
-    "/2028/",
-    "/2029/",
-    "/2030/",
-    ":text",  # ignore text-selection links due to parsing complications
-    ":443",  # https://getcruise.com/ -> https://www.gm.com:443/innovation/path-to-autonomous
-    "404",
-    "notfound",
-    "unsupported",  # https://labs.google/fx/tools/video-fx/unsupported-country
-    "authorize",  # nature articles like https://idp.nature.com/authorize?response_type=cookie&client...
-    "credential",
-    "login",
-    "consent",
-    "verify",
-    "badge",
-    "shields.io",
-    "bit.ly",
-    "ow.ly",
-    "https://youtu.be/",
-    "latex.codecogs.com",
-    "svg.image",
-    "?view=azureml",
-    "?utm_",
-    "redirect",
-    "ultralytics.com/actions",
-    "ultralytics.com/bilibili",
-    "ultralytics.com/images",
-    "app.gong.io/call?",
-    "https://code.visualstudio.com/",  # errors
-    "?rdt=",  # problems with reddit redirecting to https://www.reddit.com/r/ultralytics/?rdt=48616
-    "objects.githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
-})
+REDIRECT_IGNORE_LIST = frozenset(
+    {
+        "{",  # possible f-string
+        "}",  # possible f-string
+        "/es/",
+        "/us/",
+        "en-us",
+        "es-es",
+        "/latest/",
+        "/2022/",
+        "/2023/",
+        "/2024/",
+        "/2025/",
+        "/2026/",
+        "/2027/",
+        "/2028/",
+        "/2029/",
+        "/2030/",
+        ":text",  # ignore text-selection links due to parsing complications
+        ":443",  # https://getcruise.com/ -> https://www.gm.com:443/innovation/path-to-autonomous
+        "404",
+        "notfound",
+        "unsupported",  # https://labs.google/fx/tools/video-fx/unsupported-country
+        "authorize",  # nature articles like https://idp.nature.com/authorize?response_type=cookie&client...
+        "credential",
+        "login",
+        "consent",
+        "verify",
+        "badge",
+        "shields.io",
+        "bit.ly",
+        "ow.ly",
+        "https://youtu.be/",
+        "latex.codecogs.com",
+        "svg.image",
+        "?view=azureml",
+        "?utm_",
+        "redirect",
+        "ultralytics.com/actions",
+        "ultralytics.com/bilibili",
+        "ultralytics.com/images",
+        "app.gong.io/call?",
+        "https://code.visualstudio.com/",  # errors
+        "?rdt=",  # problems with reddit redirecting to https://www.reddit.com/r/ultralytics/?rdt=48616
+        "objects.githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
+    }
+)
 URL_PATTERN = re.compile(
     r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
