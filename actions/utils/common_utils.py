@@ -56,7 +56,7 @@ URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private
     "storage.googleapis.com",  # private GCS buckets
     "{",  # possible Python fstring
     "(",  # breaks pattern matches
-    "api",  # ignore api endpoints
+    "api.",  # ignore api endpoints
 }
 REDIRECT_IGNORE_LIST = frozenset(
     {
@@ -67,15 +67,6 @@ REDIRECT_IGNORE_LIST = frozenset(
         "en-us",
         "es-es",
         "/latest/",
-        "/2022/",
-        "/2023/",
-        "/2024/",
-        "/2025/",
-        "/2026/",
-        "/2027/",
-        "/2028/",
-        "/2029/",
-        "/2030/",
         ":text",  # ignore text-selection links due to parsing complications
         ":443",  # https://getcruise.com/ -> https://www.gm.com:443/innovation/path-to-autonomous
         "404",
