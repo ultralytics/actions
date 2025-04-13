@@ -190,7 +190,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=2, return_url=
         return (False, url) if return_url else False
 
 
-def check_links_in_string(text, verbose=True, return_bad=False, replace=False, redirect=True):
+def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
     """Process text, find URLs, check for 404s, and handle replacements with redirects or Brave search."""
     urls = []
     for md_text, md_url, plain_url in URL_PATTERN.findall(text):
@@ -200,7 +200,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False, r
 
     with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
         session.headers.update(REQUESTS_HEADERS)
-        results = list(executor.map(lambda x: is_url(x[1], session, return_url=True, redirect=redirect), urls))
+        results = list(executor.map(lambda x: is_url(x[1], session, return_url=True, redirect=True), urls))
         bad_urls = [url for (title, url), (valid, redirect) in zip(urls, results) if not valid]
 
         if replace:
@@ -212,14 +212,14 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False, r
             for (title, url), (valid, redirect) in zip(urls, results):
                 # Handle invalid URLs with Brave search
                 if not valid and brave_api_key:
-                    alternative_urls = brave_search(f"{title[:200]} {url[:200]}", brave_api_key, count=3)
-                    if alternative_urls:
-                        # Try each alternative URL until we find one that works
-                        for alt_url in alternative_urls:
+                    if search_urls := brave_search(f"{title[:200]} {(redirect or url)[:200]}", brave_api_key, count=3):
+                        best_url = search_urls[0]
+                        for alt_url in search_urls:
                             if is_url(alt_url, session):
-                                replacements[url] = alt_url
-                                modified_text = modified_text.replace(url, alt_url)
+                                best_url = alt_url
                                 break
+                        replacements[url] = best_url
+                        modified_text = modified_text.replace(url, best_url)
                 # Handle redirects for valid URLs
                 elif valid and redirect and redirect != url:
                     replacements[url] = redirect
