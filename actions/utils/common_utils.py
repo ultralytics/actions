@@ -75,6 +75,12 @@ REDIRECT_IGNORE_LIST = {
     "/2028/",
     "/2029/",
     "/2030/",
+    ":text",  # ignore text-selection links due to parsing complications
+    ":443",  # https://getcruise.com/ -> https://www.gm.com:443/innovation/path-to-autonomous
+    "404",
+    "notfound",
+    "unsupported",  # https://labs.google/fx/tools/video-fx/unsupported-country
+    "authorize",  # nature articles like https://idp.nature.com/authorize?response_type=cookie&client...
     "credential",
     "login",
     "consent",
@@ -87,6 +93,8 @@ REDIRECT_IGNORE_LIST = {
     "latex.codecogs.com",
     "svg.image",
     "?view=azureml",
+    "?utm_",
+    "redirect",
     "ultralytics.com/actions",
     "ultralytics.com/bilibili",
     "ultralytics.com/images",
