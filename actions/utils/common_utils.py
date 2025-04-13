@@ -135,7 +135,7 @@ def brave_search(query, api_key, count=5):
     return [result.get("url") for result in results if result.get("url")]
 
 
-def is_url(url, session=None, check=True, max_attempts=3, timeout=2, return_url=False, redirect=False):
+def is_url(url, session=None, check=True, max_attempts=3, timeout=5, return_url=False, redirect=False):
     """Check if string is URL and optionally verify it exists, with fallback for GitHub repos."""
     try:
         # Check allow list
