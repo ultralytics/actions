@@ -10,18 +10,12 @@ import requests
 
 REQUESTS_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
-    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
-    "Accept-Language": "en-US,en;q=0.9,es;q=0.8,zh-CN;q=0.7,zh;q=0.6",
-    "Accept-Encoding": "gzip, deflate, br, zstd",
-    "sec-ch-ua": '"Chromium";v="132", "Google Chrome";v="132", "Not_A Brand";v="99"',
-    "sec-ch-ua-mobile": "?0",
-    "sec-ch-ua-platform": '"macOS"',
-    "Sec-Fetch-Site": "none",
-    "Sec-Fetch-Mode": "navigate",
-    "Sec-Fetch-User": "?1",
-    "Sec-Fetch-Dest": "document",
-    "Referer": "https://www.google.com/",
-    "Origin": "https://www.google.com/",
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+    "DNT": "1"
 }
 BAD_HTTP_CODES = frozenset(
     {
@@ -200,6 +194,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
 
     with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
         session.headers.update(REQUESTS_HEADERS)
+        session.cookies = requests.cookies.RequestsCookieJar()
         results = list(executor.map(lambda x: is_url(x[1], session, return_url=True, redirect=True), urls))
         bad_urls = [url for (title, url), (valid, redirect) in zip(urls, results) if not valid]
 
@@ -212,7 +207,8 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
             for (title, url), (valid, redirect) in zip(urls, results):
                 # Handle invalid URLs with Brave search
                 if not valid and brave_api_key:
-                    if search_urls := brave_search(f"{title[:200]} {(redirect or url)[:200]}", brave_api_key, count=3):
+                    query = f"{(redirect or url)[:200]} {title[:199]}"
+                    if search_urls := brave_search(query, brave_api_key, count=3):
                         best_url = search_urls[0]
                         for alt_url in search_urls:
                             if is_url(alt_url, session):
