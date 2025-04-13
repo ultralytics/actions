@@ -15,7 +15,7 @@ REQUESTS_HEADERS = {
     "Accept-Encoding": "gzip, deflate, br",
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
-    "DNT": "1"
+    "DNT": "1",
 }
 BAD_HTTP_CODES = frozenset(
     {
