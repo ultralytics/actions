@@ -78,7 +78,7 @@ def test_markdown_links(verbose):
 def test_mixed_formats(verbose):
     """Tests URL detection in mixed text formats (HTML, Markdown, plain text) using check_links_in_string."""
     text = "A <a href='https://1.com'>link</a> and [markdown](https://2.org/) and https://3.net"
-    result, urls = check_links_in_string(text, return_bad=True)
+    result, urls = check_links_in_string(text, verbose, return_bad=True)
     assert result is False
     assert set(urls) == {"https://1.com", "https://3.net"}
 
