@@ -20,15 +20,14 @@ REQUESTS_HEADERS = {
     "Sec-Fetch-Mode": "navigate",
     "Sec-Fetch-User": "?1",
     "Sec-Fetch-Dest": "document",
-    "Referer": "https://www.google.com/",
-    "Origin": "https://www.google.com/",
 }
 BAD_HTTP_CODES = frozenset(
     {
-        # 204,  # No content
+        204,  # No content
         # 403,  # Forbidden - client lacks permission to access the resource (commented as works in browser typically)
         404,  # Not Found - requested resource doesn't exist
         405,  # Method Not Allowed - HTTP method not supported for this endpoint
+        406,  # Not Acceptable - server can't generate response matching client's acceptable headers
         410,  # Gone - resource permanently removed
         500,  # Internal Server Error - server encountered an error
         502,  # Bad Gateway - upstream server sent invalid response
@@ -141,7 +140,7 @@ def brave_search(query, api_key, count=5):
     return [result.get("url") for result in results if result.get("url")]
 
 
-def is_url(url, session=None, check=True, max_attempts=3, timeout=2, return_url=False, redirect=False):
+def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
     """Check if string is URL and optionally verify it exists, with fallback for GitHub repos."""
     try:
         # Check allow list
@@ -200,6 +199,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
 
     with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
         session.headers.update(REQUESTS_HEADERS)
+        session.cookies = requests.cookies.RequestsCookieJar()
         results = list(executor.map(lambda x: is_url(x[1], session, return_url=True, redirect=True), urls))
         bad_urls = [url for (title, url), (valid, redirect) in zip(urls, results) if not valid]
 
@@ -212,14 +212,16 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
             for (title, url), (valid, redirect) in zip(urls, results):
                 # Handle invalid URLs with Brave search
                 if not valid and brave_api_key:
-                    if search_urls := brave_search(f"{title[:200]} {(redirect or url)[:200]}", brave_api_key, count=3):
+                    query = f"{(redirect or url)[:200]} {title[:199]}"
+                    if search_urls := brave_search(query, brave_api_key, count=3):
                         best_url = search_urls[0]
                         for alt_url in search_urls:
                             if is_url(alt_url, session):
                                 best_url = alt_url
                                 break
-                        replacements[url] = best_url
-                        modified_text = modified_text.replace(url, best_url)
+                        if url != best_url:
+                            replacements[url] = best_url
+                            modified_text = modified_text.replace(url, best_url)
                 # Handle redirects for valid URLs
                 elif valid and redirect and redirect != url:
                     replacements[url] = redirect
