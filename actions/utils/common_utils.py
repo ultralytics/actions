@@ -214,8 +214,9 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                             if is_url(alt_url, session):
                                 best_url = alt_url
                                 break
-                        replacements[url] = best_url
-                        modified_text = modified_text.replace(url, best_url)
+                        if url != best_url:
+                            replacements[url] = best_url
+                            modified_text = modified_text.replace(url, best_url)
                 # Handle redirects for valid URLs
                 elif valid and redirect and redirect != url:
                     replacements[url] = redirect
