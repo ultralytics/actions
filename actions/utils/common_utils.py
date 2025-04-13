@@ -27,6 +27,7 @@ BAD_HTTP_CODES = frozenset(
         # 403,  # Forbidden - client lacks permission to access the resource (commented as works in browser typically)
         404,  # Not Found - requested resource doesn't exist
         405,  # Method Not Allowed - HTTP method not supported for this endpoint
+        406,  # Not Acceptable - server can't generate response matching client's acceptable headers
         410,  # Gone - resource permanently removed
         500,  # Internal Server Error - server encountered an error
         502,  # Bad Gateway - upstream server sent invalid response
