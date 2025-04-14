@@ -57,10 +57,23 @@ URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private
     "(",  # breaks pattern matches
     "api.",  # ignore api endpoints
 }
-REDIRECT_IGNORE_LIST = frozenset(
+REDIRECT_START_IGNORE_LIST = frozenset(
     {
         "{",  # possible f-string
         "}",  # possible f-string
+        "https://youtu.be",
+        "bit.ly",
+        "ow.ly",
+        "shields.io",
+        "badge",
+        "ultralytics.com/actions",
+        "ultralytics.com/bilibili",
+        "ultralytics.com/images",
+        "app.gong.io/call?",
+    }
+)
+REDIRECT_END_IGNORE_LIST = frozenset(
+    {
         "/es/",
         "/us/",
         "en-us",
@@ -76,20 +89,11 @@ REDIRECT_IGNORE_LIST = frozenset(
         "login",
         "consent",
         "verify",
-        "badge",
-        "shields.io",
-        "bit.ly",
-        "ow.ly",
-        "https://youtu.be/",
         "latex.codecogs.com",
         "svg.image",
         "?view=azureml",
         "?utm_",
         "redirect",
-        "ultralytics.com/actions",
-        "ultralytics.com/bilibili",
-        "ultralytics.com/images",
-        "app.gong.io/call?",
         "https://code.visualstudio.com/",  # errors
         "?rdt=",  # problems with reddit redirecting to https://www.reddit.com/r/ultralytics/?rdt=48616
         "objects.githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
@@ -120,10 +124,16 @@ def clean_url(url):
     return url
 
 
-def allow_redirect(url):
+def allow_redirect(start="", end=""):
     """Check if URL should be skipped based on simple rules."""
-    url_lower = url.lower()
-    return url and url.startswith("https://") and not any(item in url_lower for item in REDIRECT_IGNORE_LIST)
+    start_lower = start.lower()
+    end_lower = end.lower()
+    return (
+        end
+        and end.startswith("https://")
+        and not any(item in end_lower for item in REDIRECT_END_IGNORE_LIST)
+        and not any(item in start_lower for item in REDIRECT_START_IGNORE_LIST)
+    )
 
 
 def brave_search(query, api_key, count=5):
@@ -164,7 +174,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
                     # Try HEAD first, then GET if needed
                     for method in (requester.head, requester.get):
                         response = method(url, stream=method == requester.get, **kwargs)
-                        if redirect and allow_redirect(response.url):
+                        if redirect and allow_redirect(start=url, end=response.url):
                             url = response.url
                         if response.status_code not in BAD_HTTP_CODES:
                             return (True, url) if return_url else True
