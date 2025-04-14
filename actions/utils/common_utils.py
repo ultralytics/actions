@@ -80,7 +80,7 @@ REDIRECT_IGNORE_LIST = frozenset(
         "shields.io",
         "bit.ly",
         "ow.ly",
-        "https://youtu.be/",
+        "https://www.youtube.com/",  # expanded from  https://youtu.be
         "latex.codecogs.com",
         "svg.image",
         "?view=azureml",
