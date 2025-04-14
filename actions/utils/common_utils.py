@@ -70,6 +70,7 @@ REDIRECT_START_IGNORE_LIST = frozenset(
         "ultralytics.com/bilibili",
         "ultralytics.com/images",
         "app.gong.io/call?",
+        "docs.openvino.ai",
     }
 )
 REDIRECT_END_IGNORE_LIST = frozenset(
