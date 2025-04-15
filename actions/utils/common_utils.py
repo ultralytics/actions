@@ -71,6 +71,7 @@ REDIRECT_START_IGNORE_LIST = frozenset(
         "ultralytics.com/images",
         "app.gong.io/call?",
         "docs.openvino.ai",
+        "/raw/",  # GitHub images
     }
 )
 REDIRECT_END_IGNORE_LIST = frozenset(
