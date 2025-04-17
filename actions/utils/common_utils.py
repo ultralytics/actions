@@ -55,6 +55,7 @@ URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private
     "storage.googleapis.com",  # private GCS buckets
     "{",  # possible Python fstring
     "(",  # breaks pattern matches
+    ")",
     "api.",  # ignore api endpoints
 }
 REDIRECT_START_IGNORE_LIST = frozenset(
@@ -69,10 +70,14 @@ REDIRECT_START_IGNORE_LIST = frozenset(
         "ultralytics.com/actions",
         "ultralytics.com/bilibili",
         "ultralytics.com/images",
+        "ultralytics.com/license",
+        "ultralytics.com/assets",
         "app.gong.io/call?",
         "docs.openvino.ai",
+        ".git",
         "/raw/",  # GitHub images
     }
+    | URL_IGNORE_LIST
 )
 REDIRECT_END_IGNORE_LIST = frozenset(
     {
