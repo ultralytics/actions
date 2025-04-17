@@ -76,7 +76,8 @@ REDIRECT_START_IGNORE_LIST = frozenset(
         "docs.openvino.ai",
         ".git",
         "/raw/",  # GitHub images
-    } | URL_IGNORE_LIST
+    }
+    | URL_IGNORE_LIST
 )
 REDIRECT_END_IGNORE_LIST = frozenset(
     {
