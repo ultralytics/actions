@@ -36,6 +36,15 @@ BAD_HTTP_CODES = frozenset(
         525,  # Cloudfare handshake error
     }
 )
+
+URL_ERROR_LIST = {  # automatically reject these URLs (important: replace spaces with '%20')
+    "https://blog.research.google/search/label/Spam%20and%20Abuse",
+    "https://blog.research.google/search/label/Adversarial%20Attacks",
+    "https://www.microsoft.com/en-us/security/business/ai-machine-learning-security",
+    "https://about.netflix.com/en/news/netflix-recommendations-beyond-the-5-stars-part-1",
+    "https://about.netflix.com/en/news/netflix-research-recommendations",
+}
+
 URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private GitHub repos
     "localhost",
     "127.0.0",
@@ -51,7 +60,7 @@ URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private
     "mailto:",
     "linkedin.com",
     "twitter.com",
-    "x.com",
+    "https://x.com",  # do not use just 'x' as this will catch other domains like netflix.com
     "storage.googleapis.com",  # private GCS buckets
     "{",  # possible Python fstring
     "(",  # breaks pattern matches
@@ -167,7 +176,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
         # Check structure
         result = parse.urlparse(url)
         partition = result.netloc.partition(".")  # i.e. netloc = "github.com" -> ("github", ".", "com")
-        if not result.scheme or not partition[0] or not partition[2]:
+        if not result.scheme or not partition[0] or not partition[2] or (url in URL_ERROR_LIST):
             return (False, url) if return_url else False
 
         if check:
