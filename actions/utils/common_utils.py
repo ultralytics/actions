@@ -167,7 +167,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
         # Check structure
         result = parse.urlparse(url)
         partition = result.netloc.partition(".")  # i.e. netloc = "github.com" -> ("github", ".", "com")
-        if not result.scheme or not partition[0] or not partition[2]:
+        if not result.scheme or not partition[0] or not partition[2] or (url in URL_ERROR_LIST):
             return (False, url) if return_url else False
 
         if check:
