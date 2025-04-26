@@ -96,7 +96,7 @@ def update_comment(event, comment_id: int, body: str, triggered_actions: List[Di
         return False
 
     # Create the summary with branch info
-    summary = f"### 🚀 Actions Triggered on `{branch}`\n\n"
+    summary = f"Actions started by workflow dispatch on this PR `{branch}` branch:\n\n"
     for action in triggered_actions:
         status_emoji = "✅" if action["status"] == 204 else "⚠️"
         summary += f"* {status_emoji} [{action['name']}]({action['url']})\n"
