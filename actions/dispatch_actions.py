@@ -9,7 +9,7 @@ import requests
 from .utils import GITHUB_API_URL, Action, remove_html_comments
 
 # Configuration
-TRIGGER_CI_KEYWORD = "@ultralytics/run-ci"  # and then to merge "@ultralytics/run-ci-and-merge"
+RUN_CI_KEYWORD = "@ultralytics/run-ci"  # and then to merge "@ultralytics/run-ci-and-merge"
 WORKFLOW_FILES = ["format.yml", "ci.yml", "docker.yml"]
 
 
@@ -81,7 +81,7 @@ def update_comment(event, comment_body: str, triggered_actions: List[Dict], bran
         run_info = f" run {action['run_number']}" if action["run_number"] else ""
         summary += f"* ✅ [{action['name']}]({action['url']}): `{action['file']}`{run_info}\n"
 
-    new_body = comment_body.replace(TRIGGER_CI_KEYWORD, summary).strip()
+    new_body = comment_body.replace(RUN_CI_KEYWORD, summary).strip()
     comment_id = event.event_data["comment"]["id"]
 
     response = requests.patch(
@@ -110,7 +110,7 @@ def main(*args, **kwargs):
     username = event.event_data["comment"]["user"]["login"]
 
     # Check for trigger keyword and permissions
-    if TRIGGER_CI_KEYWORD not in comment_body or not event.is_org_member(username):
+    if RUN_CI_KEYWORD not in comment_body or not event.is_org_member(username):
         return
 
     # Get branch, trigger workflows, and update comment
