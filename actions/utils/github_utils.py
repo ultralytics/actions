@@ -70,25 +70,23 @@ class Action:
         r.raise_for_status()
         return r.json()
 
-    def toggle_eyes_reaction(self, enabled: bool = True) -> None:
+    def toggle_eyes_reaction(self, add: bool = True) -> None:
         """Adds or removes eyes emoji reaction."""
-        # Determine the entity ID and URL based on the event type
         if self.event_name in ["pull_request", "pull_request_target"]:
-            entity_id = self.pr.get("number")
-            url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/{entity_id}/reactions"
+            id = self.pr.get("number")
         elif self.event_name == "issue_comment":
-            entity_id = self.event_data.get("comment", {}).get("id")
-            url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/comments/{entity_id}/reactions"
+            id = "comments/" + self.event_data.get("comment", {}).get("id")
         else:
+            id = self.event_data.get("issue", {}).get("number")
+        if not id:
             return
+        url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/{id}/reactions"
 
-        if enabled:
-            # Add eyes reaction and remember ID
+        if add:
             response = requests.post(url, json={"content": "eyes"}, headers=self.headers)
             if response.status_code == 201:
                 self.eyes_reaction_id = response.json().get("id")
         elif self.eyes_reaction_id:
-            # Remove reaction using stored ID
             requests.delete(f"{url}/{self.eyes_reaction_id}", headers=self.headers)
             self.eyes_reaction_id = None
 
