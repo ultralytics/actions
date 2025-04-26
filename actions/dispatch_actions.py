@@ -115,7 +115,7 @@ def update_comment(event, comment_id: int, body: str, triggered_actions: List[Di
         summary += "\n"
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-    summary += f"\n<sub>Triggered at {timestamp} via [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>"
+    summary += f"\n<sub>Triggered at {timestamp} via [Ultralytics Actions](https://www.ultralytics.com/actions) with `@ultralytics/dispatch-actions`</sub>"
 
     new_body = body.replace(TRIGGER_KEYWORD, summary)
     url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/comments/{comment_id}"
