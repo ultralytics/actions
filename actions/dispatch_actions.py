@@ -2,6 +2,7 @@
 
 import os
 import time
+from datetime import datetime
 from typing import Dict, List, Tuple
 
 import requests
@@ -24,90 +25,99 @@ def get_comment_info(event) -> Tuple[int, str, str]:
     data = event.event_data
     comment = data.get("comment", {})
 
-    comment_id = comment.get("id")
-    body = remove_html_comments(comment.get("body", ""))
-    username = comment.get("user", {}).get("login")
-
-    return comment_id, body, username
+    return (comment.get("id"), remove_html_comments(comment.get("body", "")), comment.get("user", {}).get("login"))
 
 
 def get_pr_branch(event) -> str:
-    """Gets the PR branch from issue comment or PR comment events."""
-    # For issue comments on PRs
-    if event.event_name == "issue_comment" and "pull_request" in event.event_data.get("issue", {}):
+    """Gets the PR branch from issue comment events."""
+    if "pull_request" in event.event_data.get("issue", {}):
         pr_number = event.event_data["issue"]["number"]
         pr_data = event.get_repo_data(f"pulls/{pr_number}")
         return pr_data.get("head", {}).get("ref", "main")
+    return "main"
 
-    return "main"  # Default to main if not a PR
 
-
-def get_recent_workflow_run(event, workflow_file: str, branch: str) -> str:
-    """Gets the URL of the most recent workflow run for the specified workflow."""
+def get_workflow_info(event, workflow_file: str) -> Dict:
+    """Gets workflow name and other metadata."""
     repo = event.repository
-
-    # Wait a moment for the workflow to be created
-    time.sleep(2)
-
-    # Query for recent runs of this workflow
-    url = f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{workflow_file}/runs?branch={branch}&per_page=1"
+    url = f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{workflow_file}"
     response = requests.get(url, headers=event.headers)
 
     if response.status_code == 200:
-        data = response.json()
-        workflow_runs = data.get("workflow_runs", [])
-        if workflow_runs:
-            # Get the HTML URL of the most recent run
-            return workflow_runs[0].get("html_url")
+        workflow_data = response.json()
+        return {"name": workflow_data.get("name", workflow_file.replace(".yml", "").title())}
 
-    # Fallback to the general workflow URL if we can't get the specific run
-    return f"https://github.com/{repo}/actions/workflows/{workflow_file}"
+    return {"name": workflow_file.replace(".yml", "").title()}
 
 
-def trigger_workflows(event, branch) -> List[Dict]:
-    """Triggers the predefined workflows on the specified branch."""
+def get_workflow_run(event, workflow_file: str, branch: str) -> Dict:
+    """Gets the most recent workflow run for the specified workflow."""
+    repo = event.repository
+    url = f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{workflow_file}/runs?branch={branch}&event=workflow_dispatch&per_page=1"
+    response = requests.get(url, headers=event.headers)
+
+    if response.status_code == 200:
+        runs = response.json().get("workflow_runs", [])
+        if runs:
+            return {"url": runs[0].get("html_url"), "run_number": runs[0].get("run_number")}
+
+    return {"url": f"https://github.com/{repo}/actions/workflows/{workflow_file}", "run_number": None}
+
+
+def trigger_workflows(event, branch: str) -> List[Dict]:
+    """Triggers workflows and collects run information."""
     results = []
     repo = event.repository
+    pr_number = event.event_data["issue"].get("number")
 
+    # First trigger all workflows
     for workflow_file in WORKFLOW_FILES:
-        # Trigger the workflow
+        payload = {"ref": branch}
+        if pr_number:
+            payload["inputs"] = {"pr_number": str(pr_number)}
+
         url = f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{workflow_file}/dispatches"
-        response = requests.post(url, json={"ref": branch}, headers=event.headers)
+        requests.post(url, json=payload, headers=event.headers)
 
-        # Get the specific run URL if successful
-        if response.status_code == 204:
-            workflow_url = get_recent_workflow_run(event, workflow_file, branch)
-            print(f"Found specific run URL: {workflow_url}")
-        else:
-            # Fallback to generic URL if the trigger failed
-            workflow_url = f"https://github.com/{repo}/actions/workflows/{workflow_file}"
+    # Wait for workflows to be created
+    time.sleep(10)
 
-        workflow_name = workflow_file.replace(".yml", "").replace("-", " ").title()
-        results.append({"name": workflow_name, "status": response.status_code, "url": workflow_url})
+    # Then collect information about all workflows
+    for workflow_file in WORKFLOW_FILES:
+        workflow_info = get_workflow_info(event, workflow_file)
+        run_info = get_workflow_run(event, workflow_file, branch)
 
-        print(f"{'Successful' if response.status_code == 204 else 'Failed'} workflow trigger: {workflow_name}")
+        results.append(
+            {
+                "name": workflow_info["name"],
+                "file": workflow_file,
+                "url": run_info["url"],
+                "run_number": run_info["run_number"],
+            }
+        )
 
     return results
 
 
 def update_comment(event, comment_id: int, body: str, triggered_actions: List[Dict], branch: str) -> bool:
-    """Updates the comment by replacing the trigger keyword with a summary."""
+    """Updates the comment with workflow information."""
     if not triggered_actions:
         return False
 
-    # Create the summary with branch info
-    summary = f"Actions started by workflow dispatch on this PR `{branch}` branch:\n\n"
+    summary = f"### ⚡ Actions Triggered on `{branch}`\n\n"
+
     for action in triggered_actions:
-        status_emoji = "✅" if action["status"] == 204 else "⚠️"
-        summary += f"* {status_emoji} [{action['name']}]({action['url']})\n"
+        run_info = f"run #{action['run_number']}" if action["run_number"] else ""
 
-    # Add footer
-    summary += "\n<sub>Triggered by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>"
+        summary += f"* ✅ [{action['name']}]({action['url']}): {action['file']}"
+        if run_info:
+            summary += f", {run_info}"
+        summary += "\n"
 
-    # Replace the trigger keyword
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    summary += f"\n<sub>Triggered at {timestamp} via [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>"
+
     new_body = body.replace(TRIGGER_KEYWORD, summary)
-
-    # Update the comment
     url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/comments/{comment_id}"
     response = requests.patch(url, json={"body": new_body}, headers=event.headers)
 
@@ -118,35 +128,27 @@ def main(*args, **kwargs):
     """Handles triggering workflows from PR comments."""
     event = Action(*args, **kwargs)
 
-    # Only process issue comments (comments on PRs are issue comments)
-    if event.event_name != "issue_comment":
-        print(f"Event {event.event_name} is not an issue comment, skipping.")
-        return
-
     # Only process comments on PRs
-    if "pull_request" not in event.event_data.get("issue", {}):
-        print("Comment is not on a pull request, skipping.")
+    if event.event_name != "issue_comment" or "pull_request" not in event.event_data.get("issue", {}):
+        print("Not a PR comment, skipping.")
         return
 
     comment_id, body, username = get_comment_info(event)
 
-    # Check for trigger keyword
+    # Check for trigger keyword and permissions
     if TRIGGER_KEYWORD not in body:
-        print(f"Trigger keyword '{TRIGGER_KEYWORD}' not found in the comment.")
         return
-
-    # Check permissions
     if not event.is_org_member(username):
-        print(f"User {username} is not a member of the organization and cannot trigger actions.")
+        print(f"User {username} cannot trigger actions.")
         return
 
-    # Get PR branch and trigger workflows
+    # Get branch and trigger workflows
     branch = get_pr_branch(event)
     print(f"Triggering workflows on branch: {branch}")
 
     triggered_actions = trigger_workflows(event, branch)
 
-    # Update the comment with results
+    # Update the comment
     success = update_comment(event, comment_id, body, triggered_actions, branch)
     print(f"Comment update {'succeeded' if success else 'failed'}.")
 
