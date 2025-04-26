@@ -75,7 +75,7 @@ class Action:
         if self.event_name in ["pull_request", "pull_request_target"]:
             id = self.pr.get("number")
         elif self.event_name == "issue_comment":
-            id = "comments/" + self.event_data.get("comment", {}).get("id")
+            id = f"comments/{self.event_data.get('comment', {}).get('id')}"
         else:
             id = self.event_data.get("issue", {}).get("number")
         if not id:
