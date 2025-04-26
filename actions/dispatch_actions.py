@@ -12,7 +12,7 @@ from .utils import (
 )
 
 # The trigger keyword that will be detected in comments
-TRIGGER_KEYWORD = os.getenv("TRIGGER_KEYWORD", "/trigger-actions")
+TRIGGER_KEYWORD = os.getenv("TRIGGER_KEYWORD", "@ultralytics/dispatch-actions")
 
 # List of workflow YAML files that can be triggered
 WORKFLOW_FILES = ["ci.yml", "docker.yml"]
