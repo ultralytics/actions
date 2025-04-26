@@ -11,7 +11,7 @@ from .utils import GITHUB_API_URL, Action, remove_html_comments
 
 # Configuration
 TRIGGER_KEYWORD = os.getenv("TRIGGER_KEYWORD", "@ultralytics/dispatch-actions")
-WORKFLOW_FILES = ["ci.yml", "docker.yml"]
+WORKFLOW_FILES = ["format.yml", "ci.yml", "docker.yml"]
 
 
 def get_pr_branch(event) -> str:
@@ -75,7 +75,7 @@ def update_comment(event, comment_body: str, triggered_actions: List[Dict], bran
         f"\n\n## ⚡ Actions Trigger\n\n"
         f"<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>\n\n"
         f"GitHub Actions below triggered via workflow dispatch on this "
-        f"PR branch `{branch}` at {timestamp} with `@ultralytics/dispatch-actions`:\n\n"
+        f"PR branch `{branch}` at {timestamp} with `@ultralytics/dispatch-actions command`:\n\n"
     )
 
     for action in triggered_actions:
