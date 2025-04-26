@@ -121,7 +121,6 @@ def main(*args, **kwargs):
     triggered_actions = trigger_and_get_workflow_info(event, branch)
     success = update_comment(event, comment_body, triggered_actions, branch)
 
-    # Remove eyes reaction when processing is complete
     event.toggle_eyes_reaction(False)
     print(f"Comment update {'succeeded' if success else 'failed'}.")
 
