@@ -108,7 +108,6 @@ def main(*args, **kwargs):
     # Get comment info
     comment_body = event.event_data["comment"].get("body", "")
     username = event.event_data["comment"]["user"]["login"]
-    event.event_data["comment"]["id"]
 
     # Check for trigger keyword and permissions
     if RUN_CI_KEYWORD not in comment_body or not event.is_org_member(username):
