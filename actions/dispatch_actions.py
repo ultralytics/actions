@@ -125,7 +125,11 @@ def main(*args, **kwargs):
     event = Action(*args, **kwargs)
 
     # Only process comments on PRs
-    if event.event_name != "issue_comment" or "pull_request" not in event.event_data.get("issue", {}) or event.event_data.get("action") != "created":
+    if (
+        event.event_name != "issue_comment"
+        or "pull_request" not in event.event_data.get("issue", {})
+        or event.event_data.get("action") != "created"
+    ):
         print("Not a new PR comment, skipping.")
         return
 
