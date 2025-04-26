@@ -57,6 +57,10 @@ def trigger_workflows(event, branch) -> List[Dict]:
         }
 
         response = requests.post(url, json=payload, headers=event.headers)
+        print(f"Status code: {response.status_code}")
+        print(f"Response headers: {dict(response.headers)}")
+        print(f"Response body: {response.text}")
+
         status_code = response.status_code
 
         # Get workflow name and URL
