@@ -48,15 +48,7 @@ def trigger_workflows(event, branch) -> List[Dict]:
 
     for workflow_file in WORKFLOW_FILES:
         url = f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{workflow_file}/dispatches"
-        payload = {
-            "ref": branch,
-            "inputs": {
-                "triggered_by": f"comment-{event.event_data.get('comment', {}).get('id')}",
-                "comment_url": event.event_data.get("comment", {}).get("html_url", ""),
-            },
-        }
-
-        response = requests.post(url, json=payload, headers=event.headers)
+        response = requests.post(url, json={"ref": branch}, headers=event.headers)
         print(f"Status code: {response.status_code}")
         print(f"Response headers: {dict(response.headers)}")
         print(f"Response body: {response.text}")
