@@ -29,6 +29,7 @@ class Action:
         self.repository = self.event_data.get("repository", {}).get("full_name")
         self.headers = {"Authorization": f"token {self.token}", "Accept": "application/vnd.github.v3+json"}
         self.headers_diff = {"Authorization": f"token {self.token}", "Accept": "application/vnd.github.v3.diff"}
+        self.eyes_reaction_id = None
 
     @staticmethod
     def _load_event_data(event_path: str) -> dict:
@@ -68,6 +69,26 @@ class Action:
         r = requests.get(f"{GITHUB_API_URL}/repos/{self.repository}/{endpoint}", headers=self.headers)
         r.raise_for_status()
         return r.json()
+
+    def toggle_eyes_reaction(self, add: bool = True) -> None:
+        """Adds or removes eyes emoji reaction."""
+        if self.event_name in ["pull_request", "pull_request_target"]:
+            id = self.pr.get("number")
+        elif self.event_name == "issue_comment":
+            id = "comments/" + self.event_data.get("comment", {}).get("id")
+        else:
+            id = self.event_data.get("issue", {}).get("number")
+        if not id:
+            return
+        url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/{id}/reactions"
+
+        if add:
+            response = requests.post(url, json={"content": "eyes"}, headers=self.headers)
+            if response.status_code == 201:
+                self.eyes_reaction_id = response.json().get("id")
+        elif self.eyes_reaction_id:
+            requests.delete(f"{url}/{self.eyes_reaction_id}", headers=self.headers)
+            self.eyes_reaction_id = None
 
     def graphql_request(self, query: str, variables: dict = None) -> dict:
         """Executes a GraphQL query against the GitHub API."""

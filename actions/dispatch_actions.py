@@ -6,7 +6,7 @@ from typing import Dict, List
 
 import requests
 
-from .utils import GITHUB_API_URL, Action, remove_html_comments
+from .utils import GITHUB_API_URL, Action
 
 # Configuration
 RUN_CI_KEYWORD = "@ultralytics/run-ci"  # and then to merge "@ultralytics/run-ci-and-merge"
@@ -106,7 +106,7 @@ def main(*args, **kwargs):
         return
 
     # Get comment info
-    comment_body = remove_html_comments(event.event_data["comment"].get("body", ""))
+    comment_body = event.event_data["comment"].get("body", "")
     username = event.event_data["comment"]["user"]["login"]
 
     # Check for trigger keyword and permissions
@@ -114,12 +114,14 @@ def main(*args, **kwargs):
         return
 
     # Get branch, trigger workflows, and update comment
+    event.toggle_eyes_reaction(True)
     branch = get_pr_branch(event)
     print(f"Triggering workflows on branch: {branch}")
 
     triggered_actions = trigger_and_get_workflow_info(event, branch)
     success = update_comment(event, comment_body, triggered_actions, branch)
 
+    event.toggle_eyes_reaction(False)
     print(f"Comment update {'succeeded' if success else 'failed'}.")
 
 
