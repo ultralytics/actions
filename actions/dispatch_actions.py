@@ -68,16 +68,11 @@ def trigger_workflows(event, branch: str) -> List[Dict]:
     """Triggers workflows and collects run information."""
     results = []
     repo = event.repository
-    pr_number = event.event_data["issue"].get("number")
 
     # First trigger all workflows
     for workflow_file in WORKFLOW_FILES:
-        payload = {"ref": branch}
-        if pr_number:
-            payload["inputs"] = {"pr_number": str(pr_number)}
-
         url = f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{workflow_file}/dispatches"
-        requests.post(url, json=payload, headers=event.headers)
+        requests.post(url, json={"ref": branch}, headers=event.headers)
 
     # Wait for workflows to be created
     time.sleep(10)
