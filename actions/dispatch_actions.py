@@ -108,10 +108,14 @@ def main(*args, **kwargs):
     # Get comment info
     comment_body = remove_html_comments(event.event_data["comment"].get("body", ""))
     username = event.event_data["comment"]["user"]["login"]
+    comment_id = event.event_data["comment"]["id"]
 
     # Check for trigger keyword and permissions
     if RUN_CI_KEYWORD not in comment_body or not event.is_org_member(username):
         return
+
+    # Add eyes reaction to indicate processing
+    event.toggle_eyes_reaction(comment_id, enabled=True)
 
     # Get branch, trigger workflows, and update comment
     branch = get_pr_branch(event)
@@ -120,6 +124,8 @@ def main(*args, **kwargs):
     triggered_actions = trigger_and_get_workflow_info(event, branch)
     success = update_comment(event, comment_body, triggered_actions, branch)
 
+    # Remove eyes reaction when processing is complete
+    event.toggle_eyes_reaction(comment_id, enabled=False)
     print(f"Comment update {'succeeded' if success else 'failed'}.")
 
 

@@ -69,6 +69,24 @@ class Action:
         r.raise_for_status()
         return r.json()
 
+    def toggle_eyes_reaction(self, comment_id: int, enabled: bool = True) -> bool:
+        """Adds or removes eyes emoji reaction on comment."""
+        headers = {**self.headers, "Accept": "application/vnd.github.squirrel-girl-preview+json"}
+        url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/comments/{comment_id}/reactions"
+
+        if enabled:
+            response = requests.post(url, json={"content": "eyes"}, headers=headers)
+            return response.status_code == 201
+
+        # Remove reaction - find and delete bot's eyes reactions
+        reactions = requests.get(url, headers=headers).json()
+        username = self.get_username()
+        eyes_reactions = [r["id"] for r in reactions if r["content"] == "eyes" and r["user"]["login"] == username]
+        for reaction_id in eyes_reactions:
+            requests.delete(f"{url}/{reaction_id}", headers=headers)
+
+        return True
+
     def graphql_request(self, query: str, variables: dict = None) -> dict:
         """Executes a GraphQL query against the GitHub API."""
         headers = {
