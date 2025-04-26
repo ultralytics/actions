@@ -12,7 +12,7 @@ from .utils import (
 
 # Constants
 SUMMARY_START = (
-    "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
+    "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>\n\n"
 )
 
 

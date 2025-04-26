@@ -83,7 +83,7 @@ def update_comment(event, comment_id: int, body: str, triggered_actions: List[Di
 
     # Add footer
     repo_parts = event.repository.split("/")
-    summary += f"\n<sub>Triggered by [Ultralytics Actions](https://github.com/{repo_parts[0]}/actions)</sub>"
+    summary += f"\n<sub>Triggered by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>"
 
     # Replace the trigger keyword
     new_body = body.replace(TRIGGER_KEYWORD, summary)
