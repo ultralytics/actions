@@ -72,15 +72,15 @@ def update_comment(event, comment_body: str, triggered_actions: List[Dict], bran
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
     summary = (
-        f"\n\n### ⚡ Actions Triggered\n\nGitHub Actions below triggered via workflow dispatch on this "
+        f"\n\n## ⚡ Actions Trigger\n\n"
+        f"<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>\n\n"
+        f"GitHub Actions below triggered via workflow dispatch on this "
         f"PR branch `{branch}` at {timestamp} with `@ultralytics/dispatch-actions`:\n\n"
     )
 
     for action in triggered_actions:
         run_info = f" run {action['run_number']}" if action["run_number"] else ""
         summary += f"* ✅ [{action['name']}]({action['url']}): `{action['file']}`{run_info}\n"
-
-    summary += f"\n<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>\n\n"
 
     new_body = comment_body.replace(TRIGGER_KEYWORD, summary).strip()
     comment_id = event.event_data["comment"]["id"]
