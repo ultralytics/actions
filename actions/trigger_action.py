@@ -82,8 +82,8 @@ def update_comment(event, comment_id: int, body: str, triggered_actions: List[Di
         summary += f"* {status_emoji} [{action['name']}]({action['url']})\n"
 
     # Add footer
-    repo_parts = event.repository.split("/")
-    summary += f"\n<sub>Triggered by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>"
+    event.repository.split("/")
+    summary += "\n<sub>Triggered by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>"
 
     # Replace the trigger keyword
     new_body = body.replace(TRIGGER_KEYWORD, summary)
