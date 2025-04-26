@@ -1,6 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import os
+import time
 from typing import Dict, List, Tuple
 
 import requests
@@ -41,27 +42,50 @@ def get_pr_branch(event) -> str:
     return "main"  # Default to main if not a PR
 
 
+def get_recent_workflow_run(event, workflow_file: str, branch: str) -> str:
+    """Gets the URL of the most recent workflow run for the specified workflow."""
+    repo = event.repository
+
+    # Wait a moment for the workflow to be created
+    time.sleep(2)
+
+    # Query for recent runs of this workflow
+    url = f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{workflow_file}/runs?branch={branch}&per_page=1"
+    response = requests.get(url, headers=event.headers)
+
+    if response.status_code == 200:
+        data = response.json()
+        workflow_runs = data.get("workflow_runs", [])
+        if workflow_runs:
+            # Get the HTML URL of the most recent run
+            return workflow_runs[0].get("html_url")
+
+    # Fallback to the general workflow URL if we can't get the specific run
+    return f"https://github.com/{repo}/actions/workflows/{workflow_file}"
+
+
 def trigger_workflows(event, branch) -> List[Dict]:
     """Triggers the predefined workflows on the specified branch."""
     results = []
     repo = event.repository
 
     for workflow_file in WORKFLOW_FILES:
+        # Trigger the workflow
         url = f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{workflow_file}/dispatches"
         response = requests.post(url, json={"ref": branch}, headers=event.headers)
-        print(f"Status code: {response.status_code}")
-        print(f"Response headers: {dict(response.headers)}")
-        print(f"Response body: {response.text}")
 
-        status_code = response.status_code
+        # Get the specific run URL if successful
+        if response.status_code == 204:
+            workflow_url = get_recent_workflow_run(event, workflow_file, branch)
+            print(f"Found specific run URL: {workflow_url}")
+        else:
+            # Fallback to generic URL if the trigger failed
+            workflow_url = f"https://github.com/{repo}/actions/workflows/{workflow_file}"
 
-        # Get workflow name and URL
         workflow_name = workflow_file.replace(".yml", "").replace("-", " ").title()
-        workflow_url = f"https://github.com/{repo}/actions/workflows/{workflow_file}"
+        results.append({"name": workflow_name, "status": response.status_code, "url": workflow_url})
 
-        results.append({"name": workflow_name, "status": status_code, "url": workflow_url})
-
-        print(f"{'Successful' if status_code == 204 else 'Failed'} workflow trigger: {workflow_name}")
+        print(f"{'Successful' if response.status_code == 204 else 'Failed'} workflow trigger: {workflow_name}")
 
     return results
 
@@ -78,7 +102,6 @@ def update_comment(event, comment_id: int, body: str, triggered_actions: List[Di
         summary += f"* {status_emoji} [{action['name']}]({action['url']})\n"
 
     # Add footer
-    event.repository.split("/")
     summary += "\n<sub>Triggered by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>"
 
     # Replace the trigger keyword
