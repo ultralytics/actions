@@ -104,7 +104,7 @@ def update_comment(event, comment_id: int, body: str, triggered_actions: List[Di
     if not triggered_actions:
         return False
 
-    summary = f"### ⚡ Actions Triggered on `{branch}`\n\n"
+    summary = f"### ⚡ Actions Triggered for this `{branch} branch`\n\n"
 
     for action in triggered_actions:
         run_info = f"run #{action['run_number']}" if action["run_number"] else ""
