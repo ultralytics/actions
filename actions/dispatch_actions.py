@@ -111,7 +111,7 @@ def update_comment(event, comment_id: int, body: str, triggered_actions: List[Di
             summary += f" {run_info}"
         summary += "\n"
 
-    summary += f"\n<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>\n\n"
+    summary += "\n<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>\n\n"
 
     new_body = body.replace(TRIGGER_KEYWORD, summary).strip()
     url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/comments/{comment_id}"
