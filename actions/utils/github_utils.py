@@ -50,6 +50,13 @@ class Action:
             print(f"Error parsing authenticated user response: {e}")
             return None
 
+    def is_org_member(self, username: str) -> bool:
+        """Checks if a user is a member of the organization using the GitHub API."""
+        org_name = self.repository.split("/")[0]
+        url = f"{GITHUB_API_URL}/orgs/{org_name}/members/{username}"
+        r = requests.get(url, headers=self.headers)
+        return r.status_code == 204  # 204 means the user is a member
+
     def get_pr_diff(self) -> str:
         """Retrieves the diff content for a specified pull request."""
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}"
