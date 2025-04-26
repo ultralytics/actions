@@ -25,7 +25,7 @@ def get_comment_info(event) -> Tuple[int, str, str]:
     data = event.event_data
     comment = data.get("comment", {})
 
-    return (comment.get("id"), remove_html_comments(comment.get("body", "")), comment.get("user", {}).get("login"))
+    return comment.get("id"), remove_html_comments(comment.get("body", "")), comment.get("user", {}).get("login")
 
 
 def get_pr_branch(event) -> str:
