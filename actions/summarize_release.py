@@ -8,12 +8,7 @@ from datetime import datetime
 
 import requests
 
-from .utils import (
-    GITHUB_API_URL,
-    Action,
-    get_completion,
-    remove_html_comments,
-)
+from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
 
 # Environment variables
 CURRENT_TAG = os.getenv("CURRENT_TAG")
