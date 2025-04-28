@@ -110,9 +110,8 @@ def main(*args, **kwargs):
     username = event.event_data["comment"]["user"]["login"]
 
     # Check for keyword without surrounding backticks to avoid triggering on replies
-    has_keyword = (
-        RUN_CI_KEYWORD in comment_body
-        and comment_body.count(RUN_CI_KEYWORD) > comment_body.count(f"`{RUN_CI_KEYWORD}`")
+    has_keyword = RUN_CI_KEYWORD in comment_body and comment_body.count(RUN_CI_KEYWORD) > comment_body.count(
+        f"`{RUN_CI_KEYWORD}`"
     )
     if not has_keyword or not event.is_org_member(username):
         return
