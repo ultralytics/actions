@@ -71,7 +71,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: astral-sh/setup-uv@v5
+    - uses: astral-sh/setup-uv@v6
       with:
         enable-cache: false
     - name: Install Dependencies
@@ -160,7 +160,7 @@ runs:
         ultralytics-actions-update-markdown-code-blocks
         npx prettier --write --list-different "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json'
         # Bash file format
-        if [ -n "$(find . -name "*.sh" -type f -quit)" ]; then
+        if ls ./*/.sh >/dev/null 2>&1; then
           npx prettier --write --list-different --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs "**/*.sh"
         fi
         # Handle Markdown separately
