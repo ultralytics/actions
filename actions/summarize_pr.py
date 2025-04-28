@@ -4,7 +4,7 @@ import time
 
 import requests
 
-from .utils import GITHUB_API_URL,GITHUB_GRAPHQL_URL,Action,get_completion
+from .utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, get_completion
 
 # Constants
 SUMMARY_START = (
