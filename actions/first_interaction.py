@@ -251,14 +251,6 @@ def create_alert_label(event):
     requests.post(f"{GITHUB_API_URL}/repos/{event.repository}/labels", json=alert_label, headers=event.headers)
 
 
-def is_org_member(event, username: str) -> bool:
-    """Checks if a user is a member of the organization using the GitHub API."""
-    org_name = event.repository.split("/")[0]
-    url = f"{GITHUB_API_URL}/orgs/{org_name}/members/{username}"
-    r = requests.get(url, headers=event.headers)
-    return r.status_code == 204  # 204 means the user is a member
-
-
 def add_comment(event, number: int, node_id: str, comment: str, issue_type: str):
     """Adds a comment to the specified issue, pull request, or discussion using the GitHub API."""
     if issue_type == "discussion":
@@ -384,7 +376,7 @@ def main(*args, **kwargs):
         current_labels = [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
     if relevant_labels := get_relevant_labels(issue_type, title, body, label_descriptions, current_labels):
         apply_labels(event, number, node_id, relevant_labels, issue_type)
-        if "Alert" in relevant_labels and not is_org_member(event, username):
+        if "Alert" in relevant_labels and not event.is_org_member(username):
             update_issue_pr_content(event, number, node_id, issue_type)
             if issue_type != "pull request":
                 close_issue_pr(event, number, node_id, issue_type)
