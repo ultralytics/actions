@@ -1,4 +1,4 @@
-# Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import os
 import re
@@ -134,7 +134,7 @@ def generate_release_summary(
         },
     ]
     print(messages[-1]["content"])  # for debug
-    return get_completion(messages) + release_suffix
+    return get_completion(messages, temperature=0.2) + release_suffix
 
 
 def create_github_release(repo_name: str, tag_name: str, name: str, body: str, headers: dict) -> int:

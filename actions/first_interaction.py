@@ -1,4 +1,4 @@
-# Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import os
 from typing import Dict, List, Tuple
@@ -47,8 +47,8 @@ def update_issue_pr_content(event, number: int, node_id: str, issue_type: str):
     new_title = "Content Under Review"
     new_body = """This post has been flagged for review by [Ultralytics Actions](https://ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
 
-- [Code of Conduct](https://docs.ultralytics.com/help/code_of_conduct)
-- [Security Policy](https://docs.ultralytics.com/help/security)
+- [Code of Conduct](https://docs.ultralytics.com/help/code-of-conduct/)
+- [Security Policy](https://docs.ultralytics.com/help/security/)
 
 For questions or bug reports related to this action please visit https://github.com/ultralytics/actions.
 
@@ -177,7 +177,7 @@ YOUR RESPONSE (label names only):
         },
         {"role": "user", "content": prompt},
     ]
-    suggested_labels = get_completion(messages)
+    suggested_labels = get_completion(messages, temperature=0.2)
     if "none" in suggested_labels.lower():
         return []
 
@@ -285,7 +285,7 @@ def get_first_interaction_response(event, issue_type: str, title: str, body: str
 
 1. For bug reports:
    - A clear and concise description of the bug
-   - A minimum reproducible example (MRE)[https://docs.ultralytics.com/help/minimum_reproducible_example/] that demonstrates the issue
+   - A minimum reproducible example [MRE](https://docs.ultralytics.com/help/minimum-reproducible-example/) that demonstrates the issue
    - Your environment details (OS, Python version, package versions)
    - Expected behavior vs. actual behavior
    - Any error messages or logs related to the issue
@@ -298,7 +298,7 @@ def get_first_interaction_response(event, issue_type: str, title: str, body: str
 3. For questions:
    - Provide as much context as possible about your question
    - Include any research you've already done on the topic
-   - Specify which parts of the [documentation](https://docs.ultralytics.com), if any, you've already consulted
+   - Specify which parts of the [documentation](https://docs.ultralytics.com/), if any, you've already consulted
 
 Please make sure you've searched existing {issue_type}s to avoid duplicates. If you need to add any additional information, please comment on this {issue_type}.
 
@@ -311,12 +311,12 @@ Thank you for your contribution to improving our project!
 - ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{event.repository}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
 - ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{event.repository}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
 - ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI/) checks are passing. If any checks fail, please address the issues.
-- ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com) for any new or modified features.
+- ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com/) for any new or modified features.
 - ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
 - ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA/) if this is your first Ultralytics PR by writing "I have read the CLA Document and I sign the CLA" in a new message.
 - ✅ **Minimize Changes**: Limit your changes to the **minimum** necessary for your bug fix or feature addition. _"It is not daily increase but daily decrease, hack away the unessential. The closer to the source, the less wastage there is."_  — Bruce Lee
 
-For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing). Don’t hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀
+For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing/). Don’t hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀
 """
 
     if issue_type == "pull request":
@@ -382,9 +382,7 @@ def main(*args, **kwargs):
         current_labels = []  # For discussions, labels may need to be fetched differently or adjusted
     else:
         current_labels = [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
-    relevant_labels = get_relevant_labels(issue_type, title, body, label_descriptions, current_labels)
-
-    if relevant_labels:
+    if relevant_labels := get_relevant_labels(issue_type, title, body, label_descriptions, current_labels):
         apply_labels(event, number, node_id, relevant_labels, issue_type)
         if "Alert" in relevant_labels and not is_org_member(event, username):
             update_issue_pr_content(event, number, node_id, issue_type)

@@ -1,4 +1,5 @@
-# Ultralytics Actions 🚀, AGPL-3.0 license https://ultralytics.com/license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
 import json
 import os
 from pathlib import Path
@@ -19,6 +20,7 @@ class Action:
         event_name: str = None,
         event_data: dict = None,
     ):
+        """Initializes a GitHub Actions API handler with token and event data for processing events."""
         self.token = token or os.getenv("GITHUB_TOKEN")
         self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
         self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
@@ -27,10 +29,11 @@ class Action:
         self.repository = self.event_data.get("repository", {}).get("full_name")
         self.headers = {"Authorization": f"token {self.token}", "Accept": "application/vnd.github.v3+json"}
         self.headers_diff = {"Authorization": f"token {self.token}", "Accept": "application/vnd.github.v3.diff"}
+        self.eyes_reaction_id = None
 
     @staticmethod
     def _load_event_data(event_path: str) -> dict:
-        """Loads GitHub event data from path if it exists."""
+        """Load GitHub event data from path if it exists."""
         if event_path and Path(event_path).exists():
             return json.loads(Path(event_path).read_text())
         return {}
@@ -48,6 +51,13 @@ class Action:
             print(f"Error parsing authenticated user response: {e}")
             return None
 
+    def is_org_member(self, username: str) -> bool:
+        """Checks if a user is a member of the organization using the GitHub API."""
+        org_name = self.repository.split("/")[0]
+        url = f"{GITHUB_API_URL}/orgs/{org_name}/members/{username}"
+        r = requests.get(url, headers=self.headers)
+        return r.status_code == 204  # 204 means the user is a member
+
     def get_pr_diff(self) -> str:
         """Retrieves the diff content for a specified pull request."""
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}"
@@ -59,6 +69,26 @@ class Action:
         r = requests.get(f"{GITHUB_API_URL}/repos/{self.repository}/{endpoint}", headers=self.headers)
         r.raise_for_status()
         return r.json()
+
+    def toggle_eyes_reaction(self, add: bool = True) -> None:
+        """Adds or removes eyes emoji reaction."""
+        if self.event_name in ["pull_request", "pull_request_target"]:
+            id = self.pr.get("number")
+        elif self.event_name == "issue_comment":
+            id = f"comments/{self.event_data.get('comment', {}).get('id')}"
+        else:
+            id = self.event_data.get("issue", {}).get("number")
+        if not id:
+            return
+        url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/{id}/reactions"
+
+        if add:
+            response = requests.post(url, json={"content": "eyes"}, headers=self.headers)
+            if response.status_code == 201:
+                self.eyes_reaction_id = response.json().get("id")
+        elif self.eyes_reaction_id:
+            requests.delete(f"{url}/{self.eyes_reaction_id}", headers=self.headers)
+            self.eyes_reaction_id = None
 
     def graphql_request(self, query: str, variables: dict = None) -> dict:
         """Executes a GraphQL query against the GitHub API."""
@@ -77,7 +107,7 @@ class Action:
         return result
 
     def print_info(self):
-        """Print GitHub Actions information."""
+        """Print GitHub Actions information including event details and repository information."""
         info = {
             "github.event_name": self.event_name,
             "github.event.action": self.event_data.get("action"),
@@ -94,12 +124,10 @@ class Action:
 
         if self.event_name == "discussion":
             discussion = self.event_data.get("discussion", {})
-            info.update(
-                {
-                    "github.event.discussion.node_id": discussion.get("node_id"),
-                    "github.event.discussion.number": discussion.get("number"),
-                }
-            )
+            info |= {
+                "github.event.discussion.node_id": discussion.get("node_id"),
+                "github.event.discussion.number": discussion.get("number"),
+            }
 
         max_key_length = max(len(key) for key in info)
         header = f"Ultralytics Actions {__version__} Information " + "-" * 40
@@ -110,6 +138,7 @@ class Action:
 
 
 def ultralytics_actions_info():
+    """Return GitHub Actions environment information and configuration details for Ultralytics workflows."""
     Action().print_info()
 
 

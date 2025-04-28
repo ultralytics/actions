@@ -1,4 +1,5 @@
-# Ultralytics Template 🚀, AGPL-3.0 license
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
 # Continuous Integration (CI) GitHub Actions tests
 
 name: Actions CI
@@ -27,7 +28,9 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - uses: astral-sh/setup-uv@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: false
 
       - name: Install dependencies
         run: |
