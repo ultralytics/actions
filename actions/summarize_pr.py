@@ -118,8 +118,8 @@ def update_pr_description(pr_url, new_summary, headers, max_retries=2):
         updated_description = description + "\n\n" + new_summary
 
     # Update the PR description
-    update_response = requests.patch(pr_url, json={"body": updated_description}, headers=headers)
-    return update_response.status_code
+    r = requests.patch(pr_url, json={"body": updated_description}, headers=headers)
+    print(f"PR description update {'Success' if r.status_code == 200 else 'Fail'}: {r.status_code}")
 
 
 def label_fixed_issues(repository, pr_number, pr_summary, headers, action):
@@ -229,11 +229,7 @@ def main(*args, **kwargs):
 
     # Update PR description
     print("Updating PR description...")
-    status_code = update_pr_description(pr_url, summary, headers)
-    if status_code == 200:
-        print("PR description updated successfully.")
-    else:
-        print(f"Failed to update PR description. Status code: {status_code}")
+    update_pr_description(pr_url, summary, headers)
 
     # Update linked issues and post thank you message if merged
     if action.pr.get("merged"):
