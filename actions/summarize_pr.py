@@ -4,11 +4,7 @@ import time
 
 import requests
 
-from .utils import (
-    GITHUB_API_URL,
-    Action,
-    get_completion,
-)
+from .utils import GITHUB_API_URL,GITHUB_GRAPHQL_URL,Action,get_completion
 
 # Constants
 SUMMARY_START = (
@@ -146,8 +142,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
 """
     owner, repo = repository.split("/")
     variables = {"owner": owner, "repo": repo, "pr_number": pr_number}
-    graphql_url = "https://api.github.com/graphql"
-    response = requests.post(graphql_url, json={"query": query, "variables": variables}, headers=headers)
+    response = requests.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables}, headers=headers)
 
     if response.status_code != 200:
         print(f"Failed to fetch linked issues. Status code: {response.status_code}")

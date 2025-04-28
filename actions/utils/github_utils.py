@@ -9,6 +9,7 @@ import requests
 from actions import __version__
 
 GITHUB_API_URL = "https://api.github.com"
+GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 
 
 class Action:
@@ -27,8 +28,8 @@ class Action:
 
         self.pr = self.event_data.get("pull_request", {})
         self.repository = self.event_data.get("repository", {}).get("full_name")
-        self.headers = {"Authorization": f"token {self.token}", "Accept": "application/vnd.github.v3+json"}
-        self.headers_diff = {"Authorization": f"token {self.token}", "Accept": "application/vnd.github.v3.diff"}
+        self.headers = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json"}
+        self.headers_diff = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github.v3.diff"}
         self.eyes_reaction_id = None
 
     @staticmethod
@@ -41,7 +42,7 @@ class Action:
     def get_username(self) -> str | None:
         """Gets username associated with the GitHub token."""
         query = "query { viewer { login } }"
-        response = requests.post(f"{GITHUB_API_URL}/graphql", json={"query": query}, headers=self.headers)
+        response = requests.post(GITHUB_GRAPHQL_URL, json={"query": query}, headers=self.headers)
         if response.status_code != 200:
             print(f"Failed to fetch authenticated user. Status code: {response.status_code}")
             return None
@@ -92,18 +93,11 @@ class Action:
 
     def graphql_request(self, query: str, variables: dict = None) -> dict:
         """Executes a GraphQL query against the GitHub API."""
-        headers = {
-            "Authorization": f"Bearer {self.token}",
-            "Content-Type": "application/json",
-            "Accept": "application/vnd.github.v4+json",
-        }
-        r = requests.post(f"{GITHUB_API_URL}/graphql", json={"query": query, "variables": variables}, headers=headers)
+        r = requests.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables}, headers=self.headers)
         r.raise_for_status()
         result = r.json()
         success = "data" in result and not result.get("errors")
-        print(
-            f"{'Successful' if success else 'Failed'} discussion GraphQL request: {result.get('errors', 'No errors')}"
-        )
+        print(f"{'Successful' if success else 'Failed'} discussion GraphQL request. {result.get('errors', '')}")
         return result
 
     def print_info(self):
