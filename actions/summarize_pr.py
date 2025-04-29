@@ -2,8 +2,6 @@
 
 import time
 
-import requests
-
 from .utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, get_completion
 
 # Constants
@@ -32,12 +30,12 @@ def generate_merge_message(pr_summary=None, pr_credit=None, pr_url=None):
     return get_completion(messages)
 
 
-def post_merge_message(pr_number, pr_url, repository, summary, pr_credit, headers):
+def post_merge_message(event, summary, pr_credit):
     """Posts thank you message on PR after merge."""
+    pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{event.pr['number']}"
+    comment_url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{event.pr['number']}/comments"
     message = generate_merge_message(summary, pr_credit, pr_url)
-    comment_url = f"{GITHUB_API_URL}/repos/{repository}/issues/{pr_number}/comments"
-    response = requests.post(comment_url, json={"body": message}, headers=headers)
-    return response.status_code == 201
+    event.post(comment_url, json={"body": message})
 
 
 def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
@@ -97,11 +95,12 @@ def generate_pr_summary(repository, diff_text):
     return SUMMARY_START + reply
 
 
-def update_pr_description(pr_url, new_summary, headers, max_retries=2):
+def update_pr_description(event, new_summary, max_retries=2):
     """Updates PR description with new summary, retrying if description is None."""
     description = ""
+    url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{event.pr['number']}"
     for i in range(max_retries + 1):
-        description = requests.get(pr_url, headers=headers).json().get("body") or ""
+        description = event.get(url).json().get("body") or ""
         if description:
             break
         if i < max_retries:
@@ -118,11 +117,10 @@ def update_pr_description(pr_url, new_summary, headers, max_retries=2):
         updated_description = description + "\n\n" + new_summary
 
     # Update the PR description
-    r = requests.patch(pr_url, json={"body": updated_description}, headers=headers)
-    print(f"PR description update {'Success' if r.status_code == 200 else 'Fail'}: {r.status_code}")
+    event.patch(url, json={"body": updated_description})
 
 
-def label_fixed_issues(repository, pr_number, pr_summary, headers, event):
+def label_fixed_issues(event, pr_summary):
     """Labels issues closed by PR when merged, notifies users, and returns PR contributors."""
     query = """
 query($owner: String!, $repo: String!, $pr_number: Int!) {
@@ -140,10 +138,9 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
     }
 }
 """
-    owner, repo = repository.split("/")
-    variables = {"owner": owner, "repo": repo, "pr_number": pr_number}
-    response = requests.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables}, headers=headers)
-
+    owner, repo = event.repository.split("/")
+    variables = {"owner": owner, "repo": repo, "pr_number": event.pr['number']}
+    response = event.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables})
     if response.status_code != 200:
         print(f"Failed to fetch linked issues. Status code: {response.status_code}")
         return None
@@ -185,20 +182,12 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         for issue in data["closingIssuesReferences"]["nodes"]:
             issue_number = issue["number"]
             # Add fixed label
-            label_url = f"{GITHUB_API_URL}/repos/{repository}/issues/{issue_number}/labels"
-            label_response = requests.post(label_url, json={"labels": ["fixed"]}, headers=headers)
+            label_url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{issue_number}/labels"
+            event.post(label_url, json={"labels": ["fixed"]})
 
             # Add comment
-            comment_url = f"{GITHUB_API_URL}/repos/{repository}/issues/{issue_number}/comments"
-            comment_response = requests.post(comment_url, json={"body": comment}, headers=headers)
-
-            if label_response.status_code == 200 and comment_response.status_code == 201:
-                print(f"Added 'fixed' label and comment to issue #{issue_number}")
-            else:
-                print(
-                    f"Failed to update issue #{issue_number}. Label status: {label_response.status_code}, "
-                    f"Comment status: {comment_response.status_code}"
-                )
+            comment_url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{issue_number}/comments"
+            event.post(comment_url, json={"body": comment})
 
         return pr_credit
     except KeyError as e:
@@ -206,40 +195,36 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         return None
 
 
-def remove_todos_on_merge(pr_number, repository, headers):
+def remove_todos_on_merge(event):
     """Removes specified labels from PR."""
     for label in ["TODO"]:  # Can be extended with more labels in the future
-        requests.delete(f"{GITHUB_API_URL}/repos/{repository}/issues/{pr_number}/labels/{label}", headers=headers)
+        event.delete(f"{GITHUB_API_URL}/repos/{event.repository}/issues/{event.pr['number']}/labels/{label}")
 
 
 def main(*args, **kwargs):
     """Summarize a pull request and update its description with a summary."""
     event = Action(*args, **kwargs)
-    headers = event.headers
-    repository = event.repository
-    pr_number = event.pr["number"]
-    pr_url = f"{GITHUB_API_URL}/repos/{repository}/pulls/{pr_number}"
 
-    print(f"Retrieving diff for PR {pr_number}")
+    print(f"Retrieving diff for PR {event.pr["number"]}")
     diff = event.get_pr_diff()
 
     # Generate PR summary
     print("Generating PR summary...")
-    summary = generate_pr_summary(repository, diff)
+    summary = generate_pr_summary(event.repository, diff)
 
     # Update PR description
     print("Updating PR description...")
-    update_pr_description(pr_url, summary, headers)
+    update_pr_description(event, summary)
 
     # Update linked issues and post thank you message if merged
     if event.pr.get("merged"):
         print("PR is merged, labeling fixed issues...")
-        pr_credit = label_fixed_issues(repository, pr_number, summary, headers, event)
+        pr_credit = label_fixed_issues(event, summary)
         print("Removing TODO label from PR...")
-        remove_todos_on_merge(pr_number, repository, headers)
+        remove_todos_on_merge(event)
         if pr_credit:
             print("Posting PR author thank you message...")
-            post_merge_message(pr_number, pr_url, repository, summary, pr_credit, headers)
+            post_merge_message(event, summary, pr_credit)
 
 
 if __name__ == "__main__":
