@@ -249,8 +249,7 @@ mutation($discussionId: ID!, $body: String!) {
 """
         event.graphql_request(mutation, variables={"discussionId": node_id, "body": comment})
     else:
-        url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/comments"
-        event.post(url, json={"body": comment}, headers=event.headers)
+        event.post(f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/comments", json={"body": comment})
 
 
 def get_first_interaction_response(event, issue_type: str, title: str, body: str, username: str) -> str:

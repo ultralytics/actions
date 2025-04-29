@@ -50,7 +50,7 @@ def get_completion(
             "temperature": temperature,
         }
 
-        r = requests.post(url, headers=headers, json=data)
+        r = requests.post(url, json=data, headers=headers)
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"].strip()
         content = remove_outer_codeblocks(content)
