@@ -27,10 +27,10 @@ class Action:
         self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
         self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
         self._default_status = {
-            'get': [200],
-            'post': [200, 201],
-            'patch': [200],
-            'delete': [200, 204],
+            "get": [200],
+            "post": [200, 201],
+            "patch": [200],
+            "delete": [200, 204],
         }
 
         self.pr = self.event_data.get("pull_request", {})
@@ -138,7 +138,7 @@ class Action:
         r = self.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables})
         result = r.json()
         if "data" not in result or result.get("errors"):
-            print(result.get('errors'))
+            print(result.get("errors"))
         return result
 
     def print_info(self):
