@@ -195,7 +195,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         return None
 
 
-def remove_pr_labels(event, labels=[]):
+def remove_pr_labels(event, labels=()):
     """Removes specified labels from PR."""
     for label in labels:  # Can be extended with more labels in the future
         event.delete(f"{GITHUB_API_URL}/repos/{event.repository}/issues/{event.pr['number']}/labels/{label}")
