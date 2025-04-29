@@ -4,8 +4,6 @@ import time
 from datetime import datetime
 from typing import Dict, List
 
-import requests
-
 from .utils import GITHUB_API_URL, Action
 
 # Configuration
@@ -27,11 +25,7 @@ def trigger_and_get_workflow_info(event, branch: str) -> List[Dict]:
 
     # Trigger all workflows
     for file in WORKFLOW_FILES:
-        requests.post(
-            f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches",
-            json={"ref": branch},
-            headers=event.headers,
-        )
+        event.post(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch})
 
     # Wait for workflows to be created
     time.sleep(10)
@@ -39,7 +33,7 @@ def trigger_and_get_workflow_info(event, branch: str) -> List[Dict]:
     # Collect information about all workflows
     for file in WORKFLOW_FILES:
         # Get workflow name
-        response = requests.get(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}", headers=event.headers)
+        response = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}")
         name = file.replace(".yml", "").title()
         if response.status_code == 200:
             name = response.json().get("name", name)
@@ -48,9 +42,8 @@ def trigger_and_get_workflow_info(event, branch: str) -> List[Dict]:
         run_url = f"https://github.com/{repo}/actions/workflows/{file}"
         run_number = None
 
-        runs_response = requests.get(
+        runs_response = event.get(
             f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/runs?branch={branch}&event=workflow_dispatch&per_page=1",
-            headers=event.headers,
         )
 
         if runs_response.status_code == 200:
@@ -84,12 +77,10 @@ def update_comment(event, comment_body: str, triggered_actions: List[Dict], bran
     new_body = comment_body.replace(RUN_CI_KEYWORD, summary).strip()
     comment_id = event.event_data["comment"]["id"]
 
-    response = requests.patch(
+    response = event.patch(
         f"{GITHUB_API_URL}/repos/{event.repository}/issues/comments/{comment_id}",
         json={"body": new_body},
-        headers=event.headers,
     )
-
     return response.status_code == 200
 
 
