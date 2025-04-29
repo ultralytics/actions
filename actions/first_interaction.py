@@ -3,8 +3,6 @@
 import os
 from typing import Dict, List, Tuple
 
-import requests
-
 from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
 
 # Environment variables
@@ -62,8 +60,7 @@ mutation($discussionId: ID!, $title: String!, $body: String!) {
         event.graphql_request(mutation, variables={"discussionId": node_id, "title": new_title, "body": new_body})
     else:
         url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}"
-        r = requests.patch(url, json={"title": new_title, "body": new_body}, headers=event.headers)
-        print(f"{'Successful' if r.status_code == 200 else 'Fail'} issue/PR #{number} update: {r.status_code}")
+        event.patch(url, json={"title": new_title, "body": new_body})
 
 
 def close_issue_pr(event, number: int, node_id: str, issue_type: str):
@@ -81,8 +78,7 @@ mutation($discussionId: ID!) {
         event.graphql_request(mutation, variables={"discussionId": node_id})
     else:
         url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}"
-        r = requests.patch(url, json={"state": "closed"}, headers=event.headers)
-        print(f"{'Successful' if r.status_code == 200 else 'Fail'} issue/PR #{number} close: {r.status_code}")
+        event.patch(url, json={"state": "closed"})
 
 
 def lock_issue_pr(event, number: int, node_id: str, issue_type: str):
@@ -102,15 +98,13 @@ mutation($lockableId: ID!, $lockReason: LockReason) {
         event.graphql_request(mutation, variables={"lockableId": node_id, "lockReason": "OFF_TOPIC"})
     else:
         url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/lock"
-        r = requests.put(url, json={"lock_reason": "off-topic"}, headers=event.headers)
-        print(f"{'Successful' if r.status_code in {200, 204} else 'Fail'} issue/PR #{number} lock: {r.status_code}")
+        event.put(url, json={"lock_reason": "off-topic"})
 
 
 def block_user(event, username: str):
     """Blocks a user from the organization using the GitHub API."""
     url = f"{GITHUB_API_URL}/orgs/{event.repository.split('/')[0]}/blocks/{username}"
-    r = requests.put(url, headers=event.headers)
-    print(f"{'Successful' if r.status_code == 204 else 'Fail'} user block for {username}: {r.status_code}")
+    event.put(url)
 
 
 def get_relevant_labels(
@@ -164,7 +158,6 @@ AVAILABLE LABELS:
 
 YOUR RESPONSE (label names only):
 """
-    print(prompt)  # for short-term debugging
     messages = [
         {
             "role": "system",
@@ -205,7 +198,6 @@ query($owner: String!, $name: String!) {
         label_map = {label["name"].lower(): label["id"] for label in all_labels}
         return [label_map.get(label.lower()) for label in labels if label.lower() in label_map]
     else:
-        print(f"Failed to fetch labels: {result.get('errors', 'Unknown error')}")
         return []
 
 
@@ -215,7 +207,6 @@ def apply_labels(event, number: int, node_id: str, labels: List[str], issue_type
         create_alert_label(event)
 
     if issue_type == "discussion":
-        print(f"Using node_id: {node_id}")  # Debug print
         label_ids = get_label_ids(event, labels)
         if not label_ids:
             print("No valid labels to apply.")
@@ -233,17 +224,15 @@ mutation($labelableId: ID!, $labelIds: [ID!]!) {
 }
 """
         event.graphql_request(mutation, {"labelableId": node_id, "labelIds": label_ids})
-        print(f"Successfully applied labels: {', '.join(labels)}")
     else:
         url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/labels"
-        r = requests.post(url, json={"labels": labels}, headers=event.headers)
-        print(f"{'Successful' if r.status_code == 200 else 'Fail'} apply labels {', '.join(labels)}: {r.status_code}")
+        event.post(url, json={"labels": labels})
 
 
 def create_alert_label(event):
     """Creates the 'Alert' label in the repository if it doesn't exist, with a red color and description."""
     alert_label = {"name": "Alert", "color": "FF0000", "description": "Potential spam, abuse, or off-topic."}
-    requests.post(f"{GITHUB_API_URL}/repos/{event.repository}/labels", json=alert_label, headers=event.headers)
+    event.post(f"{GITHUB_API_URL}/repos/{event.repository}/labels", json=alert_label)
 
 
 def add_comment(event, number: int, node_id: str, comment: str, issue_type: str):
@@ -261,8 +250,7 @@ mutation($discussionId: ID!, $body: String!) {
         event.graphql_request(mutation, variables={"discussionId": node_id, "body": comment})
     else:
         url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/comments"
-        r = requests.post(url, json={"body": comment}, headers=event.headers)
-        print(f"{'Successful' if r.status_code in {200, 201} else 'Fail'} issue/PR #{number} comment: {r.status_code}")
+        event.post(url, json={"body": comment}, headers=event.headers)
 
 
 def get_first_interaction_response(event, issue_type: str, title: str, body: str, username: str) -> str:
@@ -348,7 +336,7 @@ EXAMPLE {issue_type.upper()} RESPONSE:
 
 YOUR {issue_type.upper()} RESPONSE:
 """
-    print(f"\n\n{prompt}\n\n")  # for debug
+    # print(f"\n\n{prompt}\n\n")  # for debug
     messages = [
         {
             "role": "system",
