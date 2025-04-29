@@ -122,7 +122,7 @@ def update_pr_description(pr_url, new_summary, headers, max_retries=2):
     print(f"PR description update {'Success' if r.status_code == 200 else 'Fail'}: {r.status_code}")
 
 
-def label_fixed_issues(repository, pr_number, pr_summary, headers, action):
+def label_fixed_issues(repository, pr_number, pr_summary, headers, event):
     """Labels issues closed by PR when merged, notifies users, and returns PR contributors."""
     query = """
 query($owner: String!, $repo: String!, $pr_number: Int!) {
@@ -151,7 +151,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
         comments = data["reviews"]["nodes"] + data["comments"]["nodes"]
-        token_username = action.get_username()  # get GITHUB_TOKEN username
+        token_username = event.get_username()  # get GITHUB_TOKEN username
         author = data["author"]["login"] if data["author"]["__typename"] != "Bot" else None
         pr_title = data.get("title", "")
 
@@ -214,14 +214,14 @@ def remove_todos_on_merge(pr_number, repository, headers):
 
 def main(*args, **kwargs):
     """Summarize a pull request and update its description with a summary."""
-    action = Action(*args, **kwargs)
-    headers = action.headers
-    repository = action.repository
-    pr_number = action.pr["number"]
+    event = Action(*args, **kwargs)
+    headers = event.headers
+    repository = event.repository
+    pr_number = event.pr["number"]
     pr_url = f"{GITHUB_API_URL}/repos/{repository}/pulls/{pr_number}"
 
     print(f"Retrieving diff for PR {pr_number}")
-    diff = action.get_pr_diff()
+    diff = event.get_pr_diff()
 
     # Generate PR summary
     print("Generating PR summary...")
@@ -232,9 +232,9 @@ def main(*args, **kwargs):
     update_pr_description(pr_url, summary, headers)
 
     # Update linked issues and post thank you message if merged
-    if action.pr.get("merged"):
+    if event.pr.get("merged"):
         print("PR is merged, labeling fixed issues...")
-        pr_credit = label_fixed_issues(repository, pr_number, summary, headers, action)
+        pr_credit = label_fixed_issues(repository, pr_number, summary, headers, event)
         print("Removing TODO label from PR...")
         remove_todos_on_merge(pr_number, repository, headers)
         if pr_credit:
