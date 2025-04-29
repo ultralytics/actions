@@ -139,7 +139,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
 }
 """
     owner, repo = event.repository.split("/")
-    variables = {"owner": owner, "repo": repo, "pr_number": event.pr['number']}
+    variables = {"owner": owner, "repo": repo, "pr_number": event.pr["number"]}
     response = event.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables})
     if response.status_code != 200:
         print(f"Failed to fetch linked issues. Status code: {response.status_code}")
@@ -205,7 +205,7 @@ def main(*args, **kwargs):
     """Summarize a pull request and update its description with a summary."""
     event = Action(*args, **kwargs)
 
-    print(f"Retrieving diff for PR {event.pr["number"]}")
+    print(f"Retrieving diff for PR {event.pr['number']}")
     diff = event.get_pr_diff()
 
     # Generate PR summary
