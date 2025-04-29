@@ -43,9 +43,6 @@ def patch_github_requests(token: str, verbose: bool = True):
     for method, orig_func in originals.items():
         setattr(requests, method, make_wrapper(method, orig_func))
 
-    # Return unpatch function
-    # return lambda: [setattr(requests, m, f) for m, f in originals.items()]
-
 
 patch_github_requests(os.getenv("GITHUB_TOKEN"))
 
