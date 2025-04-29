@@ -152,22 +152,22 @@ def get_previous_tag() -> str:
 
 def main(*args, **kwargs):
     """Automates generating and publishing a GitHub release summary from PRs and commit differences."""
-    action = Action(*args, **kwargs)
+    event = Action(*args, **kwargs)
 
-    if not all([action.token, CURRENT_TAG]):
+    if not all([event.token, CURRENT_TAG]):
         raise ValueError("One or more required environment variables are missing.")
 
     previous_tag = PREVIOUS_TAG or get_previous_tag()
 
     # Get the diff between the tags
-    diff = get_release_diff(action.repository, previous_tag, CURRENT_TAG, action.headers_diff)
+    diff = get_release_diff(event.repository, previous_tag, CURRENT_TAG, event.headers_diff)
 
     # Get PRs merged between the tags
-    prs = get_prs_between_tags(action.repository, previous_tag, CURRENT_TAG, action.headers)
+    prs = get_prs_between_tags(event.repository, previous_tag, CURRENT_TAG, event.headers)
 
     # Generate release summary
     try:
-        summary = generate_release_summary(diff, prs, CURRENT_TAG, previous_tag, action.repository, action.headers)
+        summary = generate_release_summary(diff, prs, CURRENT_TAG, previous_tag, event.repository, event.headers)
     except Exception as e:
         print(f"Failed to generate summary: {str(e)}")
         summary = "Failed to generate summary."
@@ -178,7 +178,7 @@ def main(*args, **kwargs):
 
     # Create the release on GitHub
     msg = f"{CURRENT_TAG} - {commit_message}"
-    status_code = create_github_release(action.repository, CURRENT_TAG, msg, summary, action.headers)
+    status_code = create_github_release(event.repository, CURRENT_TAG, msg, summary, event.headers)
     if status_code == 201:
         print(f"Successfully created release {CURRENT_TAG}")
     else:
