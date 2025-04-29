@@ -132,12 +132,11 @@ def generate_release_summary(
     return get_completion(messages, temperature=0.2) + release_suffix
 
 
-def create_github_release(repo: str, tag_name: str, name: str, body: str, headers: dict) -> int:
+def create_github_release(event, tag_name: str, name: str, body: str):
     """Creates a GitHub release with specified tag, name, and body content for the given repository."""
-    url = f"{GITHUB_API_URL}/repos/{repo}/releases"
+    url = f"{GITHUB_API_URL}/repos/{event.repository}/releases"
     data = {"tag_name": tag_name, "name": name, "body": body, "draft": False, "prerelease": False}
-    r = requests.post(url, headers=headers, json=data)
-    return r.status_code
+    event.post(url, json=data)
 
 
 def get_previous_tag() -> str:
@@ -178,11 +177,7 @@ def main(*args, **kwargs):
 
     # Create the release on GitHub
     msg = f"{CURRENT_TAG} - {commit_message}"
-    status_code = create_github_release(event.repository, CURRENT_TAG, msg, summary, event.headers)
-    if status_code == 201:
-        print(f"Successfully created release {CURRENT_TAG}")
-    else:
-        print(f"Failed to create release {CURRENT_TAG}. Status code: {status_code}")
+    create_github_release(event, CURRENT_TAG, msg, summary)
 
 
 if __name__ == "__main__":
