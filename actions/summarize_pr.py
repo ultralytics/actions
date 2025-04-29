@@ -142,8 +142,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
     variables = {"owner": owner, "repo": repo, "pr_number": event.pr["number"]}
     response = event.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables})
     if response.status_code != 200:
-        print(f"Failed to fetch linked issues. Status code: {response.status_code}")
-        return None
+        return None  # no linked issues
 
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
@@ -180,14 +179,12 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
 
         # Update linked issues
         for issue in data["closingIssuesReferences"]["nodes"]:
-            issue_number = issue["number"]
+            number = issue["number"]
             # Add fixed label
-            label_url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{issue_number}/labels"
-            event.post(label_url, json={"labels": ["fixed"]})
+            event.post(f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/labels", json={"labels": ["fixed"]})
 
             # Add comment
-            comment_url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{issue_number}/comments"
-            event.post(comment_url, json={"body": comment})
+            event.post(f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/comments", json={"body": comment})
 
         return pr_credit
     except KeyError as e:
