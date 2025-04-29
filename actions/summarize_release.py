@@ -15,16 +15,16 @@ CURRENT_TAG = os.getenv("CURRENT_TAG")
 PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
 
 
-def get_release_diff(repo_name: str, previous_tag: str, latest_tag: str, headers: dict) -> str:
+def get_release_diff(repo: str, previous_tag: str, latest_tag: str, headers: dict) -> str:
     """Retrieves the differences between two specified Git tags in a GitHub repository."""
-    url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
+    url = f"{GITHUB_API_URL}/repos/{repo}/compare/{previous_tag}...{latest_tag}"
     r = requests.get(url, headers=headers)
     return r.text if r.status_code == 200 else f"Failed to get diff: {r.content}"
 
 
-def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str, headers: dict) -> list:
+def get_prs_between_tags(repo: str, previous_tag: str, latest_tag: str, headers: dict) -> list:
     """Retrieves and processes pull requests merged between two specified tags in a GitHub repository."""
-    url = f"{GITHUB_API_URL}/repos/{repo_name}/compare/{previous_tag}...{latest_tag}"
+    url = f"{GITHUB_API_URL}/repos/{repo}/compare/{previous_tag}...{latest_tag}"
     r = requests.get(url, headers=headers)
     r.raise_for_status()
 
@@ -38,7 +38,7 @@ def get_prs_between_tags(repo_name: str, previous_tag: str, latest_tag: str, hea
     prs = []
     time.sleep(10)  # sleep 10 seconds to allow final PR summary to update on merge
     for pr_number in sorted(pr_numbers):  # earliest to latest
-        pr_url = f"{GITHUB_API_URL}/repos/{repo_name}/pulls/{pr_number}"
+        pr_url = f"{GITHUB_API_URL}/repos/{repo}/pulls/{pr_number}"
         pr_response = requests.get(pr_url, headers=headers)
         if pr_response.status_code == 200:
             pr_data = pr_response.json()
@@ -77,7 +77,7 @@ def get_new_contributors(repo: str, prs: list, headers: dict) -> set:
 
 
 def generate_release_summary(
-    diff: str, prs: list, latest_tag: str, previous_tag: str, repo_name: str, headers: dict
+    diff: str, prs: list, latest_tag: str, previous_tag: str, repo: str, headers: dict
 ) -> str:
     """Generate a concise release summary with key changes, purpose, and impact for a new Ultralytics version."""
     pr_summaries = "\n\n".join(
@@ -94,7 +94,7 @@ def generate_release_summary(
     whats_changed = "\n".join([f"* {pr['title']} by @{pr['author']} in {pr['html_url']}" for pr in prs])
 
     # Generate New Contributors section
-    new_contributors = get_new_contributors(repo_name, prs, headers)
+    new_contributors = get_new_contributors(repo, prs, headers)
     new_contributors_section = (
         "\n## New Contributors\n"
         + "\n".join(
@@ -107,7 +107,7 @@ def generate_release_summary(
         else ""
     )
 
-    full_changelog = f"https://github.com/{repo_name}/compare/{previous_tag}...{latest_tag}"
+    full_changelog = f"https://github.com/{repo}/compare/{previous_tag}...{latest_tag}"
     release_suffix = (
         f"\n\n## What's Changed\n{whats_changed}\n{new_contributors_section}\n\n**Full Changelog**: {full_changelog}\n"
     )
@@ -132,9 +132,9 @@ def generate_release_summary(
     return get_completion(messages, temperature=0.2) + release_suffix
 
 
-def create_github_release(repo_name: str, tag_name: str, name: str, body: str, headers: dict) -> int:
+def create_github_release(repo: str, tag_name: str, name: str, body: str, headers: dict) -> int:
     """Creates a GitHub release with specified tag, name, and body content for the given repository."""
-    url = f"{GITHUB_API_URL}/repos/{repo_name}/releases"
+    url = f"{GITHUB_API_URL}/repos/{repo}/releases"
     data = {"tag_name": tag_name, "name": name, "body": body, "draft": False, "prerelease": False}
     r = requests.post(url, headers=headers, json=data)
     return r.status_code
