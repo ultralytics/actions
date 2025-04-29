@@ -55,9 +55,9 @@ class Action:
             if not success:
                 try:
                     error_detail = response.json()
-                    print(f"  Error: {error_detail.get('message', 'Unknown error')}")
-                except:
-                    print(f"  Error: {response.text[:100]}...")
+                    print(f"  ❌ Error: {error_detail.get('message', 'Unknown error')}")
+                except Exception as e:
+                    print(f"  ❌ Error: {response.text[:100]}... {e}")
 
         if not success:
             response.raise_for_status()
