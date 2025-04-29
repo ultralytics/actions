@@ -6,8 +6,6 @@ import subprocess
 import time
 from datetime import datetime
 
-import requests
-
 from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
 
 # Environment variables
@@ -15,22 +13,20 @@ CURRENT_TAG = os.getenv("CURRENT_TAG")
 PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
 
 
-def get_release_diff(repo: str, previous_tag: str, latest_tag: str, headers: dict) -> str:
+def get_release_diff(event, previous_tag: str, latest_tag: str) -> str:
     """Retrieves the differences between two specified Git tags in a GitHub repository."""
-    url = f"{GITHUB_API_URL}/repos/{repo}/compare/{previous_tag}...{latest_tag}"
-    r = requests.get(url, headers=headers)
+    url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{latest_tag}"
+    r = event.get(url, headers=event.headers_diff)
     return r.text if r.status_code == 200 else f"Failed to get diff: {r.content}"
 
 
-def get_prs_between_tags(repo: str, previous_tag: str, latest_tag: str, headers: dict) -> list:
+def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
     """Retrieves and processes pull requests merged between two specified tags in a GitHub repository."""
-    url = f"{GITHUB_API_URL}/repos/{repo}/compare/{previous_tag}...{latest_tag}"
-    r = requests.get(url, headers=headers)
-    r.raise_for_status()
+    url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{latest_tag}"
+    r = event.get(url)
 
     data = r.json()
     pr_numbers = set()
-
     for commit in data["commits"]:
         pr_matches = re.findall(r"#(\d+)", commit["commit"]["message"])
         pr_numbers.update(pr_matches)
@@ -38,8 +34,8 @@ def get_prs_between_tags(repo: str, previous_tag: str, latest_tag: str, headers:
     prs = []
     time.sleep(10)  # sleep 10 seconds to allow final PR summary to update on merge
     for pr_number in sorted(pr_numbers):  # earliest to latest
-        pr_url = f"{GITHUB_API_URL}/repos/{repo}/pulls/{pr_number}"
-        pr_response = requests.get(pr_url, headers=headers)
+        pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}"
+        pr_response = event.get(pr_url)
         if pr_response.status_code == 200:
             pr_data = pr_response.json()
             prs.append(
@@ -157,10 +153,10 @@ def main(*args, **kwargs):
     previous_tag = PREVIOUS_TAG or get_previous_tag()
 
     # Get the diff between the tags
-    diff = get_release_diff(event.repository, previous_tag, CURRENT_TAG, event.headers_diff)
+    diff = get_release_diff(event, previous_tag, CURRENT_TAG)
 
     # Get PRs merged between the tags
-    prs = get_prs_between_tags(event.repository, previous_tag, CURRENT_TAG, event.headers)
+    prs = get_prs_between_tags(event, previous_tag, CURRENT_TAG)
 
     # Generate release summary
     try:
