@@ -29,6 +29,7 @@ class Action:
         self._default_status = {
             "get": [200],
             "post": [200, 201],
+            "put": [200, 201, 204],
             "patch": [200],
             "delete": [200, 204],
         }
@@ -70,6 +71,10 @@ class Action:
     def post(self, url, **kwargs):
         """Performs POST request with error handling."""
         return self._request("post", url, **kwargs)
+
+    def put(self, url, **kwargs):
+        """Performs PUT request with error handling."""
+        return self._request("put", url, **kwargs)
 
     def patch(self, url, **kwargs):
         """Performs PATCH request with error handling."""
