@@ -128,7 +128,7 @@ def generate_release_summary(
             f"Here's the release diff:\n\n{diff[:300000]}",
         },
     ]
-    print(messages[-1]["content"])  # for debug
+    # print(messages[-1]["content"])  # for debug
     return get_completion(messages, temperature=0.2) + release_suffix
 
 

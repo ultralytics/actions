@@ -198,7 +198,6 @@ query($owner: String!, $name: String!) {
         label_map = {label["name"].lower(): label["id"] for label in all_labels}
         return [label_map.get(label.lower()) for label in labels if label.lower() in label_map]
     else:
-        print(f"Failed to fetch labels: {result.get('errors', 'Unknown error')}")
         return []
 
 
@@ -208,7 +207,6 @@ def apply_labels(event, number: int, node_id: str, labels: List[str], issue_type
         create_alert_label(event)
 
     if issue_type == "discussion":
-        print(f"Using node_id: {node_id}")  # Debug print
         label_ids = get_label_ids(event, labels)
         if not label_ids:
             print("No valid labels to apply.")
@@ -338,7 +336,7 @@ EXAMPLE {issue_type.upper()} RESPONSE:
 
 YOUR {issue_type.upper()} RESPONSE:
 """
-    print(f"\n\n{prompt}\n\n")  # for debug
+    # print(f"\n\n{prompt}\n\n")  # for debug
     messages = [
         {
             "role": "system",
