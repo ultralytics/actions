@@ -59,14 +59,14 @@ def get_prs_between_tags(repo: str, previous_tag: str, latest_tag: str, headers:
     return prs
 
 
-def get_new_contributors(repo: str, prs: list, headers: dict) -> set:
+def get_new_contributors(event, prs: list) -> set:
     """Identify new contributors who made their first merged PR in the current release."""
     new_contributors = set()
     for pr in prs:
         author = pr["author"]
         # Check if this is the author's first contribution
-        url = f"{GITHUB_API_URL}/search/issues?q=repo:{repo}+author:{author}+is:pr+is:merged&sort=created&order=asc"
-        r = requests.get(url, headers=headers)
+        url = f"{GITHUB_API_URL}/search/issues?q=repo:{event.repository}+author:{author}+is:pr+is:merged&sort=created&order=asc"
+        r = event.get(url)
         if r.status_code == 200:
             data = r.json()
             if data["total_count"] > 0:
@@ -76,7 +76,7 @@ def get_new_contributors(repo: str, prs: list, headers: dict) -> set:
     return new_contributors
 
 
-def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag: str, repo: str, headers: dict) -> str:
+def generate_release_summary(event, diff: str, prs: list, latest_tag: str, previous_tag: str,) -> str:
     """Generate a concise release summary with key changes, purpose, and impact for a new Ultralytics version."""
     pr_summaries = "\n\n".join(
         [f"PR #{pr['number']}: {pr['title']} by @{pr['author']}\n{pr['body'][:1000]}" for pr in prs]
@@ -92,7 +92,7 @@ def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag
     whats_changed = "\n".join([f"* {pr['title']} by @{pr['author']} in {pr['html_url']}" for pr in prs])
 
     # Generate New Contributors section
-    new_contributors = get_new_contributors(repo, prs, headers)
+    new_contributors = get_new_contributors(event, prs)
     new_contributors_section = (
         "\n## New Contributors\n"
         + "\n".join(
@@ -105,7 +105,7 @@ def generate_release_summary(diff: str, prs: list, latest_tag: str, previous_tag
         else ""
     )
 
-    full_changelog = f"https://github.com/{repo}/compare/{previous_tag}...{latest_tag}"
+    full_changelog = f"https://github.com/{event.repository}/compare/{previous_tag}...{latest_tag}"
     release_suffix = (
         f"\n\n## What's Changed\n{whats_changed}\n{new_contributors_section}\n\n**Full Changelog**: {full_changelog}\n"
     )
@@ -164,7 +164,7 @@ def main(*args, **kwargs):
 
     # Generate release summary
     try:
-        summary = generate_release_summary(diff, prs, CURRENT_TAG, previous_tag, event.repository, event.headers)
+        summary = generate_release_summary(event, diff, prs, CURRENT_TAG, previous_tag)
     except Exception as e:
         print(f"Failed to generate summary: {str(e)}")
         summary = "Failed to generate summary."
