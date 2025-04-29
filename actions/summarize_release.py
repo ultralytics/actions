@@ -72,7 +72,13 @@ def get_new_contributors(event, prs: list) -> set:
     return new_contributors
 
 
-def generate_release_summary(event, diff: str, prs: list, latest_tag: str, previous_tag: str,) -> str:
+def generate_release_summary(
+    event,
+    diff: str,
+    prs: list,
+    latest_tag: str,
+    previous_tag: str,
+) -> str:
     """Generate a concise release summary with key changes, purpose, and impact for a new Ultralytics version."""
     pr_summaries = "\n\n".join(
         [f"PR #{pr['number']}: {pr['title']} by @{pr['author']}\n{pr['body'][:1000]}" for pr in prs]
