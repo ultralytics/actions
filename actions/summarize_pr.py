@@ -195,9 +195,9 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         return None
 
 
-def remove_todos_on_merge(event):
+def remove_pr_labels(event, labels=[]):
     """Removes specified labels from PR."""
-    for label in ["TODO"]:  # Can be extended with more labels in the future
+    for label in labels:  # Can be extended with more labels in the future
         event.delete(f"{GITHUB_API_URL}/repos/{event.repository}/issues/{event.pr['number']}/labels/{label}")
 
 
@@ -221,7 +221,7 @@ def main(*args, **kwargs):
         print("PR is merged, labeling fixed issues...")
         pr_credit = label_fixed_issues(event, summary)
         print("Removing TODO label from PR...")
-        remove_todos_on_merge(event)
+        remove_pr_labels(event, labels=["TODO"])
         if pr_credit:
             print("Posting PR author thank you message...")
             post_merge_message(event, summary, pr_credit)

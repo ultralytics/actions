@@ -76,12 +76,7 @@ def update_comment(event, comment_body: str, triggered_actions: List[Dict], bran
 
     new_body = comment_body.replace(RUN_CI_KEYWORD, summary).strip()
     comment_id = event.event_data["comment"]["id"]
-
-    response = event.patch(
-        f"{GITHUB_API_URL}/repos/{event.repository}/issues/comments/{comment_id}",
-        json={"body": new_body},
-    )
-    return response.status_code == 200
+    event.patch(f"{GITHUB_API_URL}/repos/{event.repository}/issues/comments/{comment_id}", json={"body": new_body})
 
 
 def main(*args, **kwargs):
@@ -113,10 +108,8 @@ def main(*args, **kwargs):
     print(f"Triggering workflows on branch: {branch}")
 
     triggered_actions = trigger_and_get_workflow_info(event, branch)
-    success = update_comment(event, comment_body, triggered_actions, branch)
-
+    update_comment(event, comment_body, triggered_actions, branch)
     event.toggle_eyes_reaction(False)
-    print(f"Comment update {'succeeded' if success else 'failed'}.")
 
 
 if __name__ == "__main__":
