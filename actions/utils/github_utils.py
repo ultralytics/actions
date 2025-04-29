@@ -50,6 +50,7 @@ def patch_github_requests(token: str, verbose: bool = True):
 patch_github_requests(os.getenv("GITHUB_TOKEN"))
 
 
+
 class Action:
     """Handles GitHub Actions API interactions and event processing."""
 
