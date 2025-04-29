@@ -156,11 +156,10 @@ def brave_search(query, api_key, count=5):
     """Search for alternative URLs using Brave Search API."""
     if not api_key:
         return
-    headers = {"X-Subscription-Token": api_key, "Accept": "application/json"}
     if len(query) > 400:
         print(f"WARNING ⚠️ Brave search query length {len(query)} exceed limit of 400 characters, truncating.")
     url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query.strip()[:400])}&count={count}"
-    response = requests.get(url, headers=headers)
+    response = requests.get(url, headers={"X-Subscription-Token": api_key, "Accept": "application/json"})
     data = response.json() if response.status_code == 200 else {}
     results = data.get("web", {}).get("results", []) if data else []
     return [result.get("url") for result in results if result.get("url")]

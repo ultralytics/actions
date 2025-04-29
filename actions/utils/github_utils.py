@@ -12,6 +12,44 @@ GITHUB_API_URL = "https://api.github.com"
 GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 
 
+def patch_github_requests(token: str, verbose: bool = True):
+    """Patches requests library with GitHub headers and logging."""
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    expected_codes = {"get": [200], "post": [200, 201], "patch": [200], "delete": [200, 204]}
+    originals = {m: getattr(requests, m) for m in ("get", "post", "patch", "delete")}
+
+    def make_wrapper(method, orig_func):
+        def wrapper(url, **kwargs):
+            kwargs.setdefault("headers", headers)
+            response = orig_func(url, **kwargs)
+            status = response.status_code
+            success = status in expected_codes[method]
+
+            if verbose:
+                print(f"{'✓' if success else '✗'} {method.upper()} {url} → {status}")
+                if not success:
+                    try:
+                        print(f"  Error: {response.json().get('message', 'Unknown error')}")
+                    except:
+                        print(f"  Error: {response.text[:100]}...")
+
+            if not success:
+                response.raise_for_status()
+            return response
+
+        return wrapper
+
+    # Apply patches
+    for method, orig_func in originals.items():
+        setattr(requests, method, make_wrapper(method, orig_func))
+
+    # Return unpatch function
+    # return lambda: [setattr(requests, m, f) for m, f in originals.items()]
+
+
+patch_github_requests(os.getenv("GITHUB_TOKEN"))
+
+
 class Action:
     """Handles GitHub Actions API interactions and event processing."""
 
