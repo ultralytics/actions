@@ -2,6 +2,8 @@ import os
 
 
 def main():
+    """Check CLA on pull requests."""
+
     print("RUNNING CHECK_CLA FUNCTION")
     os.environ.get("GITHUB_TOKEN")
     os.environ.get("CLA_REPOSITORY")
