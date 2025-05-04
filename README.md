@@ -64,13 +64,13 @@ To integrate this action into your Ultralytics repository:
             uses: ultralytics/actions@main
             with:
               token: ${{ secrets.GITHUB_TOKEN }} # Automatically generated, do not modify
-              labels: true # Autolabel issues and PRs using GPT-4.1 (requires 'openai_api_key')
+              labels: true # Autolabel issues and PRs (requires 'openai_api_key')
               python: true # Format Python code and docstrings with Ruff and docformatter
               prettier: true # Format YAML, JSON, Markdown, and CSS with Prettier
               swift: false # Format Swift code with swift-format (requires 'runs-on: macos-latest')
               spelling: true # Check spelling with codespell
               links: true # Check for broken links with Lychee
-              summary: true # Generate PR summary with GPT-4.1 (requires 'openai_api_key')
+              summary: true # Generate PR summary (requires 'openai_api_key')
               openai_api_key: ${{ secrets.OPENAI_API_KEY }} # Add your OpenAI API key as a repository secret
     ```
 
