@@ -48,24 +48,24 @@ To integrate this action into your Ultralytics repository:
 
     ```yaml
     # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
-    
+
     # Ultralytics Actions https://github.com/ultralytics/actions
     # This workflow formats code and documentation in PRs to Ultralytics standards
-    
+
     name: Ultralytics Actions
-    
+
     on:
       issues:
         types: [opened]
       pull_request:
         branches: [main]
         types: [opened, closed, synchronize, review_requested]
-    
+
     permissions:
       contents: write # Modify code in PRs
       pull-requests: write # Add comments and labels to PRs
       issues: write # Add comments and labels to issues
-    
+
     jobs:
       actions:
         runs-on: ubuntu-latest
