@@ -12,6 +12,11 @@ on:
     branches: [main]
     types: [opened, closed, synchronize, review_requested]
 
+permissions:
+  contents: write # Allows modifying code in PRs
+  pull-requests: write # Allows adding comments and labels to PRs
+  issues: write # Allows adding comments and labels to issues
+
 jobs:
   format:
     runs-on: ubuntu-latest
