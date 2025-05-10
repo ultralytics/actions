@@ -54,6 +54,9 @@ IGNORE_PATHS = [
     "auto_gen",
     # Lock files
     "lock",
+    # Minified files
+    ".min.js",
+    ".min.css",
 ]
 
 
