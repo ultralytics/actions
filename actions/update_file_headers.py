@@ -35,7 +35,7 @@ COMMENT_MAP = {
     ".m": ("% ", None, None),
 }
 
-IGNORE_PARTS = [  # ignore these Path parts (do not update their headers)
+IGNORE_PATHS = [  # ignore these Paths (do not update their headers)
     ".idea",
     ".venv",
     "env",
@@ -43,6 +43,16 @@ IGNORE_PARTS = [  # ignore these Path parts (do not update their headers)
     ".git",
     "__pycache__",
     "mkdocs_github_authors.yaml",
+    # Build and distribution directories
+    "dist",
+    "build",
+    ".eggs",
+    "site",  # mkdocs build directory
+    # Generated code
+    "generated",
+    "auto_gen",
+    # Lock files
+    "lock",
 ]
 
 
@@ -154,7 +164,7 @@ def main(*args, **kwargs):
         prefix, block_start, block_end = comment_style
 
         for file_path in directory.rglob(f"*{ext}"):
-            if any(part in str(file_path) for part in IGNORE_PARTS):
+            if any(part in str(file_path) for part in IGNORE_PATHS):
                 continue
 
             total += 1
