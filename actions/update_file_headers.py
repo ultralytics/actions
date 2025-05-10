@@ -90,7 +90,6 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
     # 1. prefix_lines: Special first line + header + blank line
     # 2. content_lines: The actual file content (excluding header)
     prefix_lines = []
-    content_lines = []
 
     # Check for special first line
     special_line_index = -1
