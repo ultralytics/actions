@@ -1,7 +1,5 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import pytest
-import importlib
 import subprocess
 from unittest.mock import patch
 
@@ -25,7 +23,7 @@ def test_importable_modules():
 
 def check_cli_entry_point(entry_point, mock_func):
     """Helper function to test CLI entry points with minimal patching."""
-    with patch.object(mock_func, "main", return_value=None) as mock_main:
+    with patch.object(mock_func, "main", return_value=None):
         try:
             # Call the CLI command using subprocess
             subprocess.run(
