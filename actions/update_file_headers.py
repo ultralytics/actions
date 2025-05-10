@@ -109,8 +109,8 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
         else:
             # Only header exists, no need for blank line
             pass
-    # Check if first line has AGPL but is not the exact header
-    elif remaining_lines and "AGPL" in remaining_lines[0] and remaining_lines[0] != formatted_header:
+    # Check if first line has "Ultralytics " but is not the exact header
+    elif remaining_lines and "Ultralytics " in remaining_lines[0] and remaining_lines[0] != formatted_header:
         # Replace with proper header
         new_lines.append(formatted_header)
         modified = True
