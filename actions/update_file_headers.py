@@ -149,6 +149,7 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
 def main(*args, **kwargs):
     """Automates file header updates for all files in the specified directory."""
     event = Action(*args, **kwargs)
+    print("RUNNING FILE HEADERS")
 
     if "ultralytics" in event.repository.lower():
         if event.is_repo_private() and event.repository.startswith("ultralytics/"):
@@ -158,6 +159,7 @@ def main(*args, **kwargs):
     elif HEADER and HEADER.lower() not in {"true", "false", "none"}:
         header = HEADER
     else:
+        print("RETURNING")
         return
 
     directory = Path.cwd()
