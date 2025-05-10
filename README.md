@@ -8,6 +8,7 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) rep
 
 [![Actions CI](https://github.com/ultralytics/actions/actions/workflows/ci.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/ci.yml)
 [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
+[![codecov](https://codecov.io/github/ultralytics/actions/graph/badge.svg?token=DoizJ1WS6j)](https://codecov.io/github/ultralytics/actions)
 [![PyPI version](https://badge.fury.io/py/ultralytics-actions.svg)](https://badge.fury.io/py/ultralytics-actions)
 [![Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://www.pepy.tech/projects/ultralytics-actions)
 
