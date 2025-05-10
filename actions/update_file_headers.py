@@ -132,7 +132,7 @@ def main(*args, **kwargs):
             header = "Ultralytics 🚀 Proprietary Software - Internal Use Only"
         else:
             header = "Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license"
-    elif HEADER:
+    elif HEADER and HEADER.lower() not in {"true", "false", "none"}:
         header = HEADER
     else:
         return
