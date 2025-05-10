@@ -39,7 +39,7 @@ COMMENT_MAP = {
 }
 
 # Ignore these Paths (do not update their headers)
-IGNORE_PATHS = [
+IGNORE_PATHS = {
     ".idea",
     ".venv",
     "env/",
@@ -60,7 +60,7 @@ IGNORE_PATHS = [
     # Minified files
     ".min.js",
     ".min.css",
-]
+}
 
 
 def update_file(file_path, prefix, block_start, block_end, base_header):
