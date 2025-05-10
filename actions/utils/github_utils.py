@@ -26,7 +26,6 @@ class Action:
         self.token = token or os.getenv("GITHUB_TOKEN")
         self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
         self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
-        print(self.event_data)
         self._default_status = {
             "get": [200],
             "post": [200, 201],
@@ -92,9 +91,9 @@ class Action:
             return json.loads(Path(event_path).read_text())
         return {}
 
-    def is_repo_public(self) -> bool:
+    def is_repo_private(self) -> bool:
         """Checks if the repository is public using event data or GitHub API if needed."""
-        return self.event_data["repository"].get("private", False)
+        return self.event_data.get("repository", {}).get("private")
 
     def get_username(self) -> str | None:
         """Gets username associated with the GitHub token."""
@@ -157,7 +156,7 @@ class Action:
             "github.event_name": self.event_name,
             "github.event.action": self.event_data.get("action"),
             "github.repository": self.repository,
-            "github.repository.private": self.event_data.get("repository", {}).get("private"),
+            "github.repository.private": self.is_repo_private(),
             "github.event.pull_request.number": self.pr.get("number"),
             "github.event.pull_request.head.repo.full_name": self.pr.get("head", {}).get("repo", {}).get("full_name"),
             "github.actor": os.environ.get("GITHUB_ACTOR"),
