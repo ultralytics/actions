@@ -82,6 +82,7 @@ To integrate this action into your Ultralytics repository:
               python: true # Format Python with Ruff and docformatter
               prettier: true # Format YAML, JSON, Markdown, CSS
               swift: false # Format Swift (requires macos-latest)
+              dart: false # Format Dart/Flutter
               spelling: true # Check spelling with codespell
               links: true # Check broken links with Lychee
               summary: true # Generate AI-powered PR summaries
