@@ -91,6 +91,10 @@ class Action:
             return json.loads(Path(event_path).read_text())
         return {}
 
+    def is_repo_public(self) -> bool:
+        """Checks if the repository is public using event data or GitHub API if needed."""
+        return self.event_data["repository"].get("private", False)
+
     def get_username(self) -> str | None:
         """Gets username associated with the GitHub token."""
         response = self.post(GITHUB_GRAPHQL_URL, json={"query": "query { viewer { login } }"})
