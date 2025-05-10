@@ -30,6 +30,10 @@ inputs:
     description: "Run Swift formatting"
     required: false
     default: "false"
+  dart:
+    description: "Run Dart formatting"
+    required: false
+    default: "false"
   spelling:
     description: "Run Spelling checks"
     required: false
@@ -107,7 +111,7 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize'
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
-        BRAVE_API_KEY: ${{ inputs.openai_api_key }}
+        BRAVE_API_KEY: ${{ inputs.brave_api_key }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
@@ -180,6 +184,21 @@ runs:
       shell: bash
       continue-on-error: true
 
+    # Dart formatting --------------------------------------------------------------------------------------------------
+    - name: Setup Dart SDK
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
+      uses: dart-lang/setup-dart@v1
+      # You can specify a Dart SDK version if needed:
+      # with:
+      #   sdk: 'stable' # or '3.0.0', 'beta', 'dev'
+
+    - name: Run Dart Formatter
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
+      run: |
+        dart format .
+      shell: bash
+      continue-on-error: true # Important so that commit step can pick up changes
+
     # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.spelling == 'true' && github.event.action != 'closed'
@@ -199,7 +218,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
         FIRST_ISSUE_RESPONSE: ${{ inputs.first_issue_response }}
         FIRST_PR_RESPONSE: ${{ inputs.first_pr_response }}
-        BRAVE_API_KEY: ${{ inputs.openai_api_key }}
+        BRAVE_API_KEY: ${{ inputs.brave_api_key }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
@@ -230,7 +249,7 @@ runs:
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
       if: inputs.links == 'true' && github.event.action != 'closed'
-      uses: lycheeverse/lychee-action@v2.4.0
+      uses: lycheeverse/lychee-action@v2.4.1
       with:
         # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:
         #   - 403(OpenVINO, "forbidden")
