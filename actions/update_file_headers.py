@@ -24,6 +24,7 @@ COMMENT_MAP = {
     ".hpp": ("// ", "/* ", " */"),  # C++ header files
     ".swift": ("// ", "/* ", " */"),
     ".js": ("// ", "/* ", " */"),
+    ".ts": ("// ", "/* ", " */"),  # TypeScript files
     ".java": ("// ", "/* ", " */"),  # Android Java
     ".kt": ("// ", "/* ", " */"),  # Android Kotlin
     # CSS style
