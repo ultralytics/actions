@@ -35,6 +35,16 @@ COMMENT_MAP = {
     ".m": ("% ", None, None),
 }
 
+IGNORE_PARTS = [  # ignore these Path parts (do not update their headers)
+    ".idea",
+    ".venv",
+    "env",
+    "node_modules",
+    ".git",
+    "__pycache__",
+    "mkdocs_github_authors.yaml",
+]
+
 
 def update_file(file_path, prefix, block_start, block_end, base_header):
     """Update file with the correct header and proper spacing."""
@@ -144,18 +154,7 @@ def main(*args, **kwargs):
         prefix, block_start, block_end = comment_style
 
         for file_path in directory.rglob(f"*{ext}"):
-            if any(
-                part in str(file_path)
-                for part in [
-                    ".idea",
-                    ".venv",
-                    "env",
-                    "node_modules",
-                    ".git",
-                    "__pycache__",
-                    "mkdocs_github_authors.yaml",
-                ]
-            ):
+            if any(part in str(file_path) for part in IGNORE_PARTS):
                 continue
 
             total += 1
