@@ -41,8 +41,14 @@ jobs:
         with:
           retries: 1 # Retry once after initial attempt
           run: |
-            python -m pytest tests -v
+            python -m pytest tests -v --cov=./ --cov-report=xml:coverage.xml
 
       - name: Run CLI tests
         run: |
           ultralytics-actions-info
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
