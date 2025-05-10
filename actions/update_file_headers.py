@@ -109,8 +109,8 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
         else:
             # Only header exists, no need for blank line
             pass
-    # Check if first line has AGPL but is not the exact header
-    elif remaining_lines and "AGPL" in remaining_lines[0] and remaining_lines[0] != formatted_header:
+    # Check if first line has "Ultralytics " but is not the exact header
+    elif remaining_lines and "Ultralytics " in remaining_lines[0] and remaining_lines[0] != formatted_header:
         # Replace with proper header
         new_lines.append(formatted_header)
         modified = True
@@ -159,11 +159,11 @@ def main(*args, **kwargs):
         if event.is_repo_private() and event.repository.startswith("ultralytics/"):
             from datetime import datetime
 
-            notice = f"Copyright © 2014-{datetime.now().year}"
-            header = f"Ultralytics Inc. 🚀 {notice} - CONFIDENTIAL - https://ultralytics.com - All Rights Reserved"
+            notice = f"© 2014-{datetime.now().year} Ultralytics Inc. 🚀"
+            header = f"{notice} All rights reserved. CONFIDENTIAL: Unauthorized use or distribution prohibited."
         else:
             header = "Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license"
-    elif HEADER and HEADER.lower() not in {"true", "false", "none"}:
+    elif HEADER and str(HEADER).lower() not in {"true", "false", "none"}:
         header = HEADER
     else:
         return

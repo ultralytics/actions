@@ -129,7 +129,7 @@ runs:
       env:
         HEADER: ${{ inputs.header }}
       run: |
-        ultralytics-actions-header
+        ultralytics-actions-headers
       shell: bash
       continue-on-error: false
 
