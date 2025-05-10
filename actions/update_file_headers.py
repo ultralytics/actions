@@ -83,72 +83,70 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
     else:
         formatted_header = f"# {base_header}\n"
 
-    # Keep shebang line if it exists
-    start_idx = 0
-    if lines and lines[0].startswith("#!"):
-        start_idx = 1
+    # Save original content for comparison
+    original_content = "".join(lines)
 
-    modified = False
-    new_lines = lines[:start_idx]
-    remaining_lines = lines[start_idx:]
+    # Create two separate line collections:
+    # 1. prefix_lines: Special first line + header + blank line
+    # 2. content_lines: The actual file content (excluding header)
+    prefix_lines = []
 
-    # If first line is already the exact header we want
-    if remaining_lines and remaining_lines[0] == formatted_header:
-        # Check if spacing is correct
-        new_lines.append(remaining_lines[0])
-        if len(remaining_lines) > 1:
-            second_line = remaining_lines[1].strip()
-            if second_line == "" or second_line in ["#", "//", "/*", "*", "<!--", "%"]:
-                # Spacing is correct, append the rest
-                new_lines.extend(remaining_lines[1:])
-            else:
-                # Add blank line
-                new_lines.append("\n")
-                new_lines.extend(remaining_lines[1:])
-                modified = True
-        else:
-            # Only header exists, no need for blank line
-            pass
-    # Check if first line has "Ultralytics " but is not the exact header
-    elif remaining_lines and "Ultralytics " in remaining_lines[0] and remaining_lines[0] != formatted_header:
-        # Replace with proper header
-        new_lines.append(formatted_header)
-        modified = True
+    # Check for special first line
+    special_line_index = -1
+    if lines and (lines[0].startswith("#!") or lines[0].startswith("<?xml") or lines[0].startswith("<!DOCTYPE")):
+        special_line_index = 0
+        prefix_lines.append(lines[0])
 
-        # Check if second line is blank or commented
-        if len(remaining_lines) > 1:
-            second_line = remaining_lines[1].strip()
-            if second_line == "" or second_line in ["#", "//", "/*", "*", "<!--", "%"]:
-                # Keep existing blank/comment line
-                new_lines.append(remaining_lines[1])
-                new_lines.extend(remaining_lines[2:])
-            else:
-                # Add blank line
-                new_lines.append("\n")
-                new_lines.extend(remaining_lines[1:])
-        else:
-            # Only header line, no need for blank line after
-            pass
-    # No header found, add it
+    # Find existing header
+    header_index = -1
+    start_idx = special_line_index + 1 if special_line_index >= 0 else 0
+    end_idx = min(start_idx + 5, len(lines))  # Look in first few lines
+
+    for i in range(start_idx, end_idx):
+        if "Ultralytics " in lines[i]:
+            header_index = i
+            break
+
+    # Add the formatted header to prefix lines
+    prefix_lines.append(formatted_header)
+
+    # Determine where content starts
+    if header_index >= 0:
+        # Content starts after existing header
+        content_start = header_index + 1
+        # Skip blank line after header if present
+        if content_start < len(lines) and not lines[content_start].strip():
+            content_start += 1
+        content_lines = lines[content_start:]
     else:
-        # Add header at the beginning
-        new_lines.append(formatted_header)
-        # Add blank line if content follows
-        if remaining_lines and remaining_lines[0].strip():
-            new_lines.append("\n")
-        new_lines.extend(remaining_lines)
-        modified = True
+        # No header found
+        if special_line_index >= 0:
+            # Content starts after special line
+            content_lines = lines[special_line_index + 1 :]
+        else:
+            # No special line, content starts at beginning
+            content_lines = lines
 
-    if modified:
-        try:
-            with open(file_path, "w", encoding="utf-8") as f:
-                f.writelines(new_lines)
-            return True
-        except Exception as e:
-            print(f"Error writing {file_path}: {e}")
-            return False
+    # Add blank line before content if first content line isn't already blank
+    if content_lines and content_lines[0].strip():
+        prefix_lines.append("\n")
 
-    return False
+    # Combine prefix lines and content lines
+    final_lines = prefix_lines + content_lines
+
+    # Check if content changed
+    new_content = "".join(final_lines)
+    if new_content == original_content:
+        return False
+
+    # Write updated content
+    try:
+        with open(file_path, "w", encoding="utf-8") as f:
+            f.writelines(final_lines)
+        return True
+    except Exception as e:
+        print(f"Error writing {file_path}: {e}")
+        return False
 
 
 def main(*args, **kwargs):
