@@ -159,8 +159,8 @@ def main(*args, **kwargs):
         if event.is_repo_private() and event.repository.startswith("ultralytics/"):
             from datetime import datetime
 
-            notice = f"Copyright © 2014-{datetime.now().year}"
-            header = f"Ultralytics Inc. 🚀 {notice} - CONFIDENTIAL - https://ultralytics.com - All Rights Reserved"
+            notice = f"© 2014-{datetime.now().year} Ultralytics Inc. 🚀"
+            header = f"{notice} All rights reserved. CONFIDENTIAL: Unauthorized use or distribution prohibited."
         else:
             header = "Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license"
     elif HEADER and str(HEADER).lower() not in {"true", "false", "none"}:
