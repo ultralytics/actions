@@ -88,6 +88,7 @@ ultralytics-actions-first-interaction = "actions.first_interaction:main"
 ultralytics-actions-summarize-pr = "actions.summarize_pr:main"
 ultralytics-actions-summarize-release = "actions.summarize_release:main"
 ultralytics-actions-update-markdown-code-blocks = "actions.update_markdown_code_blocks:main"
+ultralytics-actions-header = "actions.update_file_headers:main"
 ultralytics-actions-info = "actions.utils:ultralytics_actions_info"
 
 [tool.setuptools]
