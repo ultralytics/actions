@@ -1,5 +1,3 @@
-# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
-
 import os
 from pathlib import Path
 
