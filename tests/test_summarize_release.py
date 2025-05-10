@@ -1,12 +1,14 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-from unittest.mock import MagicMock, patch
+import pytest
+from unittest.mock import patch, MagicMock
 
 from actions.summarize_release import (
-    create_github_release,
-    generate_release_summary,
-    get_prs_between_tags,
     get_release_diff,
+    get_prs_between_tags,
+    get_new_contributors,
+    generate_release_summary,
+    create_github_release,
 )
 
 
@@ -84,23 +86,22 @@ def test_generate_release_summary(mock_get_completion):
     mock_event = MagicMock()
     mock_event.repository = "test/repo"
 
+    # Create test data with matching author for new contributor
+    test_prs = [
+        {
+            "number": 123,
+            "title": "Fix bug",
+            "body": "Fixes a bug",
+            "author": "newuser",  # Match the contributor name
+            "html_url": "https://github.com/test/repo/pull/123",
+            "merged_at": "2023-01-01T12:00:00Z",
+        }
+    ]
+
     # Mock new contributors function
     with patch("actions.summarize_release.get_new_contributors", return_value=["newuser"]):
         summary = generate_release_summary(
-            event=mock_event,
-            diff="diff content",
-            prs=[
-                {
-                    "number": 123,
-                    "title": "Fix bug",
-                    "body": "Fixes a bug",
-                    "author": "user1",
-                    "html_url": "https://github.com/test/repo/pull/123",
-                    "merged_at": "2023-01-01T12:00:00Z",
-                }
-            ],
-            latest_tag="v1.1.0",
-            previous_tag="v1.0.0",
+            event=mock_event, diff="diff content", prs=test_prs, latest_tag="v1.1.0", previous_tag="v1.0.0"
         )
 
     assert "Release summary content" in summary
