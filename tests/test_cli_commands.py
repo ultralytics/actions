@@ -1,6 +1,5 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-
 # Import CLI command modules
 from actions import (
     first_interaction,
