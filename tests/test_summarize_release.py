@@ -1,14 +1,12 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from actions.summarize_release import (
-    get_release_diff,
-    get_prs_between_tags,
-    get_new_contributors,
-    generate_release_summary,
     create_github_release,
+    generate_release_summary,
+    get_prs_between_tags,
+    get_release_diff,
 )
 
 
