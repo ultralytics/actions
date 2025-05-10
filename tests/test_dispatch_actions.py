@@ -1,15 +1,14 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import pytest
-from unittest.mock import patch, MagicMock
 from datetime import datetime
+from unittest.mock import MagicMock, patch
 
 from actions.dispatch_actions import (
+    RUN_CI_KEYWORD,
     get_pr_branch,
+    main,
     trigger_and_get_workflow_info,
     update_comment,
-    main,
-    RUN_CI_KEYWORD,
 )
 
 
