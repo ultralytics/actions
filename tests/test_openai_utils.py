@@ -1,7 +1,8 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import pytest
+from unittest.mock import patch, MagicMock
 import os
-from unittest.mock import MagicMock, patch
 
 from actions.utils.openai_utils import get_completion, remove_outer_codeblocks
 
@@ -23,7 +24,6 @@ def test_remove_outer_codeblocks():
     assert remove_outer_codeblocks(input_str) == input_str
 
 
-@patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
 @patch("requests.post")
 def test_get_completion(mock_post):
     """Test OpenAI API completion function with mocked response."""
@@ -36,12 +36,15 @@ def test_get_completion(mock_post):
     # Test with basic messages
     messages = [{"role": "system", "content": "You are a helpful assistant"}, {"role": "user", "content": "Hello"}]
 
-    result = get_completion(messages, check_links=False)
+    # Use a context manager for the environment variable
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=False):
+        with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
+            result = get_completion(messages, check_links=False)
+
     assert result == "Test response from OpenAI"
     mock_post.assert_called_once()
 
 
-@patch.dict(os.environ, {"OPENAI_API_KEY": "test-key"})
 @patch("requests.post")
 @patch("actions.utils.openai_utils.check_links_in_string")
 def test_get_completion_with_link_check(mock_check_links, mock_post):
@@ -54,7 +57,11 @@ def test_get_completion_with_link_check(mock_check_links, mock_post):
     mock_check_links.return_value = True
 
     messages = [{"role": "user", "content": "Hello"}]
-    result = get_completion(messages)
+
+    # Use a context manager for the environment variable
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=False):
+        with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
+            result = get_completion(messages)
 
     assert result == "Response with https://example.com link"
     mock_check_links.assert_called_once()
