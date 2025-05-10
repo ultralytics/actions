@@ -1,15 +1,14 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import pytest
-from unittest.mock import patch, mock_open
 from pathlib import Path
+from unittest.mock import mock_open, patch
 
 from actions.update_markdown_code_blocks import (
-    extract_code_blocks,
-    remove_indentation,
     add_indentation,
+    extract_code_blocks,
     generate_temp_filename,
     process_markdown_file,
+    remove_indentation,
     update_markdown_file,
 )
 
