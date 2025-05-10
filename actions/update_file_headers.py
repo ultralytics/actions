@@ -35,7 +35,8 @@ COMMENT_MAP = {
     ".m": ("% ", None, None),
 }
 
-IGNORE_PATHS = [  # ignore these Paths (do not update their headers)
+# Ignore these Paths (do not update their headers)
+IGNORE_PATHS = [
     ".idea",
     ".venv",
     "env",
