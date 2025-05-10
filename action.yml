@@ -116,7 +116,7 @@ runs:
 
     # File header ------------------------------------------------------------------------------------------------------
     - name: File Header
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'synchronize'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
       env:
         HEADER: ${{ inputs.header }}
       run: |
