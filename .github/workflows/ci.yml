@@ -37,10 +37,7 @@ jobs:
           uv pip install --system -e ".[dev]"
 
       - name: Run Python tests
-        run: |
-          python -m pytest tests -v
-
-      - uses: ultralytics/actions/retry@main
+        uses: ultralytics/actions/retry@main
         with:
           retries: 1 # Retry once after initial attempt
           run: |
