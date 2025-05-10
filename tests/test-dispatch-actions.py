@@ -1,0 +1,148 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+import pytest
+from unittest.mock import patch, MagicMock
+from datetime import datetime
+
+from actions.dispatch_actions import (
+    get_pr_branch,
+    trigger_and_get_workflow_info,
+    update_comment,
+    main,
+    RUN_CI_KEYWORD,
+)
+
+
+def test_get_pr_branch():
+    """Test getting PR branch name."""
+    mock_event = MagicMock()
+    mock_event.event_data = {"issue": {"number": 123}}
+    mock_event.get_repo_data.return_value = {"head": {"ref": "feature-branch"}}
+    
+    branch = get_pr_branch(mock_event)
+    
+    assert branch == "feature-branch"
+    mock_event.get_repo_data.assert_called_once_with("pulls/123")
+
+
+def test_trigger_and_get_workflow_info():
+    """Test triggering workflows and getting info."""
+    mock_event = MagicMock()
+    mock_event.repository = "test/repo"
+    
+    # Mock post response for triggering workflow
+    mock_event.post.return_value = MagicMock()
+    
+    # Mock workflow response
+    mock_workflow_response = MagicMock()
+    mock_workflow_response.status_code = 200
+    mock_workflow_response.json.return_value = {"name": "CI Workflow"}
+    
+    # Mock runs response
+    mock_runs_response = MagicMock()
+    mock_runs_response.status_code = 200
+    mock_runs_response.json.return_value = {
+        "workflow_runs": [
+            {
+                "html_url": "https://github.com/test/repo/actions/runs/123",
+                "run_number": 42
+            }
+        ]
+    }
+    
+    # Set up get method to return different responses
+    mock_event.get.side_effect = [mock_workflow_response, mock_runs_response]
+    
+    # Use patch to skip time.sleep
+    with patch('time.sleep'):
+        results = trigger_and_get_workflow_info(mock_event, "feature-branch")
+    
+    assert len(results) == 1
+    assert results[0]["name"] == "CI Workflow"
+    assert results[0]["run_number"] == 42
+    assert results[0]["url"] == "https://github.com/test/repo/actions/runs/123"
+
+
+def test_update_comment():
+    """Test updating comment with workflow info."""
+    mock_event = MagicMock()
+    mock_event.repository = "test/repo"
+    mock_event.event_data = {"comment": {"id": 456}}
+    
+    comment_body = f"Run tests please {RUN_CI_KEYWORD}"
+    triggered_actions = [
+        {
+            "name": "CI Workflow",
+            "file": "ci.yml",
+            "url": "https://github.com/test/repo/actions/workflows/ci.yml",
+            "run_number": 42
+        }
+    ]
+    
+    # Mock datetime to have a consistent timestamp
+    with patch('actions.dispatch_actions.datetime') as mock_datetime:
+        mock_datetime.now.return_value = datetime(2023, 1, 1, 12, 0, 0)
+        updated = update_comment(mock_event, comment_body, triggered_actions, "feature-branch")
+    
+    assert updated is True
+    mock_event.patch.assert_called_once()
+    
+    # Check comment content
+    args, kwargs = mock_event.patch.call_args
+    assert "https://api.github.com/repos/test/repo/issues/comments/456" in args[0]
+    assert "Actions Trigger" in kwargs["json"]["body"]
+    assert "CI Workflow" in kwargs["json"]["body"]
+    assert "2023-01-01 12:00:00 UTC" in kwargs["json"]["body"]
+
+
+def test_main_triggers_workflows():
+    """Test main function when comment contains trigger keyword."""
+    with patch('actions.dispatch_actions.Action') as MockAction:
+        # Configure mock
+        mock_event = MockAction.return_value
+        mock_event.event_name = "issue_comment"
+        mock_event.event_data = {
+            "action": "created",
+            "issue": {"pull_request": {}},
+            "comment": {
+                "body": f"Please run CI {RUN_CI_KEYWORD}",
+                "user": {"login": "testuser"},
+                "id": 789
+            }
+        }
+        mock_event.is_org_member.return_value = True
+        
+        # Patch the functions called by main
+        with patch('actions.dispatch_actions.get_pr_branch', return_value="feature-branch") as mock_get_branch:
+            with patch('actions.dispatch_actions.trigger_and_get_workflow_info') as mock_trigger:
+                with patch('actions.dispatch_actions.update_comment') as mock_update:
+                    mock_trigger.return_value = [{"name": "CI", "file": "ci.yml", "url": "url", "run_number": 1}]
+                    
+                    main()
+                    
+                    # Verify all expected functions were called
+                    mock_event.toggle_eyes_reaction.assert_called_with(True)
+                    mock_get_branch.assert_called_once()
+                    mock_trigger.assert_called_once()
+                    mock_update.assert_called_once()
+
+
+def test_main_skips_non_pr_comments():
+    """Test main function skips non-PR comments."""
+    with patch('actions.dispatch_actions.Action') as MockAction:
+        # Configure mock
+        mock_event = MockAction.return_value
+        mock_event.event_name = "issue_comment"
+        mock_event.event_data = {
+            "action": "created",
+            "issue": {},  # No pull_request key
+            "comment": {
+                "body": f"Please run CI {RUN_CI_KEYWORD}",
+                "user": {"login": "testuser"}
+            }
+        }
+        
+        main()
+        
+        # Verify toggle_eyes_reaction was not called
+        mock_event.toggle_eyes_reaction.assert_not_called()

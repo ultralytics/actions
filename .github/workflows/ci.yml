@@ -45,8 +45,7 @@ jobs:
 
       - name: Run CLI tests
         run: |
-          # Runs CLI command "ultralytics-actions-info" with coverage
-          python -m coverage run --append -m actions.utils ultralytics_actions_info
+          ultralytics-actions-info
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
