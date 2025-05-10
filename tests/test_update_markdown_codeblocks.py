@@ -83,7 +83,7 @@ def test_generate_temp_filename():
 
 
 @patch("pathlib.Path.read_text")
-@patch("pathlib.Path.write")
+@patch("pathlib.Path.write_text")
 @patch("builtins.open", new_callable=mock_open)
 def test_process_markdown_file(mock_file, mock_write, mock_read_text):
     """Test processing markdown files."""
