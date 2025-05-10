@@ -93,11 +93,7 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
 
     # Check for special first line
     special_line_index = -1
-    if lines and (
-        lines[0].startswith("#!")
-        or lines[0].startswith("<?xml")
-        or lines[0].startswith("<!DOCTYPE")
-    ):
+    if lines and (lines[0].startswith("#!") or lines[0].startswith("<?xml") or lines[0].startswith("<!DOCTYPE")):
         special_line_index = 0
         prefix_lines.append(lines[0])
 
