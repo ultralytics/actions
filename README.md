@@ -5,12 +5,15 @@
 Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python and Swift projects. This GitHub Action is designed to automate the formatting of Python, Markdown, and Swift files, ensuring adherence to our coding standards and enhancing project maintainability.
 
 [![GitHub Actions Marketplace](https://img.shields.io/badge/Marketplace-Ultralytics_Actions-blue?style=flat&logo=github)](https://github.com/marketplace/actions/ultralytics-actions)
+
+[![Actions CI](https://github.com/ultralytics/actions/actions/workflows/ci.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/ci.yml)
 [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
+[![PyPI version](https://badge.fury.io/py/ultralytics-actions.svg)](https://badge.fury.io/py/ultralytics-actions)
+[![Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://www.pepy.tech/projects/ultralytics-actions)
+
 [![Ultralytics Discord](https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue)](https://discord.com/invite/ultralytics)
 [![Ultralytics Forums](https://img.shields.io/discourse/users?server=https%3A%2F%2Fcommunity.ultralytics.com&logo=discourse&label=Forums&color=blue)](https://community.ultralytics.com/)
 [![Ultralytics Reddit](https://img.shields.io/reddit/subreddit-subscribers/ultralytics?style=flat&logo=reddit&logoColor=white&label=Reddit&color=blue)](https://reddit.com/r/ultralytics)
-[![PyPI version](https://badge.fury.io/py/ultralytics-actions.svg)](https://badge.fury.io/py/ultralytics-actions)
-[![Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://www.pepy.tech/projects/ultralytics-actions)
 
 ## 📄 Actions Description
 
