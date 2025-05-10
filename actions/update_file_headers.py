@@ -163,7 +163,7 @@ def main(*args, **kwargs):
             header = f"Ultralytics Inc. 🚀 {notice} - CONFIDENTIAL - https://ultralytics.com - All Rights Reserved"
         else:
             header = "Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license"
-    elif HEADER and HEADER.lower() not in {"true", "false", "none"}:
+    elif HEADER and str(HEADER).lower() not in {"true", "false", "none"}:
         header = HEADER
     else:
         return
