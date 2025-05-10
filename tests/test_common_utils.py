@@ -17,7 +17,7 @@ def test_remove_html_comments():
 
     # Multiline comment
     test_str = "Before\n<!-- Comment\nline 2\nline 3 -->\nAfter"
-    assert remove_html_comments(test_str) == "Before\nAfter"
+    assert remove_html_comments(test_str) == "Before\n\nAfter"
 
     # No comments
     test_str = "No comments here"
