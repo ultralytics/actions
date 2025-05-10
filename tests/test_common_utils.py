@@ -1,14 +1,13 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock, patch
 
 from actions.utils.common_utils import (
-    remove_html_comments,
-    clean_url,
     allow_redirect,
     brave_search,
     check_links_in_string,
+    clean_url,
+    remove_html_comments,
 )
 
 

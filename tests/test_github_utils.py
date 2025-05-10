@@ -1,8 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import pytest
-from unittest.mock import patch, MagicMock
-from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 from actions.utils.github_utils import Action, check_pypi_version, ultralytics_actions_info
 
