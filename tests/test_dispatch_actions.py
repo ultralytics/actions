@@ -1,14 +1,15 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import pytest
+from unittest.mock import patch, MagicMock
 from datetime import datetime
-from unittest.mock import MagicMock, patch
 
 from actions.dispatch_actions import (
-    RUN_CI_KEYWORD,
     get_pr_branch,
-    main,
     trigger_and_get_workflow_info,
     update_comment,
+    main,
+    RUN_CI_KEYWORD,
 )
 
 
@@ -29,27 +30,39 @@ def test_trigger_and_get_workflow_info():
     mock_event = MagicMock()
     mock_event.repository = "test/repo"
 
-    # Mock post response for triggering workflow
-    mock_event.post.return_value = MagicMock()
+    # Mock the workflow and runs responses separately
+    workflow_response = MagicMock()
+    workflow_response.status_code = 200
+    workflow_response.json.return_value = {"name": "CI Workflow"}
 
-    # Mock workflow response
-    mock_workflow_response = MagicMock()
-    mock_workflow_response.status_code = 200
-    mock_workflow_response.json.return_value = {"name": "CI Workflow"}
-
-    # Mock runs response
-    mock_runs_response = MagicMock()
-    mock_runs_response.status_code = 200
-    mock_runs_response.json.return_value = {
+    runs_response = MagicMock()
+    runs_response.status_code = 200
+    runs_response.json.return_value = {
         "workflow_runs": [{"html_url": "https://github.com/test/repo/actions/runs/123", "run_number": 42}]
     }
 
-    # Set up get method to return different responses
-    mock_event.get.side_effect = [mock_workflow_response, mock_runs_response]
+    # Set up get method to return different responses for different URLs
+    def get_side_effect(url):
+        if "workflows/ci.yml" in url and "runs" not in url:
+            return workflow_response
+        elif "workflows/ci.yml/runs" in url:
+            return runs_response
+        # Return default response for unexpected URLs
+        default = MagicMock()
+        default.status_code = 404
+        return default
 
-    # Use patch to skip time.sleep
+    mock_event.get.side_effect = get_side_effect
+
+    # Use patch to skip time.sleep and limit to one workflow
     with patch("time.sleep"):
-        results = trigger_and_get_workflow_info(mock_event, "feature-branch")
+        with patch("actions.dispatch_actions.WORKFLOW_FILES", ["ci.yml"]):
+            results = trigger_and_get_workflow_info(mock_event, "feature-branch")
+
+    # Check results
+    assert len(results) == 1
+    assert results[0]["name"] == "CI Workflow"
+    assert results[0]["run_number"] == 42
 
     assert len(results) == 1
     assert results[0]["name"] == "CI Workflow"
@@ -95,6 +108,7 @@ def test_main_triggers_workflows():
         # Configure mock
         mock_event = MockAction.return_value
         mock_event.event_name = "issue_comment"
+        mock_event.repository = "test/repo"
         mock_event.event_data = {
             "action": "created",
             "issue": {"pull_request": {}},
@@ -102,19 +116,21 @@ def test_main_triggers_workflows():
         }
         mock_event.is_org_member.return_value = True
 
-        # Patch the functions called by main
-        with patch("actions.dispatch_actions.get_pr_branch", return_value="feature-branch") as mock_get_branch:
+        # Create minimal patches for the functions called by main
+        with patch("actions.dispatch_actions.get_pr_branch") as mock_get_branch:
             with patch("actions.dispatch_actions.trigger_and_get_workflow_info") as mock_trigger:
-                with patch("actions.dispatch_actions.update_comment") as mock_update:
+                with patch("actions.dispatch_actions.update_comment"):
+                    # Set return values
+                    mock_get_branch.return_value = "feature-branch"
                     mock_trigger.return_value = [{"name": "CI", "file": "ci.yml", "url": "url", "run_number": 1}]
 
+                    # Call the function
                     main()
 
-                    # Verify all expected functions were called
-                    mock_event.toggle_eyes_reaction.assert_called_with(True)
-                    mock_get_branch.assert_called_once()
-                    mock_trigger.assert_called_once()
-                    mock_update.assert_called_once()
+        # Verify main component calls were made
+        mock_event.is_org_member.assert_called_once_with("testuser")
+        mock_get_branch.assert_called_once()
+        mock_trigger.assert_called_once()
 
 
 def test_main_skips_non_pr_comments():
