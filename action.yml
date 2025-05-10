@@ -89,16 +89,6 @@ runs:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
         sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@headers codespell tomli
-#        packages="ultralytics-actions"
-#        if [ "$INPUTS_SPELLING" = "true" ]; then
-#          packages="$packages codespell tomli"
-#        fi
-#        # On macOS, don't use sudo as it can cause environment issues
-#        if [ "$(uname)" = "Darwin" ]; then
-#          uv pip install --system --break-system-packages $packages
-#        else
-#          sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
-#        fi
         ultralytics-actions-info
       shell: bash
 
@@ -132,7 +122,7 @@ runs:
       run: |
         ultralytics-actions-header
       shell: bash
-      continue-on-error: true
+      continue-on-error: false
 
     # Python formatting ------------------------------------------------------------------------------------------------
     # Ignores the following Docs rules to match Google-style docstrings:
