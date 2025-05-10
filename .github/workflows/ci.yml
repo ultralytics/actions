@@ -41,7 +41,7 @@ jobs:
         with:
           retries: 1 # Retry once after initial attempt
           run: |
-            python -m pytest tests -v
+            python -m pytest tests -v --cov=ultralytics --cov-report=xml
 
       - name: Run CLI tests
         run: |
