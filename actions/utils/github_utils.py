@@ -26,6 +26,7 @@ class Action:
         self.token = token or os.getenv("GITHUB_TOKEN")
         self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
         self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
+        print(self.event_data)
         self._default_status = {
             "get": [200],
             "post": [200, 201],
