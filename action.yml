@@ -188,9 +188,6 @@ runs:
     - name: Setup Dart SDK
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
       uses: dart-lang/setup-dart@v1
-      # You can specify a Dart SDK version if needed:
-      # with:
-      #   sdk: 'stable' # or '3.0.0', 'beta', 'dev'
 
     - name: Run Dart Formatter
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
