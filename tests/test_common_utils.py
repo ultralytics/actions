@@ -5,7 +5,6 @@ from unittest.mock import MagicMock, patch
 from actions.utils.common_utils import (
     allow_redirect,
     brave_search,
-    check_links_in_string,
     clean_url,
     remove_html_comments,
 )
