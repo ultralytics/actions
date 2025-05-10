@@ -1,8 +1,10 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import importlib
 import re
+import pytest
+import importlib
 
+import actions
 from actions import __version__
 from actions.utils import (
     GITHUB_API_URL,
@@ -62,23 +64,21 @@ def test_all_modules_importable():
 
 
 def test_cli_entry_points():
-    """Test that CLI entry points are properly defined in package."""
-    from pkg_resources import iter_entry_points
+    """Test that CLI entry points are defined in pyproject.toml."""
+    from pathlib import Path
 
-    entry_points = list(iter_entry_points(group="console_scripts"))
-    ultralytics_entry_points = [ep for ep in entry_points if ep.name.startswith("ultralytics-actions-")]
+    pyproject_path = Path(__file__).parents[1] / "pyproject.toml"
+    if not pyproject_path.exists():
+        pytest.skip("pyproject.toml not found")
 
-    # Check if we found any entry points - this might be an empty list
-    # if running tests without installation. If installed, verify the entry points.
-    if ultralytics_entry_points:
-        entry_point_names = [ep.name for ep in ultralytics_entry_points]
-        expected_names = [
-            "ultralytics-actions-first-interaction",
-            "ultralytics-actions-summarize-pr",
-            "ultralytics-actions-summarize-release",
-            "ultralytics-actions-update-markdown-code-blocks",
-            "ultralytics-actions-info",
-        ]
+    content = pyproject_path.read_text()
+    expected_names = [
+        "ultralytics-actions-first-interaction",
+        "ultralytics-actions-summarize-pr",
+        "ultralytics-actions-summarize-release",
+        "ultralytics-actions-update-markdown-code-blocks",
+        "ultralytics-actions-info",
+    ]
 
-        for name in expected_names:
-            assert name in entry_point_names, f"Entry point {name} not found"
+    for name in expected_names:
+        assert name in content, f"Entry point {name} not found in pyproject.toml"
