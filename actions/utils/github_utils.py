@@ -41,7 +41,7 @@ class Action:
         self.eyes_reaction_id = None
         self.verbose = verbose
 
-    def _request(self, method: str, url: str, headers=None, expected_status=None, **kwargs):
+    def _request(self, method: str, url: str, headers=None, expected_status=None, hard=False, **kwargs):
         """Unified request handler with error checking."""
         headers = headers or self.headers
         expected_status = expected_status or self._default_status[method.lower()]
@@ -59,7 +59,7 @@ class Action:
                 except Exception as e:
                     print(f"  ❌ Error: {response.text[:100]}... {e}")
 
-        if not success:
+        if not success and hard:
             response.raise_for_status()
 
         return response

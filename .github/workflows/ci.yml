@@ -28,7 +28,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - uses: astral-sh/setup-uv@v5
+      - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: false
 
@@ -37,9 +37,18 @@ jobs:
           uv pip install --system -e ".[dev]"
 
       - name: Run Python tests
-        run: |
-          python -m pytest tests -v
+        uses: ultralytics/actions/retry@main
+        with:
+          retries: 1 # Retry once after initial attempt
+          run: |
+            python -m pytest tests -v --cov=./ --cov-report=xml:coverage.xml
 
       - name: Run CLI tests
         run: |
           ultralytics-actions-info
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v5
+        with:
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}

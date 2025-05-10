@@ -5,12 +5,16 @@
 Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python and Swift projects. This GitHub Action is designed to automate the formatting of Python, Markdown, and Swift files, ensuring adherence to our coding standards and enhancing project maintainability.
 
 [![GitHub Actions Marketplace](https://img.shields.io/badge/Marketplace-Ultralytics_Actions-blue?style=flat&logo=github)](https://github.com/marketplace/actions/ultralytics-actions)
+
+[![Actions CI](https://github.com/ultralytics/actions/actions/workflows/ci.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/ci.yml)
 [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
+[![codecov](https://codecov.io/github/ultralytics/actions/graph/badge.svg?token=DoizJ1WS6j)](https://codecov.io/github/ultralytics/actions)
+[![PyPI version](https://badge.fury.io/py/ultralytics-actions.svg)](https://badge.fury.io/py/ultralytics-actions)
+[![Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://www.pepy.tech/projects/ultralytics-actions)
+
 [![Ultralytics Discord](https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue)](https://discord.com/invite/ultralytics)
 [![Ultralytics Forums](https://img.shields.io/discourse/users?server=https%3A%2F%2Fcommunity.ultralytics.com&logo=discourse&label=Forums&color=blue)](https://community.ultralytics.com/)
 [![Ultralytics Reddit](https://img.shields.io/reddit/subreddit-subscribers/ultralytics?style=flat&logo=reddit&logoColor=white&label=Reddit&color=blue)](https://reddit.com/r/ultralytics)
-[![PyPI version](https://badge.fury.io/py/ultralytics-actions.svg)](https://badge.fury.io/py/ultralytics-actions)
-[![Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://www.pepy.tech/projects/ultralytics-actions)
 
 ## 📄 Actions Description
 
@@ -47,6 +51,11 @@ To integrate this action into your Ultralytics repository:
 2.  **Add the Action:** Configure the Ultralytics Actions in your workflow file as shown below:
 
     ```yaml
+    # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+    # Ultralytics Actions https://github.com/ultralytics/actions
+    # This workflow formats code and documentation in PRs to Ultralytics standards
+
     name: Ultralytics Actions
 
     on:
@@ -54,24 +63,30 @@ To integrate this action into your Ultralytics repository:
         types: [opened]
       pull_request:
         branches: [main]
-        types: [opened, closed]
+        types: [opened, closed, synchronize, review_requested]
+
+    permissions:
+      contents: write # Modify code in PRs
+      pull-requests: write # Add comments and labels to PRs
+      issues: write # Add comments and labels to issues
 
     jobs:
-      format:
-        runs-on: ubuntu-latest # Use 'macos-latest' if 'swift: true'
+      actions:
+        runs-on: ubuntu-latest
         steps:
-          - name: Run Ultralytics Formatting
+          - name: Run Ultralytics Actions
             uses: ultralytics/actions@main
             with:
-              token: ${{ secrets.GITHUB_TOKEN }} # Automatically generated, do not modify
-              labels: true # Autolabel issues and PRs using GPT-4.1 (requires 'openai_api_key')
-              python: true # Format Python code and docstrings with Ruff and docformatter
-              prettier: true # Format YAML, JSON, Markdown, and CSS with Prettier
-              swift: false # Format Swift code with swift-format (requires 'runs-on: macos-latest')
+              token: ${{ secrets.GITHUB_TOKEN }} # Auto-generated token
+              labels: true # Auto-label issues/PRs using AI
+              python: true # Format Python with Ruff and docformatter
+              prettier: true # Format YAML, JSON, Markdown, CSS
+              swift: false # Format Swift (requires macos-latest)
               spelling: true # Check spelling with codespell
-              links: true # Check for broken links with Lychee
-              summary: true # Generate PR summary with GPT-4.1 (requires 'openai_api_key')
-              openai_api_key: ${{ secrets.OPENAI_API_KEY }} # Add your OpenAI API key as a repository secret
+              links: true # Check broken links with Lychee
+              summary: true # Generate AI-powered PR summaries
+              openai_api_key: ${{ secrets.OPENAI_API_KEY }} # Powers PR summaries, labels and comments
+              brave_api_key: ${{ secrets.BRAVE_API_KEY }} # Used for broken link resolution
     ```
 
 3.  **Customize:** Adjust the `runs-on` runner and the boolean flags (`labels`, `python`, `prettier`, `swift`, `spelling`, `links`, `summary`) based on your project's needs. Remember to add your `OPENAI_API_KEY` as a secret in your repository settings if you enable `labels` or `summary`.
