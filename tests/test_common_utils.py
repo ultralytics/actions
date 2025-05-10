@@ -39,7 +39,6 @@ def test_clean_url():
 
 def test_allow_redirect():
     """Test allowing URL redirects based on rules."""
-
     # Should not allow - start ignores
     assert not allow_redirect("https://youtu.be/xyz", "https://youtube.com")
 
