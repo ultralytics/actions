@@ -39,28 +39,28 @@ COMMENT_MAP = {
 }
 
 # Ignore these Paths (do not update their headers)
-IGNORE_PATHS = [
+IGNORE_PATHS = {
     ".idea",
     ".venv",
-    "env",
+    "env/",
     "node_modules",
     ".git",
     "__pycache__",
     "mkdocs_github_authors.yaml",
     # Build and distribution directories
-    "dist",
-    "build",
+    "dist/",
+    "build/",
     ".eggs",
-    "site",  # mkdocs build directory
+    "site/",  # mkdocs build directory
     # Generated code
-    "generated",
-    "auto_gen",
+    "generated/",
+    "auto_gen/",
     # Lock files
     "lock",
     # Minified files
     ".min.js",
     ".min.css",
-]
+}
 
 
 def update_file(file_path, prefix, block_start, block_end, base_header):
