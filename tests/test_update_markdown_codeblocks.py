@@ -9,7 +9,6 @@ from actions.update_markdown_code_blocks import (
     generate_temp_filename,
     process_markdown_file,
     remove_indentation,
-    update_markdown_file,
 )
 
 

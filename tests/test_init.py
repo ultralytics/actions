@@ -1,10 +1,10 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import re
-import pytest
 import importlib
+import re
 
-import actions
+import pytest
+
 from actions import __version__
 from actions.utils import (
     GITHUB_API_URL,
