@@ -1,7 +1,5 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import subprocess
-from unittest.mock import patch
 
 # Import CLI command modules
 from actions import (
