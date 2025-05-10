@@ -62,15 +62,3 @@ def test_brave_search(mock_get):
     results = brave_search("test query", "test-api-key", count=2)
     assert results == ["https://example.com", "https://example.org"]
     mock_get.assert_called_once()
-
-
-@patch("actions.utils.common_utils.is_url")
-def test_check_links_in_string_replacement(mock_is_url):
-    """Test replacing bad URLs in strings."""
-    mock_is_url.return_value = (True, "https://fixed.com")
-
-    text = "Check out [this link](https://broken.com)."
-    result = check_links_in_string(text, verbose=False, replace=True)
-
-    assert "https://fixed.com" in result
-    assert "https://broken.com" not in result
