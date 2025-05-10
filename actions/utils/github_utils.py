@@ -157,6 +157,7 @@ class Action:
             "github.event_name": self.event_name,
             "github.event.action": self.event_data.get("action"),
             "github.repository": self.repository,
+            "github.repository.private": self.repository.get("private"),
             "github.event.pull_request.number": self.pr.get("number"),
             "github.event.pull_request.head.repo.full_name": self.pr.get("head", {}).get("repo", {}).get("full_name"),
             "github.actor": os.environ.get("GITHUB_ACTOR"),
