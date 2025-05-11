@@ -103,7 +103,7 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
     end_idx = min(start_idx + 5, len(lines))  # Look in first few lines
 
     for i in range(start_idx, end_idx):
-        if "Ultralytics " in lines[i]:
+        if any(x in lines[i] for x in {"©", "AGPL-3.0", "Proprietary", "CONFIDENTIAL", "Ultralytics 🚀"}):
             header_index = i
             break
 
