@@ -29,6 +29,11 @@ COMMENT_MAP = {
     ".rs": ("// ", "/* ", " */"),  # Rust files
     ".java": ("// ", "/* ", " */"),  # Android Java
     ".kt": ("// ", "/* ", " */"),  # Android Kotlin
+    # Vue/Nuxt style
+    ".vue": ("// ", "/* ", " */"),  # Vue single-file components
+    # React/Next.js style
+    ".jsx": ("// ", "/* ", " */"),  # JSX files
+    ".tsx": ("// ", "/* ", " */"),  # TSX files
     # CSS style
     ".css": (None, "/* ", " */"),
     # HTML/XML style
