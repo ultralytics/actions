@@ -29,6 +29,11 @@ COMMENT_MAP = {
     ".rs": ("// ", "/* ", " */"),  # Rust files
     ".java": ("// ", "/* ", " */"),  # Android Java
     ".kt": ("// ", "/* ", " */"),  # Android Kotlin
+    # Vue/Nuxt style
+    ".vue": ("// ", "/* ", " */"),  # Vue single-file components
+    # React/Next.js style
+    ".jsx": ("// ", "/* ", " */"),  # JSX files
+    ".tsx": ("// ", "/* ", " */"),  # TSX files
     # CSS style
     ".css": (None, "/* ", " */"),
     # HTML/XML style
@@ -64,7 +69,7 @@ IGNORE_PATHS = {
 
 
 def update_file(file_path, prefix, block_start, block_end, base_header):
-    """Update file with the correct header and proper spacing."""
+    """Update file with header and proper spacing, respecting Python docstrings."""
     try:
         with open(file_path, encoding="utf-8") as f:
             lines = f.readlines()
@@ -86,9 +91,7 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
     # Save original content for comparison
     original_content = "".join(lines)
 
-    # Create two separate line collections:
-    # 1. prefix_lines: Special first line + header + blank line
-    # 2. content_lines: The actual file content (excluding header)
+    # Create two separate line collections
     prefix_lines = []
 
     # Check for special first line
@@ -103,7 +106,7 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
     end_idx = min(start_idx + 5, len(lines))  # Look in first few lines
 
     for i in range(start_idx, end_idx):
-        if "Ultralytics " in lines[i]:
+        if any(x in lines[i] for x in {"© 2014-", "AGPL-3.0", "CONFIDENTIAL", "Ultralytics 🚀"}):
             header_index = i
             break
 
@@ -127,8 +130,8 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
             # No special line, content starts at beginning
             content_lines = lines
 
-    # Add blank line before content if first content line isn't already blank
-    if content_lines and content_lines[0].strip():
+    # Add blank line if the first content line isn't blank and isn't a docstring
+    if content_lines and content_lines[0].strip() and not content_lines[0].strip().startswith('"""'):
         prefix_lines.append("\n")
 
     # Combine prefix lines and content lines
