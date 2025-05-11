@@ -30,6 +30,10 @@ inputs:
     description: "Run Swift formatting"
     required: false
     default: "false"
+  dart:
+    description: "Run Dart formatting"
+    required: false
+    default: "false"
   spelling:
     description: "Run Spelling checks"
     required: false
@@ -42,6 +46,10 @@ inputs:
     description: "Run PR Summary"
     required: false
     default: "false"
+  header:
+    description: "File header"
+    required: false
+    default: ""
   brave_api_key:
     description: "Brave API Key"
     required: false
@@ -76,7 +84,7 @@ runs:
         enable-cache: false
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
-      # sudo env "PATH=$PATH" uv pip install --system git+https://github.com/ultralytics/actions@main codespell tomli
+      # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@main codespell tomli
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
@@ -109,13 +117,23 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize'
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
-        BRAVE_API_KEY: ${{ inputs.openai_api_key }}
+        BRAVE_API_KEY: ${{ inputs.brave_api_key }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
         ultralytics-actions-summarize-pr
       shell: bash
       continue-on-error: true
+
+    # File header ------------------------------------------------------------------------------------------------------
+    - name: File Header
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
+      env:
+        HEADER: ${{ inputs.header }}
+      run: |
+        ultralytics-actions-headers
+      shell: bash
+      continue-on-error: false
 
     # Python formatting ------------------------------------------------------------------------------------------------
     # Ignores the following Docs rules to match Google-style docstrings:
@@ -182,6 +200,18 @@ runs:
       shell: bash
       continue-on-error: true
 
+    # Dart formatting --------------------------------------------------------------------------------------------------
+    - name: Setup Dart SDK
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
+      uses: dart-lang/setup-dart@v1
+
+    - name: Run Dart Formatter
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
+      run: |
+        dart format .
+      shell: bash
+      continue-on-error: true # Important so that commit step can pick up changes
+
     # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.spelling == 'true' && github.event.action != 'closed'
@@ -201,7 +231,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
         FIRST_ISSUE_RESPONSE: ${{ inputs.first_issue_response }}
         FIRST_PR_RESPONSE: ${{ inputs.first_pr_response }}
-        BRAVE_API_KEY: ${{ inputs.openai_api_key }}
+        BRAVE_API_KEY: ${{ inputs.brave_api_key }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
@@ -232,7 +262,7 @@ runs:
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
       if: inputs.links == 'true' && github.event.action != 'closed'
-      uses: lycheeverse/lychee-action@v2.4.0
+      uses: lycheeverse/lychee-action@v2.4.1
       with:
         # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:
         #   - 403(OpenVINO, "forbidden")
