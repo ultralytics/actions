@@ -112,10 +112,10 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
     # Determine where content starts and check for comment line after header
     content_lines = []
     has_comment_after_header = False
-    
+
     if header_index >= 0:
         next_line_idx = header_index + 1
-        
+
         # Check if there's a line after the header and if it's a comment or empty
         if next_line_idx < len(lines):
             next_line = lines[next_line_idx].strip()
@@ -132,12 +132,12 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
                 content_start = next_line_idx
         else:
             content_start = next_line_idx
-            
+
         content_lines = lines[content_start:]
     else:
         # No header found
         if special_line_index >= 0:
-            content_lines = lines[special_line_index + 1:]
+            content_lines = lines[special_line_index + 1 :]
         else:
             content_lines = lines
 
