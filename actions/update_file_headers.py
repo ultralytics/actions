@@ -64,7 +64,7 @@ IGNORE_PATHS = {
 
 
 def update_file(file_path, prefix, block_start, block_end, base_header):
-    """Update file with the correct header and proper spacing."""
+    """Update file preserving comments after header or adding blank line."""
     try:
         with open(file_path, encoding="utf-8") as f:
             lines = f.readlines()
@@ -78,17 +78,16 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
     # Format the header based on comment style
     if prefix:
         formatted_header = f"{prefix}{base_header}\n"
+        comment_marker = prefix
     elif block_start and block_end:
         formatted_header = f"{block_start}{base_header}{block_end}\n"
+        comment_marker = block_start.strip()
     else:
         formatted_header = f"# {base_header}\n"
+        comment_marker = "# "
 
     # Save original content for comparison
     original_content = "".join(lines)
-
-    # Create two separate line collections:
-    # 1. prefix_lines: Special first line + header + blank line
-    # 2. content_lines: The actual file content (excluding header)
     prefix_lines = []
 
     # Check for special first line
@@ -110,25 +109,40 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
     # Add the formatted header to prefix lines
     prefix_lines.append(formatted_header)
 
-    # Determine where content starts
+    # Determine where content starts and check for comment line after header
+    content_lines = []
+    has_comment_after_header = False
+    
     if header_index >= 0:
-        # Content starts after existing header
-        content_start = header_index + 1
-        # Skip blank line after header if present
-        if content_start < len(lines) and not lines[content_start].strip():
-            content_start += 1
+        next_line_idx = header_index + 1
+        
+        # Check if there's a line after the header and if it's a comment or empty
+        if next_line_idx < len(lines):
+            next_line = lines[next_line_idx].strip()
+            if next_line == "":
+                # Empty line - we'll add our own later
+                content_start = next_line_idx + 1
+            elif next_line.startswith(comment_marker):
+                # Comment line - preserve it
+                prefix_lines.append(lines[next_line_idx])
+                has_comment_after_header = True
+                content_start = next_line_idx + 1
+            else:
+                # Regular code - no blank line or comment after header
+                content_start = next_line_idx
+        else:
+            content_start = next_line_idx
+            
         content_lines = lines[content_start:]
     else:
         # No header found
         if special_line_index >= 0:
-            # Content starts after special line
-            content_lines = lines[special_line_index + 1 :]
+            content_lines = lines[special_line_index + 1:]
         else:
-            # No special line, content starts at beginning
             content_lines = lines
 
-    # Add blank line before content if first content line isn't already blank
-    if content_lines and content_lines[0].strip():
+    # Add blank line before content if no comment line was found and first content line isn't already blank
+    if not has_comment_after_header and content_lines and content_lines[0].strip():
         prefix_lines.append("\n")
 
     # Combine prefix lines and content lines
