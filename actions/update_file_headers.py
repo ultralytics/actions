@@ -30,7 +30,7 @@ COMMENT_MAP = {
     ".java": ("// ", "/* ", " */"),  # Android Java
     ".kt": ("// ", "/* ", " */"),  # Android Kotlin
     # Vue/Nuxt style
-    ".vue": (None, "<!-- ", " -->"),  # Vue components (must use HTML style, or Prettier will wrap at 80 chars)
+    # ".vue": (None, "<!-- ", " -->"),  # Vue components (WARNING: Prettier bug will wrap at 80 chars, do not use)
     # React/Next.js style
     ".jsx": ("// ", "/* ", " */"),  # JSX files
     ".tsx": ("// ", "/* ", " */"),  # TSX files
