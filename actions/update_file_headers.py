@@ -57,14 +57,36 @@ IGNORE_PATHS = {
     "build/",
     ".eggs",
     "site/",  # mkdocs build directory
-    # Generated code
-    "generated/",
-    "auto_gen/",
     # Lock files
     "lock",
     # Minified files
     ".min.js",
     ".min.css",
+    # Auto-generated files
+    "generated/",
+    "auto_gen/",
+    "Package.swift",
+    ".eslintrc.js",
+    ".prettierrc.js",
+    ".g.dart",
+    ".pb.c",
+    ".pb.cpp",
+    ".pb.h",
+    ".pb.js",
+    ".pb.py",
+    ".pb.swift",
+    "schema.graphql.ts",
+    "schema.graphql.js",
+    ".g.swift",
+    "tsconfig.generated.json",
+    "R.java",
+    "R.swift",
+    "BuildConfig.java",
+    ".designer.cs",
+    "swagger.yaml",
+    "swagger.yml",
+    "openapi.yaml",
+    "openapi.yml",
 }
 
 
