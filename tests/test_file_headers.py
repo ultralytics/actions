@@ -113,8 +113,3 @@ def test_ignore_paths():
     assert isinstance(IGNORE_PATHS, set)
     assert ".git" in IGNORE_PATHS
     assert "__pycache__" in IGNORE_PATHS
-
-        main(event=mock_event)
-
-        # Check that rglob was called for each extension
-        assert mock_cwd.rglob.call_count >= 1
