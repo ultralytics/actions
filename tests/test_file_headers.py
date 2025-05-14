@@ -5,7 +5,6 @@
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from unittest.mock import MagicMock, patch
 
 from actions.update_file_headers import COMMENT_MAP, IGNORE_PATHS, update_file
 
