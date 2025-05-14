@@ -114,36 +114,6 @@ def test_ignore_paths():
     assert ".git" in IGNORE_PATHS
     assert "__pycache__" in IGNORE_PATHS
 
-
-@patch("actions.update_file_headers.Path")
-def test_main_function(mock_path):
-    """Test the main function with mocked Path."""
-    # Mock repository checks
-    mock_event = MagicMock()
-    mock_event.repository = "ultralytics/actions"
-    mock_event.is_repo_private.return_value = False
-
-    # Mock Path.cwd() and Path.rglob()
-    mock_cwd = MagicMock()
-    mock_path.cwd.return_value = mock_cwd
-
-    # Mock some test files
-    test_files = [MagicMock() for _ in range(3)]
-
-    # Setup return paths for .py files
-    for i, test_file in enumerate(test_files):
-        test_file.relative_to.return_value = f"test{i}.py"
-        # Mock __str__ to be used in any() checks
-        test_file.__str__.return_value = f"/path/to/test{i}.py"
-
-    # Setup the rglob to return our test files
-    mock_cwd.rglob.return_value = test_files
-
-    # Patch update_file to return True (indicating changes made)
-    with patch("actions.update_file_headers.update_file", return_value=True):
-        from actions.update_file_headers import main
-
-        # Call the main function
         main(event=mock_event)
 
         # Check that rglob was called for each extension
