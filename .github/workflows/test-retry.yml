@@ -1,6 +1,8 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 name: Test Retry Action
+permissions:
+  contents: read
 on:
   pull_request:
     paths:
