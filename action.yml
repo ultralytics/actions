@@ -203,10 +203,7 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
       uses: dart-lang/setup-dart@v1
       with:
-        sdk: ${{ matrix.sdk }}
-      strategy:
-        matrix:
-          sdk: [stable, "3.7"]
+        sdk: stable
 
     - name: Run Dart Formatter
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
