@@ -22,4 +22,4 @@
 #     ├── test_summarize_pr.py
 #     └── ...
 
-__version__ = "0.0.82"
+__version__ = "0.0.83"

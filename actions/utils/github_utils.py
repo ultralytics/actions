@@ -115,7 +115,12 @@ class Action:
         """Retrieves the diff content for a specified pull request."""
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}"
         response = self.get(url, headers=self.headers_diff)
-        return response.text if response.status_code == 200 else ""
+        if response.status_code == 200:
+            return response.text
+        elif response.status_code == 406:
+            return "**ERROR: DIFF TOO LARGE - PR exceeds GitHub's 20,000 line limit, unable to retrieve diff."
+        else:
+            return "**ERROR: UNABLE TO RETRIEVE DIFF."
 
     def get_repo_data(self, endpoint: str) -> dict:
         """Fetches repository data from a specified endpoint."""
