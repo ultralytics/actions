@@ -10,7 +10,7 @@ from .common_utils import (
 )
 from .github_utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, ultralytics_actions_info
 from .openai_utils import get_completion
-from .version_utils import check_pypi_version, check_pubdev_version
+from .version_utils import check_pubdev_version, check_pypi_version
 
 __all__ = (
     "GITHUB_API_URL",
