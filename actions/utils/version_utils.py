@@ -18,7 +18,7 @@ def should_publish(local_version, remote_version):
         return (
             (maj == 0 and min == 0 and 0 < patch <= 2)  # patch diff <=2
             or (maj == 0 and min == 1 and patch == 0)  # minor diff == 1
-            or (maj == 1 and min == 0 and patch == 0)   # major diff == 1
+            or (maj == 1 and min == 0 and patch == 0)  # major diff == 1
         )
     else:
         return True
