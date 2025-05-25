@@ -1,8 +1,11 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import  yaml
-import re, tomllib, requests
+import re
 from pathlib import Path
+
+import requests
+import tomllib
+import yaml
 
 
 def should_publish(local_version, remote_version):
