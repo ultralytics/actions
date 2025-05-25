@@ -12,16 +12,16 @@ import tomllib
 
 def should_publish(local_version, remote_version):
     """Determine if version should be published based on semver rules."""
-    if not remote_version:
+    if remote_version:
+        local_ver, remote_ver = [tuple(map(int, v.split("."))) for v in [local_version, remote_version]]
+        maj, min, patch = [l - r for l, r in zip(local_ver, remote_ver)]
+        return (
+            (maj == 0 and min == 0 and 0 < patch <= 2)
+            or (maj == 0 and min == 1 and patch == 0)
+            or (maj == 1 and min == 0 and patch == 0)
+        )
+    else:
         return True
-    local_ver, remote_ver = [tuple(map(int, v.split("."))) for v in [local_version, remote_version]]
-    maj, min, patch = [l - r for l, r in zip(local_ver, remote_ver)]
-    return (
-        (maj == 0 and min == 0 and 0 < patch <= 2)
-        or (maj == 0 and min == 1 and patch == 0)
-        or (maj == 1 and min == 0 and patch == 0)
-    )
-
 
 def check_pypi_version(pyproject_toml="pyproject.toml"):
     """Compare local and PyPI package versions to determine if a new version should be published."""
