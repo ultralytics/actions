@@ -21,7 +21,7 @@ def should_publish(local_version, remote_version):
             or (maj == 1 and min == 0 and patch == 0)   # major diff == 1
         )
     else:
-        return True
+        return True  # possible first release
 
 
 def check_pypi_version(pyproject_toml="pyproject.toml"):
