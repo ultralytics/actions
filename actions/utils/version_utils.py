@@ -1,5 +1,8 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+# from actions.utils.version_utils import check_pypi_version
+# check_pypi_version()
+
 import  yaml
 import re, tomllib, requests
 from pathlib import Path
