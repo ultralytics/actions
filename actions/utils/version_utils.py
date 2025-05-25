@@ -14,12 +14,12 @@ def should_publish(local_version, remote_version):
     """Determine if version should be published based on semver rules."""
     if remote_version:
         local_ver, remote_ver = [tuple(map(int, v.split("."))) for v in [local_version, remote_version]]
-        maj, min, patch = [l - r for l, r in zip(local_ver, remote_ver)]
+        major_diff, minor_diff, patch_diff = [l - r for l, r in zip(local_ver, remote_ver)]
         return (
-            (maj == 0 and min == 0 and 0 < patch <= 2)  # patch diff <=2
-            or (maj == 0 and min == 1 and patch == 0)  # minor diff == 1
-            or (maj == 1 and min == 0 and patch == 0)  # major diff == 1
-        )
+            (major_diff == 0 and minor_diff == 0 and 0 < patch_diff <= 2)  # patch diff <=2
+            or (major_diff == 0 and minor_diff == 1 and local_ver[2] == 0)  # new minor version
+            or (major_diff == 1 and local_ver[1] == 0 and local_ver[2] == 0)  # new major version
+        )  # should publish an update
     else:
         return True  # possible first release
 
