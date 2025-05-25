@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from actions.utils.github_utils import Action, check_pypi_version, ultralytics_actions_info
+from actions.utils import Action, check_pypi_version, ultralytics_actions_info
 
 
 def test_action_init():

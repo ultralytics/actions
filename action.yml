@@ -81,6 +81,7 @@ runs:
   steps:
     - uses: astral-sh/setup-uv@v6
       with:
+        ignore-empty-workdir: true
         enable-cache: false
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
@@ -204,6 +205,8 @@ runs:
     - name: Setup Dart SDK
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
       uses: dart-lang/setup-dart@v1
+      with:
+        sdk: stable
 
     - name: Run Dart Formatter
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'

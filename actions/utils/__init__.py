@@ -8,8 +8,9 @@ from .common_utils import (
     allow_redirect,
     remove_html_comments,
 )
-from .github_utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, check_pypi_version, ultralytics_actions_info
+from .github_utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, ultralytics_actions_info
 from .openai_utils import get_completion
+from .version_utils import check_pubdev_version, check_pypi_version
 
 __all__ = (
     "GITHUB_API_URL",
@@ -20,6 +21,7 @@ __all__ = (
     "REDIRECT_END_IGNORE_LIST",
     "Action",
     "allow_redirect",
+    "check_pubdev_version",
     "check_pypi_version",
     "get_completion",
     "remove_html_comments",

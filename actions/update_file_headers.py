@@ -39,8 +39,6 @@ COMMENT_MAP = {
     # HTML/XML style
     ".html": (None, "<!-- ", " -->"),
     ".xml": (None, "<!-- ", " -->"),  # Android XML
-    # MATLAB style
-    ".m": ("% ", None, None),
 }
 
 # Ignore these Paths (do not update their headers)
