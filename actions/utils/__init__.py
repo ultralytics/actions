@@ -21,6 +21,7 @@ __all__ = (
     "REDIRECT_END_IGNORE_LIST",
     "Action",
     "allow_redirect",
+    "check_pubdev_version",
     "check_pypi_version",
     "get_completion",
     "remove_html_comments",
