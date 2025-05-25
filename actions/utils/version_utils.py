@@ -26,7 +26,9 @@ def should_publish(local_version, remote_version):
 
 def check_pypi_version(pyproject_toml="pyproject.toml"):
     """Compare local and PyPI package versions to determine if a new version should be published."""
-    pyproject = tomllib.loads(str(Path(pyproject_toml).read_bytes()))
+    with open(pyproject_toml, "rb") as f:
+        pyproject = tomllib.load(f)
+
     package_name = pyproject["project"]["name"]
     local_version = pyproject["project"].get("version", "dynamic")
 
