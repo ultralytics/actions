@@ -23,6 +23,7 @@ def should_publish(local_version, remote_version):
     else:
         return True
 
+
 def check_pypi_version(pyproject_toml="pyproject.toml"):
     """Compare local and PyPI package versions to determine if a new version should be published."""
     with open(pyproject_toml, "rb") as f:
