@@ -3,9 +3,12 @@
 # from actions.utils.version_utils import check_pypi_version
 # check_pypi_version()
 
-import  yaml
-import re, tomllib, requests
+import re
 from pathlib import Path
+
+import requests
+import tomllib
+import yaml
 
 
 def should_publish(local_version, remote_version):
