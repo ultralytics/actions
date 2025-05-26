@@ -1,6 +1,8 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
-
+import sys
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 from actions.utils import Action, check_pypi_version, ultralytics_actions_info
 
@@ -41,6 +43,7 @@ def test_load_event_data():
             assert data == {"test": "data"}
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="tomllib requires Python 3.11+")
 def test_check_pypi_version():
     """Test check_pypi_version function."""
     with patch("tomllib.load", return_value={"project": {"name": "test-package", "version": "1.0.0"}}):
