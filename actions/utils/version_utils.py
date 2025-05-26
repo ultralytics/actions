@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 
 import requests
+
 try:
     import tomllib  # Python 3.11+
 except ModuleNotFoundError:
