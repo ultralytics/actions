@@ -7,6 +7,23 @@ import pytest
 from actions.utils import Action, check_pypi_version, ultralytics_actions_info
 
 
+@pytest.mark.skipif(sys.version_info < (3, 11), reason="tomllib requires Python 3.11+")
+def test_check_pypi_version():
+    """Test check_pypi_version function."""
+    with patch("tomllib.load", return_value={"project": {"name": "test-package", "version": "1.0.0"}}):
+        with patch("requests.get") as mock_get:
+            mock_response = MagicMock()
+            mock_response.status_code = 200
+            mock_response.json.return_value = {"info": {"version": "0.9.0"}}
+            mock_get.return_value = mock_response
+
+            local_version, online_version, publish = check_pypi_version()
+
+            assert local_version == "1.0.0"
+            assert online_version == "0.9.0"
+            assert publish is True
+
+
 def test_action_init():
     """Test Action class initialization with default values."""
     with patch.dict("os.environ", {"GITHUB_TOKEN": "test-token", "GITHUB_EVENT_NAME": "push"}):
@@ -41,23 +58,6 @@ def test_load_event_data():
             action = Action()
             data = action._load_event_data("fake_path")
             assert data == {"test": "data"}
-
-
-@pytest.mark.skipif(sys.version_info < (3, 11), reason="tomllib requires Python 3.11+")
-def test_check_pypi_version():
-    """Test check_pypi_version function."""
-    with patch("tomllib.load", return_value={"project": {"name": "test-package", "version": "1.0.0"}}):
-        with patch("requests.get") as mock_get:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.json.return_value = {"info": {"version": "0.9.0"}}
-            mock_get.return_value = mock_response
-
-            local_version, online_version, publish = check_pypi_version()
-
-            assert local_version == "1.0.0"
-            assert online_version == "0.9.0"
-            assert publish is True
 
 
 def test_ultralytics_actions_info():
