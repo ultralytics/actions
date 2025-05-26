@@ -7,7 +7,10 @@ import re
 from pathlib import Path
 
 import requests
-import tomllib
+try:
+    import tomllib  # Python 3.11+
+except ModuleNotFoundError:
+    import tomli as tomllib  # Older Pythons
 
 
 def should_publish(local_version, remote_version):
