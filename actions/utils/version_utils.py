@@ -8,11 +8,6 @@ from pathlib import Path
 
 import requests
 
-try:
-    import tomllib  # Python 3.11+
-except ModuleNotFoundError:
-    import tomli as tomllib  # Older Pythons
-
 
 def should_publish(local_version, remote_version):
     """Determine if version should be published based on semver rules."""
@@ -30,6 +25,8 @@ def should_publish(local_version, remote_version):
 
 def check_pypi_version(pyproject_toml="pyproject.toml"):
     """Compare local and PyPI package versions to determine if a new version should be published."""
+    import tomllib  # Python 3.11+
+    
     with open(pyproject_toml, "rb") as f:
         pyproject = tomllib.load(f)
 
