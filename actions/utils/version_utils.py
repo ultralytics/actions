@@ -7,7 +7,6 @@ import re
 from pathlib import Path
 
 import requests
-import tomllib
 
 
 def should_publish(local_version, remote_version):
@@ -26,6 +25,8 @@ def should_publish(local_version, remote_version):
 
 def check_pypi_version(pyproject_toml="pyproject.toml"):
     """Compare local and PyPI package versions to determine if a new version should be published."""
+    import tomllib  # scope for Python 3.11+
+
     with open(pyproject_toml, "rb") as f:
         pyproject = tomllib.load(f)
 
