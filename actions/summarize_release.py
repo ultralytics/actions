@@ -172,7 +172,9 @@ def main(*args, **kwargs):
     test_response = event.get(test_url)
 
     if test_response.status_code != 200:
-        print(f"Comparison with {previous_tag} failed (status {test_response.status_code}), finding actual previous tag")
+        print(
+            f"Comparison with {previous_tag} failed (status {test_response.status_code}), finding actual previous tag"
+        )
         previous_tag = get_actual_previous_tag(CURRENT_TAG)
         print(f"Using actual previous tag: {previous_tag}")
 
