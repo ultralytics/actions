@@ -168,13 +168,8 @@ def main(*args, **kwargs):
     previous_tag = PREVIOUS_TAG or get_actual_previous_tag(CURRENT_TAG)
 
     # Test if the previous tag works for comparison
-    test_url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{CURRENT_TAG}"
-    test_response = event.get(test_url)
-
-    if test_response.status_code != 200:
-        print(
-            f"Comparison with {previous_tag} failed (status {test_response.status_code}), finding actual previous tag"
-        )
+    test_url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{CURRENT_TAG}"    
+    if event.get(test_url).status_code != 200:
         previous_tag = get_actual_previous_tag(CURRENT_TAG)
         print(f"Using actual previous tag: {previous_tag}")
 
