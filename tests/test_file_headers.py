@@ -1,7 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 from pathlib import Path
-from tempfile import TemporaryDirectory
 from unittest.mock import MagicMock, mock_open, patch
 
 from actions.update_markdown_code_blocks import (
@@ -116,9 +115,9 @@ def test_format_code_with_ruff(mock_run):
     """Test formatting Python code with ruff."""
     mock_run.return_value = MagicMock()
     temp_dir = Path("temp")
-    
+
     format_code_with_ruff(temp_dir)
-    
+
     assert mock_run.call_count == 3  # ruff format, ruff check, docformatter
     # Verify first call is ruff format
     assert mock_run.call_args_list[0][0][0] == ["ruff", "format", "--line-length=120", str(temp_dir)]
@@ -129,10 +128,10 @@ def test_format_code_with_ruff_error(mock_run):
     """Test ruff formatting with subprocess errors."""
     mock_run.side_effect = Exception("Command failed")
     temp_dir = Path("temp")
-    
+
     # Should not raise exception due to try/except blocks
     format_code_with_ruff(temp_dir)
-    
+
     assert mock_run.call_count == 3
 
 
@@ -143,9 +142,9 @@ def test_format_bash_with_prettier(mock_run):
     mock_result.returncode = 0
     mock_run.return_value = mock_result
     temp_dir = Path("temp")
-    
+
     format_bash_with_prettier(temp_dir)
-    
+
     mock_run.assert_called_once()
     assert mock_run.call_args[1]["shell"] is True
 
@@ -157,10 +156,10 @@ def test_format_bash_with_prettier_error(mock_run):
     mock_result.returncode = 1
     mock_result.stderr = "Prettier error"
     mock_run.return_value = mock_result
-    
+
     temp_dir = Path("temp")
     format_bash_with_prettier(temp_dir)
-    
+
     mock_run.assert_called_once()
 
 
@@ -168,13 +167,13 @@ def test_format_bash_with_prettier_error(mock_run):
 def test_update_markdown_file(mock_file):
     """Test updating markdown files with formatted code."""
     mock_file.return_value.read.return_value = "formatted code"
-    
+
     file_path = Path("test.md")
     markdown_content = "```python\noriginal code\n```"
     temp_files = [(0, "original code", Path("temp.py"), "python")]
-    
+
     update_markdown_file(file_path, markdown_content, temp_files)
-    
+
     # Verify file operations
     assert mock_file.call_count >= 2  # Read temp file, write markdown file
 
@@ -191,19 +190,19 @@ def test_main(mock_mkdir, mock_rglob, mock_process, mock_update, mock_ruff, mock
     # Mock markdown files
     mock_files = [Path("test1.md"), Path("test2.md")]
     mock_rglob.return_value = mock_files
-    
+
     # Mock process_markdown_file return values
     mock_process.side_effect = [
         ("content1", [(0, "code1", Path("temp1.py"), "python")]),
-        ("content2", [(0, "code2", Path("temp2.sh"), "bash")])
+        ("content2", [(0, "code2", Path("temp2.sh"), "bash")]),
     ]
-    
+
     main(process_python=True, process_bash=True)
-    
+
     # Verify directory operations
     mock_mkdir.assert_called_once_with(exist_ok=True)
     mock_rmtree.assert_called_once()
-    
+
     # Verify processing calls
     assert mock_process.call_count == 2
     mock_ruff.assert_called_once()
@@ -221,9 +220,9 @@ def test_main_python_only(mock_mkdir, mock_rglob, mock_process, mock_ruff, mock_
     mock_files = [Path("test.md")]
     mock_rglob.return_value = mock_files
     mock_process.return_value = ("content", [(0, "code", Path("temp.py"), "python")])
-    
+
     main(process_python=True, process_bash=False)
-    
+
     mock_ruff.assert_called_once()
     # format_bash_with_prettier should not be called
     with patch("actions.update_markdown_code_blocks.format_bash_with_prettier") as mock_prettier:
