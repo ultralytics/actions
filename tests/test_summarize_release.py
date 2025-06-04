@@ -34,15 +34,25 @@ def test_get_prs_between_tags():
     """Test retrieving PRs between tags."""
     mock_event = MagicMock()
     mock_event.repository = "test/repo"
-    
+
     mock_event.get.side_effect = [
         MagicMock(status_code=200, json=lambda: {"commits": [{"commit": {"message": "Fix bug #123"}}]}),
-        MagicMock(status_code=200, json=lambda: {"number": 123, "title": "Fix bug", "body": "Fix", "user": {"login": "user1"}, "html_url": "url", "merged_at": "2023-01-01T12:00:00Z"})
+        MagicMock(
+            status_code=200,
+            json=lambda: {
+                "number": 123,
+                "title": "Fix bug",
+                "body": "Fix",
+                "user": {"login": "user1"},
+                "html_url": "url",
+                "merged_at": "2023-01-01T12:00:00Z",
+            },
+        ),
     ]
-    
+
     with patch("time.sleep"):
         prs = get_prs_between_tags(mock_event, "v1.0.0", "v1.1.0")
-    
+
     assert len(prs) == 1
     assert prs[0]["number"] == 123
 
@@ -51,7 +61,7 @@ def test_get_prs_between_tags_api_failure():
     """Test API failure returns empty list."""
     mock_event = MagicMock()
     mock_event.get.return_value = MagicMock(status_code=404)
-    
+
     assert get_prs_between_tags(mock_event, "v1.0.0", "v1.1.0") == []
 
 
@@ -59,7 +69,7 @@ def test_get_prs_between_tags_missing_commits():
     """Test missing commits data returns empty list."""
     mock_event = MagicMock()
     mock_event.get.return_value = MagicMock(status_code=200, json=lambda: {"message": "No commits"})
-    
+
     assert get_prs_between_tags(mock_event, "v1.0.0", "v1.1.0") == []
 
 
@@ -67,7 +77,7 @@ def test_get_prs_between_tags_empty_commits():
     """Test empty commits list returns empty list."""
     mock_event = MagicMock()
     mock_event.get.return_value = MagicMock(status_code=200, json=lambda: {"commits": []})
-    
+
     with patch("time.sleep"):
         assert get_prs_between_tags(mock_event, "v1.0.0", "v1.1.0") == []
 
