@@ -30,10 +30,6 @@ inputs:
     description: "Run Swift formatting"
     required: false
     default: "false"
-  dart:
-    description: "Run Dart formatting"
-    required: false
-    default: "false"
   spelling:
     description: "Run Spelling checks"
     required: false
@@ -198,20 +194,6 @@ runs:
         swift-format --in-place --recursive .
       shell: bash
       continue-on-error: true
-
-    # Dart formatting --------------------------------------------------------------------------------------------------
-    - name: Setup Dart SDK
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
-      uses: dart-lang/setup-dart@v1
-      with:
-        sdk: stable
-
-    - name: Run Dart Formatter
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
-      run: |
-        dart format .
-      shell: bash
-      continue-on-error: true # Important so that commit step can pick up changes
 
     # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
