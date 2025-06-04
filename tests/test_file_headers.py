@@ -5,8 +5,9 @@
 
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
-from actions.update_file_headers import COMMENT_MAP, IGNORE_PATHS, update_file
+from actions.update_file_headers import COMMENT_MAP, IGNORE_PATHS, main, update_file
 
 
 def test_update_file_python():
@@ -112,3 +113,23 @@ def test_ignore_paths():
     assert isinstance(IGNORE_PATHS, set)
     assert ".git" in IGNORE_PATHS
     assert "__pycache__" in IGNORE_PATHS
+
+
+def test_main_real_files():
+    """Test main function on actual repository files."""
+    # Mock update_file to prevent actual file modifications during testing
+    with patch("actions.update_file_headers.update_file", return_value=False) as mock_update:
+        main()
+        # Verify that update_file was called (indicates file processing occurred)
+        assert mock_update.call_count > 0
+
+
+def test_main_with_custom_header():
+    """Test main function with custom header environment variable."""
+    with patch("actions.update_file_headers.update_file", return_value=False):
+        with patch("actions.update_file_headers.HEADER", "Custom Test Header"):
+            with patch("actions.update_file_headers.Action") as mock_action:
+                mock_event = mock_action.return_value
+                mock_event.repository = "test/repo"
+                main()
+                mock_action.assert_called_once()

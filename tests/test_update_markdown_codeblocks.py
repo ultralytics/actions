@@ -7,6 +7,7 @@ from actions.update_markdown_code_blocks import (
     add_indentation,
     extract_code_blocks,
     generate_temp_filename,
+    main,
     process_markdown_file,
     remove_indentation,
 )
@@ -104,3 +105,10 @@ def test():
     assert len(temp_files) == 1
     assert temp_files[0][1] == "def test():\n    return True"
     mock_file.assert_called_once()
+
+
+def test_main_real_files():
+    """Test main function on actual repository markdown files."""
+    # Run main on current directory which contains README.md and other markdown files
+    # This provides real-world test coverage of the entire pipeline
+    main(process_python=True, process_bash=True, verbose=False)
