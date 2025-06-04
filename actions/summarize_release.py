@@ -25,7 +25,15 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
     url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{latest_tag}"
     r = event.get(url)
 
+    if r.status_code != 200:
+        print(f"Failed to get comparison between {previous_tag} and {latest_tag}, status: {r.status_code}")
+        return []
+
     data = r.json()
+    if "commits" not in data:
+        print(f"No commits found in comparison between {previous_tag} and {latest_tag}")
+        return []
+
     pr_numbers = set()
     for commit in data["commits"]:
         pr_matches = re.findall(r"#(\d+)", commit["commit"]["message"])
@@ -139,9 +147,9 @@ def create_github_release(event, tag_name: str, name: str, body: str):
     event.post(url, json=data)
 
 
-def get_previous_tag() -> str:
-    """Retrieves the previous Git tag, excluding the current tag, using the git describe command."""
-    cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", CURRENT_TAG]
+def get_actual_previous_tag(current_tag: str) -> str:
+    """Gets the actual previous tag using git, excluding the current tag."""
+    cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", current_tag]
     try:
         return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
     except subprocess.CalledProcessError:
@@ -156,7 +164,14 @@ def main(*args, **kwargs):
     if not all([event.token, CURRENT_TAG]):
         raise ValueError("One or more required environment variables are missing.")
 
-    previous_tag = PREVIOUS_TAG or get_previous_tag()
+    # Try PREVIOUS_TAG first, fall back to actual previous tag if comparison fails
+    previous_tag = PREVIOUS_TAG or get_actual_previous_tag(CURRENT_TAG)
+
+    # Test if the previous tag works for comparison
+    test_url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{CURRENT_TAG}"
+    if event.get(test_url).status_code != 200:
+        previous_tag = get_actual_previous_tag(CURRENT_TAG)
+        print(f"Using actual previous tag: {previous_tag}")
 
     # Get the diff between the tags
     diff = get_release_diff(event, previous_tag, CURRENT_TAG)
