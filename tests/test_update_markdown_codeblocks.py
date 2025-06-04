@@ -111,4 +111,4 @@ def test_main_real_files():
     """Test main function on actual repository markdown files."""
     # Run main on current directory which contains README.md and other markdown files
     # This provides real-world test coverage of the entire pipeline
-    main(process_python=False, process_bash=False, verbose=False)  # Skip actual formatting to avoid changes
+    main(process_python=True, process_bash=True, verbose=False)
