@@ -189,7 +189,8 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
                     # Try HEAD first, then GET if needed
                     for method in (requester.head, requester.get):
                         response = method(url, stream=method == requester.get, **kwargs)
-                        if redirect and allow_redirect(start=url, end=response.url):
+                        # Only update URL if there were actual HTTP redirects (indicated by response.history)
+                        if redirect and response.history and allow_redirect(start=url, end=response.url):
                             url = response.url
                         if response.status_code not in BAD_HTTP_CODES:
                             return (True, url) if return_url else True
