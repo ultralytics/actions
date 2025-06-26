@@ -175,7 +175,7 @@ runs:
     - name: Run Prettier
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
       run: |
-        npm install --global prettier prettier-plugin-sh
+        npm install --global prettier@^3.6.1 prettier-plugin-sh
         ultralytics-actions-update-markdown-code-blocks
         npx prettier --write --list-different "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json'
         # Bash file format
