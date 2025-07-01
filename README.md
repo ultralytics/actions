@@ -69,6 +69,7 @@ To integrate this action into your Ultralytics repository:
       contents: write # Modify code in PRs
       pull-requests: write # Add comments and labels to PRs
       issues: write # Add comments and labels to issues
+      models: read # Use GitHub Models for inference (optional)
 
     jobs:
       actions:
@@ -90,7 +91,7 @@ To integrate this action into your Ultralytics repository:
               brave_api_key: ${{ secrets.BRAVE_API_KEY }} # Used for broken link resolution
     ```
 
-3.  **Customize:** Adjust the `runs-on` runner and the boolean flags (`labels`, `python`, `prettier`, `swift`, `spelling`, `links`, `summary`) based on your project's needs. Remember to add your `OPENAI_API_KEY` as a secret in your repository settings if you enable `labels` or `summary`.
+3.  **Customize:** Adjust the `runs-on` runner and the boolean flags (`labels`, `python`, `prettier`, `swift`, `spelling`, `links`, `summary`) based on your project's needs. If you enable `labels` or `summary`, you'll use LLM inference: by default via free [GitHub Models](https://github.com/features/models), or alternatively you can add your `OPENAI_API_KEY` as a secret in your repository settings.
 
 ## 💡 Contribute
 

@@ -63,3 +63,72 @@ def test_get_completion_with_link_check(mock_check_links, mock_post):
 
     assert result == "Response with https://example.com link"
     mock_check_links.assert_called_once()
+
+
+@patch("requests.post")
+def test_get_completion_with_github_token(mock_post):
+    """Test GitHub Models API completion function with mocked response."""
+    # Setup mock response
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"choices": [{"message": {"content": "Test response from GitHub Models"}}]}
+    mock_post.return_value = mock_response
+
+    # Test with basic messages
+    messages = [{"role": "system", "content": "You are a helpful assistant"}, {"role": "user", "content": "Hello"}]
+
+    # Use GitHub token instead of OpenAI API key
+    with patch.dict("os.environ", {"GITHUB_TOKEN": "test-github-token"}, clear=True):
+        with patch("actions.utils.openai_utils.OPENAI_API_KEY", None):
+            with patch("actions.utils.openai_utils.GITHUB_TOKEN", "test-github-token"):
+                result = get_completion(messages, check_links=False)
+
+    assert result == "Test response from GitHub Models"
+    mock_post.assert_called_once()
+    
+    # Verify the correct URL and headers were used for GitHub Models
+    call_args = mock_post.call_args
+    assert call_args[0][0] == "https://models.github.ai/inference/chat/completions"
+    assert "Bearer test-github-token" in call_args[1]["headers"]["Authorization"]
+    
+    # Verify model name is prefixed with "openai/"
+    data = call_args[1]["json"]
+    assert data["model"].startswith("openai/")
+
+
+def test_get_completion_no_credentials():
+    """Test that get_completion raises error when no credentials are available."""
+    messages = [{"role": "user", "content": "Hello"}]
+    
+    # Test with no credentials
+    with patch.dict("os.environ", {}, clear=True):
+        with patch("actions.utils.openai_utils.OPENAI_API_KEY", None):
+            with patch("actions.utils.openai_utils.GITHUB_TOKEN", None):
+                try:
+                    get_completion(messages, check_links=False)
+                    assert False, "Expected AssertionError to be raised"
+                except AssertionError as e:
+                    assert "Either OpenAI API key or GitHub token is required" in str(e)
+
+
+@patch("requests.post")
+def test_get_completion_openai_preferred_over_github(mock_post):
+    """Test that OpenAI API is preferred when both credentials are available."""
+    # Setup mock response
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {"choices": [{"message": {"content": "Test response"}}]}
+    mock_post.return_value = mock_response
+
+    messages = [{"role": "user", "content": "Hello"}]
+
+    # Test with both credentials available
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-openai-key", "GITHUB_TOKEN": "test-github-token"}, clear=True):
+        with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-openai-key"):
+            with patch("actions.utils.openai_utils.GITHUB_TOKEN", "test-github-token"):
+                result = get_completion(messages, check_links=False)
+
+    # Verify OpenAI API was used (not GitHub Models)
+    call_args = mock_post.call_args
+    assert call_args[0][0] == "https://api.openai.com/v1/chat/completions"
+    assert "Bearer test-openai-key" in call_args[1]["headers"]["Authorization"]
