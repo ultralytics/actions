@@ -37,9 +37,8 @@ def get_completion(
 ) -> str:
     """
     Generates a completion using OpenAI's API or GitHub Models API based on available credentials.
-    
-    Prioritizes OpenAI API if OPENAI_API_KEY is available, otherwise falls back to GitHub Models
-    using GITHUB_TOKEN.
+
+    Prioritizes OpenAI API if OPENAI_API_KEY is available, otherwise falls back to GitHub Models using GITHUB_TOKEN.
     """
     if OPENAI_API_KEY:
         url = "https://api.openai.com/v1/chat/completions"
@@ -49,7 +48,7 @@ def get_completion(
         url = "https://models.github.ai/inference/chat/completions"
         headers = {"Authorization": f"Bearer {GITHUB_TOKEN}", "Content-Type": "application/json"}
         model = GITHUB_MODEL
-    
+
     if messages and messages[0].get("role") == "system":
         messages[0]["content"] += "\n\n" + SYSTEM_PROMPT_ADDITION
 
