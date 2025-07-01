@@ -19,6 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      models: read
     outputs:
       increment: ${{ steps.check_pypi.outputs.increment }}
       current_tag: ${{ steps.check_pypi.outputs.current_tag }}
