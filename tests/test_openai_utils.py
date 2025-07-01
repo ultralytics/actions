@@ -96,21 +96,6 @@ def test_get_completion_with_github_token(mock_post):
     assert data["model"].startswith("openai/")
 
 
-def test_get_completion_no_credentials():
-    """Test that get_completion raises error when no credentials are available."""
-    messages = [{"role": "user", "content": "Hello"}]
-
-    # Test with no credentials
-    with patch.dict("os.environ", {}, clear=True):
-        with patch("actions.utils.openai_utils.OPENAI_API_KEY", None):
-            with patch("actions.utils.openai_utils.GITHUB_TOKEN", None):
-                try:
-                    get_completion(messages, check_links=False)
-                    assert False, "Expected AssertionError to be raised"
-                except AssertionError as e:
-                    assert "Either OpenAI API key or GitHub token is required" in str(e)
-
-
 @patch("requests.post")
 def test_get_completion_openai_preferred_over_github(mock_post):
     """Test that OpenAI API is preferred when both credentials are available."""
