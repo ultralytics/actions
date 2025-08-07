@@ -72,7 +72,7 @@ def get_completion(
 if __name__ == "__main__":
     messages = [
         {"role": "system", "content": "You are a helpful AI assistant."},
-        {"role": "user", "content": "Explain how to export a YOLO11 model to CoreML."}
+        {"role": "user", "content": "Explain how to export a YOLO11 model to CoreML."},
     ]
     response = get_completion(messages)
     print(response)
