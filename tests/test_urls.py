@@ -12,10 +12,10 @@ URLS = [
     "https://ultralytics.com/images/bus.jpg",
     "https://github.com/ultralytics/ultralytics",
     # "https://azure.microsoft.com/",  # aggressive bot protections makes Azure links hard to test
+    # "https://azure.microsoft.com/en-us/services/machine-learning/",
+    # "https://azure.microsoft.com/en-us/products/storage/blobs",
     "https://www.tableau.com/",
     "https://openai.com/research/gpt-4",
-    "https://azure.microsoft.com/en-us/services/machine-learning/",
-    "https://azure.microsoft.com/en-us/products/storage/blobs",
     "https://www.reuters.com/article/idUSKCN1MK08G/",
     "https://www.kdnuggets.com/",
     "https://www.datacamp.com/tutorial/understanding-logistic-regression-python",
