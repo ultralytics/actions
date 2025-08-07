@@ -26,8 +26,8 @@ Ultralytics Actions automatically applies formats, updates, and enhancements usi
 - **Swift Code:** Formatted with [`swift-format`](https://github.com/swiftlang/swift-format) to maintain a uniform coding style across Swift projects. _(Note: Requires the `macos-latest` runner.)_
 - **Spell Check:** Common misspellings are caught using [codespell](https://github.com/codespell-project/codespell).
 - **Broken Links Check:** Broken links in documentation and Markdown files are identified using [Lychee](https://github.com/lycheeverse/lychee).
-- **PR Summary:** Concise Pull Request summaries are generated using [OpenAI](https://openai.com/) GPT-4.1, improving clarity and review efficiency.
-- **Auto-labeling:** Relevant labels are applied to issues and pull requests via [OpenAI](https://openai.com/) GPT-4.1 for intelligent categorization.
+- **PR Summary:** Concise Pull Request summaries are generated using [OpenAI](https://openai.com/) GPT-5, improving clarity and review efficiency.
+- **Auto-labeling:** Relevant labels are applied to issues and pull requests via [OpenAI](https://openai.com/) GPT-5 for intelligent categorization.
 
 ## 🛠️ How It Works
 
@@ -36,9 +36,9 @@ Ultralytics Actions triggers on various GitHub events to streamline workflows:
 - **Push Events:** Automatically formats code when changes are pushed to the `main` branch.
 - **Pull Requests:**
   - Ensures contributions meet formatting standards before merging.
-  - Generates a concise summary of changes using GPT-4.1.
-  - Applies relevant labels using GPT-4.1 for intelligent categorization.
-- **Issues:** Automatically applies relevant labels using GPT-4.1 when new issues are created.
+  - Generates a concise summary of changes using GPT-5.
+  - Applies relevant labels using GPT-5 for intelligent categorization.
+- **Issues:** Automatically applies relevant labels using GPT-5 when new issues are created.
 
 These automated actions help maintain high code quality, improve documentation clarity, and streamline the review process by providing consistent formatting, informative summaries, and appropriate categorization.
 

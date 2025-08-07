@@ -89,7 +89,7 @@ def generate_pr_summary(repository, diff_text):
             f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}",
         },
     ]
-    reply = get_completion(messages, temperature=0.2)
+    reply = get_completion(messages, temperature=1.0)
     if len(diff_text) > limit:
         reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
     return SUMMARY_START + reply
