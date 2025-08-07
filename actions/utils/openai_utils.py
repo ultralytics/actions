@@ -31,7 +31,7 @@ def get_completion(
     messages: List[Dict[str, str]],
     check_links: bool = True,
     remove: List[str] = (" @giscus[bot]",),  # strings to remove from response
-    temperature: float = 0.7,  # default temperature value
+    temperature: float = 1.0,  # note GPT-5 requires temperature=1.0
 ) -> str:
     """Generates a completion using OpenAI's API based on input messages."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
