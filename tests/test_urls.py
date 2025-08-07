@@ -11,7 +11,7 @@ URLS = [
     "https://ultralytics.com",
     "https://ultralytics.com/images/bus.jpg",
     "https://github.com/ultralytics/ultralytics",
-    "https://azure.microsoft.com/",
+    # "https://azure.microsoft.com/",  # aggressive bot protections makes Azure links hard to test
     "https://www.tableau.com/",
     "https://openai.com/research/gpt-4",
     "https://azure.microsoft.com/en-us/services/machine-learning/",
