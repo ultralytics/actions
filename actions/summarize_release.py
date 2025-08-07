@@ -137,7 +137,7 @@ def generate_release_summary(
         },
     ]
     # print(messages[-1]["content"])  # for debug
-    return get_completion(messages, temperature=0.2) + release_suffix
+    return get_completion(messages, temperature=1.0) + release_suffix
 
 
 def create_github_release(event, tag_name: str, name: str, body: str):

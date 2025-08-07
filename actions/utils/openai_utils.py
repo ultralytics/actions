@@ -9,7 +9,7 @@ import requests
 from actions.utils.common_utils import check_links_in_string
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-4.1-2025-04-14")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-2025-08-07")
 SYSTEM_PROMPT_ADDITION = """
 Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO12, etc., not YOLOv11, YOLOv12 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
@@ -31,7 +31,7 @@ def get_completion(
     messages: List[Dict[str, str]],
     check_links: bool = True,
     remove: List[str] = (" @giscus[bot]",),  # strings to remove from response
-    temperature: float = 0.7,  # default temperature value
+    temperature: float = 1.0,  # note GPT-5 requires temperature=1.0
 ) -> str:
     """Generates a completion using OpenAI's API based on input messages."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
@@ -67,3 +67,12 @@ def get_completion(
             check_links = False  # automatically accept the last message
 
     return content
+
+
+if __name__ == "__main__":
+    messages = [
+        {"role": "system", "content": "You are a helpful AI assistant."},
+        {"role": "user", "content": "Explain how to export a YOLO11 model to CoreML."},
+    ]
+    response = get_completion(messages)
+    print(response)
