@@ -50,7 +50,7 @@ def get_completion(
             "seed": int(time.time() * 1000),
             "temperature": temperature,
         }
-        
+
         # Add reasoning_effort for GPT-5 models
         if "gpt-5" in OPENAI_MODEL:
             data["reasoning_effort"] = reasoning_effort or "minimal"  # Default to minimal for GPT-5
