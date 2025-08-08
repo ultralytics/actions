@@ -32,6 +32,7 @@ def get_completion(
     check_links: bool = True,
     remove: List[str] = (" @giscus[bot]",),  # strings to remove from response
     temperature: float = 1.0,  # note GPT-5 requires temperature=1.0
+    reasoning_effort: str = None,  # reasoning effort for GPT-5 models: minimal, low, medium, high
 ) -> str:
     """Generates a completion using OpenAI's API based on input messages."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
@@ -49,6 +50,10 @@ def get_completion(
             "seed": int(time.time() * 1000),
             "temperature": temperature,
         }
+
+        # Add reasoning_effort for GPT-5 models
+        if "gpt-5" in OPENAI_MODEL:
+            data["reasoning_effort"] = reasoning_effort or "minimal"  # Default to minimal for GPT-5
 
         r = requests.post(url, json=data, headers=headers)
         r.raise_for_status()
