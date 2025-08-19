@@ -55,7 +55,7 @@ def get_completion(
 
         # Add reasoning_effort for GPT-5 models
         if "gpt-5" in OPENAI_MODEL:
-            data["reasoning_effort"] = reasoning_effort or "minimal"  # Default to minimal for GPT-5
+            data["reasoning_effort"] = reasoning_effort or "low"  # Default to low for GPT-5
 
         r = requests.post(url, json=data, headers=headers)
         r.raise_for_status()
