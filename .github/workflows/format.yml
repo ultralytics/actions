@@ -16,6 +16,7 @@ permissions:
   contents: write # Modify code in PRs
   pull-requests: write # Add comments and labels to PRs
   issues: write # Add comments and labels to issues
+  models: read # For AI-driven PR summaries, labels and comments
 
 jobs:
   actions:
