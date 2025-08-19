@@ -67,7 +67,7 @@ def test_get_event_content_pr():
 @patch("actions.first_interaction.get_completion")
 def test_get_relevant_labels(mock_get_completion):
     """Test getting relevant labels for an issue."""
-    mock_get_completion.return_value = "bug, enhancement"
+    mock_get_completion.return_value = "enhancement, documentation"
 
     available_labels = {
         "bug": "A bug in the software",
@@ -77,13 +77,13 @@ def test_get_relevant_labels(mock_get_completion):
 
     labels = get_relevant_labels(
         issue_type="issue",
-        title="Bug: App crashes on startup",
-        body="The application crashes when started",
+        title="Provide model cards for all available models",
+        body="Add model cards section to Ultralytics Docs",
         available_labels=available_labels,
         current_labels=[],
     )
 
-    assert labels == ["bug", "enhancement"]
+    assert labels == ["enhancement", "documentation"]
     mock_get_completion.assert_called_once()
 
 
