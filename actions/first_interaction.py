@@ -170,6 +170,8 @@ YOUR RESPONSE (label names only):
         return []
 
     available_labels_lower = {name.lower(): name for name in available_labels}
+    if issue_type == "issue":
+        del available_labels_lower["bug"]  # issues must fill bug report template for bug label
     return [
         available_labels_lower[label.lower().strip()]
         for label in suggested_labels.split(",")
