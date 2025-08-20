@@ -146,6 +146,7 @@ INSTRUCTIONS:
 4. Only use the "Alert" label when you have high confidence that this is an inappropriate {issue_type}.
 5. Respond ONLY with the chosen label names (no descriptions), separated by commas.
 6. If no labels are relevant, respond with 'None'.
+{'7. Only use the "bug" label if the user provides a clear description of the bug, their environment with relevant package versions and a minimum reproducible example.' if issue_type == 'issue' else ''}
 
 AVAILABLE LABELS:
 {labels}
@@ -170,8 +171,6 @@ YOUR RESPONSE (label names only):
         return []
 
     available_labels_lower = {name.lower(): name for name in available_labels}
-    if issue_type == "issue":
-        del available_labels_lower["bug"]  # issues must fill bug report template for bug label
     return [
         available_labels_lower[label.lower().strip()]
         for label in suggested_labels.split(",")
