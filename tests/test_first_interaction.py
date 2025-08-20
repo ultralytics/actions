@@ -67,7 +67,7 @@ def test_get_event_content_pr():
 @patch("actions.first_interaction.get_completion")
 def test_get_relevant_labels(mock_get_completion):
     """Test getting relevant labels for an issue."""
-    mock_get_completion.return_value = "enhancement, documentation"
+    mock_get_completion.return_value = "bug"
 
     available_labels = {
         "bug": "A bug in the software",
@@ -77,13 +77,30 @@ def test_get_relevant_labels(mock_get_completion):
 
     labels = get_relevant_labels(
         issue_type="issue",
-        title="Provide model cards for all available models",
-        body="Add model cards section to Ultralytics Docs",
+        title="App crashes when clicking submit button",
+        body="""
+        The application crashes consistently when I click the submit button on the contact form.
+        
+        Environment:
+        - Python 3.9.2
+        - Flask 2.1.0
+        - SQLAlchemy 1.4.23
+        - Chrome 98.0.4758.102
+        
+        Steps to reproduce:
+        1. Navigate to /contact page
+        2. Fill out the form with any data
+        3. Click submit button
+        4. App crashes with 500 error
+        
+        Expected: Form should submit successfully
+        Actual: Server returns 500 error and logs show NoneType error in database handler
+        """,
         available_labels=available_labels,
         current_labels=[],
     )
 
-    assert labels == ["enhancement", "documentation"]
+    assert labels == ["bug"]
     mock_get_completion.assert_called_once()
 
 
