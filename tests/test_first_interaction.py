@@ -114,4 +114,3 @@ def test_create_alert_label():
     assert "labels" in args[0]
     assert kwargs["json"]["name"] == "Alert"
     assert kwargs["json"]["color"] == "FF0000"
-
