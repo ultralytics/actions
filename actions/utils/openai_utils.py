@@ -15,7 +15,11 @@ Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO12, etc., not YOLOv11, YOLOv12 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
   - Avoid Equations: Do not include equations or mathematical notations.
   - Links: Use descriptive anchor text like "See the [Ultralytics Docs](https://docs.ultralytics.com) for details."
-  - Code: Provide minimal code examples if helpful. Enclose code in backticks. Think and verify the argument names, methods, class and files used in your code examples for accuracy.
+  - Code: 
+    - Provide minimal code examples if helpful.
+    - Enclose code in backticks: `pip install ultralytics`.
+    - Think and verify the argument names, methods, class and files used in your code examples for accuracy.
+  - Use the "@" symbol to refer to users: @glenn-jocher.
   - Tone: Adopt a professional, friendly, and concise tone.
 """
 
