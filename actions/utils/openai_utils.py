@@ -17,7 +17,7 @@ Guidance:
   - Links: Use descriptive anchor text like "See the [Ultralytics Docs](https://docs.ultralytics.com) for details."
   - Code: 
     - Provide minimal code examples if helpful.
-    - Enclose code in backticks: `pip install ultralytics`.
+    - Enclose code in backticks: `pip install ultralytics` for inline code or e.g. ```python for larger code blocks.
     - Think and verify the argument names, methods, class and files used in your code examples for accuracy.
   - Use the "@" symbol to refer to GitHub users: @glenn-jocher.
   - Tone: Adopt a professional, friendly, and concise tone.
