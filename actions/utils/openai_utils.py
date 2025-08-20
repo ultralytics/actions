@@ -19,7 +19,7 @@ Guidance:
     - Provide minimal code examples if helpful.
     - Enclose code in backticks: `pip install ultralytics` for inline code or e.g. ```python for larger code blocks.
     - Think and verify the argument names, methods, class and files used in your code examples for accuracy.
-  - Use the "@" symbol to refer to GitHub users: @glenn-jocher.
+  - Use the "@" symbol to refer to GitHub users, e.g. @glenn-jocher.
   - Tone: Adopt a professional, friendly, and concise tone.
 """
 
