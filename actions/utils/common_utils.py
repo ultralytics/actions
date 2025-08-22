@@ -112,7 +112,7 @@ REDIRECT_END_IGNORE_LIST = frozenset(
         "redirect",
         "https://code.visualstudio.com/",  # errors
         "?rdt=",  # problems with reddit redirecting to https://www.reddit.com/r/ultralytics/?rdt=48616
-        "objects.githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
+        "githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
     }
 )
 URL_PATTERN = re.compile(
