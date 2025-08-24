@@ -1,7 +1,9 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import json
 import time
 
+from .first_interaction import apply_labels, get_first_interaction_response, get_relevant_labels
 from .utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, get_completion
 
 # Constants
@@ -10,6 +12,54 @@ SUMMARY_START = (
 )
 
 
+def generate_unified_pr_response(event):
+    """Generate PR summary, labels, and first comment in a single OpenAI call."""
+    pr_data = event.get_repo_data(f"pulls/{event.pr['number']}")
+    diff_text = event.get_pr_diff()[:10000]  # limit diff size
+    available_labels = event.get_repo_data("labels")
+
+    # Single prompt for all three outputs
+    prompt = f"""Analyze this {event.repository} PR and respond with JSON:
+{{"summary": "### 🌟 Summary\\n[brief]\\n### 📊 Key Changes\\n- [changes]\\n### 🎯 Purpose & Impact\\n- [impact]", "labels": ["relevant", "labels"], "first_comment": "👋 Hello @{pr_data["user"]["login"]}, thank you for your PR! [checklist and guidance]"}}
+
+Title: {pr_data["title"]}
+Body: {pr_data.get("body", "")[:2000]}
+Labels: {", ".join([l["name"] for l in available_labels[:20]])}
+Diff: {diff_text}"""
+
+    try:
+        response = get_completion(
+            [
+                {"role": "system", "content": "You are an Ultralytics AI assistant for GitHub PR analysis."},
+                {"role": "user", "content": prompt},
+            ]
+        )
+        data = json.loads(response)
+
+        summary = SUMMARY_START + data.get("summary", "")
+        labels = [l for l in data.get("labels", []) if l in {label["name"] for label in available_labels}]
+        comment = data.get("first_comment", "")
+
+        return summary, labels, comment
+
+    except Exception as e:
+        print(f"Unified call failed ({e}), using individual functions")
+        # Fallback to existing individual functions
+        summary = generate_pr_summary(event.repository, event.get_pr_diff())
+        labels = get_relevant_labels(
+            "pull request",
+            pr_data["title"],
+            pr_data.get("body", ""),
+            {l["name"]: l.get("description", "") for l in available_labels},
+            [],
+        )
+        comment = get_first_interaction_response(
+            event, "pull request", pr_data["title"], pr_data.get("body", ""), pr_data["user"]["login"]
+        )
+        return summary, labels, comment
+
+
+# Keep all existing functions unchanged
 def generate_merge_message(pr_summary=None, pr_credit=None, pr_url=None):
     """Generates a motivating thank-you message for merged PR contributors."""
     messages = [
@@ -40,10 +90,8 @@ def post_merge_message(event, summary, pr_credit):
 
 def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
     """Generates personalized issue comment based on PR context."""
-    # Extract repo info from PR URL (format: api.github.com/repos/owner/repo/pulls/number)
     repo_parts = pr_url.split("/repos/")[1].split("/pulls/")[0] if "/repos/" in pr_url else ""
-    owner_repo = repo_parts.split("/")
-    repo_name = owner_repo[-1] if len(owner_repo) > 1 else "package"
+    repo_name = repo_parts.split("/")[-1] if repo_parts else "package"
 
     messages = [
         {
@@ -73,8 +121,8 @@ def generate_pr_summary(repository, diff_text):
     """Generates a concise, professional summary of a PR using OpenAI's API for Ultralytics repositories."""
     if not diff_text:
         diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
-    ratio = 3.3  # about 3.3 characters per token
-    limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
+
+    limit = round(128000 * 3.3 * 0.5)  # use up to 50% of context window
     messages = [
         {
             "role": "system",
@@ -199,23 +247,35 @@ def remove_pr_labels(event, labels=()):
 
 
 def main(*args, **kwargs):
-    """Summarize a pull request and update its description with a summary."""
+    """Summarize and label a PR and respond to the author."""
     event = Action(*args, **kwargs)
+    action = event.event_data.get("action", "")
 
-    print(f"Retrieving diff for PR {event.pr['number']}")
-    diff = event.get_pr_diff()
+    #Unified approach for opened PRs (summary + labels + comment)
+    print(f"Processing PR {event.pr['number']} with action: {action}")
+    if action == "opened":
+        summary, labels, first_comment = generate_unified_pr_response(event)
 
-    # Generate PR summary
-    print("Generating PR summary...")
-    summary = generate_pr_summary(event.repository, diff)
+        # Apply all results
+        update_pr_description(event, summary)
+        if labels:
+            apply_labels(event, event.pr["number"], None, labels, "pull request")
+        if first_comment:
+            comment_url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{event.pr['number']}/comments"
+            event.post(comment_url, json={"body": first_comment})
 
-    # Update PR description
-    print("Updating PR description...")
-    update_pr_description(event, summary)
+    # Other actions
+    elif action in ["synchronize", "edited"]:
+        print("Updating PR summary...")
+        diff = event.get_pr_diff()
+        summary = generate_pr_summary(event.repository, diff)
+        update_pr_description(event, summary)
 
     # Update linked issues and post thank you message if merged
-    if event.pr.get("merged"):
+    elif event.pr.get("merged"):
         print("PR is merged, labeling fixed issues...")
+        diff = event.get_pr_diff()
+        summary = generate_pr_summary(event.repository, diff)
         pr_credit = label_fixed_issues(event, summary)
         print("Removing TODO label from PR...")
         remove_pr_labels(event, labels=["TODO"])
