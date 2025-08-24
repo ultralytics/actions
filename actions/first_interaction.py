@@ -301,7 +301,7 @@ For more guidance, please refer to our [Contributing Guide](https://docs.ultraly
 
     org_name, repo_name = event.repository.split("/")
     repo_url = f"https://github.com/{event.repository}"
-    diff = event.get_pr_diff()[:32000] if issue_type == "pull request" else ""
+    diff = event.get_pr_diff() if issue_type == "pull request" else ""
 
     prompt = f"""Generate a customized response to the new GitHub {issue_type} below:
 

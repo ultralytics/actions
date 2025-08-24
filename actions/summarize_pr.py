@@ -15,17 +15,21 @@ SUMMARY_START = (
 def generate_unified_pr_response(event):
     """Generate PR summary, labels, and first comment in a single OpenAI call."""
     pr_data = event.get_repo_data(f"pulls/{event.pr['number']}")
-    diff_text = event.get_pr_diff()[:10000]  # limit diff size
     available_labels = event.get_repo_data("labels")
 
     # Single prompt for all three outputs
     prompt = f"""Analyze this {event.repository} PR and respond with JSON:
-{{"summary": "### 🌟 Summary\\n[brief]\\n### 📊 Key Changes\\n- [changes]\\n### 🎯 Purpose & Impact\\n- [impact]", "labels": ["relevant", "labels"], "first_comment": "👋 Hello @{pr_data["user"]["login"]}, thank you for your PR! [checklist and guidance]"}}
+
+{{
+    "summary": "### 🌟 Summary\\n[brief description]\\n### 📊 Key Changes\\n- [key changes]\\n### 🎯 Purpose & Impact\\n- [impact on users]",
+    "labels": ["relevant", "labels"],
+    "first_comment": "👋 Hello @{pr_data["user"]["login"]}, thank you for your PR! [include checklist and guidance]"
+}}
 
 Title: {pr_data["title"]}
 Body: {pr_data.get("body", "")[:2000]}
 Labels: {", ".join([l["name"] for l in available_labels[:20]])}
-Diff: {diff_text}"""
+Diff: {event.get_pr_diff()}"""
 
     try:
         response = get_completion(
@@ -122,7 +126,6 @@ def generate_pr_summary(repository, diff_text):
     if not diff_text:
         diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
 
-    limit = round(128000 * 3.3 * 0.5)  # use up to 50% of context window
     messages = [
         {
             "role": "system",
@@ -134,11 +137,11 @@ def generate_pr_summary(repository, diff_text):
             f"### 🌟 Summary (single-line synopsis)\n"
             f"### 📊 Key Changes (bullet points highlighting any major changes)\n"
             f"### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n"
-            f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}",
+            f"\n\nHere's the PR diff:\n\n{diff_text}",
         },
     ]
     reply = get_completion(messages, temperature=1.0)
-    if len(diff_text) > limit:
+    if len(diff_text) == 90000:
         reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
     return SUMMARY_START + reply
 
@@ -267,15 +270,13 @@ def main(*args, **kwargs):
     # Other actions
     elif action in ["synchronize", "edited"]:
         print("Updating PR summary...")
-        diff = event.get_pr_diff()
-        summary = generate_pr_summary(event.repository, diff)
+        summary = generate_pr_summary(event.repository, event.get_pr_diff())
         update_pr_description(event, summary)
 
     # Update linked issues and post thank you message if merged
     elif event.pr.get("merged"):
         print("PR is merged, labeling fixed issues...")
-        diff = event.get_pr_diff()
-        summary = generate_pr_summary(event.repository, diff)
+        summary = generate_pr_summary(event.repository, event.get_pr_diff())
         pr_credit = label_fixed_issues(event, summary)
         print("Removing TODO label from PR...")
         remove_pr_labels(event, labels=["TODO"])
