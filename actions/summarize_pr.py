@@ -1,8 +1,10 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import json
 import time
 
 from .utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, get_completion
+from .first_interaction import get_relevant_labels, get_first_interaction_response, apply_labels
 
 # Constants
 SUMMARY_START = (
@@ -10,22 +12,51 @@ SUMMARY_START = (
 )
 
 
+def generate_unified_pr_response(event):
+    """Generate PR summary, labels, and first comment in a single OpenAI call."""
+    pr_data = event.get_repo_data(f"pulls/{event.pr['number']}")
+    diff_text = event.get_pr_diff()[:10000]  # limit diff size
+    available_labels = event.get_repo_data("labels")
+    
+    # Single prompt for all three outputs
+    prompt = f"""Analyze this {event.repository} PR and respond with JSON:
+{{"summary": "### 🌟 Summary\\n[brief]\\n### 📊 Key Changes\\n- [changes]\\n### 🎯 Purpose & Impact\\n- [impact]", "labels": ["relevant", "labels"], "first_comment": "👋 Hello @{pr_data['user']['login']}, thank you for your PR! [checklist and guidance]"}}
+
+Title: {pr_data['title']}
+Body: {pr_data.get('body', '')[:2000]}
+Labels: {', '.join([l['name'] for l in available_labels[:20]])}
+Diff: {diff_text}"""
+    
+    try:
+        response = get_completion([
+            {"role": "system", "content": "You are an Ultralytics AI assistant for GitHub PR analysis."},
+            {"role": "user", "content": prompt}
+        ])
+        data = json.loads(response)
+        
+        summary = SUMMARY_START + data.get("summary", "")
+        labels = [l for l in data.get("labels", []) if l in {label['name'] for label in available_labels}]
+        comment = data.get("first_comment", "")
+        
+        return summary, labels, comment
+        
+    except Exception as e:
+        print(f"Unified call failed ({e}), using individual functions")
+        # Fallback to existing individual functions
+        summary = generate_pr_summary(event.repository, event.get_pr_diff())
+        labels = get_relevant_labels("pull request", pr_data['title'], pr_data.get('body', ''), 
+                                   {l['name']: l.get('description', '') for l in available_labels}, [])
+        comment = get_first_interaction_response(event, "pull request", pr_data['title'], 
+                                               pr_data.get('body', ''), pr_data['user']['login'])
+        return summary, labels, comment
+
+
+# Keep all existing functions unchanged
 def generate_merge_message(pr_summary=None, pr_credit=None, pr_url=None):
     """Generates a motivating thank-you message for merged PR contributors."""
     messages = [
-        {
-            "role": "system",
-            "content": "You are an Ultralytics AI assistant. Generate inspiring, appreciative messages for GitHub contributors.",
-        },
-        {
-            "role": "user",
-            "content": (
-                f"Write a warm thank-you comment for the merged PR {pr_url} by {pr_credit}. "
-                f"Context:\n{pr_summary}\n\n"
-                f"Start with an enthusiastic note about the merge, incorporate a relevant inspirational quote from a historical "
-                f"figure, and connect it to the PR's impact. Keep it concise yet meaningful, ensuring contributors feel valued."
-            ),
-        },
+        {"role": "system", "content": "You are an Ultralytics AI assistant. Generate inspiring, appreciative messages for GitHub contributors."},
+        {"role": "user", "content": f"Write a warm thank-you comment for the merged PR {pr_url} by {pr_credit}. Context:\n{pr_summary}\n\nStart with an enthusiastic note about the merge, incorporate a relevant inspirational quote from a historical figure, and connect it to the PR's impact. Keep it concise yet meaningful, ensuring contributors feel valued."},
     ]
     return get_completion(messages)
 
@@ -40,31 +71,12 @@ def post_merge_message(event, summary, pr_credit):
 
 def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
     """Generates personalized issue comment based on PR context."""
-    # Extract repo info from PR URL (format: api.github.com/repos/owner/repo/pulls/number)
     repo_parts = pr_url.split("/repos/")[1].split("/pulls/")[0] if "/repos/" in pr_url else ""
-    owner_repo = repo_parts.split("/")
-    repo_name = owner_repo[-1] if len(owner_repo) > 1 else "package"
-
+    repo_name = repo_parts.split("/")[-1] if repo_parts else "package"
+    
     messages = [
-        {
-            "role": "system",
-            "content": "You are an Ultralytics AI assistant. Generate friendly GitHub issue comments. No @ mentions or direct addressing.",
-        },
-        {
-            "role": "user",
-            "content": f"Write a GitHub issue comment announcing a potential fix for this issue is now merged in linked PR {pr_url} by {pr_credit}\n\n"
-            f"PR Title: {pr_title}\n\n"
-            f"Context from PR:\n{pr_summary}\n\n"
-            f"Include:\n"
-            f"1. An explanation of key changes from the PR that may resolve this issue\n"
-            f"2. Credit to the PR author and contributors\n"
-            f"3. Options for testing if PR changes have resolved this issue:\n"
-            f"   - If the PR mentions a specific version number (like v8.0.0 or 3.1.0), include: pip install -U {repo_name}>=VERSION\n"
-            f"   - Also suggest: pip install git+https://github.com/{repo_parts}.git@main\n"
-            f"   - If appropriate, mention they can also wait for the next official PyPI release\n"
-            f"4. Request feedback on whether the PR changes resolve the issue\n"
-            f"5. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
-        },
+        {"role": "system", "content": "You are an Ultralytics AI assistant. Generate friendly GitHub issue comments. No @ mentions or direct addressing."},
+        {"role": "user", "content": f"Write a GitHub issue comment announcing a potential fix for this issue is now merged in linked PR {pr_url} by {pr_credit}\n\nPR Title: {pr_title}\n\nContext from PR:\n{pr_summary}\n\nInclude: 1) explanation of key changes that may resolve this issue, 2) credit to PR author, 3) testing options (pip install -U {repo_name} or git+https://github.com/{repo_parts}.git@main), 4) request feedback, 5) thank for reporting and welcome further feedback if issue persists"},
     ]
     return get_completion(messages)
 
@@ -73,21 +85,11 @@ def generate_pr_summary(repository, diff_text):
     """Generates a concise, professional summary of a PR using OpenAI's API for Ultralytics repositories."""
     if not diff_text:
         diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
-    ratio = 3.3  # about 3.3 characters per token
-    limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
+    
+    limit = round(128000 * 3.3 * 0.5)  # use up to 50% of context window
     messages = [
-        {
-            "role": "system",
-            "content": "You are an Ultralytics AI assistant skilled in software development and technical communication. Your task is to summarize GitHub PRs from Ultralytics in a way that is accurate, concise, and understandable to both expert developers and non-expert users. Focus on highlighting the key changes and their impact in simple, concise terms.",
-        },
-        {
-            "role": "user",
-            "content": f"Summarize this '{repository}' PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:\n\n"
-            f"### 🌟 Summary (single-line synopsis)\n"
-            f"### 📊 Key Changes (bullet points highlighting any major changes)\n"
-            f"### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n"
-            f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}",
-        },
+        {"role": "system", "content": "You are an Ultralytics AI assistant skilled in software development and technical communication. Your task is to summarize GitHub PRs from Ultralytics in a way that is accurate, concise, and understandable to both expert developers and non-expert users. Focus on highlighting the key changes and their impact in simple, concise terms."},
+        {"role": "user", "content": f"Summarize this '{repository}' PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:\n\n### 🌟 Summary (single-line synopsis)\n### 📊 Key Changes (bullet points highlighting any major changes)\n### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n\n\nHere's the PR diff:\n\n{diff_text[:limit]}"},
     ]
     reply = get_completion(messages, temperature=1.0)
     if len(diff_text) > limit:
@@ -142,19 +144,17 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
     variables = {"owner": owner, "repo": repo, "pr_number": event.pr["number"]}
     response = event.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables})
     if response.status_code != 200:
-        return None  # no linked issues
+        return None
 
     try:
         data = response.json()["data"]["repository"]["pullRequest"]
         comments = data["reviews"]["nodes"] + data["comments"]["nodes"]
-        token_username = event.get_username()  # get GITHUB_TOKEN username
+        token_username = event.get_username()
         author = data["author"]["login"] if data["author"]["__typename"] != "Bot" else None
         pr_title = data.get("title", "")
 
-        # Get unique contributors from reviews and comments
+        # Get unique contributors
         contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
-
-        # Add commit authors and committers that have GitHub accounts linked
         for commit in data["commits"]["nodes"]:
             commit_data = commit["commit"]
             for user_type in ["author", "committer"]:
@@ -166,24 +166,19 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
         contributors.discard(token_username)
 
         # Write credit string
-        pr_credit = ""  # i.e. "@user1 with contributions from @user2, @user3"
+        pr_credit = ""
         if author and author != token_username:
             pr_credit += f"@{author}"
         if contributors:
             pr_credit += (" with contributions from " if pr_credit else "") + ", ".join(f"@{c}" for c in contributors)
 
         # Generate personalized comment
-        comment = generate_issue_comment(
-            pr_url=data["url"], pr_summary=pr_summary, pr_credit=pr_credit, pr_title=pr_title
-        )
+        comment = generate_issue_comment(pr_url=data["url"], pr_summary=pr_summary, pr_credit=pr_credit, pr_title=pr_title)
 
         # Update linked issues
         for issue in data["closingIssuesReferences"]["nodes"]:
             number = issue["number"]
-            # Add fixed label
             event.post(f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/labels", json={"labels": ["fixed"]})
-
-            # Add comment
             event.post(f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/comments", json={"body": comment})
 
         return pr_credit
@@ -194,33 +189,43 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
 
 def remove_pr_labels(event, labels=()):
     """Removes specified labels from PR."""
-    for label in labels:  # Can be extended with more labels in the future
+    for label in labels:
         event.delete(f"{GITHUB_API_URL}/repos/{event.repository}/issues/{event.pr['number']}/labels/{label}")
 
 
 def main(*args, **kwargs):
-    """Summarize a pull request and update its description with a summary."""
+    """Summarize a pull request with unified approach for new PRs (1 API call instead of 3)."""
     event = Action(*args, **kwargs)
+    action = event.event_data.get("action", "")
+    
+    print(f"Processing PR {event.pr['number']} with action: {action}")
 
-    print(f"Retrieving diff for PR {event.pr['number']}")
-    diff = event.get_pr_diff()
-
-    # Generate PR summary
-    print("Generating PR summary...")
-    summary = generate_pr_summary(event.repository, diff)
-
-    # Update PR description
-    print("Updating PR description...")
-    update_pr_description(event, summary)
-
-    # Update linked issues and post thank you message if merged
-    if event.pr.get("merged"):
+    # NEW: Unified approach for opened PRs (1 API call for summary + labels + comment)
+    if action == "opened":
+        print("Using unified approach (1 API call for all 3 tasks)...")
+        summary, labels, first_comment = generate_unified_pr_response(event)
+        
+        # Apply all results
+        update_pr_description(event, summary)
+        if labels:
+            apply_labels(event, event.pr['number'], None, labels, "pull request")
+        if first_comment:
+            comment_url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{event.pr['number']}/comments"
+            event.post(comment_url, json={"body": first_comment})
+    
+    # Existing behavior for other actions
+    elif action in ["synchronize", "edited"]:
+        print("Updating PR summary...")
+        diff = event.get_pr_diff()
+        summary = generate_pr_summary(event.repository, diff)
+        update_pr_description(event, summary)
+    elif event.pr.get("merged"):
         print("PR is merged, labeling fixed issues...")
+        diff = event.get_pr_diff()
+        summary = generate_pr_summary(event.repository, diff)
         pr_credit = label_fixed_issues(event, summary)
-        print("Removing TODO label from PR...")
         remove_pr_labels(event, labels=["TODO"])
         if pr_credit:
-            print("Posting PR author thank you message...")
             post_merge_message(event, summary, pr_credit)
 
 
