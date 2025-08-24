@@ -254,7 +254,7 @@ def main(*args, **kwargs):
     event = Action(*args, **kwargs)
     action = event.event_data.get("action", "")
 
-    #Unified approach for opened PRs (summary + labels + comment)
+    # Unified approach for opened PRs (summary + labels + comment)
     print(f"Processing PR {event.pr['number']} with action: {action}")
     if action == "opened":
         summary, labels, first_comment = generate_unified_pr_response(event)
