@@ -85,6 +85,7 @@ REDIRECT_START_IGNORE_LIST = frozenset(
         "docs.openvino.ai",
         ".git",
         "/raw/",  # GitHub images
+        ".slack.com",  # Slack URLs to private channels
     }
     | URL_IGNORE_LIST
 )
