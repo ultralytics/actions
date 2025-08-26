@@ -224,7 +224,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
         if url and parse.urlparse(url).scheme:
             urls.append((md_text, clean_url(url)))
 
-    with (requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor):
+    with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
         session.headers.update(REQUESTS_HEADERS)
         session.cookies = requests.cookies.RequestsCookieJar()
         results = list(executor.map(lambda x: is_url(x[1], session, return_url=True, redirect=True), urls))
@@ -242,11 +242,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                     query = f"{(redirect or url)[:200]} {title[:199]}"
                     if search_urls := brave_search(query, brave_api_key, count=3):
                         best_url = next(
-                            (
-                                alt_url
-                                for alt_url in search_urls
-                                if is_url(alt_url, session)
-                            ),
+                            (alt_url for alt_url in search_urls if is_url(alt_url, session)),
                             search_urls[0],
                         )
                         if url != best_url:
