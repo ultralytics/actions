@@ -148,8 +148,8 @@ def allow_redirect(start="", end=""):
     return (
         end
         and end.startswith("https://")
-        and not any(item in end_lower for item in REDIRECT_END_IGNORE_LIST)
-        and not any(item in start_lower for item in REDIRECT_START_IGNORE_LIST)
+        and all(item not in end_lower for item in REDIRECT_END_IGNORE_LIST)
+        and all(item not in start_lower for item in REDIRECT_START_IGNORE_LIST)
     )
 
 
@@ -241,11 +241,10 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                 if not valid and brave_api_key:
                     query = f"{(redirect or url)[:200]} {title[:199]}"
                     if search_urls := brave_search(query, brave_api_key, count=3):
-                        best_url = search_urls[0]
-                        for alt_url in search_urls:
-                            if is_url(alt_url, session):
-                                best_url = alt_url
-                                break
+                        best_url = next(
+                            (alt_url for alt_url in search_urls if is_url(alt_url, session)),
+                            search_urls[0],
+                        )
                         if url != best_url:
                             replacements[url] = best_url
                             modified_text = modified_text.replace(url, best_url)
