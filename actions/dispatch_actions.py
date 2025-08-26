@@ -47,8 +47,7 @@ def trigger_and_get_workflow_info(event, branch: str) -> List[Dict]:
         )
 
         if runs_response.status_code == 200:
-            runs = runs_response.json().get("workflow_runs", [])
-            if runs:
+            if runs := runs_response.json().get("workflow_runs", []):
                 run_url = runs[0].get("html_url", run_url)
                 run_number = runs[0].get("run_number")
 

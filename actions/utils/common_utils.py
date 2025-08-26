@@ -148,8 +148,8 @@ def allow_redirect(start="", end=""):
     return (
         end
         and end.startswith("https://")
-        and not any(item in end_lower for item in REDIRECT_END_IGNORE_LIST)
-        and not any(item in start_lower for item in REDIRECT_START_IGNORE_LIST)
+        and all(item not in end_lower for item in REDIRECT_END_IGNORE_LIST)
+        and all(item not in start_lower for item in REDIRECT_START_IGNORE_LIST)
     )
 
 
@@ -224,7 +224,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
         if url and parse.urlparse(url).scheme:
             urls.append((md_text, clean_url(url)))
 
-    with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
+    with (requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor):
         session.headers.update(REQUESTS_HEADERS)
         session.cookies = requests.cookies.RequestsCookieJar()
         results = list(executor.map(lambda x: is_url(x[1], session, return_url=True, redirect=True), urls))
@@ -241,15 +241,17 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                 if not valid and brave_api_key:
                     query = f"{(redirect or url)[:200]} {title[:199]}"
                     if search_urls := brave_search(query, brave_api_key, count=3):
-                        best_url = search_urls[0]
-                        for alt_url in search_urls:
-                            if is_url(alt_url, session):
-                                best_url = alt_url
-                                break
+                        best_url = next(
+                            (
+                                alt_url
+                                for alt_url in search_urls
+                                if is_url(alt_url, session)
+                            ),
+                            search_urls[0],
+                        )
                         if url != best_url:
                             replacements[url] = best_url
                             modified_text = modified_text.replace(url, best_url)
-                # Handle redirects for valid URLs
                 elif valid and redirect and redirect != url:
                     replacements[url] = redirect
                     modified_text = modified_text.replace(url, redirect)
