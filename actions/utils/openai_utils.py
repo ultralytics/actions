@@ -10,11 +10,11 @@ from actions.utils.common_utils import check_links_in_string
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-2025-08-07")
-SYSTEM_PROMPT_ADDITION = """
-Guidance:
+SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO12, etc., not YOLOv11, YOLOv12 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
   - Avoid Equations: Do not include equations or mathematical notations.
-  - Links: Use descriptive anchor text like "See the [Ultralytics Docs](https://docs.ultralytics.com) for details."
+  - Markdown: Reply in Markdown format.
+  - Links: Use descriptive anchor text for all URLs.
   - Code: 
     - Provide minimal code examples if helpful.
     - Enclose code in backticks: `pip install ultralytics` for inline code or e.g. ```python for larger code blocks.
