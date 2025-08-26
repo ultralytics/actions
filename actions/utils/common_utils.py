@@ -248,6 +248,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                         if url != best_url:
                             replacements[url] = best_url
                             modified_text = modified_text.replace(url, best_url)
+                # Handle redirects for valid URLs
                 elif valid and redirect and redirect != url:
                     replacements[url] = redirect
                     modified_text = modified_text.replace(url, redirect)
