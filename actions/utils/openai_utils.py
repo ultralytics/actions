@@ -9,6 +9,8 @@ import requests
 from actions.utils.common_utils import check_links_in_string
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
+GITHUB_MODEL = os.getenv("OPENAI_MODEL", "openai/gpt-4.1")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-2025-08-07")
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO12, etc., not YOLOv11, YOLOv12 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
@@ -40,10 +42,20 @@ def get_completion(
     temperature: float = 1.0,  # note GPT-5 requires temperature=1.0
     reasoning_effort: str = None,  # reasoning effort for GPT-5 models: minimal, low, medium, high
 ) -> str:
-    """Generates a completion using OpenAI's API based on input messages."""
-    assert OPENAI_API_KEY, "OpenAI API key is required."
-    url = "https://api.openai.com/v1/chat/completions"
-    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+    """
+    Generates a completion using OpenAI's API or GitHub Models API based on available credentials.
+
+    Prioritizes OpenAI API if OPENAI_API_KEY is available, otherwise falls back to GitHub Models using GITHUB_TOKEN.
+    """
+    if OPENAI_API_KEY:
+        url = "https://api.openai.com/v1/chat/completions"
+        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+        model = OPENAI_MODEL
+    else:
+        url = "https://models.github.ai/inference/chat/completions"
+        headers = {"Authorization": f"Bearer {GITHUB_TOKEN}", "Content-Type": "application/json"}
+        model = GITHUB_MODEL
+
     if messages and messages[0].get("role") == "system":
         messages[0]["content"] += "\n\n" + SYSTEM_PROMPT_ADDITION
 
@@ -51,7 +63,7 @@ def get_completion(
     max_retries = 2
     for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
         data = {
-            "model": OPENAI_MODEL,
+            "model": model,
             "messages": messages,
             "seed": int(time.time() * 1000),
             "temperature": temperature,
