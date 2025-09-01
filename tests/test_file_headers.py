@@ -2,7 +2,7 @@
 
 """Tests for the file headers update functionality."""
 
-from __future__ import annotations
+
 
 from pathlib import Path
 from tempfile import TemporaryDirectory

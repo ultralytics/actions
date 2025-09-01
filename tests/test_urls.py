@@ -3,7 +3,7 @@
 
 # Continuous Integration (CI) GitHub Actions tests
 
-from __future__ import annotations
+
 
 import pytest
 
