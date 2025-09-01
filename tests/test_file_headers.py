@@ -1,5 +1,4 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
-
 """Tests for the file headers update functionality."""
 
 from __future__ import annotations

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-from typing import Dict, List, Tuple
 
 from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
 
