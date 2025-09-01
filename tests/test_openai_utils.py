@@ -1,6 +1,5 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-
 from unittest.mock import MagicMock, patch
 
 from actions.utils.openai_utils import get_completion, remove_outer_codeblocks
