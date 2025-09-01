@@ -275,7 +275,7 @@ runs:
           --scheme https
           --timeout 60
           --insecure
-          --accept 403,429,500,502,999
+          --accept 200,403,429,500,502,999
           --exclude-all-private
           --exclude "https?://(www\.)?(github\.com|linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)"
           "./**/*.md"
