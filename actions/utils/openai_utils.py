@@ -1,8 +1,9 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+from __future__ import annotations
+
 import os
 import time
-from typing import Dict, List
 
 import requests
 
@@ -34,9 +35,9 @@ def remove_outer_codeblocks(string):
 
 
 def get_completion(
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     check_links: bool = True,
-    remove: List[str] = (" @giscus[bot]",),  # strings to remove from response
+    remove: list[str] = (" @giscus[bot]",),  # strings to remove from response
     temperature: float = 1.0,  # note GPT-5 requires temperature=1.0
     reasoning_effort: str = None,  # reasoning effort for GPT-5 models: minimal, low, medium, high
 ) -> str:

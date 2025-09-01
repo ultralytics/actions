@@ -1,5 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+from __future__ import annotations
+
 import time
 
 from .utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, get_completion
