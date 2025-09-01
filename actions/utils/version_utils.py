@@ -3,6 +3,8 @@
 # from actions.utils.version_utils import check_pypi_version
 # check_pypi_version()
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
 

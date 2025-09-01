@@ -1,7 +1,8 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-# tests/test_update_file_headers.py
 """Tests for the file headers update functionality."""
+
+from __future__ import annotations
 
 from pathlib import Path
 from tempfile import TemporaryDirectory

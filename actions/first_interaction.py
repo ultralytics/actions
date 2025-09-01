@@ -1,5 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+from __future__ import annotations
+
 import os
 from typing import Dict, List, Tuple
 
@@ -9,7 +11,7 @@ from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 
 
-def get_event_content(event) -> Tuple[int, str, str, str, str, str, str]:
+def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
     """Extracts key information from GitHub event data for issues, pull requests, or discussions."""
     data = event.event_data
     name = event.event_name
@@ -108,8 +110,8 @@ def block_user(event, username: str):
 
 
 def get_relevant_labels(
-    issue_type: str, title: str, body: str, available_labels: Dict, current_labels: List
-) -> List[str]:
+    issue_type: str, title: str, body: str, available_labels: dict, current_labels: list
+) -> list[str]:
     """Determines relevant labels for GitHub issues/PRs using OpenAI, considering title, body, and existing labels."""
     # Remove mutually exclusive labels like both 'bug' and 'question' or inappropriate labels like 'help wanted'
     for label in {
@@ -178,7 +180,7 @@ YOUR RESPONSE (label names only):
     ]
 
 
-def get_label_ids(event, labels: List[str]) -> List[str]:
+def get_label_ids(event, labels: list[str]) -> list[str]:
     """Retrieves GitHub label IDs for a list of label names using the GraphQL API."""
     query = """
 query($owner: String!, $name: String!) {
@@ -202,7 +204,7 @@ query($owner: String!, $name: String!) {
         return []
 
 
-def apply_labels(event, number: int, node_id: str, labels: List[str], issue_type: str):
+def apply_labels(event, number: int, node_id: str, labels: list[str], issue_type: str):
     """Applies specified labels to a GitHub issue, pull request, or discussion using the appropriate API."""
     if "Alert" in labels:
         create_alert_label(event)
