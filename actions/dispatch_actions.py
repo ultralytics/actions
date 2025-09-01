@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import time
 from datetime import datetime
-from typing import Dict, List
 
 from .utils import GITHUB_API_URL, Action
 
