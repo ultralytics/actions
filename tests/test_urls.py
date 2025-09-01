@@ -3,7 +3,6 @@
 # Continuous Integration (CI) GitHub Actions tests
 
 
-
 import pytest
 
 from actions.utils.common_utils import check_links_in_string, is_url

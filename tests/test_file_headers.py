@@ -1,8 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 """Tests for the file headers update functionality."""
 
-
-
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
