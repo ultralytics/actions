@@ -146,7 +146,7 @@ runs:
     # D406: Section name should end with a newline
     # D407: Missing dashed underline after section
     # D413: Missing blank line after last section
-    # --target-version is Python 3.8 for --extend-select UP (pyupgrade)
+    # --target-version is Python 3.9 for --extend-select UP (pyupgrade)
     - name: Run Python
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.python == 'true' && github.event.action != 'closed'
       run: |
@@ -154,7 +154,7 @@ runs:
         --fix \
         --unsafe-fixes \
         --extend-select I,D,UP \
-        --target-version py38 \
+        --target-version py39 \
         --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413 \
         . || true
         ruff format \
