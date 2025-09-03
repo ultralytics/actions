@@ -9,8 +9,6 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) rep
 [![Actions CI](https://github.com/ultralytics/actions/actions/workflows/ci.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/ci.yml)
 [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
 [![codecov](https://codecov.io/github/ultralytics/actions/graph/badge.svg?token=DoizJ1WS6j)](https://codecov.io/github/ultralytics/actions)
-[![PyPI version](https://badge.fury.io/py/ultralytics-actions.svg)](https://badge.fury.io/py/ultralytics-actions)
-[![Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://clickpy.clickhouse.com/dashboard/ultralytics-actions)
 
 [![Ultralytics Discord](https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue)](https://discord.com/invite/ultralytics)
 [![Ultralytics Forums](https://img.shields.io/discourse/users?server=https%3A%2F%2Fcommunity.ultralytics.com&logo=discourse&label=Forums&color=blue)](https://community.ultralytics.com/)
@@ -91,6 +89,18 @@ To integrate this action into your Ultralytics repository:
     ```
 
 3.  **Customize:** Adjust the `runs-on` runner and the boolean flags (`labels`, `python`, `prettier`, `swift`, `spelling`, `links`, `summary`) based on your project's needs. Remember to add your `OPENAI_API_KEY` as a secret in your repository settings if you enable `labels` or `summary`.
+
+## Python Package
+
+Install the `ultralytics-actions` Python package directly with Pip:
+
+[![PyPI - Version](https://img.shields.io/pypi/v/ultralytics-actions?logo=pypi&logoColor=white)](https://pypi.org/project/ultralytics-actions/)
+[![Ultralytics Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://clickpy.clickhouse.com/dashboard/ultralytics-actions)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ultralytics-actions?logo=python&logoColor=gold)](https://pypi.org/project/ultralytics-actions/)
+
+```sh
+pip install ultralytics-actions
+```
 
 ## 💡 Contribute
 
