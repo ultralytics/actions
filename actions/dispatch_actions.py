@@ -1,8 +1,9 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+from __future__ import annotations
+
 import time
 from datetime import datetime
-from typing import Dict, List
 
 from .utils import GITHUB_API_URL, Action
 
@@ -18,7 +19,7 @@ def get_pr_branch(event) -> str:
     return pr_data.get("head", {}).get("ref", "main")
 
 
-def trigger_and_get_workflow_info(event, branch: str) -> List[Dict]:
+def trigger_and_get_workflow_info(event, branch: str) -> list[dict]:
     """Triggers workflows and returns their information."""
     repo = event.repository
     results = []
@@ -47,8 +48,7 @@ def trigger_and_get_workflow_info(event, branch: str) -> List[Dict]:
         )
 
         if runs_response.status_code == 200:
-            runs = runs_response.json().get("workflow_runs", [])
-            if runs:
+            if runs := runs_response.json().get("workflow_runs", []):
                 run_url = runs[0].get("html_url", run_url)
                 run_number = runs[0].get("run_number")
 
@@ -57,7 +57,7 @@ def trigger_and_get_workflow_info(event, branch: str) -> List[Dict]:
     return results
 
 
-def update_comment(event, comment_body: str, triggered_actions: List[Dict], branch: str) -> bool:
+def update_comment(event, comment_body: str, triggered_actions: list[dict], branch: str) -> bool:
     """Updates the comment with workflow information."""
     if not triggered_actions:
         return False

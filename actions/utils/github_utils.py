@@ -1,9 +1,10 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+from __future__ import annotations
+
 import json
 import os
 from pathlib import Path
-from typing import Union
 
 import requests
 
@@ -96,7 +97,7 @@ class Action:
         """Checks if the repository is public using event data or GitHub API if needed."""
         return self.event_data.get("repository", {}).get("private")
 
-    def get_username(self) -> Union[str, None]:
+    def get_username(self) -> str | None:
         """Gets username associated with the GitHub token."""
         response = self.post(GITHUB_GRAPHQL_URL, json={"query": "query { viewer { login } }"})
         if response.status_code == 200:

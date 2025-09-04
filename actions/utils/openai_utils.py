@@ -1,8 +1,9 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+from __future__ import annotations
+
 import os
 import time
-from typing import Dict, List
 
 import requests
 
@@ -10,11 +11,11 @@ from actions.utils.common_utils import check_links_in_string
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-2025-08-07")
-SYSTEM_PROMPT_ADDITION = """
-Guidance:
+SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO12, etc., not YOLOv11, YOLOv12 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
   - Avoid Equations: Do not include equations or mathematical notations.
-  - Links: Use descriptive anchor text like "See the [Ultralytics Docs](https://docs.ultralytics.com) for details."
+  - Markdown: Reply in Markdown format.
+  - Links: Use descriptive anchor text for all URLs.
   - Code: 
     - Provide minimal code examples if helpful.
     - Enclose code in backticks: `pip install ultralytics` for inline code or e.g. ```python for larger code blocks.
@@ -34,9 +35,9 @@ def remove_outer_codeblocks(string):
 
 
 def get_completion(
-    messages: List[Dict[str, str]],
+    messages: list[dict[str, str]],
     check_links: bool = True,
-    remove: List[str] = (" @giscus[bot]",),  # strings to remove from response
+    remove: list[str] = (" @giscus[bot]",),  # strings to remove from response
     temperature: float = 1.0,  # note GPT-5 requires temperature=1.0
     reasoning_effort: str = None,  # reasoning effort for GPT-5 models: minimal, low, medium, high
 ) -> str:

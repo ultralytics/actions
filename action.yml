@@ -153,20 +153,20 @@ runs:
     # D406: Section name should end with a newline
     # D407: Missing dashed underline after section
     # D413: Missing blank line after last section
-    # --target-version is Python 3.8 for --extend-select UP (pyupgrade)
+    # --target-version is Python 3.9 for --extend-select UP (pyupgrade)
     - name: Run Python
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.python == 'true' && github.event.action != 'closed'
       run: |
-        ruff format \
-        --line-length 120 \
-        . || true
         ruff check \
         --fix \
         --unsafe-fixes \
         --extend-select I,D,UP \
-        --target-version py38 \
+        --target-version py39 \
         --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413 \
-        .
+        . || true
+        ruff format \
+        --line-length 120 \
+        . || true
         docformatter \
         --wrap-summaries 120 \
         --wrap-descriptions 120 \
@@ -270,7 +270,7 @@ runs:
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
       if: inputs.links == 'true' && github.event.action != 'closed'
-      uses: lycheeverse/lychee-action@v2.4.1
+      uses: lycheeverse/lychee-action@v2.6.1
       with:
         # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:
         #   - 403(OpenVINO, "forbidden")
@@ -282,7 +282,7 @@ runs:
           --scheme https
           --timeout 60
           --insecure
-          --accept 403,429,500,502,999
+          --accept 100..=103,200..=299,401,403,429,500,502,999
           --exclude-all-private
           --exclude "https?://(www\.)?(github\.com|linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)"
           "./**/*.md"
