@@ -1,8 +1,8 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 from __future__ import annotations
-import json
 
+import json
 import time
 
 from .first_interaction import apply_labels, get_first_interaction_response, get_relevant_labels

@@ -349,7 +349,8 @@ YOUR {issue_type.upper()} RESPONSE:
 
 
 def main(*args, **kwargs):
-    """Executes auto-labeling and custom response generation for new GitHub issues and discussions only.
+    """
+    Executes auto-labeling and custom response generation for new GitHub issues and discussions only.
 
     Note: PRs are now handled by the unified approach in summarize_pr.py to avoid duplicate API calls.
     """
