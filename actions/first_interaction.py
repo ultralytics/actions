@@ -302,7 +302,7 @@ For more guidance, please refer to our [Contributing Guide](https://docs.ultraly
 
     org_name, repo_name = event.repository.split("/")
     repo_url = f"https://github.com/{event.repository}"
-    diff = event.get_pr_diff()[:32000] if issue_type == "pull request" else ""
+    diff = event.get_pr_diff() if issue_type == "pull request" else ""
 
     prompt = f"""Generate a customized response to the new GitHub {issue_type} below:
 
@@ -349,9 +349,19 @@ YOUR {issue_type.upper()} RESPONSE:
 
 
 def main(*args, **kwargs):
-    """Executes auto-labeling and custom response generation for new GitHub issues, PRs, and discussions."""
+    """
+    Executes auto-labeling and custom response generation for new GitHub issues and discussions only.
+
+    Note: PRs are now handled by the unified approach in summarize_pr.py to avoid duplicate API calls.
+    """
     event = Action(*args, **kwargs)
     number, node_id, title, body, username, issue_type, action = get_event_content(event)
+
+    # Skip PRs as they are now handled by the unified approach in summarize_pr.py
+    if issue_type == "pull request":
+        print("Skipping PR - handled by unified approach in summarize_pr.py")
+        return
+
     available_labels = event.get_repo_data("labels")
     label_descriptions = {label["name"]: label.get("description", "") for label in available_labels}
     if issue_type == "discussion":
@@ -362,8 +372,7 @@ def main(*args, **kwargs):
         apply_labels(event, number, node_id, relevant_labels, issue_type)
         if "Alert" in relevant_labels and not event.is_org_member(username):
             update_issue_pr_content(event, number, node_id, issue_type)
-            if issue_type != "pull request":
-                close_issue_pr(event, number, node_id, issue_type)
+            close_issue_pr(event, number, node_id, issue_type)
             lock_issue_pr(event, number, node_id, issue_type)
             if BLOCK_USER:
                 block_user(event, username=username)
