@@ -11,7 +11,9 @@ from actions.utils.common_utils import check_links_in_string
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-2025-08-07")
-AZURE_OPENAI_ENDPOINT = os.getenv("AZURE_OPENAI_ENDPOINT")  # https://{YOUR-AZURE-URL}.openai.azure.com/openai/v1/chat/completions
+AZURE_OPENAI_ENDPOINT = os.getenv(
+    "AZURE_OPENAI_ENDPOINT"
+)  # https://{YOUR-AZURE-URL}.openai.azure.com/openai/v1/chat/completions
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO12, etc., not YOLOv11, YOLOv12 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
   - Avoid Equations: Do not include equations or mathematical notations.
