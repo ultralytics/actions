@@ -43,7 +43,7 @@ def generate_unified_pr_response(event):
                     "labels": {
                         "type": "array",
                         "items": {"type": "string"},
-                        "description": "Array of most relevant label names",
+                        "description": "Array of 1-3 most relevant label names",
                     },
                     "first_comment": {
                         "type": "string",
@@ -78,7 +78,7 @@ SUMMARY INSTRUCTIONS:
 - Format with sections: ### 🌟 Summary, ### 📊 Key Changes, ### 🎯 Purpose & Impact
 
 LABELS INSTRUCTIONS:
-- Select most relevant labels from available options
+- Select the top 1-3 most relevant labels from available options
 - Only use "Alert" for obvious spam/abuse content
 
 FIRST COMMENT INSTRUCTIONS:
@@ -357,7 +357,7 @@ def main(*args, **kwargs):
             add_comment(event, event.pr["number"], event.pr.get("node_id"), first_comment, "pull request")
 
     # Other actions
-    elif action in ["synchronize", "edited"]:
+    elif action in ["synchronize", "edited", "review_requested"]:
         print("Updating PR summary...")
         summary = generate_pr_summary(event.repository, event.get_pr_diff())
         update_pr_description(event, summary)
