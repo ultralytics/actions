@@ -76,6 +76,10 @@ inputs:
     required: false
     default: "web@ultralytics.com"
     # default: "41898282+github-actions[bot]@users.noreply.github.com"
+  block_user:
+    description: "Block users when spam/abuse is detected"
+    required: false
+    default: "false"
 runs:
   using: "composite"
   steps:
@@ -111,14 +115,17 @@ runs:
         token: ${{ inputs.token }}
         ref: ${{ github.head_ref || github.ref }}
 
-    # PR Summary -------------------------------------------------------------------------------------------------------
-    - name: PR Summary
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize'
+    # PR Summary and Analysis (Unified) --------------------------------------------------------------------------------
+    - name: PR Summary and Analysis
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.summary == 'true' || inputs.labels == 'true') && github.event.action != 'synchronize'
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         BRAVE_API_KEY: ${{ inputs.brave_api_key }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
+        FIRST_ISSUE_RESPONSE: ${{ inputs.first_issue_response }}
+        FIRST_PR_RESPONSE: ${{ inputs.first_pr_response }}
+        BLOCK_USER: ${{ inputs.block_user }}
       run: |
         ultralytics-actions-summarize-pr
       shell: bash
@@ -225,9 +232,9 @@ runs:
       shell: bash
       continue-on-error: true
 
-    # Autolabel Issues and PRs (run before commit changes in case commit fails) ----------------------------------------
-    - name: Autolabel Issues and PRs
-      if: inputs.labels == 'true' && (github.event.action == 'opened' || github.event.action == 'created')
+    # Autolabel Issues -------------------------------------------------------------------------------------------------
+    - name: Autolabel Issues
+      if: inputs.labels == 'true' && (github.event.action == 'opened' || github.event.action == 'created') && github.event_name == 'issues'
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         FIRST_ISSUE_RESPONSE: ${{ inputs.first_issue_response }}
@@ -235,6 +242,7 @@ runs:
         BRAVE_API_KEY: ${{ inputs.brave_api_key }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
+        BLOCK_USER: ${{ inputs.block_user }}
       run: |
         ultralytics-actions-first-interaction
       shell: bash

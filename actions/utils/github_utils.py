@@ -12,6 +12,7 @@ from actions import __version__
 
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
+MAX_PR_CHARACTERS = 90000
 
 
 class Action:
@@ -118,7 +119,7 @@ class Action:
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}"
         response = self.get(url, headers=self.headers_diff)
         if response.status_code == 200:
-            return response.text
+            return response.text[:MAX_PR_CHARACTERS]
         elif response.status_code == 406:
             return "**ERROR: DIFF TOO LARGE - PR exceeds GitHub's 20,000 line limit, unable to retrieve diff."
         else:
