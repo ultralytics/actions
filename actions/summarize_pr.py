@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 
-from .first_interaction import apply_labels, get_first_interaction_response, get_relevant_labels
-from .utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, get_completion
+from .first_interaction import add_comment, apply_labels, get_first_interaction_response, get_relevant_labels
+from .utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, MAX_PR_CHARACTERS, Action, get_completion
 
 # Constants
 SUMMARY_START = (
@@ -19,53 +20,140 @@ def generate_unified_pr_response(event):
     pr_data = event.get_repo_data(f"pulls/{event.pr['number']}")
     available_labels = event.get_repo_data("labels")
 
-    # Single prompt for all three outputs
-    prompt = f"""Analyze this {event.repository} PR and respond with JSON:
+    diff = event.get_pr_diff()
+    username = pr_data["user"]["login"]
+    title = pr_data["title"]
+    body = pr_data.get("body") or ""  # Fix: Handle None body
+    org_name, repo_name = event.repository.split("/")
+    repo_url = f"https://github.com/{event.repository}"
 
-{{
-    "summary": "### 🌟 Summary\\n[brief description]\\n### 📊 Key Changes\\n- [key changes]\\n### 🎯 Purpose & Impact\\n- [impact on users]",
-    "labels": ["relevant", "labels"],
-    "first_comment": "👋 Hello @{pr_data["user"]["login"]}, thank you for your PR! [include checklist and guidance]"
-}}
+    # JSON schema for structured output
+    json_schema = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "PRAnalysisResponse",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "summary": {
+                        "type": "string",
+                        "description": "PR summary with sections: ### 🌟 Summary, ### 📊 Key Changes, ### 🎯 Purpose & Impact",
+                    },
+                    "labels": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Array of 1-3 most relevant label names",
+                    },
+                    "first_comment": {
+                        "type": "string",
+                        "description": "Welcome comment for first-time PR with checklist and guidance + PR-specific notes for {PR name}",
+                    },
+                },
+                "required": ["summary", "labels", "first_comment"],
+                "additionalProperties": False,
+            },
+        },
+    }
 
-Title: {pr_data["title"]}
-Body: {pr_data.get("body", "")[:2000]}
-Labels: {", ".join([l["name"] for l in available_labels[:20]])}
-Diff: {event.get_pr_diff()}"""
+    # Get the standard PR response template
+    pr_response = f"""👋 Hello @{username}, thank you for submitting an `{event.repository}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
+
+- ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{event.repository}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
+- ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{event.repository}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
+- ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI/) checks are passing. If any checks fail, please address the issues.
+- ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com/) for any new or modified features.
+- ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
+- ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA/) if this is your first Ultralytics PR by writing "I have read the CLA Document and I sign the CLA" in a new message.
+- ✅ **Minimize Changes**: Limit your changes to the **minimum** necessary for your bug fix or feature addition. _"It is not daily increase but daily decrease, hack away the unessential. The closer to the source, the less wastage there is."_  — Bruce Lee
+
+For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing/). Don't hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀"""
+
+    example_pr_response = os.getenv("FIRST_PR_RESPONSE") or pr_response
+
+    prompt = f"""Analyze this {event.repository} pull request and provide a comprehensive response.
+
+SUMMARY INSTRUCTIONS:
+- Generate a concise PR summary focusing on major changes, purpose, and impact for users
+- Format with sections: ### 🌟 Summary, ### 📊 Key Changes, ### 🎯 Purpose & Impact
+
+LABELS INSTRUCTIONS:
+- Select the top 1-3 most relevant labels from available options
+- Only use "Alert" for obvious spam/abuse content
+
+FIRST COMMENT INSTRUCTIONS:
+- Start with the EXACT template provided below, including all badges, links and references
+- KEEP ALL CHECKLIST ITEMS AND LINKS UNCHANGED from the example
+- After the template, add a customized "PR-specific notes" section that addresses this specific PR:
+  - Analyze the PR diff and title to identify key changes and potential concerns
+  - Provide specific feedback on implementation approach, file changes, or testing needs
+  - Highlight any backward compatibility, configuration, or setup considerations
+  - Suggest specific improvements or verification steps relevant to this PR
+  - Use emojis to make the notes engaging and scannable
+- Format the PR-specific notes like:
+
+PR-specific notes for "{title}":
+- 🔧 [Specific technical feedback based on the actual changes]
+- 📝 [Documentation or setup considerations]
+- 🧪 [Testing recommendations]
+- 🔄 [Configuration or compatibility notes]
+
+AVAILABLE LABELS:
+{", ".join([label["name"] for label in available_labels[:20]])}
+
+EXAMPLE PR RESPONSE:
+{example_pr_response}
+
+REPOSITORY CONTEXT:
+- Repository: {repo_name}
+- Organization: {org_name} 
+- Repository URL: {repo_url}
+- Author: @{username}
+
+PR TITLE:
+{title}
+
+PR DESCRIPTION:
+{body[:2000] if body else "No description provided"}
+
+PR DIFF:
+{diff}
+
+Respond with JSON containing summary, labels array, and first_comment."""
 
     try:
         response = get_completion(
-            [
-                {"role": "system", "content": "You are an Ultralytics AI assistant for GitHub PR analysis."},
+            messages=[
+                {
+                    "role": "system",
+                    "content": f"You are an Ultralytics AI assistant for GitHub PR analysis for {org_name}. Generate accurate, helpful responses for pull request management.",
+                },
                 {"role": "user", "content": prompt},
-            ]
+            ],
+            json_schema=json_schema,
         )
         data = json.loads(response)
-
         summary = SUMMARY_START + data.get("summary", "")
-        labels = [l for l in data.get("labels", []) if l in {label["name"] for label in available_labels}]
+        labels = [label for label in data.get("labels", []) if label in {label["name"] for label in available_labels}]
         comment = data.get("first_comment", "")
-
         return summary, labels, comment
 
     except Exception as e:
         print(f"Unified call failed ({e}), using individual functions")
         # Fallback to existing individual functions
-        summary = generate_pr_summary(event.repository, event.get_pr_diff())
+        summary = generate_pr_summary(event.repository, diff)
         labels = get_relevant_labels(
             "pull request",
-            pr_data["title"],
-            pr_data.get("body", ""),
-            {l["name"]: l.get("description", "") for l in available_labels},
+            title,
+            body,
+            {label["name"]: label.get("description", "") for label in available_labels},
             [],
         )
-        comment = get_first_interaction_response(
-            event, "pull request", pr_data["title"], pr_data.get("body", ""), pr_data["user"]["login"]
-        )
+        comment = get_first_interaction_response(event, "pull request", title, body, username)
         return summary, labels, comment
 
 
-# Keep all existing functions unchanged
+# Keep most existing functions unchanged
 def generate_merge_message(pr_summary=None, pr_credit=None, pr_url=None):
     """Generates a motivating thank-you message for merged PR contributors."""
     messages = [
@@ -143,7 +231,7 @@ def generate_pr_summary(repository, diff_text):
         },
     ]
     reply = get_completion(messages, temperature=1.0)
-    if len(diff_text) == 90000:
+    if len(diff_text) == MAX_PR_CHARACTERS:
         reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
     return SUMMARY_START + reply
 
@@ -264,10 +352,9 @@ def main(*args, **kwargs):
         # Apply all results
         update_pr_description(event, summary)
         if labels:
-            apply_labels(event, event.pr["number"], None, labels, "pull request")
+            apply_labels(event, event.pr["number"], event.pr.get("node_id"), labels, "pull request")
         if first_comment:
-            comment_url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{event.pr['number']}/comments"
-            event.post(comment_url, json={"body": first_comment})
+            add_comment(event, event.pr["number"], event.pr.get("node_id"), first_comment, "pull request")
 
     # Other actions
     elif action in ["synchronize", "edited"]:
