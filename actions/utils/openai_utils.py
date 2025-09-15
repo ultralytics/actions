@@ -81,10 +81,10 @@ def get_completion(
         # Retry logic
         if attempt < max_retries:
             print(f"Attempt {attempt + 1}: Found bad URLs. Retrying with a new random seed.")
-        elif attempt == max_retries:
+        else:
             print("Max retries reached. Updating prompt to exclude links.")
             messages.append({"role": "user", "content": "Please provide a response without any URLs or links in it."})
-            check_links = False  # Accept the final attempt
+            check_links = False  # automatically accept the last message
 
     return content
 
