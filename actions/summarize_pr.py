@@ -16,7 +16,7 @@ SUMMARY_START = (
 
 
 def generate_unified_pr_response(event):
-    """Generate PR summary, labels, and first comment in a single OpenAI call with JSON structured output."""
+    """Generate PR summary, labels, and first comment in a single OpenAI call."""
     pr_data = event.get_repo_data(f"pulls/{event.pr['number']}")
     available_labels = event.get_repo_data("labels")
 
