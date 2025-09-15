@@ -78,7 +78,6 @@ def get_completion(
         if not check_links or check_links_in_string(content):  # if no checks or checks are passing return response
             return content
 
-        # Retry logic
         if attempt < max_retries:
             print(f"Attempt {attempt + 1}: Found bad URLs. Retrying with a new random seed.")
         else:
