@@ -142,7 +142,6 @@ Respond with JSON containing summary, labels array, and first_comment."""
     except Exception as e:
         print(f"Unified call failed ({e}), using individual functions")
         # Fallback to existing individual functions
-
         summary = generate_pr_summary(event.repository, diff)
         labels = get_relevant_labels(
             "pull request",
@@ -155,6 +154,7 @@ Respond with JSON containing summary, labels array, and first_comment."""
         return summary, labels, comment
 
 
+# Keep most existing functions unchanged
 def generate_merge_message(pr_summary=None, pr_credit=None, pr_url=None):
     """Generates a motivating thank-you message for merged PR contributors."""
     messages = [
@@ -216,6 +216,7 @@ def generate_pr_summary(repository, diff_text):
     """Generates a concise, professional summary of a PR using OpenAI's API for Ultralytics repositories."""
     if not diff_text:
         diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
+
     messages = [
         {
             "role": "system",
@@ -346,7 +347,7 @@ def main(*args, **kwargs):
 
     # Unified approach for opened PRs (summary + labels + comment)
     print(f"Processing PR {event.pr['number']} with action: {action}")
-    if action == {"opened", "reopened"}:
+    if action == "opened":
         summary, labels, first_comment = generate_unified_pr_response(event)
 
         # Apply all results
@@ -357,7 +358,7 @@ def main(*args, **kwargs):
             add_comment(event, event.pr["number"], event.pr.get("node_id"), first_comment, "pull request")
 
     # Other actions
-    elif action in ["synchronize", "edited", "review_requested"]:
+    elif action in ["synchronize", "edited"]:
         print("Updating PR summary...")
         summary = generate_pr_summary(event.repository, event.get_pr_diff())
         update_pr_description(event, summary)
