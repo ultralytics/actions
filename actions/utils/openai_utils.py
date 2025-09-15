@@ -71,16 +71,12 @@ def get_completion(
         r = requests.post(url, json=data, headers=headers)
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"].strip()
-
-        # Process content uniformly
         if not json_schema:
             content = remove_outer_codeblocks(content)
 
         for x in remove:
             content = content.replace(x, "")
-
-        # Check links if needed
-        if not check_links or check_links_in_string(content):
+        if not check_links or check_links_in_string(content):  # if no checks or checks are passing return response
             return content
 
         # Retry logic
