@@ -81,7 +81,7 @@ def test_mixed_formats(verbose):
     text = "A <a href='https://1.com'>link</a> and [markdown](https://2.org/) and https://3.net"
     result, urls = check_links_in_string(text, verbose, return_bad=True)
     assert result is False
-    assert set(urls) == {"https://1.com", "https://3.net"}
+    assert set(urls) == {"https://1.com", "https://2.org/, "https://3.net"}
 
 
 def test_duplicate_urls(verbose):
