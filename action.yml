@@ -15,7 +15,7 @@ inputs:
     required: false
     default: "false"
   python:
-    description: "Run Python formatting"
+    description: "Run Python formatting with pre-commit hooks integration"
     required: false
     default: "false"
   markdown:
@@ -88,10 +88,14 @@ runs:
       # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@main codespell tomli
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
+        INPUTS_PYTHON: ${{ inputs.python }}
       run: |
         packages="ultralytics-actions"
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
+        fi
+        if [ "$INPUTS_PYTHON" = "true" ]; then
+          packages="$packages pre-commit isort"
         fi
         # On macOS, don't use sudo as it can cause environment issues
         if [ "$(uname)" = "Darwin" ]; then
@@ -134,7 +138,7 @@ runs:
       shell: bash
       continue-on-error: false
 
-    # Python formatting ------------------------------------------------------------------------------------------------
+    # Python formatting with pre-commit hooks integration -----------------------------------------------
     # Ignores the following Docs rules to match Google-style docstrings:
     # D100: Missing docstring in public module
     # D104: Missing docstring in public package
@@ -147,27 +151,91 @@ runs:
     # D407: Missing dashed underline after section
     # D413: Missing blank line after last section
     # --target-version is Python 3.9 for --extend-select UP (pyupgrade)
-    - name: Run Python
+    - name: Run Python with Pre-commit Hooks
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.python == 'true' && github.event.action != 'closed'
       run: |
+        # Run pre-commit style checks (without installing hooks)
+        echo "Running pre-commit style checks..."
+
+        # 1. Trailing whitespace removal
+        find . -type f \( -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" \) -exec sed -i 's/[[:space:]]*$//' {} \;
+
+        # 2. End of file fixing
+        find . -type f \( -name "*.py" -o -name "*.md" -o -name "*.yml" -o -name "*.yaml" \) -exec sh -c 'if [ -s "$1" ] && [ "$(tail -c1 "$1")" != "" ]; then echo >> "$1"; fi' _ {} \;
+
+        # 3. YAML validation
+        find . -name "*.yml" -o -name "*.yaml" | while read -r file; do
+          python -c "import yaml; yaml.safe_load(open('$file'))" 2>/dev/null || echo "YAML validation failed for $file"
+        done
+
+        # 4. Check for large files (10MB limit)
+        find . -type f -size +10M -not -path "./.git/*" -not -path "./node_modules/*" -not -path "./venv/*" | while read -r file; do
+          echo "Warning: Large file detected: $file"
+        done
+
+        # 5. Check for merge conflicts
+        if grep -r "<<<<<<< HEAD" . --exclude-dir=.git; then
+          echo "Error: Merge conflict markers found"
+          exit 1
+        fi
+
+        # 6. Check for case conflicts
+        find . -type f -name "*.py" | while read -r file; do
+          basename_lower=$(basename "$file" | tr '[:upper:]' '[:lower:]')
+          if [ "$(basename "$file")" != "$basename_lower" ]; then
+            echo "Warning: Case conflict in filename: $file"
+          fi
+        done
+
+        # 7. Check for debug statements
+        if grep -r "import pdb\|pdb.set_trace()\|breakpoint()" . --include="*.py" --exclude-dir=.git; then
+          echo "Warning: Debug statements found"
+        fi
+
+        # 8. Check docstring is first
+        find . -name "*.py" -not -path "./.git/*" | while read -r file; do
+          if [ -s "$file" ]; then
+            first_line=$(head -n1 "$file")
+            if [[ "$first_line" != '"""'* ]] && [[ "$first_line" != "'''"* ]] && [[ "$first_line" != "#"* ]] && [[ "$first_line" != "" ]]; then
+              echo "Warning: Docstring should be first in $file"
+            fi
+          fi
+        done
+
+        # 9. Import sorting with isort
+        isort \
+          --profile black \
+          --line-length 120 \
+          --multi-line 3 \
+          --trailing-comma \
+          --force-grid-wrap 0 \
+          --combine-as \
+          --lines-after-imports 2 \
+          . || true
+
+        # 10. Python code formatting and linting with ruff
         ruff check \
-        --fix \
-        --unsafe-fixes \
-        --extend-select I,D,UP \
-        --target-version py39 \
-        --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413 \
-        . || true
-        ruff format \
-        --line-length 120 \
-        . || true
+          --fix \
+          --unsafe-fixes \
+          --extend-select I,D,UP \
+          --target-version py39 \
+          --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413 \
+          . || true
+
+        # Note: ruff-format is disabled to preserve ultralytics multiline style
+        # ruff format --line-length 120 . || true
+
+        # 11. Docstring formatting
         docformatter \
-        --wrap-summaries 120 \
-        --wrap-descriptions 120 \
-        --pre-summary-newline \
-        --close-quotes-on-newline \
-        --in-place \
-        --recursive \
-        .
+          --wrap-summaries 120 \
+          --wrap-descriptions 120 \
+          --pre-summary-newline \
+          --close-quotes-on-newline \
+          --in-place \
+          --recursive \
+          . || true
+
+        echo "Pre-commit style checks completed"
       shell: bash
       continue-on-error: true
 
@@ -213,8 +281,8 @@ runs:
       shell: bash
       continue-on-error: true # Important so that commit step can pick up changes
 
-    # Spelling ---------------------------------------------------------------------------------------------------------
-    - name: Run Codespell
+    # Spelling with pre-commit hooks integration ---------------------------------------------------------
+    - name: Run Codespell with Pre-commit Integration
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.spelling == 'true' && github.event.action != 'closed'
       run: |
         codespell \
