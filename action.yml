@@ -83,7 +83,7 @@ runs:
       with:
         ignore-empty-workdir: true
         enable-cache: false
-        version: "0.8.20"
+        version: "0.8.22"
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
       # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@main codespell tomli
