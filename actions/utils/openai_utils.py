@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import time
 
 import requests
 
@@ -41,9 +40,9 @@ def get_completion(
     temperature: float = 1.0,  # note GPT-5 requires temperature=1.0
     reasoning_effort: str = None,  # reasoning effort for GPT-5 models: minimal, low, medium, high
 ) -> str:
-    """Generates a completion using OpenAI's API based on input messages."""
+    """Generates a completion using OpenAI's Responses API based on input messages."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
-    url = "https://api.openai.com/v1/chat/completions"
+    url = "https://api.openai.com/v1/responses"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
     if messages and messages[0].get("role") == "system":
         messages[0]["content"] += "\n\n" + SYSTEM_PROMPT_ADDITION
@@ -51,20 +50,15 @@ def get_completion(
     content = ""
     max_retries = 2
     for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
-        data = {
-            "model": OPENAI_MODEL,
-            "messages": messages,
-            "seed": int(time.time() * 1000),
-            "temperature": temperature,
-        }
+        data = {"model": OPENAI_MODEL, "input": messages, "store": False, "temperature": temperature}
 
-        # Add reasoning_effort for GPT-5 models
+        # Add reasoning for GPT-5 models
         if "gpt-5" in OPENAI_MODEL:
-            data["reasoning_effort"] = reasoning_effort or "low"  # Default to low for GPT-5
+            data["reasoning"] = {"effort": reasoning_effort or "low"}  # Default to low for GPT-5
 
         r = requests.post(url, json=data, headers=headers)
         r.raise_for_status()
-        content = r.json()["choices"][0]["message"]["content"].strip()
+        content = r.json()["output_text"].strip()
         content = remove_outer_codeblocks(content)
         for x in remove:
             content = content.replace(x, "")
