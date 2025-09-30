@@ -59,7 +59,7 @@ inputs:
   openai_model:
     description: "OpenAI Model"
     required: false
-    default: "gpt-5-2025-08-07"
+    default: "gpt-5-codex"
   first_issue_response:
     description: "Example response to a new issue"
     required: false
