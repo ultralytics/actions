@@ -28,7 +28,12 @@ def test_get_completion(mock_post):
     # Setup mock response
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"output": [{"id": "rs_test_id", "type": "reasoning", "summary": [] }, {"id": "msg_test_id", "type":"message", "content": [{"text": "Test response from OpenAI"}]}]}
+    mock_response.json.return_value = {
+        "output": [
+            {"id": "rs_test_id", "type": "reasoning", "summary": []},
+            {"id": "msg_test_id", "type": "message", "content": [{"text": "Test response from OpenAI"}]},
+        ]
+    }
     mock_post.return_value = mock_response
 
     # Test with basic messages
@@ -50,7 +55,12 @@ def test_get_completion_with_link_check(mock_check_links, mock_post):
     # Setup mocks
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"output": [{"id": "rs_test_id", "type": "reasoning", "summary": [] }, {"id": "msg_test_id", "type":"message", "content": [{"text": "Response with https://example.com link"}]}]}
+    mock_response.json.return_value = {
+        "output": [
+            {"id": "rs_test_id", "type": "reasoning", "summary": []},
+            {"id": "msg_test_id", "type": "message", "content": [{"text": "Response with https://example.com link"}]},
+        ]
+    }
     mock_post.return_value = mock_response
     mock_check_links.return_value = True
 

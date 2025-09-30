@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import time
 
 import requests
 
@@ -33,19 +32,20 @@ def remove_outer_codeblocks(string):
         string = string[string.find("\n") + 1 : string.rfind("```")].strip()
     return string
 
+
 def _to_responses_input(messages: list[dict[str, str]]):
     role_map = {"system": "system", "user": "user", "assistant": "assistant"}
     sys_instructions = ""
     user_input = ""
-    out = []
     for m in messages:
         role = role_map.get(m.get("role"), "user")
         if role == "user" and user_input == "":
             user_input = m.get("content")
         elif role == "system" and sys_instructions == "":
             sys_instructions = m.get("content")
-    
+
     return sys_instructions, user_input
+
 
 def get_completion(
     messages: list[dict[str, str]],
@@ -65,7 +65,7 @@ def get_completion(
     max_retries = 2
     for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
         sys_instructions, user_input = _to_responses_input(messages)
-         
+
         data = {
             "model": OPENAI_MODEL,
             "input": user_input,
@@ -74,7 +74,7 @@ def get_completion(
 
         # Adding system instructions if present
         if sys_instructions != "":
-            data["instructions"] = sys_instructions 
+            data["instructions"] = sys_instructions
 
         # Add reasoning_effort for GPT-5 models
         if "gpt-5" in OPENAI_MODEL:
