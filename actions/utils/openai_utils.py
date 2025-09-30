@@ -33,20 +33,6 @@ def remove_outer_codeblocks(string):
     return string
 
 
-def _to_responses_input(messages: list[dict[str, str]]):
-    role_map = {"system": "system", "user": "user", "assistant": "assistant"}
-    sys_instructions = ""
-    user_input = ""
-    for m in messages:
-        role = role_map.get(m.get("role"), "user")
-        if role == "user" and user_input == "":
-            user_input = m.get("content")
-        elif role == "system" and sys_instructions == "":
-            sys_instructions = m.get("content")
-
-    return sys_instructions, user_input
-
-
 def get_completion(
     messages: list[dict[str, str]],
     check_links: bool = True,
@@ -54,7 +40,7 @@ def get_completion(
     temperature: float = 1.0,  # note GPT-5 requires temperature=1.0
     reasoning_effort: str = None,  # reasoning effort for GPT-5 models: minimal, low, medium, high
 ) -> str:
-    """Generates a completion using OpenAI's API based on input messages."""
+    """Generates a completion using OpenAI's Responses API based on input messages."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
     url = "https://api.openai.com/v1/responses"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
@@ -64,25 +50,15 @@ def get_completion(
     content = ""
     max_retries = 2
     for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
-        sys_instructions, user_input = _to_responses_input(messages)
+        data = {"model": OPENAI_MODEL, "input": messages, "store": False, "temperature": temperature}
 
-        data = {
-            "model": OPENAI_MODEL,
-            "input": user_input,
-            "temperature": temperature,
-        }
-
-        # Adding system instructions if present
-        if sys_instructions != "":
-            data["instructions"] = sys_instructions
-
-        # Add reasoning_effort for GPT-5 models
+        # Add reasoning for GPT-5 models
         if "gpt-5" in OPENAI_MODEL:
             data["reasoning"] = {"effort": reasoning_effort or "low"}  # Default to low for GPT-5
 
         r = requests.post(url, json=data, headers=headers)
         r.raise_for_status()
-        content = r.json()["output"][1]["content"][0]["text"].strip()
+        content = r.json()["output_text"].strip()
         content = remove_outer_codeblocks(content)
         for x in remove:
             content = content.replace(x, "")
