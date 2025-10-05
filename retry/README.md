@@ -50,13 +50,13 @@ steps:
 
 ## 📋 Inputs
 
-| Input                  | Description                              | Required | Default |
-| ---------------------- | ---------------------------------------- | -------- | ------- |
-| `run`                  | Command to run                           | Yes      | -       |
-| `retries`              | Number of retry attempts after initial   | No       | `3`     |
-| `timeout_minutes`      | Maximum time in minutes for each attempt | No       | `60`    |
-| `retry_delay_seconds`  | Delay between retries in seconds         | No       | `30`    |
-| `shell`                | Shell to use (bash or python)            | No       | `bash`  |
+| Input                 | Description                              | Required | Default |
+| --------------------- | ---------------------------------------- | -------- | ------- |
+| `run`                 | Command to run                           | Yes      | -       |
+| `retries`             | Number of retry attempts after initial   | No       | `3`     |
+| `timeout_minutes`     | Maximum time in minutes for each attempt | No       | `60`    |
+| `retry_delay_seconds` | Delay between retries in seconds         | No       | `30`    |
+| `shell`               | Shell to use (bash or python)            | No       | `bash`  |
 
 ## ✨ Features
 
