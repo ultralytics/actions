@@ -10,9 +10,7 @@ updates:
     schedule:
       interval: monthly
       time: "04:00"
-    open-pull-requests-limit: 10
-    reviewers:
-      - glenn-jocher
+    open-pull-requests-limit: 3
     labels:
       - dependencies
 
@@ -21,9 +19,7 @@ updates:
     schedule:
       interval: monthly
       time: "04:00"
-    open-pull-requests-limit: 5
-    reviewers:
-      - glenn-jocher
+    open-pull-requests-limit: 3
     labels:
       - dependencies
 
@@ -32,8 +28,6 @@ updates:
     schedule:
       interval: monthly
       time: "04:00"
-    open-pull-requests-limit: 5
-    reviewers:
-      - glenn-jocher
+    open-pull-requests-limit: 3
     labels:
       - dependencies
