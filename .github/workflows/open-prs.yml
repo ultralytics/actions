@@ -12,7 +12,8 @@ on:
     - cron: "0 3 * * *" # daily at 03:00 UTC
     
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 jobs:
   list-prs:
@@ -35,7 +36,6 @@ jobs:
 
           # Process by repository
           for repo in $(jq -r '[.[].repository.name] | unique | .[]' /tmp/all_prs.json); do
-            # Get repo URL, skip if archived (null/empty)
             url=$(jq -r --arg repo "$repo" '.[] | select(.name == $repo) | .url' /tmp/active_repos.json)
             [[ -z "$url" || "$url" == "null" ]] && continue
             
@@ -53,3 +53,42 @@ jobs:
             fi
             echo "" >> $GITHUB_STEP_SUMMARY
           done
+
+      - name: Merge Dependabot Actions PRs
+        env:
+          GH_TOKEN: ${{ secrets._GITHUB_TOKEN }}
+        run: |
+          max_prs=1  # Maximum PRs to merge per repo
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "# 🤖 Merging Dependabot GitHub Actions PRs" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          for repo in $(jq -r '.[].name' /tmp/active_repos.json); do
+            repo_merged=0
+            prs=$(gh pr list --repo "ultralytics/$repo" --author app/dependabot --state open \
+              --json number,files,mergeable 2>/dev/null || echo "[]")
+            
+            for pr in $(echo "$prs" | jq -c '.[]'); do
+              [ $repo_merged -ge $max_prs ] && break
+              
+              pr_number=$(echo "$pr" | jq -r '.number')
+              mergeable=$(echo "$pr" | jq -r '.mergeable')
+              
+              # Skip if not mergeable
+              [ "$mergeable" != "MERGEABLE" ] && continue
+              
+              # Check if all files are in .github/workflows
+              all_workflows=$(echo "$pr" | jq '[.files[].path | startswith(".github/workflows/")] | all')
+              
+              # Merge if only workflow files
+              if [ "$all_workflows" = "true" ]; then
+                if gh pr merge "$pr_number" --repo "ultralytics/$repo" --squash --admin 2>/dev/null; then
+                  echo "- ✅ Merged ultralytics/$repo#$pr_number" >> $GITHUB_STEP_SUMMARY
+                  repo_merged=$((repo_merged + 1))
+                fi
+              fi
+            done
+          done
+          
+          exit 0
