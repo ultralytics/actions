@@ -22,11 +22,11 @@ jobs:
         run: |
           echo "# 🔍 Open Pull Requests - Ultralytics Organization" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Single API call to get all open PRs across organization
           gh search prs --owner ultralytics --state open --limit 1000 --json repository,number,title,url \
             --sort created --order desc > /tmp/all_prs.json
-          
+
           # Process by repository
           for repo in $(jq -r '[.[].repository.name] | unique | .[]' /tmp/all_prs.json); do
             repo_prs=$(jq --arg repo "$repo" '[.[] | select(.repository.name == $repo)]' /tmp/all_prs.json)
