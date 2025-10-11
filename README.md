@@ -8,6 +8,7 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) rep
 
 [![Actions CI](https://github.com/ultralytics/actions/actions/workflows/ci.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/ci.yml)
 [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
+[![List Open PRs](https://github.com/ultralytics/actions/actions/workflows/open-prs.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/open-prs.yml)
 [![codecov](https://codecov.io/github/ultralytics/actions/graph/badge.svg?token=DoizJ1WS6j)](https://codecov.io/github/ultralytics/actions)
 
 [![Ultralytics Discord](https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue)](https://discord.com/invite/ultralytics)
