@@ -25,12 +25,23 @@ jobs:
           echo "# 🔍 Open Pull Requests - Ultralytics Organization" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
+          # Get all public non-archived repos
+          gh repo list ultralytics --limit 1000 --json name,isArchived --visibility public > /tmp/repos.json
+          
+          # Filter non-archived repos and build search query
+          archived_repos=$(jq -r '[.[] | select(.isArchived == true) | .name] | join(",")' /tmp/repos.json)
+          
           # Single API call to get all open PRs across organization
           gh search prs --owner ultralytics --state open --limit 1000 --json repository,number,title,url \
             --sort created --order desc > /tmp/all_prs.json
 
-          # Process by repository
+          # Process by repository, skipping archived ones
           for repo in $(jq -r '[.[].repository.name] | unique | .[]' /tmp/all_prs.json); do
+            # Skip if archived
+            if echo "$archived_repos" | grep -q "\b$repo\b"; then
+              continue
+            fi
+            
             repo_prs=$(jq --arg repo "$repo" '[.[] | select(.repository.name == $repo)]' /tmp/all_prs.json)
             count=$(echo "$repo_prs" | jq 'length')
             url=$(echo "$repo_prs" | jq -r '.[0].repository.url')
