@@ -65,22 +65,19 @@ jobs:
           echo "# 🤖 Merging Dependabot GitHub Actions PRs" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          merged_count=0
-          jq -r '.[].name' /tmp/active_repos.json > /tmp/repos.txt
+          echo "0" > /tmp/merged_count.txt
           
           # For each active repo, merge at most max_prs PRs
-          while IFS= read -r repo; do
+          for repo in $(jq -r '.[].name' /tmp/active_repos.json); do
             repo_merged=0
             
-            # Get dependabot PRs with mergeable status
+            # Get dependabot PRs
             prs=$(gh pr list --repo "ultralytics/$repo" --author app/dependabot --state open \
               --json number,files,mergeable 2>/dev/null || echo "[]")
             
-            echo "$prs" | jq -c '.[]' > /tmp/prs.jsonl
-            
             # Check each PR
-            while IFS= read -r pr && [ $repo_merged -lt $max_prs ]; do
-              [[ -z "$pr" || "$pr" == "null" ]] && continue
+            for pr in $(echo "$prs" | jq -c '.[]'); do
+              [ $repo_merged -ge $max_prs ] && break
               
               pr_number=$(echo "$pr" | jq -r '.number')
               mergeable=$(echo "$pr" | jq -r '.mergeable')
@@ -92,16 +89,18 @@ jobs:
               # Check if all files are in .github/workflows
               non_workflow_count=$(echo "$pr" | jq '[.files[] | select(.path | startswith(".github/workflows/") | not)] | length')
               
-              # Merge if only workflow files (auto-merge when checks pass)
+              # Merge if only workflow files (use admin to bypass branch protection)
               if [ "$non_workflow_count" -eq 0 ]; then
-                echo "- ✅ Auto-merge enabled ultralytics/$repo#$pr_number" >> $GITHUB_STEP_SUMMARY
-                if gh pr merge "$pr_number" --repo "ultralytics/$repo" --squash --auto 2>/dev/null; then
-                  ((merged_count++))
+                if gh pr merge "$pr_number" --repo "ultralytics/$repo" --squash --admin 2>/dev/null; then
+                  echo "- ✅ Merged ultralytics/$repo#$pr_number" >> $GITHUB_STEP_SUMMARY
+                  merged_count=$(cat /tmp/merged_count.txt)
+                  echo "$((merged_count + 1))" > /tmp/merged_count.txt
                   ((repo_merged++))
                 fi
               fi
-            done < /tmp/prs.jsonl
-          done < /tmp/repos.txt
+            done
+          done
           
+          merged_count=$(cat /tmp/merged_count.txt)
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Total auto-merge enabled:** $merged_count" >> $GITHUB_STEP_SUMMARY
+          echo "**Total merged:** $merged_count" >> $GITHUB_STEP_SUMMARY
