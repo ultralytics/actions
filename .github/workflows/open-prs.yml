@@ -83,9 +83,12 @@ jobs:
               
               # Merge if only workflow files
               if [ "$all_workflows" = "true" ]; then
-                gh pr merge "$pr_number" --repo "ultralytics/$repo" --squash --admin 2>/dev/null && \
-                  echo "- ✅ Merged ultralytics/$repo#$pr_number" >> $GITHUB_STEP_SUMMARY && \
-                  ((repo_merged++))
+                if gh pr merge "$pr_number" --repo "ultralytics/$repo" --squash --admin 2>/dev/null; then
+                  echo "- ✅ Merged ultralytics/$repo#$pr_number" >> $GITHUB_STEP_SUMMARY
+                  repo_merged=$((repo_merged + 1))
+                fi
               fi
             done
           done
+          
+          exit 0
