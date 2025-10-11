@@ -1,0 +1,51 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+# List Open PRs across Ultralytics repositories
+# This workflow scans all public repos in the Ultralytics organization and lists open PRs
+# For repos with >5 open PRs, only the 5 most recent are shown
+
+name: List Open PRs
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  list-prs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: List open PRs
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "# 🔍 Open Pull Requests - Ultralytics Organization" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Single API call to get all open PRs across organization
+          gh search prs --owner ultralytics --state open --limit 1000 --json repository,number,title,url \
+            --sort created --order desc > /tmp/all_prs.json
+          
+          # Process by repository
+          for repo in $(jq -r '[.[].repository.name] | unique | .[]' /tmp/all_prs.json); do
+            repo_prs=$(jq --arg repo "$repo" '[.[] | select(.repository.name == $repo)]' /tmp/all_prs.json)
+            count=$(echo "$repo_prs" | jq 'length')
+            url=$(echo "$repo_prs" | jq -r '.[0].repository.url')
+            
+            # Pluralize PR
+            pr_text="PR"
+            [ "$count" -gt 1 ] && pr_text="PRs"
+            
+            echo "## 📦 [$repo]($url) - $count open $pr_text" >> $GITHUB_STEP_SUMMARY
+            
+            # Show first 5 if more than 5 PRs
+            if [ "$count" -gt 5 ]; then
+              echo "$repo_prs" | jq -r '.[0:5] | .[] | "- 🔀 [#\(.number)](\(.url)) \(.title)"' >> $GITHUB_STEP_SUMMARY
+              remaining=$((count - 5))
+              echo "- ... $remaining more PRs" >> $GITHUB_STEP_SUMMARY
+            else
+              echo "$repo_prs" | jq -r '.[] | "- 🔀 [#\(.number)](\(.url)) \(.title)"' >> $GITHUB_STEP_SUMMARY
+            fi
+            echo "" >> $GITHUB_STEP_SUMMARY
+          done
