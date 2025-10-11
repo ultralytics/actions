@@ -26,37 +26,28 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
 
           # Get all public non-archived repos
-          gh repo list ultralytics --limit 1000 --json name,isArchived --visibility public > /tmp/repos.json
+          gh repo list ultralytics --limit 1000 --json name,url,isArchived --visibility public | \
+            jq '[.[] | select(.isArchived == false)]' > /tmp/active_repos.json
           
-          # Filter non-archived repos and build search query
-          archived_repos=$(jq -r '[.[] | select(.isArchived == true) | .name] | join(",")' /tmp/repos.json)
-          
-          # Single API call to get all open PRs across organization
+          # Get all open PRs across organization
           gh search prs --owner ultralytics --state open --limit 1000 --json repository,number,title,url \
             --sort created --order desc > /tmp/all_prs.json
 
-          # Process by repository, skipping archived ones
+          # Process by repository
           for repo in $(jq -r '[.[].repository.name] | unique | .[]' /tmp/all_prs.json); do
-            # Skip if archived
-            if echo "$archived_repos" | grep -q "\b$repo\b"; then
-              continue
-            fi
+            # Get repo URL, skip if archived (null/empty)
+            url=$(jq -r --arg repo "$repo" '.[] | select(.name == $repo) | .url' /tmp/active_repos.json)
+            [ -z "$url" ] || [ "$url" = "null" ] && continue
             
             repo_prs=$(jq --arg repo "$repo" '[.[] | select(.repository.name == $repo)]' /tmp/all_prs.json)
             count=$(echo "$repo_prs" | jq 'length')
-            url=$(echo "$repo_prs" | jq -r '.[0].repository.url')
-            
-            # Pluralize PR
-            pr_text="PR"
-            [ "$count" -gt 1 ] && pr_text="PRs"
+            pr_text="PR"; [ "$count" -gt 1 ] && pr_text="PRs"
             
             echo "## 📦 [$repo]($url) - $count open $pr_text" >> $GITHUB_STEP_SUMMARY
             
-            # Show first 10 if more than 10 PRs
             if [ "$count" -gt 10 ]; then
               echo "$repo_prs" | jq -r '.[0:10] | .[] | "- 🔀 [#\(.number)](\(.url)) \(.title)"' >> $GITHUB_STEP_SUMMARY
-              remaining=$((count - 10))
-              echo "- ... $remaining more PRs" >> $GITHUB_STEP_SUMMARY
+              echo "- ... $((count - 10)) more PRs" >> $GITHUB_STEP_SUMMARY
             else
               echo "$repo_prs" | jq -r '.[] | "- 🔀 [#\(.number)](\(.url)) \(.title)"' >> $GITHUB_STEP_SUMMARY
             fi
