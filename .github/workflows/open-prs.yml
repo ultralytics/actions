@@ -66,18 +66,21 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           
           merged_count=0
+          jq -r '.[].name' /tmp/active_repos.json > /tmp/repos.txt
           
           # For each active repo, merge at most max_prs PRs
-          while read -r repo; do
+          while IFS= read -r repo; do
             repo_merged=0
             
             # Get dependabot PRs with mergeable status
             prs=$(gh pr list --repo "ultralytics/$repo" --author app/dependabot --state open \
               --json number,files,mergeable 2>/dev/null || echo "[]")
             
+            echo "$prs" | jq -c '.[]' > /tmp/prs.jsonl
+            
             # Check each PR
-            while read -r pr; do
-              [[ -z "$pr" || "$pr" == "null" || $repo_merged -ge $max_prs ]] && continue
+            while IFS= read -r pr && [ $repo_merged -lt $max_prs ]; do
+              [[ -z "$pr" || "$pr" == "null" ]] && continue
               
               pr_number=$(echo "$pr" | jq -r '.number')
               mergeable=$(echo "$pr" | jq -r '.mergeable')
@@ -89,13 +92,16 @@ jobs:
               # Check if all files are in .github/workflows
               non_workflow_count=$(echo "$pr" | jq '[.files[] | select(.path | startswith(".github/workflows/") | not)] | length')
               
-              # Merge if only workflow files
+              # Merge if only workflow files (auto-merge when checks pass)
               if [ "$non_workflow_count" -eq 0 ]; then
-                echo "- ✅ Merged ultralytics/$repo#$pr_number" >> $GITHUB_STEP_SUMMARY
-                gh pr merge "$pr_number" --repo "ultralytics/$repo" --squash && ((merged_count++)) && ((repo_merged++)) || true
+                echo "- ✅ Auto-merge enabled ultralytics/$repo#$pr_number" >> $GITHUB_STEP_SUMMARY
+                if gh pr merge "$pr_number" --repo "ultralytics/$repo" --squash --auto 2>/dev/null; then
+                  ((merged_count++))
+                  ((repo_merged++))
+                fi
               fi
-            done < <(echo "$prs" | jq -c '.[]')
-          done < <(jq -r '.[].name' /tmp/active_repos.json)
+            done < /tmp/prs.jsonl
+          done < /tmp/repos.txt
           
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Total merged:** $merged_count" >> $GITHUB_STEP_SUMMARY
+          echo "**Total auto-merge enabled:** $merged_count" >> $GITHUB_STEP_SUMMARY
