@@ -37,7 +37,7 @@ jobs:
           for repo in $(jq -r '[.[].repository.name] | unique | .[]' /tmp/all_prs.json); do
             # Get repo URL, skip if archived (null/empty)
             url=$(jq -r --arg repo "$repo" '.[] | select(.name == $repo) | .url' /tmp/active_repos.json)
-            [ -z "$url" ] || [ "$url" = "null" ] && continue
+            [[ -z "$url" || "$url" == "null" ]] && continue
             
             repo_prs=$(jq --arg repo "$repo" '[.[] | select(.repository.name == $repo)]' /tmp/all_prs.json)
             count=$(echo "$repo_prs" | jq 'length')
