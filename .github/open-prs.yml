@@ -2,7 +2,7 @@
 
 # List Open PRs across Ultralytics repositories
 # This workflow scans all public repos in the Ultralytics organization and lists open PRs
-# For repos with >5 open PRs, only the 5 most recent are shown
+# For repos with >10 open PRs, only the 10 most recent are shown
 
 name: List Open PRs
 
@@ -39,10 +39,10 @@ jobs:
             
             echo "## 📦 [$repo]($url) - $count open $pr_text" >> $GITHUB_STEP_SUMMARY
             
-            # Show first 5 if more than 5 PRs
-            if [ "$count" -gt 5 ]; then
-              echo "$repo_prs" | jq -r '.[0:5] | .[] | "- 🔀 [#\(.number)](\(.url)) \(.title)"' >> $GITHUB_STEP_SUMMARY
-              remaining=$((count - 5))
+            # Show first 10 if more than 10 PRs
+            if [ "$count" -gt 10 ]; then
+              echo "$repo_prs" | jq -r '.[0:10] | .[] | "- 🔀 [#\(.number)](\(.url)) \(.title)"' >> $GITHUB_STEP_SUMMARY
+              remaining=$((count - 10))
               echo "- ... $remaining more PRs" >> $GITHUB_STEP_SUMMARY
             else
               echo "$repo_prs" | jq -r '.[] | "- 🔀 [#\(.number)](\(.url)) \(.title)"' >> $GITHUB_STEP_SUMMARY
