@@ -36,7 +36,6 @@ jobs:
 
           # Process by repository
           for repo in $(jq -r '[.[].repository.name] | unique | .[]' /tmp/all_prs.json); do
-            # Get repo URL, skip if archived (null/empty)
             url=$(jq -r --arg repo "$repo" '.[] | select(.name == $repo) | .url' /tmp/active_repos.json)
             [[ -z "$url" || "$url" == "null" ]] && continue
             
@@ -65,42 +64,28 @@ jobs:
           echo "# 🤖 Merging Dependabot GitHub Actions PRs" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           
-          echo "0" > /tmp/merged_count.txt
-          
-          # For each active repo, merge at most max_prs PRs
           for repo in $(jq -r '.[].name' /tmp/active_repos.json); do
             repo_merged=0
-            
-            # Get dependabot PRs
             prs=$(gh pr list --repo "ultralytics/$repo" --author app/dependabot --state open \
               --json number,files,mergeable 2>/dev/null || echo "[]")
             
-            # Check each PR
             for pr in $(echo "$prs" | jq -c '.[]'); do
               [ $repo_merged -ge $max_prs ] && break
               
               pr_number=$(echo "$pr" | jq -r '.number')
               mergeable=$(echo "$pr" | jq -r '.mergeable')
-              file_count=$(echo "$pr" | jq '.files | length')
               
-              # Skip if not mergeable or no files
-              [[ "$mergeable" != "MERGEABLE" || "$file_count" -eq 0 ]] && continue
+              # Skip if not mergeable
+              [ "$mergeable" != "MERGEABLE" ] && continue
               
               # Check if all files are in .github/workflows
-              non_workflow_count=$(echo "$pr" | jq '[.files[] | select(.path | startswith(".github/workflows/") | not)] | length')
+              all_workflows=$(echo "$pr" | jq '[.files[].path | startswith(".github/workflows/")] | all')
               
-              # Merge if only workflow files (use admin to bypass branch protection)
-              if [ "$non_workflow_count" -eq 0 ]; then
-                if gh pr merge "$pr_number" --repo "ultralytics/$repo" --squash --admin 2>/dev/null; then
-                  echo "- ✅ Merged ultralytics/$repo#$pr_number" >> $GITHUB_STEP_SUMMARY
-                  merged_count=$(cat /tmp/merged_count.txt)
-                  echo "$((merged_count + 1))" > /tmp/merged_count.txt
+              # Merge if only workflow files
+              if [ "$all_workflows" = "true" ]; then
+                gh pr merge "$pr_number" --repo "ultralytics/$repo" --squash --admin 2>/dev/null && \
+                  echo "- ✅ Merged ultralytics/$repo#$pr_number" >> $GITHUB_STEP_SUMMARY && \
                   ((repo_merged++))
-                fi
               fi
             done
           done
-          
-          merged_count=$(cat /tmp/merged_count.txt)
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Total merged:** $merged_count" >> $GITHUB_STEP_SUMMARY
