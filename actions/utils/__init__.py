@@ -9,7 +9,13 @@ from .common_utils import (
     remove_html_comments,
 )
 from .github_utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, ultralytics_actions_info
-from .openai_utils import get_completion
+from .openai_utils import (
+    filter_labels,
+    get_completion,
+    get_pr_first_comment_template,
+    get_pr_open_response,
+    get_pr_summary_prompt,
+)
 from .version_utils import check_pubdev_version, check_pypi_version
 
 __all__ = (
@@ -23,7 +29,11 @@ __all__ = (
     "allow_redirect",
     "check_pubdev_version",
     "check_pypi_version",
+    "filter_labels",
     "get_completion",
+    "get_pr_first_comment_template",
+    "get_pr_open_response",
+    "get_pr_summary_prompt",
     "remove_html_comments",
     "ultralytics_actions_info",
 )

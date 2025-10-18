@@ -44,7 +44,7 @@ def trigger_and_get_workflow_info(event, branch: str) -> list[dict]:
         run_number = None
 
         runs_response = event.get(
-            f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/runs?branch={branch}&event=workflow_dispatch&per_page=1",
+            f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/runs?branch={branch}&event=workflow_dispatch&per_page=1"
         )
 
         if runs_response.status_code == 200:
@@ -57,10 +57,10 @@ def trigger_and_get_workflow_info(event, branch: str) -> list[dict]:
     return results
 
 
-def update_comment(event, comment_body: str, triggered_actions: list[dict], branch: str) -> bool:
+def update_comment(event, comment_body: str, triggered_actions: list[dict], branch: str):
     """Updates the comment with workflow information."""
     if not triggered_actions:
-        return False
+        return
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
     summary = (

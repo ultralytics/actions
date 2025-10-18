@@ -13,17 +13,96 @@ from actions import __version__
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 
+# GraphQL Queries
+GRAPHQL_REPO_LABELS = """
+query($owner: String!, $name: String!) {
+    repository(owner: $owner, name: $name) {
+        labels(first: 100, query: "") {
+            nodes {
+                id
+                name
+            }
+        }
+    }
+}
+"""
+
+GRAPHQL_PR_CONTRIBUTORS = """
+query($owner: String!, $repo: String!, $pr_number: Int!) {
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $pr_number) {
+            closingIssuesReferences(first: 50) { nodes { number } }
+            url
+            title
+            body
+            author { login, __typename }
+            reviews(first: 50) { nodes { author { login, __typename } } }
+            comments(first: 50) { nodes { author { login, __typename } } }
+            commits(first: 100) { nodes { commit { author { user { login } }, committer { user { login } } } } }
+        }
+    }
+}
+"""
+
+GRAPHQL_UPDATE_DISCUSSION = """
+mutation($discussionId: ID!, $title: String!, $body: String!) {
+    updateDiscussion(input: {discussionId: $discussionId, title: $title, body: $body}) {
+        discussion {
+            id
+        }
+    }
+}
+"""
+
+GRAPHQL_CLOSE_DISCUSSION = """
+mutation($discussionId: ID!) {
+    closeDiscussion(input: {discussionId: $discussionId}) {
+        discussion {
+            id
+        }
+    }
+}
+"""
+
+GRAPHQL_LOCK_DISCUSSION = """
+mutation($lockableId: ID!, $lockReason: LockReason) {
+    lockLockable(input: {lockableId: $lockableId, lockReason: $lockReason}) {
+        lockedRecord {
+            ... on Discussion {
+                id
+            }
+        }
+    }
+}
+"""
+
+GRAPHQL_ADD_DISCUSSION_COMMENT = """
+mutation($discussionId: ID!, $body: String!) {
+    addDiscussionComment(input: {discussionId: $discussionId, body: $body}) {
+        comment {
+            id
+        }
+    }
+}
+"""
+
+GRAPHQL_ADD_LABELS_TO_DISCUSSION = """
+mutation($labelableId: ID!, $labelIds: [ID!]!) {
+    addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
+        labelable {
+            ... on Discussion {
+                id
+            }
+        }
+    }
+}
+"""
+
 
 class Action:
     """Handles GitHub Actions API interactions and event processing."""
 
-    def __init__(
-        self,
-        token: str = None,
-        event_name: str = None,
-        event_data: dict = None,
-        verbose: bool = True,
-    ):
+    def __init__(self, token: str = None, event_name: str = None, event_data: dict = None, verbose: bool = True):
         """Initializes a GitHub Actions API handler with token and event data for processing events."""
         self.token = token or os.getenv("GITHUB_TOKEN")
         self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
@@ -111,7 +190,7 @@ class Action:
         """Checks if a user is a member of the organization using the GitHub API."""
         org_name = self.repository.split("/")[0]
         response = self.get(f"{GITHUB_API_URL}/orgs/{org_name}/members/{username}")
-        return response.status_code == 204  # 204 means the user is a member
+        return response.status_code == 204
 
     def get_pr_diff(self) -> str:
         """Retrieves the diff content for a specified pull request."""
@@ -156,6 +235,167 @@ class Action:
         if "data" not in result or result.get("errors"):
             print(result.get("errors"))
         return result
+
+    def update_pr_description(self, number: int, new_summary: str, max_retries: int = 2):
+        """Updates PR description with summary, retrying if description is None."""
+        import time
+
+        url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{number}"
+        description = ""
+        for i in range(max_retries + 1):
+            description = self.get(url).json().get("body") or ""
+            if description:
+                break
+            if i < max_retries:
+                print("No current PR description found, retrying...")
+                time.sleep(1)
+
+        start = "## 🛠️ PR Summary"
+        if start in description:
+            print("Existing PR Summary found, replacing.")
+            updated_description = description.split(start)[0] + new_summary
+        else:
+            print("PR Summary not found, appending.")
+            updated_description = description + "\n\n" + new_summary
+
+        self.patch(url, json={"body": updated_description})
+
+    def get_label_ids(self, labels: list[str]) -> list[str]:
+        """Retrieves GitHub label IDs for a list of label names using the GraphQL API."""
+        owner, repo = self.repository.split("/")
+        result = self.graphql_request(GRAPHQL_REPO_LABELS, variables={"owner": owner, "name": repo})
+        if "data" in result and "repository" in result["data"]:
+            all_labels = result["data"]["repository"]["labels"]["nodes"]
+            label_map = {label["name"].lower(): label["id"] for label in all_labels}
+            return [label_map.get(label.lower()) for label in labels if label.lower() in label_map]
+        return []
+
+    def apply_labels(self, number: int, node_id: str, labels: list[str], issue_type: str):
+        """Applies specified labels to a GitHub issue, pull request, or discussion."""
+        if "Alert" in labels:
+            self.create_alert_label()
+
+        if issue_type == "discussion":
+            label_ids = self.get_label_ids(labels)
+            if not label_ids:
+                print("No valid labels to apply.")
+                return
+            self.graphql_request(GRAPHQL_ADD_LABELS_TO_DISCUSSION, {"labelableId": node_id, "labelIds": label_ids})
+        else:
+            url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/{number}/labels"
+            self.post(url, json={"labels": labels})
+
+    def create_alert_label(self):
+        """Creates the 'Alert' label in the repository if it doesn't exist."""
+        alert_label = {"name": "Alert", "color": "FF0000", "description": "Potential spam, abuse, or off-topic."}
+        self.post(f"{GITHUB_API_URL}/repos/{self.repository}/labels", json=alert_label)
+
+    def remove_labels(self, number: int, labels: tuple[str, ...]):
+        """Removes specified labels from an issue or PR."""
+        for label in labels:
+            self.delete(f"{GITHUB_API_URL}/repos/{self.repository}/issues/{number}/labels/{label}")
+
+    def add_comment(self, number: int, node_id: str, comment: str, issue_type: str):
+        """Adds a comment to an issue, pull request, or discussion."""
+        if issue_type == "discussion":
+            self.graphql_request(GRAPHQL_ADD_DISCUSSION_COMMENT, variables={"discussionId": node_id, "body": comment})
+        else:
+            self.post(f"{GITHUB_API_URL}/repos/{self.repository}/issues/{number}/comments", json={"body": comment})
+
+    def update_content(self, number: int, node_id: str, issue_type: str, title: str = None, body: str = None):
+        """Updates the title and/or body of an issue, pull request, or discussion."""
+        if issue_type == "discussion":
+            variables = {"discussionId": node_id}
+            if title:
+                variables["title"] = title
+            if body:
+                variables["body"] = body
+            self.graphql_request(GRAPHQL_UPDATE_DISCUSSION, variables=variables)
+        else:
+            url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/{number}"
+            data = {}
+            if title:
+                data["title"] = title
+            if body:
+                data["body"] = body
+            self.patch(url, json=data)
+
+    def close_item(self, number: int, node_id: str, issue_type: str):
+        """Closes an issue, pull request, or discussion."""
+        if issue_type == "discussion":
+            self.graphql_request(GRAPHQL_CLOSE_DISCUSSION, variables={"discussionId": node_id})
+        else:
+            url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/{number}"
+            self.patch(url, json={"state": "closed"})
+
+    def lock_item(self, number: int, node_id: str, issue_type: str):
+        """Locks an issue, pull request, or discussion to prevent further interactions."""
+        if issue_type == "discussion":
+            self.graphql_request(GRAPHQL_LOCK_DISCUSSION, variables={"lockableId": node_id, "lockReason": "OFF_TOPIC"})
+        else:
+            url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/{number}/lock"
+            self.put(url, json={"lock_reason": "off-topic"})
+
+    def block_user(self, username: str):
+        """Blocks a user from the organization."""
+        url = f"{GITHUB_API_URL}/orgs/{self.repository.split('/')[0]}/blocks/{username}"
+        self.put(url)
+
+    def handle_alert(self, number: int, node_id: str, issue_type: str, username: str, block: bool = False):
+        """Handles content flagged as alert: updates content, locks, optionally closes and blocks user."""
+        new_title = "Content Under Review"
+        new_body = """This post has been flagged for review by [Ultralytics Actions](https://ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
+
+- [Code of Conduct](https://docs.ultralytics.com/help/code-of-conduct/)
+- [Security Policy](https://docs.ultralytics.com/help/security/)
+
+For questions or bug reports related to this action please visit https://github.com/ultralytics/actions.
+
+Thank you 🙏
+"""
+        self.update_content(number, node_id, issue_type, title=new_title, body=new_body)
+        if issue_type != "pull request":
+            self.close_item(number, node_id, issue_type)
+        self.lock_item(number, node_id, issue_type)
+        if block:
+            self.block_user(username)
+
+    def get_pr_contributors(self) -> tuple[str | None, dict]:
+        """Gets PR contributors and closing issues, returns (pr_credit_string, pr_data)."""
+        owner, repo = self.repository.split("/")
+        variables = {"owner": owner, "repo": repo, "pr_number": self.pr["number"]}
+        response = self.post(GITHUB_GRAPHQL_URL, json={"query": GRAPHQL_PR_CONTRIBUTORS, "variables": variables})
+        if response.status_code != 200:
+            return None, {}
+
+        try:
+            data = response.json()["data"]["repository"]["pullRequest"]
+            comments = data["reviews"]["nodes"] + data["comments"]["nodes"]
+            token_username = self.get_username()
+            author = data["author"]["login"] if data["author"]["__typename"] != "Bot" else None
+
+            contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
+
+            for commit in data["commits"]["nodes"]:
+                commit_data = commit["commit"]
+                for user_type in ["author", "committer"]:
+                    if user := commit_data[user_type].get("user"):
+                        if login := user.get("login"):
+                            contributors.add(login)
+
+            contributors.discard(author)
+            contributors.discard(token_username)
+
+            pr_credit = ""
+            if author and author != token_username:
+                pr_credit += f"@{author}"
+            if contributors:
+                pr_credit += (" with contributions from " if pr_credit else "") + ", ".join(f"@{c}" for c in contributors)
+
+            return pr_credit, data
+        except KeyError as e:
+            print(f"Error parsing GraphQL response: {e}")
+            return None, {}
 
     def print_info(self):
         """Print GitHub Actions information including event details and repository information."""
