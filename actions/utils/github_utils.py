@@ -124,7 +124,9 @@ class Action:
         if response.status_code == 200:
             self._pr_diff_cache = response.text
         elif response.status_code == 406:
-            self._pr_diff_cache = "**ERROR: DIFF TOO LARGE - PR exceeds GitHub's 20,000 line limit, unable to retrieve diff."
+            self._pr_diff_cache = (
+                "**ERROR: DIFF TOO LARGE - PR exceeds GitHub's 20,000 line limit, unable to retrieve diff."
+            )
         else:
             self._pr_diff_cache = "**ERROR: UNABLE TO RETRIEVE DIFF."
         return self._pr_diff_cache
