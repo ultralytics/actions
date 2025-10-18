@@ -22,20 +22,24 @@ def parse_diff_files(diff_text: str) -> dict:
             # Extract the b/ path (new file path) from: diff --git a/path b/path
             match = re.search(r" b/(.+)$", line)
             current_file = match.group(1) if match else None
+            current_line = 0  # Reset for new file
             if current_file:
                 files[current_file] = set()
                 print(f"Parsing file: {current_file}")
         elif line.startswith("@@") and current_file:
-            match = re.search(r"@@.*\+(\d+)", line)
-            current_line = int(match.group(1)) if match else 0
-            print(f"  Hunk starts at line {current_line}: {line[:80]}")
-        elif current_file and line.startswith("+") and not line.startswith("+++"):
-            if current_line > 0:
+            match = re.search(r"@@.*\+(\d+)(?:,\d+)?", line)
+            if match:
+                current_line = int(match.group(1))
+                print(f"  Hunk starts at line {current_line}: {line[:80]}")
+            else:
+                current_line = 0
+        elif current_file and current_line > 0:
+            if line.startswith("+") and not line.startswith("+++"):
                 files[current_file].add(current_line)
                 print(f"  Added line {current_line}: {line[:80]}")
-            current_line += 1
-        elif current_file and not line.startswith("-"):
-            current_line += 1
+                current_line += 1
+            elif not line.startswith("-"):
+                current_line += 1
 
     for f, lines in files.items():
         print(f"File {f}: {len(lines)} changed lines")
@@ -142,8 +146,7 @@ def dismiss_previous_reviews(event: Action) -> None:
         return
 
     for review in response.json():
-        if review.get("user", {}).get("login") == bot_username:
-            # Only dismiss reviews in APPROVED or CHANGES_REQUESTED state
+        if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or ""):
             state = review.get("state")
             if state in ["APPROVED", "CHANGES_REQUESTED"] and (review_id := review.get("id")):
                 event.put(f"{url}/{review_id}/dismissals", json={"message": "Superseded by new review"})
