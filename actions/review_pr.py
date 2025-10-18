@@ -23,16 +23,21 @@ def parse_diff_files(diff_text: str) -> dict:
             current_file = match.group(1) if match else None
             if current_file:
                 files[current_file] = set()
+                print(f"Parsing file: {current_file}")
         elif line.startswith("@@") and current_file:
             match = re.search(r"@@.*\+(\d+)", line)
             current_line = int(match.group(1)) if match else 0
+            print(f"  Hunk starts at line {current_line}: {line[:80]}")
         elif current_file and line.startswith("+") and not line.startswith("+++"):
             if current_line > 0:
                 files[current_file].add(current_line)
+                print(f"  Added line {current_line}: {line[:80]}")
             current_line += 1
         elif current_file and not line.startswith("-"):
             current_line += 1
 
+    for f, lines in files.items():
+        print(f"File {f}: {len(lines)} changed lines")
     return files
 
 
