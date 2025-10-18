@@ -107,11 +107,11 @@ def dismiss_previous_reviews(event: Action) -> None:
         return
 
     for review in response.json():
-        if review.get("user", {}).get("login") == bot_username and review.get("state") != "DISMISSED":
-            if review_id := review.get("id"):
-                event.put(
-                    f"{url}/{review_id}/dismissals", json={"message": "Superseded by new review", "event": "DISMISS"}
-                )
+        if review.get("user", {}).get("login") == bot_username:
+            # Only dismiss reviews in APPROVED or CHANGES_REQUESTED state
+            state = review.get("state")
+            if state in ["APPROVED", "CHANGES_REQUESTED"] and (review_id := review.get("id")):
+                event.put(f"{url}/{review_id}/dismissals", json={"message": "Superseded by new review"})
 
 
 def post_review_comments(event: Action, review_data: dict) -> None:
