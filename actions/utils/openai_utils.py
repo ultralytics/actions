@@ -168,24 +168,22 @@ def get_completion(
 def get_pr_open_response(repository: str, diff_text: str, title: str, body: str, available_labels: dict) -> dict:
     """Generates unified PR response with summary, labels, and first comment in a single API call."""
     if not diff_text:
-        diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
+        diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE NO CODE CHANGES IN THIS PR."
     ratio = 3.3  # about 3.3 characters per token
     limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
     is_large = len(diff_text) > limit
 
     filtered_labels = filter_labels(available_labels, is_pr=True)
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
-    summary_guidelines = get_pr_summary_guidelines()
-    comment_template = get_pr_first_comment_template(repository)
 
-    prompt = f"""You are processing a new GitHub pull request for the {repository.split("/")[-1]} repository.
+    prompt = f"""You are processing a new GitHub pull request for the {repository} repository.
 
 Generate 3 outputs in a single JSON response for the PR titled {title} with the following diff:
 {diff_text[:limit]}
 
 
 --- FIRST JSON OUTPUT (PR SUMMARY) ---
-{summary_guidelines}
+{get_pr_summary_guidelines()}
 
 --- SECOND JSON OUTPUT (PR LABELS) ---
 Array of 1-3 most relevant label names. Only use "Alert" with high confidence for inappropriate PRs. Return empty array if no labels relevant. Available labels:
@@ -202,7 +200,7 @@ Customized welcome message adapting the template below:
 - No spaces between bullet points
 
 Example comment template (adapt as needed, keep all links):
-{comment_template}
+{get_pr_first_comment_template(repository)}
 
 Return ONLY valid JSON in this exact format:
 {{"summary": "...", "labels": [...], "first_comment": "..."}}"""
