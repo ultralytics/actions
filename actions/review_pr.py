@@ -188,6 +188,8 @@ def dismiss_previous_reviews(event: Action) -> None:
             if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or ""):
                 if review_id := review.get("id"):
                     event.put(f"{reviews_url}/{review_id}/dismissals", json={"message": "Superseded by new review"})
+
+
 def post_review_comments(event: Action, review_data: dict) -> None:
     """Post inline review comments on specific lines of the PR."""
     if not (pr_number := event.pr.get("number")) or not (commit_sha := event.pr.get("head", {}).get("sha")):
