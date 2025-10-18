@@ -118,7 +118,7 @@ runs:
 
     # PR Summary -------------------------------------------------------------------------------------------------------
     - name: PR Summary
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize' && github.event.action != 'review_requested'
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         BRAVE_API_KEY: ${{ inputs.brave_api_key }}
