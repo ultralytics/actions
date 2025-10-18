@@ -19,7 +19,8 @@ def parse_diff_files(diff_text: str) -> dict:
 
     for line in diff_text.split("\n"):
         if line.startswith("diff --git"):
-            match = re.search(r"b/(.+)$", line)
+            # Extract the b/ path (new file path) from: diff --git a/path b/path
+            match = re.search(r" b/(.+)$", line)
             current_file = match.group(1) if match else None
             if current_file:
                 files[current_file] = set()
