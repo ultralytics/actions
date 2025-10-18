@@ -58,11 +58,7 @@ def get_completion(
 
         r = requests.post(url, json=data, headers=headers)
         if r.status_code != 200:
-            try:
-                error_data = r.json()
-                print(f"❌ OpenAI API Error ({r.status_code}): {error_data}")
-            except Exception:
-                print(f"❌ OpenAI API Error ({r.status_code}): {r.text[:500]}")
+            print(f"❌ OpenAI error {r.status_code}:\n{r.text}\n")
         r.raise_for_status()
         response_data = r.json()
 

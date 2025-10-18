@@ -42,6 +42,8 @@ class Action:
         self.headers_diff = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github.v3.diff"}
         self.eyes_reaction_id = None
         self.verbose = verbose
+        self._pr_diff_cache = None
+        self._username_cache = None
 
     def _request(self, method: str, url: str, headers=None, expected_status=None, hard=False, **kwargs):
         """Unified request handler with error checking."""
@@ -98,14 +100,17 @@ class Action:
         return self.event_data.get("repository", {}).get("private")
 
     def get_username(self) -> str | None:
-        """Gets username associated with the GitHub token."""
+        """Gets username associated with the GitHub token with caching."""
+        if self._username_cache is not None:
+            return self._username_cache
+
         response = self.post(GITHUB_GRAPHQL_URL, json={"query": "query { viewer { login } }"})
         if response.status_code == 200:
             try:
-                return response.json()["data"]["viewer"]["login"]
+                self._username_cache = response.json()["data"]["viewer"]["login"]
             except KeyError as e:
                 print(f"Error parsing authenticated user response: {e}")
-        return None
+        return self._username_cache
 
     def is_org_member(self, username: str) -> bool:
         """Checks if a user is a member of the organization using the GitHub API."""
@@ -114,15 +119,21 @@ class Action:
         return response.status_code == 204  # 204 means the user is a member
 
     def get_pr_diff(self) -> str:
-        """Retrieves the diff content for a specified pull request."""
+        """Retrieves the diff content for a specified pull request with caching."""
+        if self._pr_diff_cache is not None:
+            return self._pr_diff_cache
+
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}"
         response = self.get(url, headers=self.headers_diff)
         if response.status_code == 200:
-            return response.text
+            self._pr_diff_cache = response.text
         elif response.status_code == 406:
-            return "**ERROR: DIFF TOO LARGE - PR exceeds GitHub's 20,000 line limit, unable to retrieve diff."
+            self._pr_diff_cache = (
+                "**ERROR: DIFF TOO LARGE - PR exceeds GitHub's 20,000 line limit, unable to retrieve diff."
+            )
         else:
-            return "**ERROR: UNABLE TO RETRIEVE DIFF."
+            self._pr_diff_cache = "**ERROR: UNABLE TO RETRIEVE DIFF."
+        return self._pr_diff_cache
 
     def get_repo_data(self, endpoint: str) -> dict:
         """Fetches repository data from a specified endpoint."""
