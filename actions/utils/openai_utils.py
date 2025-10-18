@@ -121,7 +121,8 @@ def get_completion(
     for attempt in range(max_retries + 2):
         data = {"model": OPENAI_MODEL, "input": messages, "store": False, "temperature": temperature}
         if response_format:
-            data["response_format"] = response_format
+            if response_format.get("type") == "json_object":
+                data["text"] = {"format": "json"}
         if "gpt-5" in OPENAI_MODEL:
             data["reasoning"] = {"effort": reasoning_effort or "low"}
 
