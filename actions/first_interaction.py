@@ -6,7 +6,9 @@ import os
 
 from .utils import Action, filter_labels, get_completion, get_pr_open_response, remove_html_comments
 
-SUMMARY_START = "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
+SUMMARY_START = (
+    "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
+)
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 
 
@@ -36,7 +38,9 @@ def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
     return number, node_id, title, body, username, issue_type, action
 
 
-def get_relevant_labels(issue_type: str, title: str, body: str, available_labels: dict, current_labels: list) -> list[str]:
+def get_relevant_labels(
+    issue_type: str, title: str, body: str, available_labels: dict, current_labels: list
+) -> list[str]:
     """Determines relevant labels for GitHub issues/discussions using OpenAI."""
     filtered_labels = filter_labels(available_labels, current_labels, is_pr=(issue_type == "pull request"))
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
@@ -64,7 +68,10 @@ AVAILABLE LABELS:
 YOUR RESPONSE (label names only):
 """
     messages = [
-        {"role": "system", "content": "You are an Ultralytics AI assistant that labels GitHub issues, PRs, and discussions."},
+        {
+            "role": "system",
+            "content": "You are an Ultralytics AI assistant that labels GitHub issues, PRs, and discussions.",
+        },
         {"role": "user", "content": prompt},
     ]
     suggested_labels = get_completion(messages, temperature=1.0)
@@ -140,7 +147,10 @@ EXAMPLE {issue_type.upper()} RESPONSE:
 YOUR {issue_type.upper()} RESPONSE:
 """
     messages = [
-        {"role": "system", "content": f"You are an Ultralytics AI assistant responding to GitHub {issue_type}s for {org_name}."},
+        {
+            "role": "system",
+            "content": f"You are an Ultralytics AI assistant responding to GitHub {issue_type}s for {org_name}.",
+        },
         {"role": "user", "content": prompt},
     ]
     return get_completion(messages)
@@ -165,7 +175,9 @@ def main(*args, **kwargs):
 
         if relevant_labels := response.get("labels", []):
             available_lower = {k.lower(): k for k in label_descriptions}
-            relevant_labels = [available_lower.get(l.lower(), l) for l in relevant_labels if l.lower() in available_lower]
+            relevant_labels = [
+                available_lower.get(l.lower(), l) for l in relevant_labels if l.lower() in available_lower
+            ]
             if relevant_labels:
                 print(f"Applying labels: {relevant_labels}")
                 event.apply_labels(number, node_id, relevant_labels, issue_type)
@@ -179,7 +191,11 @@ def main(*args, **kwargs):
         return
 
     # Handle issues and discussions (NOT PRs)
-    current_labels = [] if issue_type == "discussion" else [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
+    current_labels = (
+        []
+        if issue_type == "discussion"
+        else [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
+    )
 
     if relevant_labels := get_relevant_labels(issue_type, title, body, label_descriptions, current_labels):
         event.apply_labels(number, node_id, relevant_labels, issue_type)

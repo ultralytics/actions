@@ -36,17 +36,27 @@ def filter_labels(available_labels: dict, current_labels: list = None, is_pr: bo
     """Filters labels by removing manually-assigned and mutually exclusive labels."""
     current_labels = current_labels or []
     filtered = available_labels.copy()
-    
+
     # Remove labels that should only be manually assigned
-    for label in {"help wanted", "TODO", "research", "non-reproducible", "popular", "invalid", "Stale", "wontfix", "duplicate"}:
+    for label in {
+        "help wanted",
+        "TODO",
+        "research",
+        "non-reproducible",
+        "popular",
+        "invalid",
+        "Stale",
+        "wontfix",
+        "duplicate",
+    }:
         filtered.pop(label, None)
-    
+
     # Remove mutually exclusive labels
     if "bug" in current_labels:
         filtered.pop("question", None)
     elif "question" in current_labels:
         filtered.pop("bug", None)
-    
+
     # Add Alert label if not present
     if "Alert" not in filtered:
         filtered["Alert"] = (
@@ -54,7 +64,7 @@ def filter_labels(available_labels: dict, current_labels: list = None, is_pr: bo
             "phishing, crypto offers, pirated software or media, free movie downloads, cracks, keygens or any other "
             "content that violates terms of service or legal standards."
         )
-    
+
     return filtered
 
 
@@ -64,7 +74,7 @@ def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
         diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
     ratio = 3.3  # about 3.3 characters per token
     limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
-    
+
     prompt = (
         f"Summarize this '{repository}' PR, focusing on major changes, their purpose, and potential impact. "
         f"Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. "
@@ -130,12 +140,13 @@ def get_completion(
         content = content.strip()
         if response_format and response_format.get("type") == "json_object":
             import json
+
             return json.loads(content)
 
         content = remove_outer_codeblocks(content)
         for x in remove:
             content = content.replace(x, "")
-        
+
         if not check_links or check_links_in_string(content):
             return content
 
@@ -153,11 +164,11 @@ def get_pr_open_response(repository: str, diff_text: str, title: str, body: str,
     """Generates unified PR response with summary, labels, and first comment in a single API call."""
     filtered_labels = filter_labels(available_labels, is_pr=True)
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
-    
+
     summary_prompt, is_large = get_pr_summary_prompt(repository, diff_text)
     comment_template = get_pr_first_comment_template(repository)
 
-    prompt = f"""You are processing a new GitHub pull request for the {repository.split('/')[-1]} repository.
+    prompt = f"""You are processing a new GitHub pull request for the {repository.split("/")[-1]} repository.
 
 Generate THREE outputs in a single JSON response:
 
@@ -192,10 +203,12 @@ Return ONLY valid JSON:
         {"role": "user", "content": prompt},
     ]
     result = get_completion(messages, temperature=1.0, response_format={"type": "json_object"})
-    
+
     if is_large and "summary" in result:
-        result["summary"] = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + result["summary"]
-    
+        result["summary"] = (
+            "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + result["summary"]
+        )
+
     return result
 
 

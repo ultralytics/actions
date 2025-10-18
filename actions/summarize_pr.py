@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from .utils import GITHUB_API_URL, Action, get_completion, get_pr_summary_prompt
 
-SUMMARY_START = "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
+SUMMARY_START = (
+    "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
+)
 
 
 def generate_merge_message(pr_summary, pr_credit, pr_url):
@@ -60,7 +62,7 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
 def generate_pr_summary(repository, diff_text):
     """Generates a concise, professional summary of a PR using OpenAI's API."""
     prompt, is_large = get_pr_summary_prompt(repository, diff_text)
-    
+
     messages = [
         {
             "role": "system",

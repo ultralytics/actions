@@ -390,7 +390,9 @@ Thank you 🙏
             if author and author != token_username:
                 pr_credit += f"@{author}"
             if contributors:
-                pr_credit += (" with contributions from " if pr_credit else "") + ", ".join(f"@{c}" for c in contributors)
+                pr_credit += (" with contributions from " if pr_credit else "") + ", ".join(
+                    f"@{c}" for c in contributors
+                )
 
             return pr_credit, data
         except KeyError as e:
