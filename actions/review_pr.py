@@ -12,19 +12,18 @@ REVIEW_MARKER = "🔍 PR Review"
 
 
 def parse_diff_files(diff_text: str) -> dict:
-    """Parse diff to extract file paths and valid line numbers for comments."""
+    """Parse diff to extract file paths, valid line numbers, and line content for comments."""
     files = {}
     current_file = None
     current_line = 0
 
     for line in diff_text.split("\n"):
         if line.startswith("diff --git"):
-            # Extract the b/ path (new file path) from: diff --git a/path b/path
             match = re.search(r" b/(.+)$", line)
             current_file = match.group(1) if match else None
-            current_line = 0  # Reset for new file
+            current_line = 0
             if current_file:
-                files[current_file] = set()
+                files[current_file] = {}
                 print(f"Parsing file: {current_file}")
         elif line.startswith("@@") and current_file:
             match = re.search(r"@@.*\+(\d+)(?:,\d+)?", line)
@@ -35,7 +34,7 @@ def parse_diff_files(diff_text: str) -> dict:
                 current_line = 0
         elif current_file and current_line > 0:
             if line.startswith("+") and not line.startswith("+++"):
-                files[current_file].add(current_line)
+                files[current_file][current_line] = line[1:]  # Store line content without '+' prefix
                 print(f"  Added line {current_line}: {line[:80]}")
                 current_line += 1
             elif not line.startswith("-"):
@@ -102,31 +101,20 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
         print(f"AI generated {len(review_data.get('comments', []))} comments")
 
-        # Validate, filter, and deduplicate comments (keep highest severity per line)
-        seen_locations = {}
-        severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4}
-
+        # Validate and filter comments
+        valid_comments = []
         for c in review_data.get("comments", []):
             file_path, line_num = c.get("file"), c.get("line", 0)
             if file_path in diff_files and line_num in diff_files[file_path]:
-                location = f"{file_path}:{line_num}"
-                current_severity = severity_order.get(c.get("severity", "SUGGESTION"), 4)
-
-                if location not in seen_locations:
-                    seen_locations[location] = c
-                elif current_severity < severity_order.get(seen_locations[location].get("severity", "SUGGESTION"), 4):
-                    print(f"Replacing duplicate at {location} with higher severity")
-                    seen_locations[location] = c
-                else:
-                    print(f"Skipping duplicate at {location}")
+                valid_comments.append(c)
             else:
                 print(
-                    f"Filtered out comment: {file_path}:{line_num} (available lines: {list(diff_files.get(file_path, set()))[:10]}...)"
+                    f"Filtered out comment: {file_path}:{line_num} (available lines: {list(diff_files.get(file_path, {}))[:10]}...)"
                 )
 
-        valid_comments = list(seen_locations.values())
-        print(f"Valid comments after filtering and deduplication: {len(valid_comments)}")
+        print(f"Valid comments after filtering: {len(valid_comments)}")
         review_data["comments"] = valid_comments
+        review_data["diff_files"] = diff_files
         return review_data
 
     except Exception as e:
@@ -159,6 +147,7 @@ def post_review_comments(event: Action, review_data: dict) -> None:
 
     emoji_map = {"CRITICAL": "🚨", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
     url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
+    diff_files = review_data.get("diff_files", {})
 
     for comment in review_data.get("comments", [])[:50]:
         if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
@@ -168,7 +157,11 @@ def post_review_comments(event: Action, review_data: dict) -> None:
         body = f"{emoji_map.get(severity, '💭')} **{severity}**: {comment.get('message', '')}"
 
         if suggestion := comment.get("suggestion"):
-            body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
+            # Extract indentation from original line and apply to suggestion
+            original_line = diff_files.get(file_path, {}).get(line, "")
+            indent = len(original_line) - len(original_line.lstrip())
+            indented_suggestion = "\n".join(" " * indent + l if l.strip() else l for l in suggestion.split("\n"))
+            body += f"\n\n**Suggested change:**\n```suggestion\n{indented_suggestion}\n```"
 
         event.post(url, json={"body": body, "commit_id": commit_sha, "path": file_path, "line": line, "side": "RIGHT"})
 
@@ -222,9 +215,9 @@ def main(*args, **kwargs):
     diff = event.get_pr_diff()
     review = generate_pr_review(event.repository, diff, event.pr.get("title", ""), event.pr.get("body", ""))
 
+    post_review_summary(event, review)
     print(f"Posting {len(review.get('comments', []))} inline comments")
     post_review_comments(event, review)
-    post_review_summary(event, review)
 
     if event.event_name == "issue_comment":
         event.toggle_eyes_reaction(False)
