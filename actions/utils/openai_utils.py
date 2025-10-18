@@ -218,6 +218,7 @@ Return ONLY valid JSON in this exact format:
         {"role": "system", "content": "You are an Ultralytics AI assistant processing GitHub PRs."},
         {"role": "user", "content": prompt},
     ]
+    print(f"\n{'='*80}\nPROMPT LENGTH: {len(prompt)} characters\n{'='*80}\n{prompt[:8000]}\n{'='*80}\n")
     result = get_completion(messages, temperature=1.0, response_format={"type": "json_object"})
 
     if is_large and "summary" in result:
