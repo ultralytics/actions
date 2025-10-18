@@ -63,6 +63,14 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     diff_truncated = len(diff_text) > limit
     lines_changed = sum(len(lines) for lines in diff_files.values())
 
+    # Build valid line numbers list for prompt
+    valid_lines_text = "\n".join(
+        f"  {file}: {sorted(list(lines.keys())[:20])}{' ...' if len(lines) > 20 else ''}"
+        for file, lines in list(diff_files.items())[:10]
+    )
+    if len(diff_files) > 10:
+        valid_lines_text += "\n  ..."
+
     messages = [
         {
             "role": "system",
@@ -86,11 +94,14 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 "- Only comment on NEW lines (those starting with + in the diff)\n"
                 "- Use exact file paths from the diff (no ./ prefix)\n"
                 "- Line numbers must match the NEW file line numbers from @@ hunks\n"
+                "- When you see '- old' then '+ new', the new line keeps the SAME line number as old\n"
                 "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
                 "- Include specific code suggestions when possible\n"
                 f"- Files changed: {len(file_list)} ({', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''})\n"
                 f"- Total changed lines: {lines_changed}\n"
-                f"- Diff {'truncated' if diff_truncated else 'complete'}: {len(diff_text[:limit])} chars{f' of {len(diff_text)}' if diff_truncated else ''}"
+                f"- Diff {'truncated' if diff_truncated else 'complete'}: {len(diff_text[:limit])} chars{f' of {len(diff_text)}' if diff_truncated else ''}\n\n"
+                "VALID LINE NUMBERS (use ONLY these):\n"
+                f"{valid_lines_text}"
             ),
         },
         {
