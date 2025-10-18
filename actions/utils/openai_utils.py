@@ -209,7 +209,7 @@ Return ONLY valid JSON in this exact format:
     print(f"\n{'=' * 80}\nPROMPT LENGTH: {len(prompt)} characters\n{'=' * 80}\n{prompt[:8000]}\n{'=' * 80}\n")
     result = get_completion(messages, temperature=1.0, response_format={"type": "json_object"})
 
-    print("RESPONSE RESULT\n",result)
+    print("RESPONSE RESULT\n", result)
 
     if is_large and "summary" in result:
         result["summary"] = (
