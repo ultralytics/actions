@@ -98,18 +98,30 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
         print(f"AI generated {len(review_data.get('comments', []))} comments")
 
-        # Validate and filter comments
-        valid_comments = []
+        # Validate, filter, and deduplicate comments (keep highest severity per line)
+        seen_locations = {}
+        severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4}
+        
         for c in review_data.get("comments", []):
             file_path, line_num = c.get("file"), c.get("line", 0)
             if file_path in diff_files and line_num in diff_files[file_path]:
-                valid_comments.append(c)
+                location = f"{file_path}:{line_num}"
+                current_severity = severity_order.get(c.get("severity", "SUGGESTION"), 4)
+                
+                if location not in seen_locations:
+                    seen_locations[location] = c
+                elif current_severity < severity_order.get(seen_locations[location].get("severity", "SUGGESTION"), 4):
+                    print(f"Replacing duplicate at {location} with higher severity")
+                    seen_locations[location] = c
+                else:
+                    print(f"Skipping duplicate at {location}")
             else:
                 print(
                     f"Filtered out comment: {file_path}:{line_num} (available lines: {list(diff_files.get(file_path, set()))[:10]}...)"
                 )
 
-        print(f"Valid comments after filtering: {len(valid_comments)}")
+        valid_comments = list(seen_locations.values())
+        print(f"Valid comments after filtering and deduplication: {len(valid_comments)}")
         review_data["comments"] = valid_comments
         return review_data
 
