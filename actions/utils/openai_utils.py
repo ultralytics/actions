@@ -40,6 +40,7 @@ def get_completion(
     remove: list[str] = (" @giscus[bot]",),  # strings to remove from response
     temperature: float = 1.0,  # note GPT-5 requires temperature=1.0
     reasoning_effort: str = None,  # reasoning effort for GPT-5 models: minimal, low, medium, high
+    json_schema: dict = None,  # JSON schema response format for structured outputs
 ) -> str:
     """Generates a completion using OpenAI's API based on input messages."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
@@ -62,10 +63,16 @@ def get_completion(
         if "gpt-5" in OPENAI_MODEL:
             data["reasoning_effort"] = reasoning_effort or "low"  # Default to low for GPT-5
 
+        # Add JSON schema if provided
+        if json_schema:
+            data["response_format"] = {"type": "json_schema", "json_schema": json_schema}
+
         r = requests.post(url, json=data, headers=headers)
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"].strip()
-        content = remove_outer_codeblocks(content)
+        if not json_schema:
+            content = remove_outer_codeblocks(content)
+
         for x in remove:
             content = content.replace(x, "")
         if not check_links or check_links_in_string(content):  # if no checks or checks are passing return response
