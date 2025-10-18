@@ -46,6 +46,10 @@ inputs:
     description: "Run PR Summary"
     required: false
     default: "false"
+  review:
+    description: "Run PR Review"
+    required: false
+    default: "false"
   header:
     description: "File header"
     required: false
@@ -86,11 +90,11 @@ runs:
         version: "0.8.22"
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
-      # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@main codespell tomli
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
-        packages="ultralytics-actions"
+        sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@review-pr-1 codespell tomli
+        packages=""
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
@@ -122,6 +126,18 @@ runs:
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
         ultralytics-actions-summarize-pr
+      shell: bash
+      continue-on-error: true
+
+    # PR Review --------------------------------------------------------------------------------------------------------
+    - name: PR Review
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.review == 'true' && github.event.action == 'opened'
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        OPENAI_MODEL: ${{ inputs.openai_model }}
+      run: |
+        ultralytics-actions-review-pr
       shell: bash
       continue-on-error: true
 
