@@ -85,6 +85,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
     try:
         response = get_completion(messages, reasoning_effort="medium")
+        print(f"Raw AI response (first 500 chars): {response[:500]}")
+        
         json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
         review_data = json.loads(json_match.group(1) if json_match else response)
 
@@ -99,6 +101,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
             else:
                 print(f"Filtered out comment: {file_path}:{line_num} (available lines: {list(diff_files.get(file_path, set()))[:10]}...)")
         
+        print(f"Valid comments after filtering: {len(valid_comments)}")
         review_data["comments"] = valid_comments
         return review_data
 
