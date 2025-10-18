@@ -1,6 +1,6 @@
 <a href="https://www.ultralytics.com/"><img src="https://raw.githubusercontent.com/ultralytics/assets/main/logo/Ultralytics_Logotype_Original.svg" width="320" alt="Ultralytics logo"></a>
 
-# 🚀 Ultralytics Actions: Auto-Formatting for Python, Markdown, and Swift
+# 🚀 Ultralytics Actions: AI-powered formatting, labeling & PR summaries for Python and Markdown
 
 Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python and Swift projects. This GitHub Action is designed to automate the formatting of Python, Markdown, and Swift files, ensuring adherence to our coding standards and enhancing project maintainability.
 
