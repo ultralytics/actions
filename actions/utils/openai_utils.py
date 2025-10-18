@@ -50,7 +50,7 @@ def get_completion(
     content = ""
     max_retries = 2
     for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
-        data = {"model": OPENAI_MODEL, "input": messages, "store": False}
+        data = {"model": OPENAI_MODEL, "input": messages, "store": False, "temperature": temperature}
 
         # Add reasoning for GPT-5 models
         if "gpt-5" in OPENAI_MODEL:

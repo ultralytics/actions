@@ -77,7 +77,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     ]
 
     try:
-        response = get_completion(messages, temperature=0.7, reasoning_effort="medium")
+        response = get_completion(messages, reasoning_effort="medium")
         json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
         review_data = json.loads(json_match.group(1) if json_match else response)
 
