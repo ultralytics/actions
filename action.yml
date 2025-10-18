@@ -49,7 +49,7 @@ inputs:
   review:
     description: "Run PR Review"
     required: false
-    default: "true"
+    default: "false"
   header:
     description: "File header"
     required: false
