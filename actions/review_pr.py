@@ -181,7 +181,7 @@ def dismiss_previous_reviews(event: Action) -> None:
     if not bot_username:
         return
 
-    # Dismiss dismissible reviews (APPROVED/CHANGES_REQUESTED)
+    # Dismiss ALL previous reviews (APPROVED/CHANGES_REQUESTED)
     reviews_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
     response = event.get(reviews_url)
     if response.status_code == 200:
@@ -191,14 +191,14 @@ def dismiss_previous_reviews(event: Action) -> None:
                 if state in ["APPROVED", "CHANGES_REQUESTED"] and (review_id := review.get("id")):
                     event.put(f"{reviews_url}/{review_id}/dismissals", json={"message": "Superseded by new review"})
 
-    # Delete previous inline review comments (for COMMENTED reviews that can't be dismissed)
+    # Delete ALL previous inline review comments
     comments_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
     response = event.get(comments_url)
     if response.status_code == 200:
         for comment in response.json():
             if comment.get("user", {}).get("login") == bot_username:
                 comment_id = comment.get("id")
-                event.delete(f"{comments_url}/{comment_id}")
+                event.delete(f"{comments_url}/{comment_id}", expected_status=[200, 204, 404])
 
 
 def post_review_comments(event: Action, review_data: dict) -> None:
