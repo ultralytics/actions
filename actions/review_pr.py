@@ -185,7 +185,7 @@ def dismiss_previous_reviews(event: Action) -> None:
     response = event.get(reviews_url)
     if response.status_code == 200:
         for review in response.json():
-            if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or ""):
+            if review.get("user", {}).get("login") == bot_username:
                 if review_id := review.get("id"):
                     event.put(f"{reviews_url}/{review_id}/dismissals", json={"message": "Superseded by new review"})
 def post_review_comments(event: Action, review_data: dict) -> None:
