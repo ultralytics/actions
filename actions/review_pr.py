@@ -56,18 +56,25 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         {
             "role": "system",
             "content": (
-                "You are an expert code reviewer for Ultralytics. Focus on:\n"
+                "You are an expert code reviewer for Ultralytics. Provide detailed inline comments on specific code changes.\n\n"
+                "Focus on:\n"
                 "- Code quality, style, best practices\n"
                 "- Bugs, edge cases, error handling\n"
                 "- Performance and security\n"
                 "- Documentation and test coverage\n\n"
-                "Provide issues as JSON:\n"
-                '{"comments": [{"file": "path", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], '
-                '"summary": "...", "approval": "APPROVE|REQUEST_CHANGES|COMMENT"}\n\n'
+                "IMPORTANT: Generate multiple specific inline comments (aim for 3-10) for different issues found in the code.\n"
+                "Each comment should point to a specific line and include a clear, actionable message.\n\n"
+                "Return JSON with this exact structure:\n"
+                '{"comments": [{"file": "exact/path/from/diff", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], '
+                '"summary": "Overall assessment", "approval": "APPROVE|REQUEST_CHANGES|COMMENT"}\n\n'
                 "Rules:\n"
-                "- Only comment on lines that start with + in diff\n"
+                "- Only comment on NEW lines (those starting with + in the diff)\n"
+                "- Use exact file paths from the diff (no ./ prefix)\n"
+                "- Line numbers must match the NEW file line numbers from @@ hunks\n"
                 "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
-                f"- Files in PR: {', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''}"
+                "- Include specific code suggestions when possible\n"
+                f"- Files changed: {', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''}\n"
+                f"- Total changed lines: {sum(len(lines) for lines in diff_files.values())}"
             ),
         },
         {
@@ -81,12 +88,17 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
         review_data = json.loads(json_match.group(1) if json_match else response)
 
+        print(f"AI generated {len(review_data.get('comments', []))} comments")
+        
         # Validate and filter comments
-        valid_comments = [
-            c
-            for c in review_data.get("comments", [])
-            if c.get("file") in diff_files and c.get("line", 0) in diff_files[c.get("file")]
-        ]
+        valid_comments = []
+        for c in review_data.get("comments", []):
+            file_path, line_num = c.get("file"), c.get("line", 0)
+            if file_path in diff_files and line_num in diff_files[file_path]:
+                valid_comments.append(c)
+            else:
+                print(f"Filtered out comment: {file_path}:{line_num} (available lines: {list(diff_files.get(file_path, set()))[:10]}...)")
+        
         review_data["comments"] = valid_comments
         return review_data
 
