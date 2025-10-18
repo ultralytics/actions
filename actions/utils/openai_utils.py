@@ -67,11 +67,16 @@ def filter_labels(available_labels: dict, current_labels: list = None, is_pr: bo
 
 def get_pr_summary_guidelines() -> str:
     """Returns PR summary formatting guidelines (used by both unified PR open and PR update/merge)."""
-    return """Summarize this PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:
+    return """Summarize this PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Your response must include all 3 sections below with their markdown headers:
 
-### 🌟 Summary (single-line synopsis)
-### 📊 Key Changes (bullet points highlighting any major changes)
-### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)"""
+### 🌟 Summary
+(single-line synopsis)
+
+### 📊 Key Changes
+- (bullet points highlighting major changes)
+
+### 🎯 Purpose & Impact
+- (bullet points explaining benefits and potential impact to users)"""
 
 
 def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
