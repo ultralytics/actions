@@ -90,7 +90,6 @@ runs:
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
-        # packages="ultralytics-actions"
         packages=""
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
