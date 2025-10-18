@@ -1,6 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 from actions.summarize_pr import generate_issue_comment, generate_merge_message, generate_pr_summary
 
@@ -43,6 +43,3 @@ def test_generate_issue_comment(mock_get_completion):
 
     assert comment == "This issue is fixed in PR #123"
     mock_get_completion.assert_called_once()
-
-
-
