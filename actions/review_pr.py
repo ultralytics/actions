@@ -144,6 +144,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     except Exception as e:
         print(f"Review generation failed: {e}")
         import traceback
+
         traceback.print_exc()
         return {"comments": [], "summary": "Review generation encountered an error", "approval": "COMMENT"}
 
