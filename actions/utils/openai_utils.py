@@ -64,6 +64,17 @@ def get_completion(
         r = requests.post(url, json=data, headers=headers)
         r.raise_for_status()
         content = r.json()["choices"][0]["message"]["content"].strip()
+        response_data = r.json()
+
+        # Extract text from output array
+        content = ""
+        for item in response_data.get("output", []):
+            if item.get("type") == "message":
+                for content_item in item.get("content", []):
+                    if content_item.get("type") == "output_text":
+                        content += content_item.get("text", "")
+
+        content = content.strip()
         if not json_schema:
             content = remove_outer_codeblocks(content)
 
