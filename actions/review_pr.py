@@ -7,7 +7,7 @@ import re
 
 from .utils import GITHUB_API_URL, Action, get_completion
 
-REVIEW_KEYWORD = "@UltralyticsAssistant review"
+REVIEW_KEYWORD = "@ultralytics/review"
 REVIEW_MARKER = "🔍 PR Review"
 
 
@@ -72,7 +72,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 "- Performance and security\n"
                 "- Documentation and test coverage\n\n"
                 "IMPORTANT: Generate multiple specific inline comments (aim for 3-10) for different issues found in the code.\n"
-                "Each comment should point to a specific line and include a clear, actionable message.\n\n"
+                "CRITICAL RULE: You must generate comments for DIFFERENT line numbers. Each comment must have a unique line number.\n"
+                "If you find multiple issues on the same line, combine them into a single comment for that line.\n\n"
                 "Return JSON with this exact structure:\n"
                 '{"comments": [{"file": "exact/path/from/diff", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], '
                 '"summary": "Overall assessment", "approval": "APPROVE|REQUEST_CHANGES|COMMENT"}\n\n'
@@ -94,10 +95,14 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
     try:
         response = get_completion(messages, reasoning_effort="medium")
-        print(f"Raw AI response (first 500 chars): {response[:500]}")
+        print("\n" + "=" * 80)
+        print("FULL AI RESPONSE:")
+        print(response)
+        print("=" * 80 + "\n")
 
         json_match = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
-        review_data = json.loads(json_match.group(1) if json_match else response)
+        json_str = json_match.group(1) if json_match else response
+        review_data = json.loads(json_str)
 
         print(f"AI generated {len(review_data.get('comments', []))} comments")
 
@@ -112,13 +117,34 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                     f"Filtered out comment: {file_path}:{line_num} (available lines: {list(diff_files.get(file_path, {}))[:10]}...)"
                 )
 
-        print(f"Valid comments after filtering: {len(valid_comments)}")
+        # Deduplicate by (file, line) - keep highest severity
+        severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4}
+        unique_comments = {}
+        for c in valid_comments:
+            key = f"{c.get('file')}:{c.get('line')}"
+            if key in unique_comments:
+                print(f"⚠️  AI duplicate detected for {key}, keeping highest severity")
+                existing_severity = severity_order.get(unique_comments[key].get("severity", "SUGGESTION"), 4)
+                new_severity = severity_order.get(c.get("severity", "SUGGESTION"), 4)
+                if new_severity < existing_severity:
+                    unique_comments[key] = c
+            else:
+                unique_comments[key] = c
+
+        valid_comments = list(unique_comments.values())
+        print(f"Valid comments after filtering and deduplication: {len(valid_comments)}")
         review_data["comments"] = valid_comments
         review_data["diff_files"] = diff_files
         return review_data
 
+    except json.JSONDecodeError as e:
+        print(f"JSON parsing failed: {e}")
+        print(f"Attempted to parse: {json_str[:500]}...")
+        return {"comments": [], "summary": "Review generation encountered a JSON parsing error", "approval": "COMMENT"}
     except Exception as e:
         print(f"Review generation failed: {e}")
+        import traceback
+        traceback.print_exc()
         return {"comments": [], "summary": "Review generation encountered an error", "approval": "COMMENT"}
 
 
