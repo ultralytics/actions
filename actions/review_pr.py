@@ -121,16 +121,17 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         return {"comments": [], "summary": "Review generation encountered an error"}
 
 
-def dismiss_previous_reviews(event: Action) -> None:
-    """Dismiss previous bot reviews and delete inline comments."""
+def dismiss_previous_reviews(event: Action) -> int:
+    """Dismiss previous bot reviews and delete inline comments. Returns count for numbering."""
     if not (pr_number := event.pr.get("number")) or not (bot_username := event.get_username()):
-        return
+        return 1
 
-    # Dismiss previous reviews
+    review_count = 0
     reviews_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
     if (response := event.get(reviews_url)).status_code == 200:
         for review in response.json():
-            if review.get("user", {}).get("login") == bot_username:
+            if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or ""):
+                review_count += 1
                 if review.get("state") in ["APPROVED", "CHANGES_REQUESTED"] and (review_id := review.get("id")):
                     event.put(f"{reviews_url}/{review_id}/dismissals", json={"message": "Superseded by new review"})
 
@@ -140,6 +141,8 @@ def dismiss_previous_reviews(event: Action) -> None:
         for comment in response.json():
             if comment.get("user", {}).get("login") == bot_username and (comment_id := comment.get("id")):
                 event.delete(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments/{comment_id}", expected_status=[200, 204, 404])
+
+    return review_count + 1
 
 
 def post_review_comments(event: Action, review_data: dict) -> None:
@@ -166,17 +169,18 @@ def post_review_comments(event: Action, review_data: dict) -> None:
         event.post(url, json={"body": body, "commit_id": commit_sha, "path": file_path, "line": line, "side": "RIGHT"})
 
 
-def post_review_summary(event: Action, review_data: dict) -> None:
+def post_review_summary(event: Action, review_data: dict, review_number: int) -> None:
     """Post overall review summary as a PR review."""
     if not (pr_number := event.pr.get("number")) or not (commit_sha := event.pr.get("head", {}).get("sha")):
         return
 
+    review_title = f"{REVIEW_MARKER} {review_number}" if review_number > 1 else REVIEW_MARKER
     comments = review_data.get("comments", [])
     max_severity = max((c.get("severity") for c in comments), default="SUGGESTION") if comments else None
     event_type = "APPROVE" if not comments or max_severity in ["LOW", "SUGGESTION"] else "REQUEST_CHANGES"
 
     body = (
-        f"## {REVIEW_MARKER}\n\n"
+        f"## {review_title}\n\n"
         "<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)</sub>\n\n"
         f"{review_data.get('summary', 'Review completed')}\n\n"
     )
@@ -215,12 +219,12 @@ def main(*args, **kwargs):
         return
 
     print(f"Starting PR review for #{event.pr['number']}")
-    dismiss_previous_reviews(event)
+    review_number = dismiss_previous_reviews(event)
 
     diff = event.get_pr_diff()
     review = generate_pr_review(event.repository, diff, event.pr.get("title", ""), event.pr.get("body", ""))
 
-    post_review_summary(event, review)
+    post_review_summary(event, review, review_number)
     print(f"Posting {len(review.get('comments', []))} inline comments")
     post_review_comments(event, review)
 
