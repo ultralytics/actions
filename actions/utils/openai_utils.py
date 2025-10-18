@@ -120,11 +120,9 @@ def get_completion(
     max_retries = 2
     for attempt in range(max_retries + 2):
         data = {"model": OPENAI_MODEL, "input": messages, "store": False, "temperature": temperature}
-        if response_format:
-            if response_format.get("type") == "json_object":
-                data["text"] = {"format": "json"}
         if "gpt-5" in OPENAI_MODEL:
             data["reasoning"] = {"effort": reasoning_effort or "low"}
+            # GPT-5 Responses API handles JSON via prompting, not format parameter
 
         r = requests.post(url, json=data, headers=headers)
         if r.status_code != 200:
