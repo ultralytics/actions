@@ -5,7 +5,6 @@ from __future__ import annotations
 import os
 
 from .utils import (
-    GITHUB_API_URL,
     Action,
     filter_labels,
     get_completion,
@@ -87,7 +86,7 @@ YOUR RESPONSE (label names only):
 
 
 def get_first_interaction_response(event, issue_type: str, title: str, body: str, username: str) -> str:
-    """Generates a custom LLM response for GitHub issues or discussions based on content."""
+    """Generates a custom LLM response for GitHub issues or discussions (NOT PRs - those use unified call)."""
     issue_discussion_response = f"""
 👋 Hello @{username}, thank you for submitting a `{event.repository}` 🚀 {issue_type.capitalize()}. To help us address your concern efficiently, please ensure you've provided the following information:
 
@@ -186,7 +185,7 @@ def main(*args, **kwargs):
             event.add_comment(number, node_id, first_comment, issue_type)
         return
 
-    # Handle issues and discussions with separate calls
+    # Handle issues and discussions (NOT PRs - those are handled above)
     if issue_type == "discussion":
         current_labels = []
     else:

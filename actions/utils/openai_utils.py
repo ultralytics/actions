@@ -58,6 +58,39 @@ def filter_labels(available_labels: dict, current_labels: list = None, is_pr: bo
     return filtered
 
 
+def get_pr_summary_prompt(repository: str, diff_text: str) -> str:
+    """Returns the PR summary generation prompt (used by both PR open and PR update/merge)."""
+    if not diff_text:
+        diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
+    ratio = 3.3  # about 3.3 characters per token
+    limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
+    
+    return (
+        f"Summarize this '{repository}' PR, focusing on major changes, their purpose, and potential impact. "
+        f"Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. "
+        f"Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:\n\n"
+        f"### 🌟 Summary (single-line synopsis)\n"
+        f"### 📊 Key Changes (bullet points highlighting any major changes)\n"
+        f"### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n"
+        f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}"
+    ), len(diff_text) > limit
+
+
+def get_pr_first_comment_template(repository: str) -> str:
+    """Returns the PR first comment template with checklist (used only by unified PR open)."""
+    return f"""👋 Hello @username, thank you for submitting an `{repository}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
+
+- ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{repository}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
+- ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{repository}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
+- ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI/) checks are passing. If any checks fail, please address the issues.
+- ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com/) for any new or modified features.
+- ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
+- ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA/) if this is your first Ultralytics PR by writing "I have read the CLA Document and I sign the CLA" in a new message.
+- ✅ **Minimize Changes**: Limit your changes to the **minimum** necessary for your bug fix or feature addition. _"It is not daily increase but daily decrease, hack away the unessential. The closer to the source, the less wastage there is."_  — Bruce Lee
+
+For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing/). Don't hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀"""
+
+
 def get_completion(
     messages: list[dict[str, str]],
     check_links: bool = True,
@@ -115,57 +148,28 @@ def get_completion(
     return content
 
 
-def get_pr_summary_prompt(repository: str, diff_text: str, limit: int = None) -> str:
-    """Generates PR summary prompt with diff text."""
-    if not diff_text:
-        diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
-    if limit:
-        diff_text = diff_text[:limit]
-    
-    return f"""Summarize this '{repository}' PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:
-
-### 🌟 Summary (single-line synopsis)
-### 📊 Key Changes (bullet points highlighting any major changes)
-### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)
-
-Here's the PR diff:
-
-{diff_text}"""
-
-
-def get_pr_first_comment_template(repository: str, username: str = "@username") -> str:
-    """Generates PR first comment template with repository-specific links."""
-    return f"""👋 Hello {username}, thank you for submitting an `{repository}` 🚀 PR! To ensure seamless integration:
-
-- ✅ **Define Purpose**: Explain the purpose in your PR description and link to any [relevant issues](https://github.com/{repository}/issues)
-- ✅ **Sync with Source**: Confirm your PR is synchronized with the `{repository}` `main` branch
-- ✅ **Ensure CI Passes**: Verify all [CI checks](https://docs.ultralytics.com/help/CI/) are passing
-- ✅ **Update Documentation**: Update [documentation](https://docs.ultralytics.com/) for new/modified features
-- ✅ **Add Tests**: Include tests if applicable
-- ✅ **Sign CLA**: Ensure you've signed our [CLA](https://docs.ultralytics.com/help/CLA/) if this is your first PR
-- ✅ **Minimize Changes**: Limit changes to the minimum necessary
-
-Refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing/). This is an automated response - an Ultralytics engineer will assist soon!"""
-
-
 def get_pr_open_response(repository: str, diff_text: str, title: str, body: str, available_labels: dict) -> dict:
     """Generates unified PR response with summary, labels, and first comment in a single API call."""
-    ratio = 3.3
-    limit = round(128000 * ratio * 0.5)
-    
     filtered_labels = filter_labels(available_labels, is_pr=True)
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
     
-    summary_section = get_pr_summary_prompt(repository, diff_text, limit)
+    summary_prompt, is_large = get_pr_summary_prompt(repository, diff_text)
     comment_template = get_pr_first_comment_template(repository)
 
     prompt = f"""You are processing a new GitHub pull request for the {repository.split('/')[-1]} repository.
 
 Generate THREE outputs in a single JSON response:
 
-1. **summary**: A PR summary following the format below (clear, concise, with emojis)
+1. **summary**: {summary_prompt}
+
 2. **labels**: Array of 1-3 most relevant label names. Only use "Alert" with high confidence for inappropriate PRs. Return empty array if no labels relevant.
-3. **first_comment**: Customized welcome message. Include all checklist items and links from template below. Use emojis. No sign-off. No spaces between bullet points. Mention this is automated and an engineer will assist.
+
+3. **first_comment**: Customized welcome message adapting the template below:
+   - Keep all checklist items and links from template
+   - Mention this is automated and an engineer will assist
+   - Use a few emojis
+   - No sign-off or "best regards"
+   - No spaces between bullet points
 
 AVAILABLE LABELS:
 {labels_str}
@@ -179,8 +183,6 @@ PR TITLE:
 PR DESCRIPTION:
 {body[:16000]}
 
-{summary_section}
-
 Return ONLY valid JSON:
 {{"summary": "...", "labels": [...], "first_comment": "..."}}"""
 
@@ -190,7 +192,7 @@ Return ONLY valid JSON:
     ]
     result = get_completion(messages, temperature=1.0, response_format={"type": "json_object"})
     
-    if len(diff_text) > limit and "summary" in result:
+    if is_large and "summary" in result:
         result["summary"] = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + result["summary"]
     
     return result

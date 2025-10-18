@@ -66,10 +66,8 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
 
 def generate_pr_summary(repository, diff_text):
     """Generates a concise, professional summary of a PR using OpenAI's API for Ultralytics repositories."""
-    ratio = 3.3
-    limit = round(128000 * ratio * 0.5)
-    prompt = get_pr_summary_prompt(repository, diff_text, limit)
-
+    prompt, is_large = get_pr_summary_prompt(repository, diff_text)
+    
     messages = [
         {
             "role": "system",
@@ -78,7 +76,7 @@ def generate_pr_summary(repository, diff_text):
         {"role": "user", "content": prompt},
     ]
     reply = get_completion(messages, temperature=1.0)
-    if len(diff_text) > limit:
+    if is_large:
         reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
     return SUMMARY_START + reply
 
