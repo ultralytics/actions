@@ -195,7 +195,7 @@ def post_review_comments(event: Action, review_data: dict) -> None:
     if not (pr_number := event.pr.get("number")) or not (commit_sha := event.pr.get("head", {}).get("sha")):
         return
 
-    emoji_map = {"CRITICAL": "🚨", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
+    emoji_map = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
     url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
     diff_files = review_data.get("diff_files", {})
 
@@ -221,10 +221,12 @@ def post_review_summary(event: Action, review_data: dict) -> None:
     if not (pr_number := event.pr.get("number")) or not (commit_sha := event.pr.get("head", {}).get("sha")):
         return
 
-    comment_count = len(review_data.get("comments", []))
-    event_map = {"APPROVE": "APPROVE", "REQUEST_CHANGES": "REQUEST_CHANGES", "COMMENT": "COMMENT"}
-    event_type = event_map.get(review_data.get("approval", "COMMENT"), "COMMENT")
+    comments = review_data.get("comments", [])
+    comment_count = len(comments)
     diff_truncated = review_data.get("diff_truncated", False)
+
+    # Always use COMMENT to avoid blocking PRs - humans decide what's blocking
+    event_type = "COMMENT"
 
     body = (
         f"## {REVIEW_MARKER}\n\n"
