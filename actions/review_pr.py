@@ -258,8 +258,17 @@ def main(*args, **kwargs):
         event.toggle_eyes_reaction(True)
         event.pr = event.get_repo_data(f"pulls/{event.event_data['issue']['number']}")
 
+    # Handle review requests
+    elif event.event_name == "pull_request" and event.event_data.get("action") == "review_requested":
+        requested_reviewer = event.event_data.get("requested_reviewer", {}).get("login")
+        bot_username = event.get_username()
+        if requested_reviewer != bot_username:
+            return
+        print(f"Review requested from {bot_username}")
+
     # Validate PR state
     if not event.pr or event.pr.get("state") != "open":
+        print(f"Skipping: PR state is {event.pr.get('state') if event.pr else 'None'}")
         return
 
     print(f"Starting PR review for #{event.pr['number']}")
