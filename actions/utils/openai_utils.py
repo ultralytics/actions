@@ -57,6 +57,12 @@ def get_completion(
             data["reasoning"] = {"effort": reasoning_effort or "low"}  # Default to low for GPT-5
 
         r = requests.post(url, json=data, headers=headers)
+        if r.status_code != 200:
+            try:
+                error_data = r.json()
+                print(f"❌ OpenAI API Error ({r.status_code}): {error_data}")
+            except Exception:
+                print(f"❌ OpenAI API Error ({r.status_code}): {r.text[:500]}")
         r.raise_for_status()
         response_data = r.json()
 
