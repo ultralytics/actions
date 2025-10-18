@@ -24,11 +24,18 @@ def test_remove_outer_codeblocks():
 
 @patch("requests.post")
 def test_get_completion(mock_post):
-    """Test OpenAI API completion function with mocked response."""
-    # Setup mock response
+    """Test OpenAI Responses API completion function with mocked response."""
+    # Setup mock response with Responses API structure
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"choices": [{"message": {"content": "Test response from OpenAI"}}]}
+    mock_response.json.return_value = {
+        "output": [
+            {
+                "type": "message",
+                "content": [{"type": "output_text", "text": "Test response from OpenAI"}],
+            }
+        ]
+    }
     mock_post.return_value = mock_response
 
     # Test with basic messages
@@ -47,10 +54,17 @@ def test_get_completion(mock_post):
 @patch("actions.utils.openai_utils.check_links_in_string")
 def test_get_completion_with_link_check(mock_check_links, mock_post):
     """Test get_completion with link checking."""
-    # Setup mocks
+    # Setup mocks with Responses API structure
     mock_response = MagicMock()
     mock_response.status_code = 200
-    mock_response.json.return_value = {"choices": [{"message": {"content": "Response with https://example.com link"}}]}
+    mock_response.json.return_value = {
+        "output": [
+            {
+                "type": "message",
+                "content": [{"type": "output_text", "text": "Response with https://example.com link"}],
+            }
+        ]
+    }
     mock_post.return_value = mock_response
     mock_check_links.return_value = True
 
