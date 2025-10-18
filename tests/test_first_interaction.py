@@ -2,12 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from actions.first_interaction import (
-    create_alert_label,
-    get_event_content,
-    get_first_interaction_response,
-    get_relevant_labels,
-)
+from actions.first_interaction import get_event_content, get_first_interaction_response, get_relevant_labels
 
 
 def test_get_event_content_issue():
@@ -103,14 +98,4 @@ def test_get_first_interaction_response(mock_get_completion):
     mock_get_completion.assert_called_once()
 
 
-def test_create_alert_label():
-    """Test creating Alert label."""
-    mock_event = MagicMock()
 
-    create_alert_label(mock_event)
-
-    mock_event.post.assert_called_once()
-    args, kwargs = mock_event.post.call_args
-    assert "labels" in args[0]
-    assert kwargs["json"]["name"] == "Alert"
-    assert kwargs["json"]["color"] == "FF0000"
