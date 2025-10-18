@@ -39,14 +39,18 @@ def parse_diff_files(diff_text: str) -> dict:
 def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_description: str) -> dict:
     """Generate comprehensive PR review with line-specific comments and overall assessment."""
     if not diff_text or "**ERROR" in diff_text:
-        return {"comments": [], "summary": f"Unable to review: {diff_text if '**ERROR' in diff_text else 'diff empty'}", "approval": "COMMENT"}
+        return {
+            "comments": [],
+            "summary": f"Unable to review: {diff_text if '**ERROR' in diff_text else 'diff empty'}",
+            "approval": "COMMENT",
+        }
 
     diff_files = parse_diff_files(diff_text)
     if not diff_files:
         return {"comments": [], "summary": "No files with changes detected in diff", "approval": "COMMENT"}
 
     file_list = list(diff_files.keys())
-    ratio, limit = 3.3, round(128000 * 3.3 * 0.4)
+    _ratio, limit = 3.3, round(128000 * 3.3 * 0.4)
 
     messages = [
         {
@@ -79,7 +83,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
         # Validate and filter comments
         valid_comments = [
-            c for c in review_data.get("comments", [])
+            c
+            for c in review_data.get("comments", [])
             if c.get("file") in diff_files and c.get("line", 0) in diff_files[c.get("file")]
         ]
         review_data["comments"] = valid_comments
@@ -97,14 +102,16 @@ def dismiss_previous_reviews(event: Action) -> None:
 
     url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
     response = event.get(url)
-    
+
     if response.status_code != 200 or not (bot_username := event.get_username()):
         return
 
     for review in response.json():
         if review.get("user", {}).get("login") == bot_username and review.get("state") != "DISMISSED":
             if review_id := review.get("id"):
-                event.put(f"{url}/{review_id}/dismissals", json={"message": "Superseded by new review", "event": "DISMISS"})
+                event.put(
+                    f"{url}/{review_id}/dismissals", json={"message": "Superseded by new review", "event": "DISMISS"}
+                )
 
 
 def post_review_comments(event: Action, review_data: dict) -> None:
@@ -121,7 +128,7 @@ def post_review_comments(event: Action, review_data: dict) -> None:
 
         severity = comment.get("severity", "SUGGESTION")
         body = f"{emoji_map.get(severity, '💭')} **{severity}**: {comment.get('message', '')}"
-        
+
         if suggestion := comment.get("suggestion"):
             body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
