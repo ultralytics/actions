@@ -60,6 +60,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
     file_list = list(diff_files.keys())
     _ratio, limit = 3.3, round(128000 * 3.3 * 0.4)
+    diff_truncated = len(diff_text) > limit
+    lines_changed = sum(len(lines) for lines in diff_files.values())
 
     messages = [
         {
@@ -72,11 +74,11 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 "- Performance and security\n"
                 "- Documentation and test coverage\n\n"
                 "CRITICAL RULES:\n"
-                "1. Generate 3-10 inline comments for DIFFERENT lines of code\n"
+                f"1. Generate {3 if lines_changed < 100 else 'up to 10'} inline comments for DIFFERENT lines of code\n"
                 "2. Each comment MUST reference a UNIQUE line number\n"
                 "3. If a line has multiple issues, combine ALL issues into ONE comment for that line\n"
                 "4. Never create separate comments for the same line number\n"
-                "5. Prioritize commenting on different files/sections rather than multiple aspects of one line\n\n"
+                f"5. {'Prioritize the most critical/high-impact issues only' if lines_changed >= 100 else 'Prioritize commenting on different files/sections rather than multiple aspects of one line'}\n\n"
                 "Return JSON with this exact structure:\n"
                 '{"comments": [{"file": "exact/path/from/diff", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], '
                 '"summary": "Overall assessment", "approval": "APPROVE|REQUEST_CHANGES|COMMENT"}\n\n'
@@ -86,8 +88,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 "- Line numbers must match the NEW file line numbers from @@ hunks\n"
                 "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
                 "- Include specific code suggestions when possible\n"
-                f"- Files changed: {', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''}\n"
-                f"- Total changed lines: {sum(len(lines) for lines in diff_files.values())}"
+                f"- Files changed: {len(file_list)} ({', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''})\n"
+                f"- Total changed lines: {lines_changed}\n"
+                f"- Diff {'truncated' if diff_truncated else 'complete'}: {len(diff_text[:limit])} chars{f' of {len(diff_text)}' if diff_truncated else ''}"
             ),
         },
         {
@@ -133,6 +136,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         print(f"Valid comments after filtering and deduplication: {len(valid_comments)}")
         review_data["comments"] = valid_comments
         review_data["diff_files"] = diff_files
+        review_data["diff_truncated"] = diff_truncated
         return review_data
 
     except json.JSONDecodeError as e:
@@ -199,6 +203,7 @@ def post_review_summary(event: Action, review_data: dict) -> None:
     comment_count = len(review_data.get("comments", []))
     event_map = {"APPROVE": "APPROVE", "REQUEST_CHANGES": "REQUEST_CHANGES", "COMMENT": "COMMENT"}
     event_type = event_map.get(review_data.get("approval", "COMMENT"), "COMMENT")
+    diff_truncated = review_data.get("diff_truncated", False)
 
     body = (
         f"## {REVIEW_MARKER}\n\n"
@@ -209,6 +214,9 @@ def post_review_summary(event: Action, review_data: dict) -> None:
     if comment_count > 0:
         shown = min(comment_count, 50)
         body += f"💬 Posted {shown} inline comment{'s' if shown != 1 else ''}{' (50 shown, more available)' if comment_count > 50 else ''}\n"
+
+    if diff_truncated:
+        body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
 
     url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
     event.post(url, json={"commit_id": commit_sha, "body": body, "event": event_type})
