@@ -71,9 +71,12 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 "- Bugs, edge cases, error handling\n"
                 "- Performance and security\n"
                 "- Documentation and test coverage\n\n"
-                "IMPORTANT: Generate multiple specific inline comments (aim for 3-10) for different issues found in the code.\n"
-                "CRITICAL RULE: You must generate comments for DIFFERENT line numbers. Each comment must have a unique line number.\n"
-                "If you find multiple issues on the same line, combine them into a single comment for that line.\n\n"
+                "CRITICAL RULES:\n"
+                "1. Generate 3-10 inline comments for DIFFERENT lines of code\n"
+                "2. Each comment MUST reference a UNIQUE line number\n"
+                "3. If a line has multiple issues, combine ALL issues into ONE comment for that line\n"
+                "4. Never create separate comments for the same line number\n"
+                "5. Prioritize commenting on different files/sections rather than multiple aspects of one line\n\n"
                 "Return JSON with this exact structure:\n"
                 '{"comments": [{"file": "exact/path/from/diff", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], '
                 '"summary": "Overall assessment", "approval": "APPROVE|REQUEST_CHANGES|COMMENT"}\n\n'
@@ -117,19 +120,14 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                     f"Filtered out comment: {file_path}:{line_num} (available lines: {list(diff_files.get(file_path, {}))[:10]}...)"
                 )
 
-        # Deduplicate by (file, line) - keep highest severity
-        severity_order = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4}
+        # Deduplicate by (file, line) - keep first, log all duplicates
         unique_comments = {}
         for c in valid_comments:
             key = f"{c.get('file')}:{c.get('line')}"
-            if key in unique_comments:
-                print(f"⚠️  AI duplicate detected for {key}, keeping highest severity")
-                existing_severity = severity_order.get(unique_comments[key].get("severity", "SUGGESTION"), 4)
-                new_severity = severity_order.get(c.get("severity", "SUGGESTION"), 4)
-                if new_severity < existing_severity:
-                    unique_comments[key] = c
-            else:
+            if key not in unique_comments:
                 unique_comments[key] = c
+            else:
+                print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {c.get('message')[:60]}...")
 
         valid_comments = list(unique_comments.values())
         print(f"Valid comments after filtering and deduplication: {len(valid_comments)}")
