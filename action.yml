@@ -86,10 +86,10 @@ runs:
         version: "0.8.22"
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
-      sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@update codespell tomli
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
+        sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@update codespell tomli
         packages=""
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
