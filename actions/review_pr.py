@@ -173,7 +173,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
 
 def dismiss_previous_reviews(event: Action) -> None:
-    """Dismiss all previous bot reviews to avoid clutter."""
+    """Dismiss previous bot reviews and delete inline comments to avoid clutter."""
     if not (pr_number := event.pr.get("number")):
         return
 
@@ -181,13 +181,24 @@ def dismiss_previous_reviews(event: Action) -> None:
     if not bot_username:
         return
 
+    # Dismiss dismissible reviews (APPROVED/CHANGES_REQUESTED)
     reviews_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
     response = event.get(reviews_url)
     if response.status_code == 200:
         for review in response.json():
             if review.get("user", {}).get("login") == bot_username:
-                if review_id := review.get("id"):
+                state = review.get("state")
+                if state in ["APPROVED", "CHANGES_REQUESTED"] and (review_id := review.get("id")):
                     event.put(f"{reviews_url}/{review_id}/dismissals", json={"message": "Superseded by new review"})
+
+    # Delete previous inline review comments (for COMMENTED reviews that can't be dismissed)
+    comments_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
+    response = event.get(comments_url)
+    if response.status_code == 200:
+        for comment in response.json():
+            if comment.get("user", {}).get("login") == bot_username:
+                comment_id = comment.get("id")
+                event.delete(f"{comments_url}/{comment_id}")
 
 
 def post_review_comments(event: Action, review_data: dict) -> None:
@@ -225,8 +236,13 @@ def post_review_summary(event: Action, review_data: dict) -> None:
     comment_count = len(comments)
     diff_truncated = review_data.get("diff_truncated", False)
 
-    # Always use COMMENT to avoid blocking PRs - humans decide what's blocking
-    event_type = "COMMENT"
+    # Determine review type based on severity
+    if not comments:
+        event_type = "APPROVE"
+    else:
+        max_severity = max((c.get("severity") for c in comments), default="SUGGESTION")
+        # REQUEST_CHANGES for CRITICAL/HIGH/MEDIUM, APPROVE for LOW/SUGGESTION
+        event_type = "REQUEST_CHANGES" if max_severity in ["CRITICAL", "HIGH", "MEDIUM"] else "APPROVE"
 
     body = (
         f"## {REVIEW_MARKER}\n\n"
