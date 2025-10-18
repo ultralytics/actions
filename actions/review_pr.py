@@ -83,8 +83,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 "- Documentation and test coverage\n\n"
                 "FORMATTING RULES:\n"
                 "- Use backticks for: code, file names, branch names, function names, variable names, packages\n"
-                "- Example: \"Use `main` instead of `review-pr-1` branch\"\n"
-                "- Example: \"The `uses:` field should pin to a commit SHA\"\n"
+                '- Example: "Use `main` instead of `review-pr-1` branch"\n'
+                '- Example: "The `uses:` field should pin to a commit SHA"\n'
                 "- Keep messages clear and professional\n\n"
                 "CRITICAL RULES:\n"
                 f"1. Generate {3 if lines_changed < 100 else 'up to 10'} inline comments for DIFFERENT lines of code\n"
