@@ -174,9 +174,9 @@ def main(*args, **kwargs):
             event.update_pr_description(number, SUMMARY_START + summary)
 
         if relevant_labels := response.get("labels", []):
-            available_lower = {k.lower(): k for k in label_descriptions}
+            available = {k.lower(): k for k in label_descriptions}
             relevant_labels = [
-                available_lower.get(l.lower(), l) for l in relevant_labels if l.lower() in available_lower
+                available.get(label.lower(), label) for label in relevant_labels if label.lower() in available
             ]
             if relevant_labels:
                 print(f"Applying labels: {relevant_labels}")
