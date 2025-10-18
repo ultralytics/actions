@@ -12,6 +12,22 @@ SUMMARY_START = (
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 
 
+def apply_and_check_labels(event, number, node_id, issue_type, username, labels, label_descriptions):
+    """Normalizes, applies labels, and handles Alert label if present."""
+    if not labels:
+        print("No relevant labels found or applied.")
+        return
+
+    available = {k.lower(): k for k in label_descriptions}
+    normalized = [available.get(label.lower(), label) for label in labels if label.lower() in available]
+
+    if normalized:
+        print(f"Applying labels: {normalized}")
+        event.apply_labels(number, node_id, normalized, issue_type)
+        if "Alert" in normalized and not event.is_org_member(username):
+            event.handle_alert(number, node_id, issue_type, username, block=BLOCK_USER)
+
+
 def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
     """Extracts key information from GitHub event data for issues, pull requests, or discussions."""
     data = event.event_data
@@ -174,15 +190,7 @@ def main(*args, **kwargs):
             event.update_pr_description(number, SUMMARY_START + summary)
 
         if relevant_labels := response.get("labels", []):
-            available = {k.lower(): k for k in label_descriptions}
-            relevant_labels = [
-                available.get(label.lower(), label) for label in relevant_labels if label.lower() in available
-            ]
-            if relevant_labels:
-                print(f"Applying labels: {relevant_labels}")
-                event.apply_labels(number, node_id, relevant_labels, issue_type)
-                if "Alert" in relevant_labels and not event.is_org_member(username):
-                    event.handle_alert(number, node_id, issue_type, username, block=BLOCK_USER)
+            apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
 
         if first_comment := response.get("first_comment"):
             first_comment = first_comment.replace("@username", f"@{username}")
@@ -197,12 +205,8 @@ def main(*args, **kwargs):
         else [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
     )
 
-    if relevant_labels := get_relevant_labels(issue_type, title, body, label_descriptions, current_labels):
-        event.apply_labels(number, node_id, relevant_labels, issue_type)
-        if "Alert" in relevant_labels and not event.is_org_member(username):
-            event.handle_alert(number, node_id, issue_type, username, block=BLOCK_USER)
-    else:
-        print("No relevant labels found or applied.")
+    relevant_labels = get_relevant_labels(issue_type, title, body, label_descriptions, current_labels)
+    apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
 
     if action in {"opened", "created"}:
         custom_response = get_first_interaction_response(event, issue_type, title, body, username)
