@@ -93,7 +93,8 @@ runs:
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
-        packages="ultralytics-actions"
+        sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@pr-unified-action codespell tomli
+        packages=""
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
