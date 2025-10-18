@@ -173,23 +173,21 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
 
 def dismiss_previous_reviews(event: Action) -> None:
-    """Dismiss previous bot reviews to avoid clutter."""
+    """Dismiss all previous bot reviews to avoid clutter."""
     if not (pr_number := event.pr.get("number")):
         return
 
-    url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
-    response = event.get(url)
-
-    if response.status_code != 200 or not (bot_username := event.get_username()):
+    bot_username = event.get_username()
+    if not bot_username:
         return
 
-    for review in response.json():
-        if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or ""):
-            state = review.get("state")
-            if state in ["APPROVED", "CHANGES_REQUESTED"] and (review_id := review.get("id")):
-                event.put(f"{url}/{review_id}/dismissals", json={"message": "Superseded by new review"})
-
-
+    reviews_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
+    response = event.get(reviews_url)
+    if response.status_code == 200:
+        for review in response.json():
+            if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or ""):
+                if review_id := review.get("id"):
+                    event.put(f"{reviews_url}/{review_id}/dismissals", json={"message": "Superseded by new review"})
 def post_review_comments(event: Action, review_data: dict) -> None:
     """Post inline review comments on specific lines of the PR."""
     if not (pr_number := event.pr.get("number")) or not (commit_sha := event.pr.get("head", {}).get("sha")):
