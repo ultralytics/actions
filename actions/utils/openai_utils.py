@@ -175,18 +175,18 @@ def get_pr_open_response(repository: str, diff_text: str, title: str, body: str,
 
     prompt = f"""You are processing a new GitHub pull request for the {repository.split("/")[-1]} repository.
 
-Generate THREE outputs in a single JSON response:
+Generate 3 outputs in a single JSON response for the PR titled {title} with the following diff:
+{diff_text[:limit]}
 
-## 1. Summary
+
+--- FIRST JSON OUTPUT (PR SUMMARY) ---
 {summary_guidelines}
 
-## 2. Labels
-Array of 1-3 most relevant label names. Only use "Alert" with high confidence for inappropriate PRs. Return empty array if no labels relevant.
-
-AVAILABLE LABELS:
+--- SECOND JSON OUTPUT (PR LABELS) ---
+Array of 1-3 most relevant label names. Only use "Alert" with high confidence for inappropriate PRs. Return empty array if no labels relevant. Available labels:
 {labels_str}
 
-## 3. First Comment
+--- THIRD OUTPUT (PR FIRST COMMENT) ---
 Customized welcome message adapting the template below:
 - INCLUDE ALL LINKS AND INSTRUCTIONS from the template below, customized as appropriate
 - Keep all checklist items and links from template
@@ -196,21 +196,8 @@ Customized welcome message adapting the template below:
 - No sign-off or "best regards"
 - No spaces between bullet points
 
-FIRST COMMENT TEMPLATE (adapt as needed, keep all links):
+Example comment template (adapt as needed, keep all links):
 {comment_template}
-
----
-
-PR TITLE:
-{title}
-
-PR DESCRIPTION:
-{body[:16000]}
-
-PR DIFF:
-{diff_text[:limit]}
-
----
 
 Return ONLY valid JSON in this exact format:
 {{"summary": "...", "labels": [...], "first_comment": "..."}}"""
