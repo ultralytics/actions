@@ -7,7 +7,7 @@ from .utils import GITHUB_API_URL, Action, get_completion, get_pr_summary_prompt
 SUMMARY_START = "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
 
 
-def generate_merge_message(pr_summary=None, pr_credit=None, pr_url=None):
+def generate_merge_message(pr_summary, pr_credit, pr_url):
     """Generates a motivating thank-you message for merged PR contributors."""
     messages = [
         {
@@ -25,13 +25,6 @@ def generate_merge_message(pr_summary=None, pr_credit=None, pr_url=None):
         },
     ]
     return get_completion(messages)
-
-
-def post_merge_message(event, summary, pr_credit):
-    """Posts thank you message on PR after merge."""
-    pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{event.pr['number']}"
-    message = generate_merge_message(summary, pr_credit, pr_url)
-    event.add_comment(event.pr["number"], None, message, "pull request")
 
 
 def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
@@ -65,7 +58,7 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
 
 
 def generate_pr_summary(repository, diff_text):
-    """Generates a concise, professional summary of a PR using OpenAI's API for Ultralytics repositories."""
+    """Generates a concise, professional summary of a PR using OpenAI's API."""
     prompt, is_large = get_pr_summary_prompt(repository, diff_text)
     
     messages = [
@@ -87,8 +80,7 @@ def label_fixed_issues(event, pr_summary):
     if not pr_credit:
         return None
 
-    pr_title = data.get("title", "")
-    comment = generate_issue_comment(pr_url=data["url"], pr_summary=pr_summary, pr_credit=pr_credit, pr_title=pr_title)
+    comment = generate_issue_comment(data["url"], pr_summary, pr_credit, data.get("title", ""))
 
     for issue in data["closingIssuesReferences"]["nodes"]:
         number = issue["number"]
@@ -125,7 +117,9 @@ def main(*args, **kwargs):
         event.remove_labels(event.pr["number"], labels=("TODO",))
         if pr_credit:
             print("Posting PR author thank you message...")
-            post_merge_message(event, summary, pr_credit)
+            pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{event.pr['number']}"
+            message = generate_merge_message(summary, pr_credit, pr_url)
+            event.add_comment(event.pr["number"], None, message, "pull request")
 
 
 if __name__ == "__main__":

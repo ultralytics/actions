@@ -58,14 +58,14 @@ def filter_labels(available_labels: dict, current_labels: list = None, is_pr: bo
     return filtered
 
 
-def get_pr_summary_prompt(repository: str, diff_text: str) -> str:
-    """Returns the PR summary generation prompt (used by both PR open and PR update/merge)."""
+def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
+    """Returns the PR summary generation prompt and whether diff is truncated (used by PR open and PR update/merge)."""
     if not diff_text:
         diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
     ratio = 3.3  # about 3.3 characters per token
     limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
     
-    return (
+    prompt = (
         f"Summarize this '{repository}' PR, focusing on major changes, their purpose, and potential impact. "
         f"Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. "
         f"Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:\n\n"
@@ -73,7 +73,8 @@ def get_pr_summary_prompt(repository: str, diff_text: str) -> str:
         f"### 📊 Key Changes (bullet points highlighting any major changes)\n"
         f"### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n"
         f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}"
-    ), len(diff_text) > limit
+    )
+    return prompt, len(diff_text) > limit
 
 
 def get_pr_first_comment_template(repository: str) -> str:
@@ -106,9 +107,8 @@ def get_completion(
     if messages and messages[0].get("role") == "system":
         messages[0]["content"] += "\n\n" + SYSTEM_PROMPT_ADDITION
 
-    content = ""
     max_retries = 2
-    for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
+    for attempt in range(max_retries + 2):
         data = {"model": OPENAI_MODEL, "input": messages, "store": False, "temperature": temperature}
         if response_format:
             data["response_format"] = response_format
@@ -135,7 +135,8 @@ def get_completion(
         content = remove_outer_codeblocks(content)
         for x in remove:
             content = content.replace(x, "")
-        if not check_links or check_links_in_string(content):  # if no checks or checks are passing return response
+        
+        if not check_links or check_links_in_string(content):
             return content
 
         if attempt < max_retries:

@@ -4,13 +4,7 @@ from __future__ import annotations
 
 import os
 
-from .utils import (
-    Action,
-    filter_labels,
-    get_completion,
-    get_pr_open_response,
-    remove_html_comments,
-)
+from .utils import Action, filter_labels, get_completion, get_pr_open_response, remove_html_comments
 
 SUMMARY_START = "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
@@ -43,7 +37,7 @@ def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
 
 
 def get_relevant_labels(issue_type: str, title: str, body: str, available_labels: dict, current_labels: list) -> list[str]:
-    """Determines relevant labels for GitHub issues/PRs using OpenAI, considering title, body, and existing labels."""
+    """Determines relevant labels for GitHub issues/discussions using OpenAI."""
     filtered_labels = filter_labels(available_labels, current_labels, is_pr=(issue_type == "pull request"))
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
 
@@ -86,7 +80,7 @@ YOUR RESPONSE (label names only):
 
 
 def get_first_interaction_response(event, issue_type: str, title: str, body: str, username: str) -> str:
-    """Generates a custom LLM response for GitHub issues or discussions (NOT PRs - those use unified call)."""
+    """Generates a custom LLM response for GitHub issues or discussions (NOT PRs - PRs use unified call)."""
     issue_discussion_response = f"""
 👋 Hello @{username}, thank you for submitting a `{event.repository}` 🚀 {issue_type.capitalize()}. To help us address your concern efficiently, please ensure you've provided the following information:
 
@@ -114,14 +108,13 @@ Thank you for your contribution to improving our project!
 
     example = os.getenv("FIRST_ISSUE_RESPONSE") or issue_discussion_response
     org_name, repo_name = event.repository.split("/")
-    repo_url = f"https://github.com/{event.repository}"
 
     prompt = f"""Generate a customized response to the new GitHub {issue_type} below:
 
 CONTEXT:
 - Repository: {repo_name}
 - Organization: {org_name}
-- Repository URL: {repo_url}
+- Repository URL: https://github.com/{event.repository}
 - User: {username}
 
 INSTRUCTIONS:
@@ -160,7 +153,7 @@ def main(*args, **kwargs):
     available_labels = event.get_repo_data("labels")
     label_descriptions = {label["name"]: label.get("description", "") for label in available_labels}
 
-    # Use unified PR open response for new PRs
+    # Use unified PR open response for new PRs (summary + labels + first comment in 1 API call)
     if issue_type == "pull request" and action == "opened":
         print("Processing PR open with unified API call...")
         diff = event.get_pr_diff()
@@ -185,11 +178,8 @@ def main(*args, **kwargs):
             event.add_comment(number, node_id, first_comment, issue_type)
         return
 
-    # Handle issues and discussions (NOT PRs - those are handled above)
-    if issue_type == "discussion":
-        current_labels = []
-    else:
-        current_labels = [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
+    # Handle issues and discussions (NOT PRs)
+    current_labels = [] if issue_type == "discussion" else [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
 
     if relevant_labels := get_relevant_labels(issue_type, title, body, label_descriptions, current_labels):
         event.apply_labels(number, node_id, relevant_labels, issue_type)
