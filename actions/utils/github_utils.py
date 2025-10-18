@@ -43,6 +43,7 @@ class Action:
         self.eyes_reaction_id = None
         self.verbose = verbose
         self._pr_diff_cache = None
+        self._username_cache = None
 
     def _request(self, method: str, url: str, headers=None, expected_status=None, hard=False, **kwargs):
         """Unified request handler with error checking."""
@@ -99,14 +100,17 @@ class Action:
         return self.event_data.get("repository", {}).get("private")
 
     def get_username(self) -> str | None:
-        """Gets username associated with the GitHub token."""
+        """Gets username associated with the GitHub token with caching."""
+        if self._username_cache is not None:
+            return self._username_cache
+
         response = self.post(GITHUB_GRAPHQL_URL, json={"query": "query { viewer { login } }"})
         if response.status_code == 200:
             try:
-                return response.json()["data"]["viewer"]["login"]
+                self._username_cache = response.json()["data"]["viewer"]["login"]
             except KeyError as e:
                 print(f"Error parsing authenticated user response: {e}")
-        return None
+        return self._username_cache
 
     def is_org_member(self, username: str) -> bool:
         """Checks if a user is a member of the organization using the GitHub API."""
