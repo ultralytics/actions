@@ -130,7 +130,11 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
 
 def dismiss_previous_reviews(event: Action) -> int:
-    """Dismiss previous bot reviews and delete inline comments. Returns count for numbering."""
+    """
+    Dismiss previous bot reviews and delete inline comments.
+
+    Returns count for numbering.
+    """
     if not (pr_number := event.pr.get("number")) or not (bot_username := event.get_username()):
         return 1
 
