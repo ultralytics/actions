@@ -96,6 +96,3 @@ def test_get_first_interaction_response(mock_get_completion):
 
     assert response == "Thank you for your issue"
     mock_get_completion.assert_called_once()
-
-
-
