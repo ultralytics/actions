@@ -36,54 +36,42 @@ def filter_labels(available_labels: dict, current_labels: list = None, is_pr: bo
     """Filters labels by removing manually-assigned and mutually exclusive labels."""
     current_labels = current_labels or []
     filtered = available_labels.copy()
-
-    # Remove labels that should only be manually assigned
-    for label in {
-        "help wanted",
-        "TODO",
-        "research",
-        "non-reproducible",
-        "popular",
-        "invalid",
-        "Stale",
-        "wontfix",
-        "duplicate",
-    }:
+    
+    for label in {"help wanted", "TODO", "research", "non-reproducible", "popular", "invalid", "Stale", "wontfix", "duplicate"}:
         filtered.pop(label, None)
-
-    # Remove mutually exclusive labels
+    
     if "bug" in current_labels:
         filtered.pop("question", None)
     elif "question" in current_labels:
         filtered.pop("bug", None)
-
-    # Add Alert label if not present
+    
     if "Alert" not in filtered:
         filtered["Alert"] = (
             "Potential spam, abuse, or illegal activity including advertising, unsolicited promotions, malware, "
             "phishing, crypto offers, pirated software or media, free movie downloads, cracks, keygens or any other "
             "content that violates terms of service or legal standards."
         )
-
+    
     return filtered
 
 
+def get_pr_summary_guidelines() -> str:
+    """Returns PR summary formatting guidelines (used by both unified PR open and PR update/merge)."""
+    return """Summarize this PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:
+
+### 🌟 Summary (single-line synopsis)
+### 📊 Key Changes (bullet points highlighting any major changes)
+### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)"""
+
+
 def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
-    """Returns the PR summary generation prompt and whether diff is truncated (used by PR open and PR update/merge)."""
+    """Returns the complete PR summary generation prompt with diff (used by PR update/merge)."""
     if not diff_text:
         diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
     ratio = 3.3  # about 3.3 characters per token
     limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
-
-    prompt = (
-        f"Summarize this '{repository}' PR, focusing on major changes, their purpose, and potential impact. "
-        f"Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. "
-        f"Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:\n\n"
-        f"### 🌟 Summary (single-line synopsis)\n"
-        f"### 📊 Key Changes (bullet points highlighting any major changes)\n"
-        f"### 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n"
-        f"\n\nHere's the PR diff:\n\n{diff_text[:limit]}"
-    )
+    
+    prompt = f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{diff_text[:limit]}"
     return prompt, len(diff_text) > limit
 
 
@@ -129,7 +117,6 @@ def get_completion(
         r.raise_for_status()
         response_data = r.json()
 
-        # Extract text from output array
         content = ""
         for item in response_data.get("output", []):
             if item.get("type") == "message":
@@ -140,13 +127,12 @@ def get_completion(
         content = content.strip()
         if response_format and response_format.get("type") == "json_object":
             import json
-
             return json.loads(content)
 
         content = remove_outer_codeblocks(content)
         for x in remove:
             content = content.replace(x, "")
-
+        
         if not check_links or check_links_in_string(content):
             return content
 
@@ -155,39 +141,51 @@ def get_completion(
         else:
             print("Max retries reached. Updating prompt to exclude links.")
             messages.append({"role": "user", "content": "Please provide a response without any URLs or links in it."})
-            check_links = False  # automatically accept the last message
+            check_links = False
 
     return content
 
 
 def get_pr_open_response(repository: str, diff_text: str, title: str, body: str, available_labels: dict) -> dict:
     """Generates unified PR response with summary, labels, and first comment in a single API call."""
+    if not diff_text:
+        diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
+    ratio = 3.3  # about 3.3 characters per token
+    limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
+    is_large = len(diff_text) > limit
+    
     filtered_labels = filter_labels(available_labels, is_pr=True)
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
-
-    summary_prompt, is_large = get_pr_summary_prompt(repository, diff_text)
+    summary_guidelines = get_pr_summary_guidelines()
     comment_template = get_pr_first_comment_template(repository)
 
-    prompt = f"""You are processing a new GitHub pull request for the {repository.split("/")[-1]} repository.
+    prompt = f"""You are processing a new GitHub pull request for the {repository.split('/')[-1]} repository.
 
 Generate THREE outputs in a single JSON response:
 
-1. **summary**: {summary_prompt}
+## 1. Summary
+{summary_guidelines}
 
-2. **labels**: Array of 1-3 most relevant label names. Only use "Alert" with high confidence for inappropriate PRs. Return empty array if no labels relevant.
-
-3. **first_comment**: Customized welcome message adapting the template below:
-   - Keep all checklist items and links from template
-   - Mention this is automated and an engineer will assist
-   - Use a few emojis
-   - No sign-off or "best regards"
-   - No spaces between bullet points
+## 2. Labels
+Array of 1-3 most relevant label names. Only use "Alert" with high confidence for inappropriate PRs. Return empty array if no labels relevant.
 
 AVAILABLE LABELS:
 {labels_str}
 
+## 3. First Comment
+Customized welcome message adapting the template below:
+- INCLUDE ALL LINKS AND INSTRUCTIONS from the template below, customized as appropriate
+- Keep all checklist items and links from template
+- Only link to files or URLs in the template below, do not add external links
+- Mention this is automated and an engineer will assist
+- Use a few emojis
+- No sign-off or "best regards"
+- No spaces between bullet points
+
 FIRST COMMENT TEMPLATE (adapt as needed, keep all links):
 {comment_template}
+
+---
 
 PR TITLE:
 {title}
@@ -195,7 +193,12 @@ PR TITLE:
 PR DESCRIPTION:
 {body[:16000]}
 
-Return ONLY valid JSON:
+PR DIFF:
+{diff_text[:limit]}
+
+---
+
+Return ONLY valid JSON in this exact format:
 {{"summary": "...", "labels": [...], "first_comment": "..."}}"""
 
     messages = [
@@ -203,12 +206,10 @@ Return ONLY valid JSON:
         {"role": "user", "content": prompt},
     ]
     result = get_completion(messages, temperature=1.0, response_format={"type": "json_object"})
-
+    
     if is_large and "summary" in result:
-        result["summary"] = (
-            "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + result["summary"]
-        )
-
+        result["summary"] = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + result["summary"]
+    
     return result
 
 
