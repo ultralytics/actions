@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 
-from .utils import GITHUB_API_URL, Action, get_completion
+from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
 
 REVIEW_MARKER = "🔍 PR Review"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
@@ -97,7 +97,13 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         {"role": "system", "content": content},
         {
             "role": "user",
-            "content": f"Review PR '{repository}':\nTitle: {pr_title}\nDescription: {pr_description[:500]}\n\nDiff:\n{diff_text[:limit]}",
+            "content": (
+                f"Review PR '{repository}':\n"
+                f"Title: {pr_title}\n"
+                f"Description: {remove_html_comments(pr_description or "")[:1000]}\n\n"
+                f"Diff:\n{diff_text[:limit]}\n\n"
+                "Now review this diff according to the rules above. Return JSON with comments array and summary."
+            ),
         },
     ]
 
