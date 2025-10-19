@@ -30,7 +30,13 @@ class Action:
         self.eyes_reaction_id = None
         self._pr_diff_cache = None
         self._username_cache = None
-        self._default_status = {"get": [200], "post": [200, 201], "put": [200, 201, 204], "patch": [200], "delete": [200, 204]}
+        self._default_status = {
+            "get": [200],
+            "post": [200, 201],
+            "put": [200, 201, 204],
+            "patch": [200],
+            "delete": [200, 204],
+        }
 
     def _request(self, method: str, url: str, headers=None, expected_status=None, hard=False, **kwargs):
         """Unified request handler with error checking."""
