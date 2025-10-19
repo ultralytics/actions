@@ -170,7 +170,7 @@ def post_review_comments(event: Action, review_data: dict) -> None:
         return
 
     url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
-    diff_files = review_data.get("diff_files", {})
+    review_data.get("diff_files", {})
 
     for comment in review_data.get("comments", [])[:50]:
         if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
