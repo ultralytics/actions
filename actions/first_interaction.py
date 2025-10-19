@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 
+import time
 from .utils import Action, filter_labels, get_completion, get_pr_open_response, remove_html_comments
 
 SUMMARY_START = (
@@ -193,8 +194,8 @@ def main(*args, **kwargs):
             apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
 
         if first_comment := response.get("first_comment"):
-            first_comment = first_comment.replace("@username", f"@{username}")
             print("Adding first interaction comment...")
+            time.sleep(1)  # sleep to ensure label added first
             event.add_comment(number, node_id, first_comment, issue_type)
         return
 
