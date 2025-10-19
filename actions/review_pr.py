@@ -91,7 +91,12 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "3. Each comment MUST reference a UNIQUE line number(s)\n"
         "4. If a section has multiple issues, combine ALL issues into ONE comment for that section\n"
         "5. Never create separate comments for the same line number(s)\n"
-        "6. Prioritize: CRITICAL bugs/security > HIGH impact issues > code quality\n\n"
+        "6. Prioritize: CRITICAL bugs/security > HIGH impact issues > code quality\n"
+        "7. Keep comments concise, friendly, and easy to understand - avoid jargon when possible\n\n"
+        "SUMMARY GUIDELINES:\n"
+        "- Use numbered lists when summarizing multiple key points\n"
+        "- Keep summary concise and actionable\n"
+        "- Highlight the most important findings\n\n"
         "CODE SUGGESTIONS:\n"
         "- ONLY provide 'suggestion' field when you have high certainty the code is problematic AND sufficient context for a confident fix\n"
         "- If uncertain about the correct fix, omit 'suggestion' field and explain the concern in 'message' only\n"
@@ -258,7 +263,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
         body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
 
     if skipped := review_data.get("skipped_files"):
-        body += f"\n📋 **Skipped {skipped} generated/vendored file{'s' if skipped != 1 else ''}** (lock files, minified, images, etc.)\n"
+        body += f"\n📋 **Skipped {skipped} file{'s' if skipped != 1 else ''}** (lock files, minified, images, etc.)\n"
 
     event.post(
         f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews",
