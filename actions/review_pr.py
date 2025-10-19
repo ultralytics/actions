@@ -239,39 +239,8 @@ def dismiss_previous_reviews(event: Action) -> int:
     return review_count + 1
 
 
-def post_review_comments(event: Action, review_data: dict) -> None:
-    """Post inline review comments on specific lines of the PR."""
-    if not (pr_number := event.pr.get("number")) or not (commit_sha := event.pr.get("head", {}).get("sha")):
-        return
-
-    url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
-    review_data.get("diff_files", {})
-
-    for comment in review_data.get("comments", [])[:10]:
-        if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
-            continue
-
-        severity = comment.get("severity", "SUGGESTION")
-        body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')}"
-
-        if suggestion := comment.get("suggestion", "").strip():
-            if "```" not in suggestion:
-                body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
-
-        # Build comment payload with optional start_line for multi-line suggestions
-        payload = {"body": body, "commit_id": commit_sha, "path": file_path, "line": line, "side": "RIGHT"}
-        if start_line := comment.get("start_line"):
-            if start_line < line:  # Validate range
-                payload["start_line"] = start_line
-                payload["start_side"] = "RIGHT"
-                print(f"Multi-line comment: {file_path}:{start_line}-{line}")
-
-        print(f"Posting comment payload: {json.dumps({k: v for k, v in payload.items() if k != 'body'}, indent=2)}")
-        event.post(url, json=payload)
-
-
 def post_review_summary(event: Action, review_data: dict, review_number: int) -> None:
-    """Post overall review summary as a PR review."""
+    """Post overall review summary and inline comments as a single PR review."""
     if not (pr_number := event.pr.get("number")) or not (commit_sha := event.pr.get("head", {}).get("sha")):
         return
 
@@ -296,9 +265,38 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     if skipped := review_data.get("skipped_files"):
         body += f"\n📋 **Skipped {skipped} file{'s' if skipped != 1 else ''}** (lock files, minified, images, etc.)\n"
 
+    # Build inline comments for the review
+    review_comments = []
+    for comment in comments[:10]:
+        if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
+            continue
+
+        severity = comment.get("severity", "SUGGESTION")
+        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')}"
+
+        if suggestion := comment.get("suggestion", "").strip():
+            if "```" not in suggestion:
+                comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
+
+        # Build comment with optional start_line for multi-line context
+        review_comment = {"path": file_path, "line": line, "body": comment_body, "side": "RIGHT"}
+        if start_line := comment.get("start_line"):
+            if start_line < line:
+                review_comment["start_line"] = start_line
+                review_comment["start_side"] = "RIGHT"
+                print(f"Multi-line comment: {file_path}:{start_line}-{line}")
+
+        review_comments.append(review_comment)
+
+    # Submit review with inline comments
+    payload = {"commit_id": commit_sha, "body": body, "event": event_type}
+    if review_comments:
+        payload["comments"] = review_comments
+        print(f"Posting review with {len(review_comments)} inline comments")
+
     event.post(
         f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews",
-        json={"commit_id": commit_sha, "body": body, "event": event_type},
+        json=payload,
     )
 
 
@@ -323,8 +321,6 @@ def main(*args, **kwargs):
     review = generate_pr_review(event.repository, diff, event.pr.get("title", ""), event.pr.get("body", ""))
 
     post_review_summary(event, review, review_number)
-    print(f"Posting {len(review.get('comments', []))} inline comments")
-    post_review_comments(event, review)
     print("PR review completed")
 
 
