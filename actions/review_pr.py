@@ -313,7 +313,8 @@ def main(*args, **kwargs):
     review_number = dismiss_previous_reviews(event)
 
     diff = event.get_pr_diff()
-    review = generate_pr_review(event.repository, diff, event.pr.get("title", ""), event.pr.get("body", ""))
+    pr_description = event._pr_summary_cache or event.pr.get("body", "")
+    review = generate_pr_review(event.repository, diff, event.pr.get("title", ""), pr_description)
 
     post_review_summary(event, review, review_number)
     print("PR review completed")

@@ -114,6 +114,7 @@ class Action:
         self.verbose = verbose
         self.eyes_reaction_id = None
         self._pr_diff_cache = None
+        self._pr_summary_cache = None
         self._username_cache = None
         self._default_status = {
             "get": [200],
@@ -272,6 +273,7 @@ class Action:
             updated_description = description + "\n\n" + new_summary
 
         self.patch(url, json={"body": updated_description})
+        self._pr_summary_cache = new_summary
 
     def get_label_ids(self, labels: list[str]) -> list[str]:
         """Retrieves GitHub label IDs for a list of label names using the GraphQL API."""
