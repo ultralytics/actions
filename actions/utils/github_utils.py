@@ -196,7 +196,7 @@ class Action:
         response = self.get(url, headers=self.headers_diff)
         if response.status_code == 200:
             if not response.text:
-                pass
+                response.text = "ERROR: DIFF IS EMPTY, THERE ARE NO CODE CHANGES IN THIS PR."
             self._pr_diff_cache = response.text
         elif response.status_code == 406:
             self._pr_diff_cache = "ERROR: PR diff exceeds GitHub's 20,000 line limit, unable to retrieve diff."
