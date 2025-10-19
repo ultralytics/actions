@@ -10,12 +10,26 @@ from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
 REVIEW_MARKER = "🔍 PR Review"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
 SKIP_PATTERNS = [
-    r".*\.lock$", r".*-lock\.(json|yaml|yml)$",  # Lock files
-    r".*\.min\.(js|css)$", r".*\.bundle\.(js|css)$",  # Minified
-    r"dist/.*", r"build/.*", r"vendor/.*", r"node_modules/.*",  # Generated/vendored
-    r".*\.pb\.py$", r".*_pb2\.py$", r".*_pb2_grpc\.py$",  # Proto generated
-    r"package-lock\.json$", r"yarn\.lock$", r"poetry\.lock$", r"Pipfile\.lock$",  # Package locks
-    r".*\.svg$", r".*\.png$", r".*\.jpg$", r".*\.jpeg$", r".*\.gif$",  # Images
+    r".*\.lock$",
+    r".*-lock\.(json|yaml|yml)$",  # Lock files
+    r".*\.min\.(js|css)$",
+    r".*\.bundle\.(js|css)$",  # Minified
+    r"dist/.*",
+    r"build/.*",
+    r"vendor/.*",
+    r"node_modules/.*",  # Generated/vendored
+    r".*\.pb\.py$",
+    r".*_pb2\.py$",
+    r".*_pb2_grpc\.py$",  # Proto generated
+    r"package-lock\.json$",
+    r"yarn\.lock$",
+    r"poetry\.lock$",
+    r"Pipfile\.lock$",  # Package locks
+    r".*\.svg$",
+    r".*\.png$",
+    r".*\.jpg$",
+    r".*\.jpeg$",
+    r".*\.gif$",  # Images
 ]
 
 
@@ -54,7 +68,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
     # Filter out generated/vendored files
     filtered_files = {
-        path: lines for path, lines in diff_files.items()
+        path: lines
+        for path, lines in diff_files.items()
         if not any(re.match(pattern, path) for pattern in SKIP_PATTERNS)
     }
     skipped_count = len(diff_files) - len(filtered_files)
@@ -143,17 +158,17 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         for c in review_data.get("comments", []):
             file_path, line_num = c.get("file"), c.get("line", 0)
             start_line = c.get("start_line")
-            
+
             # Validate line numbers are in diff
             if file_path not in diff_files or line_num not in diff_files[file_path]:
                 print(f"Filtered out {file_path}:{line_num} (available: {list(diff_files.get(file_path, {}))[:10]}...)")
                 continue
-            
+
             # Validate start_line if provided
             if start_line and (start_line >= line_num or start_line not in diff_files[file_path]):
                 print(f"Invalid start_line {start_line} for {file_path}:{line_num}, using single-line comment")
                 c.pop("start_line", None)
-            
+
             # Deduplicate by line number
             key = f"{file_path}:{line_num}"
             if key not in unique_comments:
@@ -162,7 +177,12 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {c.get('message')[:60]}...")
 
         review_data.update(
-            {"comments": list(unique_comments.values()), "diff_files": diff_files, "diff_truncated": diff_truncated, "skipped_files": skipped_count}
+            {
+                "comments": list(unique_comments.values()),
+                "diff_files": diff_files,
+                "diff_truncated": diff_truncated,
+                "skipped_files": skipped_count,
+            }
         )
         print(f"Valid comments after filtering: {len(review_data['comments'])}")
         return review_data
