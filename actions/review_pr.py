@@ -237,7 +237,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     review_title = f"{REVIEW_MARKER} {review_number}" if review_number > 1 else REVIEW_MARKER
     comments = review_data.get("comments", [])
     event_type = (
-        "REQUEST_CHANGES" if any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments) else "APPROVE"
+        "COMMENT" if any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments) else "APPROVE"
     )
 
     body = (
