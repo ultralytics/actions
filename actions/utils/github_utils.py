@@ -192,12 +192,9 @@ class Action:
                 "github.event.discussion.number": discussion.get("number"),
             }
 
-        max_key_length = max(len(key) for key in info)
+        width = max(len(k) for k in info) + 5
         header = f"Ultralytics Actions {__version__} Information " + "-" * 40
-        print(header)
-        for key, value in info.items():
-            print(f"{key:<{max_key_length + 5}}{value}")
-        print("-" * len(header))
+        print(f"{header}\n" + "\n".join(f"{k:<{width}}{v}" for k, v in info.items()) + f"\n{'-' * len(header)}")
 
 
 def ultralytics_actions_info():
