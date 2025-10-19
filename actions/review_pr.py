@@ -271,12 +271,12 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
         severity = comment.get("severity", "SUGGESTION")
         comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')}"
 
-        if suggestion := comment.get("suggestion", "").strip():
+        if suggestion := comment.get("suggestion"):
             if "```" not in suggestion:
                 # Extract original line indentation and apply to suggestion
                 if original_line := review_data.get("diff_files", {}).get(file_path, {}).get(line):
                     indent = len(original_line) - len(original_line.lstrip())
-                    suggestion = " " * indent + suggestion.lstrip()
+                    suggestion = " " * indent + suggestion.strip()
                 comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
         # Build comment with optional start_line for multi-line context
