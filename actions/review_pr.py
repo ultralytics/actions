@@ -242,8 +242,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     review_title = f"{REVIEW_MARKER} {review_number}" if review_number > 1 else REVIEW_MARKER
     comments = review_data.get("comments", [])
-    max_severity = max((c.get("severity") for c in comments), default="SUGGESTION") if comments else None
-    event_type = "APPROVE" if not comments or max_severity in ["LOW", "SUGGESTION"] else "REQUEST_CHANGES"
+    event_type = "REQUEST_CHANGES" if any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments) else "APPROVE"
 
     body = (
         f"## {review_title}\n\n"
