@@ -195,7 +195,7 @@ class Action:
         return head_repo and head_repo != self.repository
 
     def should_skip_openai(self) -> bool:
-        """Check if OpenAI operations should be skipped (fork PR without API key access)."""
+        """Check if OpenAI operations should be skipped."""
         from actions.utils.openai_utils import OPENAI_API_KEY
 
         if not OPENAI_API_KEY:
