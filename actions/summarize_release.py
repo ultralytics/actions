@@ -19,7 +19,7 @@ def get_release_diff(event, previous_tag: str, latest_tag: str) -> str:
     """Retrieves the differences between two specified Git tags in a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{latest_tag}"
     r = event.get(url, headers=event.headers_diff)
-    return r.text if r.status_code == 200 else f"Failed to get diff: {r.content}"
+    return r.text if r.status_code == 200 else f"Failed to get diff: {r.text}"
 
 
 def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
