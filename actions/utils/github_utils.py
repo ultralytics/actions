@@ -192,7 +192,7 @@ class Action:
         if not self.pr:
             return False
         head_repo = self.pr.get("head", {}).get("repo", {}).get("full_name")
-        return head_repo and head_repo != self.repository
+        return bool(head_repo) and head_repo != self.repository
 
     def should_skip_openai(self) -> bool:
         """Check if OpenAI operations should be skipped."""
