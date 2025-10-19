@@ -198,7 +198,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         return review_data
 
     except json.JSONDecodeError as e:
-        print(f"JSON parsing failed: {e}\nAttempted: {json_str[:500] if 'json_str' in locals() else response[:500]}...")
+        print(f"JSON parsing failed... {e}")
         return {"comments": [], "summary": "Review generation encountered a JSON parsing error"}
     except Exception as e:
         print(f"Review generation failed: {e}")
