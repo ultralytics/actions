@@ -114,6 +114,7 @@ class Action:
         self.verbose = verbose
         self.eyes_reaction_id = None
         self._pr_diff_cache = None
+        self._pr_summary_cache = None
         self._username_cache = None
         self._default_status = {
             "get": [200],
@@ -187,6 +188,22 @@ class Action:
         """Checks if a user is a member of the organization."""
         return self.get(f"{GITHUB_API_URL}/orgs/{self.repository.split('/')[0]}/members/{username}").status_code == 204
 
+    def is_fork_pr(self) -> bool:
+        """Checks if PR is from a fork (different repo than base)."""
+        if not self.pr:
+            return False
+        head_repo = self.pr.get("head", {}).get("repo", {}).get("full_name")
+        return bool(head_repo) and head_repo != self.repository
+
+    def should_skip_openai(self) -> bool:
+        """Check if OpenAI operations should be skipped."""
+        from actions.utils.openai_utils import OPENAI_API_KEY
+
+        if not OPENAI_API_KEY:
+            print("⚠️ Skipping LLM operations (OPENAI_API_KEY not found)")
+            return True
+        return False
+
     def get_pr_diff(self) -> str:
         """Retrieves the diff content for a specified pull request with caching."""
         if self._pr_diff_cache:
@@ -256,6 +273,7 @@ class Action:
             updated_description = description + "\n\n" + new_summary
 
         self.patch(url, json={"body": updated_description})
+        self._pr_summary_cache = new_summary
 
     def get_label_ids(self, labels: list[str]) -> list[str]:
         """Retrieves GitHub label IDs for a list of label names using the GraphQL API."""

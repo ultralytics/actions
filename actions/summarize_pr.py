@@ -96,9 +96,10 @@ def main(*args, **kwargs):
     """Summarize a pull request and update its description with a summary."""
     event = Action(*args, **kwargs)
     action = event.event_data.get("action")
-
     if action == "opened":
         print("Skipping PR open - handled by first_interaction.py with unified API call")
+        return
+    if event.should_skip_openai():
         return
 
     print(f"Retrieving diff for PR {event.pr['number']}")

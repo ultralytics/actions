@@ -94,9 +94,8 @@ runs:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
         # For debug
-        # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@update codespell tomli
-        packages="git+https://github.com/ultralytics/actions@cla-branch"
-        # packages="ultralytics-actions"
+        # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@main codespell tomli
+        packages="ultralytics-actions"
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
@@ -111,12 +110,13 @@ runs:
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
     - name: Checkout Repository
-      if: github.event.action != 'closed'
+      if: github.event.action == 'opened' || github.event.action == 'synchronize'
       uses: actions/checkout@v5
       with:
         repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
         token: ${{ inputs.token }}
         ref: ${{ github.head_ref || github.ref }}
+        fetch-depth: 1
 
     # PR Summary -------------------------------------------------------------------------------------------------------
     - name: PR Summary
@@ -133,7 +133,7 @@ runs:
 
     # File header ------------------------------------------------------------------------------------------------------
     - name: File Header
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (github.event.action == 'opened' || github.event.action == 'synchronize')
       env:
         HEADER: ${{ inputs.header }}
       run: |
@@ -155,7 +155,7 @@ runs:
     # D413: Missing blank line after last section
     # --target-version is Python 3.9 for --extend-select UP (pyupgrade)
     - name: Run Python
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.python == 'true' && github.event.action != 'closed'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.python == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         ruff check \
         --fix \
@@ -180,7 +180,7 @@ runs:
 
     # Prettier (JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML) -------------
     - name: Run Prettier
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         npm install --global prettier@3.6.2 prettier-plugin-sh
         ultralytics-actions-update-markdown-code-blocks
@@ -199,7 +199,7 @@ runs:
 
     # Swift formatting -------------------------------------------------------------------------------------------------
     - name: Run Swift Formatter
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.swift == 'true' && github.event.action != 'closed'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.swift == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         brew install swift-format
         swift-format --in-place --recursive .
@@ -208,13 +208,13 @@ runs:
 
     # Dart formatting --------------------------------------------------------------------------------------------------
     - name: Setup Dart SDK
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       uses: dart-lang/setup-dart@v1
       with:
         sdk: stable
 
     - name: Run Dart Formatter
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && github.event.action != 'closed'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         dart format .
       shell: bash
@@ -222,7 +222,7 @@ runs:
 
     # Spelling ---------------------------------------------------------------------------------------------------------
     - name: Run Codespell
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.spelling == 'true' && github.event.action != 'closed'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.spelling == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         codespell \
           --write-changes \
@@ -265,7 +265,7 @@ runs:
 
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && github.event.action != 'closed'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (github.event.action == 'opened' || github.event.action == 'synchronize')
       env:
         GITHUB_USERNAME: ${{ inputs.github_username }}
         GITHUB_EMAIL: ${{ inputs.github_email }}

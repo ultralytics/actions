@@ -19,7 +19,7 @@ def get_release_diff(event, previous_tag: str, latest_tag: str) -> str:
     """Retrieves the differences between two specified Git tags in a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{latest_tag}"
     r = event.get(url, headers=event.headers_diff)
-    return r.text if r.status_code == 200 else f"Failed to get diff: {r.content}"
+    return r.text if r.status_code == 200 else f"Failed to get diff: {r.text}"
 
 
 def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
@@ -42,8 +42,8 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
         pr_numbers.update(pr_matches)
 
     prs = []
-    time.sleep(10)  # Allow final PR summary to update on merge
     for pr_number in sorted(pr_numbers):  # earliest to latest
+        time.sleep(1)  # Rate limit: GitHub search API has strict limits
         pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}"
         pr_response = event.get(pr_url)
         if pr_response.status_code == 200:
@@ -52,7 +52,7 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
                 {
                     "number": pr_data["number"],
                     "title": pr_data["title"],
-                    "body": remove_html_comments(pr_data["body"]),
+                    "body": remove_html_comments(pr_data.get("body", "")),
                     "author": pr_data["user"]["login"],
                     "html_url": pr_data["html_url"],
                     "merged_at": pr_data["merged_at"],
@@ -140,7 +140,7 @@ def generate_release_summary(
         },
         {
             "role": "user",
-            "content": f"Summarize the updates made in the '{latest_tag}' tag, focusing on major model or features changes, their purpose, and potential impact. Keep the summary clear and suitable for a broad audience. Add emojis to enliven the summary. Prioritize changes from the current PR (the first in the list), which is usually the most important in the release. Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:\n\n"
+            "content": f"Summarize the updates made in the '{latest_tag}' tag, focusing on major model or features changes, their purpose, and potential impact. Keep the summary clear and suitable for a broad audience. Add emojis to enliven the summary. Prioritize changes from the current PR (the last in the list), which is usually the most important in the release. Reply directly with a summary along these example guidelines, though feel free to adjust as appropriate:\n\n"
             f"## 🌟 Summary (single-line synopsis)\n"
             f"## 📊 Key Changes (bullet points highlighting any major changes)\n"
             f"## 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n\n\n"
