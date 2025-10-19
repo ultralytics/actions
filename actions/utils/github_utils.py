@@ -199,7 +199,7 @@ class Action:
         from actions.utils.openai_utils import OPENAI_API_KEY
 
         if not OPENAI_API_KEY:
-            print(f"⚠️ Skipping LLM operations (OPENAI_API_KEY not found)")
+            print("⚠️ Skipping LLM operations (OPENAI_API_KEY not found)")
             return True
         return False
 
