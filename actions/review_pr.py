@@ -75,7 +75,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         return {"comments": [], "summary": f"All {skipped_count} changed files are generated/vendored (skipped review)"}
 
     file_list = list(diff_files.keys())
-    limit = round(128000 * 3.3 * 0.5)
+    limit = round(128000 * 3.3 * 0.5)  # 3.3 characters per token for half a 256k context window
     diff_truncated = len(diff_text) > limit
     lines_changed = sum(len(lines) for lines in diff_files.values())
 
