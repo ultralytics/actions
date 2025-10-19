@@ -75,7 +75,7 @@ def get_new_contributors(event, prs: list) -> set:
             print(f"Skipping duplicate author: {author}")
             continue
         checked_authors.add(author)
-        
+
         time.sleep(2)  # Rate limit: GitHub search API has strict limits
         url = f"{GITHUB_API_URL}/search/issues?q=repo:{event.repository}+author:{author}+is:pr+is:merged&sort=created&order=asc"
         r = event.get(url)
