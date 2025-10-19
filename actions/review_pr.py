@@ -45,7 +45,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         return {"comments": [], "summary": "No files with changes detected in diff"}
 
     file_list = list(diff_files.keys())
-    limit = round(128000 * 3.3 * 0.4)
+    limit = round(128000 * 3.3 * 0.5)
     diff_truncated = len(diff_text) > limit
     lines_changed = sum(len(lines) for lines in diff_files.values())
 
@@ -54,10 +54,10 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         for file, lines in list(diff_files.items())[:10]
     ) + ("\n  ..." if len(diff_files) > 10 else "")
 
-    priority_guidance = (
-        "Prioritize the most critical/high-impact issues only"
-        if lines_changed >= 100
-        else "Prioritize commenting on different files/sections"
+    comment_guidance = (
+        "Provide up to 1-3 comments only if critical issues exist" if lines_changed < 50
+        else "Provide up to 3-5 comments only if high-impact issues exist" if lines_changed < 200
+        else "Provide up to 5-10 comments only for the most critical issues"
     )
 
     content = (
@@ -65,17 +65,19 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "Focus on: Code quality, style, best practices, bugs, edge cases, error handling, performance, security, documentation, test coverage\n\n"
         "FORMATTING: Use backticks for code, file names, branch names, function names, variable names, packages\n\n"
         "CRITICAL RULES:\n"
-        f"1. Generate inline comments with recommended changes for clear bugs/security/syntax issues (up to 10)\n"
-        "2. Each comment MUST reference a UNIQUE line number(s)\n"
-        "3. If a section has multiple issues, combine ALL issues into ONE comment for that section\n"
-        "4. Never create separate comments for the same line number(s)\n"
-        f"5. {priority_guidance}\n\n"
+        "1. Quality over quantity: Zero comments is fine for clean code - only flag truly important issues\n"
+        f"2. {comment_guidance} - these are MAXIMUMS, not targets\n"
+        "3. Each comment MUST reference a UNIQUE line number(s)\n"
+        "4. If a section has multiple issues, combine ALL issues into ONE comment for that section\n"
+        "5. Never create separate comments for the same line number(s)\n"
+        "6. Prioritize: CRITICAL bugs/security > HIGH impact issues > code quality\n\n"
         "CODE SUGGESTIONS:\n"
         "- ONLY provide 'suggestion' field when you have high certainty the code is problematic AND sufficient context for a confident fix\n"
         "- If uncertain about the correct fix, omit 'suggestion' field and explain the concern in 'message' only\n"
         "- Suggestions must be ready-to-merge code with NO comments, placeholders, or explanations\n"
         "- Suggestions must match the indentation of the original line (count leading spaces/tabs precisely)\n"
         "- Multi-line suggestions: each line must have correct indentation, no trailing whitespace\n"
+        "- Never include triple backticks (```) in suggestions as they break markdown formatting\n"
         "- It's better to flag an issue without a suggestion than provide a wrong or uncertain fix\n\n"
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], "summary": "..."}\n\n'
@@ -173,7 +175,7 @@ def post_review_comments(event: Action, review_data: dict) -> None:
     url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
     review_data.get("diff_files", {})
 
-    for comment in review_data.get("comments", [])[:50]:
+    for comment in review_data.get("comments", [])[:10]:
         if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
             continue
 
@@ -204,8 +206,8 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     )
 
     if comments:
-        shown = min(len(comments), 50)
-        body += f"💬 Posted {shown} inline comment{'s' if shown != 1 else ''}{' (50 shown, more available)' if len(comments) > 50 else ''}\n"
+        shown = min(len(comments), 10)
+        body += f"💬 Posted {shown} inline comment{'s' if shown != 1 else ''}{' (10 shown, more available)' if len(comments) > 10 else ''}\n"
 
     if review_data.get("diff_truncated"):
         body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
