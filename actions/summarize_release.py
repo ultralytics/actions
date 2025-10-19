@@ -1,5 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+from __future__ import annotations
+
 import os
 import re
 import subprocess
@@ -25,14 +27,22 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
     url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{latest_tag}"
     r = event.get(url)
 
+    if r.status_code != 200:
+        print(f"Failed to get comparison between {previous_tag} and {latest_tag}, status: {r.status_code}")
+        return []
+
     data = r.json()
+    if "commits" not in data:
+        print(f"No commits found in comparison between {previous_tag} and {latest_tag}")
+        return []
+
     pr_numbers = set()
     for commit in data["commits"]:
         pr_matches = re.findall(r"#(\d+)", commit["commit"]["message"])
         pr_numbers.update(pr_matches)
 
     prs = []
-    time.sleep(10)  # sleep 10 seconds to allow final PR summary to update on merge
+    time.sleep(10)  # Allow final PR summary to update on merge
     for pr_number in sorted(pr_numbers):  # earliest to latest
         pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}"
         pr_response = event.get(pr_url)
@@ -58,9 +68,15 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
 def get_new_contributors(event, prs: list) -> set:
     """Identify new contributors who made their first merged PR in the current release."""
     new_contributors = set()
+    checked_authors = set()
     for pr in prs:
         author = pr["author"]
-        # Check if this is the author's first contribution
+        if author in checked_authors:
+            print(f"Skipping duplicate author: {author}")
+            continue
+        checked_authors.add(author)
+
+        time.sleep(2)  # Rate limit: GitHub search API has strict limits
         url = f"{GITHUB_API_URL}/search/issues?q=repo:{event.repository}+author:{author}+is:pr+is:merged&sort=created&order=asc"
         r = event.get(url)
         if r.status_code == 200:
@@ -69,6 +85,11 @@ def get_new_contributors(event, prs: list) -> set:
                 first_pr = data["items"][0]
                 if first_pr["number"] == pr["number"]:
                     new_contributors.add(author)
+        elif r.status_code == 403:
+            print(f"⚠️ Rate limit hit checking {author}, stopping contributor check")
+            break
+        else:
+            print(f"Failed to check {author}: {r.status_code}")
     return new_contributors
 
 
@@ -129,7 +150,7 @@ def generate_release_summary(
         },
     ]
     # print(messages[-1]["content"])  # for debug
-    return get_completion(messages, temperature=0.2) + release_suffix
+    return get_completion(messages, temperature=1.0) + release_suffix
 
 
 def create_github_release(event, tag_name: str, name: str, body: str):
@@ -139,9 +160,9 @@ def create_github_release(event, tag_name: str, name: str, body: str):
     event.post(url, json=data)
 
 
-def get_previous_tag() -> str:
-    """Retrieves the previous Git tag, excluding the current tag, using the git describe command."""
-    cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", CURRENT_TAG]
+def get_actual_previous_tag(current_tag: str) -> str:
+    """Gets the actual previous tag using git, excluding the current tag."""
+    cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", current_tag]
     try:
         return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
     except subprocess.CalledProcessError:
@@ -156,7 +177,14 @@ def main(*args, **kwargs):
     if not all([event.token, CURRENT_TAG]):
         raise ValueError("One or more required environment variables are missing.")
 
-    previous_tag = PREVIOUS_TAG or get_previous_tag()
+    # Try PREVIOUS_TAG first, fall back to actual previous tag if comparison fails
+    previous_tag = PREVIOUS_TAG or get_actual_previous_tag(CURRENT_TAG)
+
+    # Test if the previous tag works for comparison
+    test_url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{CURRENT_TAG}"
+    if event.get(test_url).status_code != 200:
+        previous_tag = get_actual_previous_tag(CURRENT_TAG)
+        print(f"Using actual previous tag: {previous_tag}")
 
     # Get the diff between the tags
     diff = get_release_diff(event, previous_tag, CURRENT_TAG)

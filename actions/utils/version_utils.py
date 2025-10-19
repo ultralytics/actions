@@ -3,6 +3,8 @@
 # from actions.utils.version_utils import check_pypi_version
 # check_pypi_version()
 
+from __future__ import annotations
+
 import re
 from pathlib import Path
 
@@ -13,7 +15,7 @@ def should_publish(local_version, remote_version):
     """Determine if version should be published based on semver rules."""
     if remote_version:
         local_ver, remote_ver = [tuple(map(int, v.split("."))) for v in [local_version, remote_version]]
-        major_diff, minor_diff, patch_diff = [l - r for l, r in zip(local_ver, remote_ver)]
+        major_diff, minor_diff, patch_diff = [local - remote for local, remote in zip(local_ver, remote_ver)]
         return (
             (major_diff == 0 and minor_diff == 0 and 0 < patch_diff <= 2)  # patch diff <=2
             or (major_diff == 0 and minor_diff == 1 and local_ver[2] == 0)  # new minor version

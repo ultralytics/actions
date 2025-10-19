@@ -35,45 +35,51 @@ def test_get_prs_between_tags():
     mock_event = MagicMock()
     mock_event.repository = "test/repo"
 
-    # Mock compare response
-    mock_compare_response = MagicMock()
-    mock_compare_response.json.return_value = {
-        "commits": [{"commit": {"message": "Fix bug #123"}}, {"commit": {"message": "Add feature #456"}}]
-    }
+    mock_event.get.side_effect = [
+        MagicMock(status_code=200, json=lambda: {"commits": [{"commit": {"message": "Fix bug #123"}}]}),
+        MagicMock(
+            status_code=200,
+            json=lambda: {
+                "number": 123,
+                "title": "Fix bug",
+                "body": "Fix",
+                "user": {"login": "user1"},
+                "html_url": "url",
+                "merged_at": "2023-01-01T12:00:00Z",
+            },
+        ),
+    ]
 
-    # Mock PR responses
-    mock_pr1_response = MagicMock()
-    mock_pr1_response.status_code = 200
-    mock_pr1_response.json.return_value = {
-        "number": 123,
-        "title": "Fix bug",
-        "body": "Fixes a bug",
-        "user": {"login": "user1"},
-        "html_url": "https://github.com/test/repo/pull/123",
-        "merged_at": "2023-01-01T12:00:00Z",
-    }
-
-    mock_pr2_response = MagicMock()
-    mock_pr2_response.status_code = 200
-    mock_pr2_response.json.return_value = {
-        "number": 456,
-        "title": "Add feature",
-        "body": "Adds a new feature",
-        "user": {"login": "user2"},
-        "html_url": "https://github.com/test/repo/pull/456",
-        "merged_at": "2023-01-02T12:00:00Z",
-    }
-
-    # Set up get method to return different responses
-    mock_event.get.side_effect = [mock_compare_response, mock_pr1_response, mock_pr2_response]
-
-    # Use patch to skip the sleep
     with patch("time.sleep"):
         prs = get_prs_between_tags(mock_event, "v1.0.0", "v1.1.0")
 
-    assert len(prs) == 2
+    assert len(prs) == 1
     assert prs[0]["number"] == 123
-    assert prs[1]["number"] == 456
+
+
+def test_get_prs_between_tags_api_failure():
+    """Test API failure returns empty list."""
+    mock_event = MagicMock()
+    mock_event.get.return_value = MagicMock(status_code=404)
+
+    assert get_prs_between_tags(mock_event, "v1.0.0", "v1.1.0") == []
+
+
+def test_get_prs_between_tags_missing_commits():
+    """Test missing commits data returns empty list."""
+    mock_event = MagicMock()
+    mock_event.get.return_value = MagicMock(status_code=200, json=lambda: {"message": "No commits"})
+
+    assert get_prs_between_tags(mock_event, "v1.0.0", "v1.1.0") == []
+
+
+def test_get_prs_between_tags_empty_commits():
+    """Test empty commits list returns empty list."""
+    mock_event = MagicMock()
+    mock_event.get.return_value = MagicMock(status_code=200, json=lambda: {"commits": []})
+
+    with patch("time.sleep"):
+        assert get_prs_between_tags(mock_event, "v1.0.0", "v1.1.0") == []
 
 
 @patch("actions.summarize_release.get_completion")

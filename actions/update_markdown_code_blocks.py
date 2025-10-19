@@ -1,5 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+from __future__ import annotations
+
 import hashlib
 import re
 import shutil
@@ -37,6 +39,9 @@ def add_indentation(code_block, num_spaces):
 
 def format_code_with_ruff(temp_dir):
     """Formats Python code files in the specified directory using ruff linter and docformatter tools."""
+    if not next(Path(temp_dir).rglob("*.py"), None):
+        return
+
     try:
         # Run ruff format
         subprocess.run(

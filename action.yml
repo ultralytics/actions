@@ -46,6 +46,10 @@ inputs:
     description: "Run PR Summary"
     required: false
     default: "false"
+  review:
+    description: "Run PR Review"
+    required: false
+    default: "false"
   header:
     description: "File header"
     required: false
@@ -59,7 +63,7 @@ inputs:
   openai_model:
     description: "OpenAI Model"
     required: false
-    default: "gpt-4.1-2025-04-14"
+    default: "gpt-5-2025-08-07"
   first_issue_response:
     description: "Example response to a new issue"
     required: false
@@ -79,19 +83,20 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: astral-sh/setup-uv@v6
+    - uses: astral-sh/setup-uv@v7
       with:
         ignore-empty-workdir: true
         enable-cache: false
+        version: "0.9.4"
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
-      # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@main codespell tomli
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
-        packages="ultralytics_actions"
         # For debug
+        # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@update codespell tomli
         packages="git+https://github.com/ultralytics/actions@cla-branch"
+        # packages="ultralytics-actions"
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
@@ -107,7 +112,7 @@ runs:
     # Checkout Repository ----------------------------------------------------------------------------------------------
     - name: Checkout Repository
       if: github.event.action != 'closed'
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
       with:
         repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
         token: ${{ inputs.token }}
@@ -115,7 +120,7 @@ runs:
 
     # PR Summary -------------------------------------------------------------------------------------------------------
     - name: PR Summary
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize'
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.summary == 'true' && github.event.action != 'synchronize' && github.event.action != 'review_requested'
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         BRAVE_API_KEY: ${{ inputs.brave_api_key }}
@@ -148,20 +153,20 @@ runs:
     # D406: Section name should end with a newline
     # D407: Missing dashed underline after section
     # D413: Missing blank line after last section
-    # --target-version is Python 3.8 for --extend-select UP (pyupgrade)
+    # --target-version is Python 3.9 for --extend-select UP (pyupgrade)
     - name: Run Python
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.python == 'true' && github.event.action != 'closed'
       run: |
-        ruff format \
-        --line-length 120 \
-        . || true
         ruff check \
         --fix \
         --unsafe-fixes \
         --extend-select I,D,UP \
-        --target-version py38 \
+        --target-version py39 \
         --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413 \
-        .
+        . || true
+        ruff format \
+        --line-length 120 \
+        . || true
         docformatter \
         --wrap-summaries 120 \
         --wrap-descriptions 120 \
@@ -177,7 +182,7 @@ runs:
     - name: Run Prettier
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && github.event.action != 'closed'
       run: |
-        npm install --global prettier prettier-plugin-sh
+        npm install --global prettier@3.6.2 prettier-plugin-sh
         ultralytics-actions-update-markdown-code-blocks
         npx prettier --write --list-different "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json'
         # Bash file format
@@ -222,12 +227,12 @@ runs:
         codespell \
           --write-changes \
           --uri-ignore-words-list * \
-          --ignore-words-list "RepResNet,Idenfy,WIT,Smoot,EHR,ROUGE,ALS,iTerm,Carmel,FPR,Hach,Calle,ore,COO,MOT,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall,skelton,goin" \
+          --ignore-words-list "finalY,RepResNet,Idenfy,WIT,Smoot,EHR,ROUGE,ALS,iTerm,Carmel,FPR,Hach,Calle,ore,COO,MOT,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall,skelton,goin" \
           --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,*lock*,__pycache__*,*.ico,*.jpg,*.png,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml"
       shell: bash
       continue-on-error: true
 
-    # Autolabel Issues and PRs (run before commit changes in case commit fails) ----------------------------------------
+    # Autolabel Issues and PRs (labels and first interaction) ---------------------------------------------------------
     - name: Autolabel Issues and PRs
       if: inputs.labels == 'true' && (github.event.action == 'opened' || github.event.action == 'created')
       env:
@@ -239,6 +244,22 @@ runs:
         OPENAI_MODEL: ${{ inputs.openai_model }}
       run: |
         ultralytics-actions-first-interaction
+      shell: bash
+      continue-on-error: true
+
+    # PR Review --------------------------------------------------------------------------------------------------------
+    - name: PR Review
+      if: |
+        (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (
+          (inputs.review == 'true' && github.event.action == 'opened') ||
+          (github.event.action == 'review_requested' && github.event.requested_reviewer.login == inputs.github_username)
+        )
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        OPENAI_MODEL: ${{ inputs.openai_model }}
+      run: |
+        ultralytics-actions-review-pr
       shell: bash
       continue-on-error: true
 
@@ -265,7 +286,7 @@ runs:
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
       if: inputs.links == 'true' && github.event.action != 'closed'
-      uses: lycheeverse/lychee-action@v2.4.1
+      uses: lycheeverse/lychee-action@v2.6.1
       with:
         # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:
         #   - 403(OpenVINO, "forbidden")
@@ -277,7 +298,7 @@ runs:
           --scheme https
           --timeout 60
           --insecure
-          --accept 403,429,500,502,999
+          --accept 100..=103,200..=299,401,403,429,500,502,999
           --exclude-all-private
           --exclude "https?://(www\.)?(github\.com|linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)"
           "./**/*.md"

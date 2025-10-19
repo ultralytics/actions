@@ -1,5 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+from __future__ import annotations
+
 import os
 import re
 import time
@@ -85,6 +87,7 @@ REDIRECT_START_IGNORE_LIST = frozenset(
         "docs.openvino.ai",
         ".git",
         "/raw/",  # GitHub images
+        ".slack.com",  # Slack URLs to private channels
     }
     | URL_IGNORE_LIST
 )
@@ -112,7 +115,7 @@ REDIRECT_END_IGNORE_LIST = frozenset(
         "redirect",
         "https://code.visualstudio.com/",  # errors
         "?rdt=",  # problems with reddit redirecting to https://www.reddit.com/r/ultralytics/?rdt=48616
-        "objects.githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
+        "githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
     }
 )
 URL_PATTERN = re.compile(
@@ -147,8 +150,8 @@ def allow_redirect(start="", end=""):
     return (
         end
         and end.startswith("https://")
-        and not any(item in end_lower for item in REDIRECT_END_IGNORE_LIST)
-        and not any(item in start_lower for item in REDIRECT_START_IGNORE_LIST)
+        and all(item not in end_lower for item in REDIRECT_END_IGNORE_LIST)
+        and all(item not in start_lower for item in REDIRECT_START_IGNORE_LIST)
     )
 
 
@@ -189,7 +192,8 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
                     # Try HEAD first, then GET if needed
                     for method in (requester.head, requester.get):
                         response = method(url, stream=method == requester.get, **kwargs)
-                        if redirect and allow_redirect(start=url, end=response.url):
+                        # Only update URL if there were actual HTTP redirects (indicated by response.history)
+                        if redirect and response.history and allow_redirect(start=url, end=response.url):
                             url = response.url
                         if response.status_code not in BAD_HTTP_CODES:
                             return (True, url) if return_url else True
@@ -239,11 +243,10 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                 if not valid and brave_api_key:
                     query = f"{(redirect or url)[:200]} {title[:199]}"
                     if search_urls := brave_search(query, brave_api_key, count=3):
-                        best_url = search_urls[0]
-                        for alt_url in search_urls:
-                            if is_url(alt_url, session):
-                                best_url = alt_url
-                                break
+                        best_url = next(
+                            (alt_url for alt_url in search_urls if is_url(alt_url, session)),
+                            search_urls[0],
+                        )
                         if url != best_url:
                             replacements[url] = best_url
                             modified_text = modified_text.replace(url, best_url)

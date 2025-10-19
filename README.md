@@ -1,6 +1,6 @@
 <a href="https://www.ultralytics.com/"><img src="https://raw.githubusercontent.com/ultralytics/assets/main/logo/Ultralytics_Logotype_Original.svg" width="320" alt="Ultralytics logo"></a>
 
-# 🚀 Ultralytics Actions: Auto-Formatting for Python, Markdown, and Swift
+# 🚀 Ultralytics Actions: AI-powered formatting, labeling & PR summaries for Python and Markdown
 
 Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python and Swift projects. This GitHub Action is designed to automate the formatting of Python, Markdown, and Swift files, ensuring adherence to our coding standards and enhancing project maintainability.
 
@@ -8,9 +8,8 @@ Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) rep
 
 [![Actions CI](https://github.com/ultralytics/actions/actions/workflows/ci.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/ci.yml)
 [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
+[![List Open PRs](https://github.com/ultralytics/actions/actions/workflows/open-prs.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/open-prs.yml)
 [![codecov](https://codecov.io/github/ultralytics/actions/graph/badge.svg?token=DoizJ1WS6j)](https://codecov.io/github/ultralytics/actions)
-[![PyPI version](https://badge.fury.io/py/ultralytics-actions.svg)](https://badge.fury.io/py/ultralytics-actions)
-[![Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://www.pepy.tech/projects/ultralytics-actions)
 
 [![Ultralytics Discord](https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue)](https://discord.com/invite/ultralytics)
 [![Ultralytics Forums](https://img.shields.io/discourse/users?server=https%3A%2F%2Fcommunity.ultralytics.com&logo=discourse&label=Forums&color=blue)](https://community.ultralytics.com/)
@@ -26,8 +25,9 @@ Ultralytics Actions automatically applies formats, updates, and enhancements usi
 - **Swift Code:** Formatted with [`swift-format`](https://github.com/swiftlang/swift-format) to maintain a uniform coding style across Swift projects. _(Note: Requires the `macos-latest` runner.)_
 - **Spell Check:** Common misspellings are caught using [codespell](https://github.com/codespell-project/codespell).
 - **Broken Links Check:** Broken links in documentation and Markdown files are identified using [Lychee](https://github.com/lycheeverse/lychee).
-- **PR Summary:** Concise Pull Request summaries are generated using [OpenAI](https://openai.com/) GPT-4.1, improving clarity and review efficiency.
-- **Auto-labeling:** Relevant labels are applied to issues and pull requests via [OpenAI](https://openai.com/) GPT-4.1 for intelligent categorization.
+- **PR Summary:** Concise Pull Request summaries are generated using [OpenAI](https://openai.com/) GPT-5, improving clarity and review efficiency.
+- **PR Review:** AI-powered inline code reviews identify critical bugs, security issues, and code quality concerns with suggested fixes.
+- **Auto-labeling:** Relevant labels are applied to issues and pull requests via [OpenAI](https://openai.com/) GPT-5 for intelligent categorization.
 
 ## 🛠️ How It Works
 
@@ -36,9 +36,10 @@ Ultralytics Actions triggers on various GitHub events to streamline workflows:
 - **Push Events:** Automatically formats code when changes are pushed to the `main` branch.
 - **Pull Requests:**
   - Ensures contributions meet formatting standards before merging.
-  - Generates a concise summary of changes using GPT-4.1.
-  - Applies relevant labels using GPT-4.1 for intelligent categorization.
-- **Issues:** Automatically applies relevant labels using GPT-4.1 when new issues are created.
+  - Generates a concise summary of changes using GPT-5.
+  - Provides AI-powered inline code reviews with suggested fixes for critical issues.
+  - Applies relevant labels using GPT-5 for intelligent categorization.
+- **Issues:** Automatically applies relevant labels using GPT-5 when new issues are created.
 
 These automated actions help maintain high code quality, improve documentation clarity, and streamline the review process by providing consistent formatting, informative summaries, and appropriate categorization.
 
@@ -91,6 +92,18 @@ To integrate this action into your Ultralytics repository:
     ```
 
 3.  **Customize:** Adjust the `runs-on` runner and the boolean flags (`labels`, `python`, `prettier`, `swift`, `spelling`, `links`, `summary`) based on your project's needs. Remember to add your `OPENAI_API_KEY` as a secret in your repository settings if you enable `labels` or `summary`.
+
+## Python Package
+
+Install the `ultralytics-actions` Python package directly with Pip:
+
+[![PyPI - Version](https://img.shields.io/pypi/v/ultralytics-actions?logo=pypi&logoColor=white)](https://pypi.org/project/ultralytics-actions/)
+[![Ultralytics Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://clickpy.clickhouse.com/dashboard/ultralytics-actions)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ultralytics-actions?logo=python&logoColor=gold)](https://pypi.org/project/ultralytics-actions/)
+
+```sh
+pip install ultralytics-actions
+```
 
 ## 💡 Contribute
 
