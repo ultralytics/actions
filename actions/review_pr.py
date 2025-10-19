@@ -132,7 +132,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         {
             "role": "user",
             "content": (
-                f"Review PR '{repository}':\n"
+                f"Review this PR in https://github.com/{repository}:\n"
                 f"Title: {pr_title}\n"
                 f"Description: {remove_html_comments(pr_description or '')[:1000]}\n\n"
                 f"Diff:\n{diff_text[:limit]}\n\n"
@@ -140,12 +140,6 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
             ),
         },
     ]
-
-    print("\n" + "=" * 80 + "\nSYSTEM PROMPT:\n" + "=" * 80)
-    print(content)
-    print("=" * 80 + "\nUSER MESSAGE (first 2000 chars):\n" + "=" * 80)
-    print(messages[1]["content"][:9000])
-    print("=" * 80 + "\n")
 
     try:
         response = get_completion(messages, reasoning_effort="medium")
