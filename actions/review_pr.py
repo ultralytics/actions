@@ -113,6 +113,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "SUMMARY GUIDELINES:\n"
         "- Keep summary brief, clear, and actionable - avoid overly detailed explanations\n"
         "- Highlight only the most important findings\n\n"
+        "- Do NOT include file names or line numbers in the summary - inline comments already show exact locations\n"
+        "- Focus on what needs to be fixed, not where\n\n"
         "CODE SUGGESTIONS:\n"
         "- ONLY provide 'suggestion' field when you have high certainty the code is problematic AND sufficient context for a confident fix\n"
         "- If uncertain about the correct fix, omit 'suggestion' field and explain the concern in 'message' only\n"
