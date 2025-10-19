@@ -42,8 +42,8 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
         pr_numbers.update(pr_matches)
 
     prs = []
-    time.sleep(10)  # Allow final PR summary to update on merge
     for pr_number in sorted(pr_numbers):  # earliest to latest
+        time.sleep(1)  # Rate limit: GitHub search API has strict limits
         pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}"
         pr_response = event.get(pr_url)
         if pr_response.status_code == 200:
@@ -52,7 +52,7 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
                 {
                     "number": pr_data["number"],
                     "title": pr_data["title"],
-                    "body": remove_html_comments(pr_data["body"]),
+                    "body": remove_html_comments(pr_data.get("body", "")),
                     "author": pr_data["user"]["login"],
                     "html_url": pr_data["html_url"],
                     "merged_at": pr_data["merged_at"],
