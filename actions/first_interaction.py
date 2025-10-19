@@ -3,18 +3,37 @@
 from __future__ import annotations
 
 import os
+import time
 
-from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
+from .utils import Action, filter_labels, get_completion, get_pr_open_response, remove_html_comments
 
-# Environment variables
+SUMMARY_START = (
+    "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
+)
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
+
+
+def apply_and_check_labels(event, number, node_id, issue_type, username, labels, label_descriptions):
+    """Normalizes, applies labels, and handles Alert label if present."""
+    if not labels:
+        print("No relevant labels found or applied.")
+        return
+
+    available = {k.lower(): k for k in label_descriptions}
+    normalized = [available.get(label.lower(), label) for label in labels if label.lower() in available]
+
+    if normalized:
+        print(f"Applying labels: {normalized}")
+        event.apply_labels(number, node_id, normalized, issue_type)
+        if "Alert" in normalized and not event.is_org_member(username):
+            event.handle_alert(number, node_id, issue_type, username, block=BLOCK_USER)
 
 
 def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
     """Extracts key information from GitHub event data for issues, pull requests, or discussions."""
     data = event.event_data
     name = event.event_name
-    action = data["action"]  # 'opened', 'closed', 'created' (discussion), etc.
+    action = data["action"]
     if name == "issues":
         item = data["issue"]
         issue_type = "issue"
@@ -36,107 +55,12 @@ def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
     return number, node_id, title, body, username, issue_type, action
 
 
-def update_issue_pr_content(event, number: int, node_id: str, issue_type: str):
-    """Updates the title and body of an issue, pull request, or discussion with predefined content."""
-    new_title = "Content Under Review"
-    new_body = """This post has been flagged for review by [Ultralytics Actions](https://ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
-
-- [Code of Conduct](https://docs.ultralytics.com/help/code-of-conduct/)
-- [Security Policy](https://docs.ultralytics.com/help/security/)
-
-For questions or bug reports related to this action please visit https://github.com/ultralytics/actions.
-
-Thank you 🙏
-"""
-    if issue_type == "discussion":
-        mutation = """
-mutation($discussionId: ID!, $title: String!, $body: String!) {
-    updateDiscussion(input: {discussionId: $discussionId, title: $title, body: $body}) {
-        discussion {
-            id
-        }
-    }
-}
-"""
-        event.graphql_request(mutation, variables={"discussionId": node_id, "title": new_title, "body": new_body})
-    else:
-        url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}"
-        event.patch(url, json={"title": new_title, "body": new_body})
-
-
-def close_issue_pr(event, number: int, node_id: str, issue_type: str):
-    """Closes the specified issue, pull request, or discussion using the GitHub API."""
-    if issue_type == "discussion":
-        mutation = """
-mutation($discussionId: ID!) {
-    closeDiscussion(input: {discussionId: $discussionId}) {
-        discussion {
-            id
-        }
-    }
-}
-"""
-        event.graphql_request(mutation, variables={"discussionId": node_id})
-    else:
-        url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}"
-        event.patch(url, json={"state": "closed"})
-
-
-def lock_issue_pr(event, number: int, node_id: str, issue_type: str):
-    """Locks an issue, pull request, or discussion to prevent further interactions."""
-    if issue_type == "discussion":
-        mutation = """
-mutation($lockableId: ID!, $lockReason: LockReason) {
-    lockLockable(input: {lockableId: $lockableId, lockReason: $lockReason}) {
-        lockedRecord {
-            ... on Discussion {
-                id
-            }
-        }
-    }
-}
-"""
-        event.graphql_request(mutation, variables={"lockableId": node_id, "lockReason": "OFF_TOPIC"})
-    else:
-        url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/lock"
-        event.put(url, json={"lock_reason": "off-topic"})
-
-
-def block_user(event, username: str):
-    """Blocks a user from the organization using the GitHub API."""
-    url = f"{GITHUB_API_URL}/orgs/{event.repository.split('/')[0]}/blocks/{username}"
-    event.put(url)
-
-
 def get_relevant_labels(
     issue_type: str, title: str, body: str, available_labels: dict, current_labels: list
 ) -> list[str]:
-    """Determines relevant labels for GitHub issues/PRs using OpenAI, considering title, body, and existing labels."""
-    # Remove mutually exclusive labels like both 'bug' and 'question' or inappropriate labels like 'help wanted'
-    for label in {
-        "help wanted",
-        "TODO",
-        "research",
-        "non-reproducible",
-        "popular",
-        "invalid",
-        "Stale",
-        "wontfix",
-        "duplicate",
-    }:  # normal case
-        available_labels.pop(label, None)  # remove as should only be manually added
-    if "bug" in current_labels:
-        available_labels.pop("question", None)
-    elif "question" in current_labels:
-        available_labels.pop("bug", None)
-
-    # Add "Alert" to available labels if not present
-    if "Alert" not in available_labels:
-        available_labels["Alert"] = (
-            "Potential spam, abuse, or illegal activity including advertising, unsolicited promotions, malware, phishing, crypto offers, pirated software or media, free movie downloads, cracks, keygens or any other content that violates terms of service or legal standards."
-        )
-
-    labels = "\n".join(f"- {name}: {description}" for name, description in available_labels.items())
+    """Determines relevant labels for GitHub issues/discussions using OpenAI."""
+    filtered_labels = filter_labels(available_labels, current_labels, is_pr=(issue_type == "pull request"))
+    labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
 
     prompt = f"""Select the top 1-3 most relevant labels for the following GitHub {issue_type}.
 
@@ -150,7 +74,7 @@ INSTRUCTIONS:
 {'7. Only use the "bug" label if the user provides a clear description of the bug, their environment with relevant package versions and a minimum reproducible example.' if issue_type == "issue" else ""}
 
 AVAILABLE LABELS:
-{labels}
+{labels_str}
 
 {issue_type.upper()} TITLE:
 {title}
@@ -171,7 +95,7 @@ YOUR RESPONSE (label names only):
     if "none" in suggested_labels.lower():
         return []
 
-    available_labels_lower = {name.lower(): name for name in available_labels}
+    available_labels_lower = {name.lower(): name for name in filtered_labels}
     return [
         available_labels_lower[label.lower().strip()]
         for label in suggested_labels.split(",")
@@ -179,83 +103,8 @@ YOUR RESPONSE (label names only):
     ]
 
 
-def get_label_ids(event, labels: list[str]) -> list[str]:
-    """Retrieves GitHub label IDs for a list of label names using the GraphQL API."""
-    query = """
-query($owner: String!, $name: String!) {
-    repository(owner: $owner, name: $name) {
-        labels(first: 100, query: "") {
-            nodes {
-                id
-                name
-            }
-        }
-    }
-}
-"""
-    owner, repo = event.repository.split("/")
-    result = event.graphql_request(query, variables={"owner": owner, "name": repo})
-    if "data" in result and "repository" in result["data"]:
-        all_labels = result["data"]["repository"]["labels"]["nodes"]
-        label_map = {label["name"].lower(): label["id"] for label in all_labels}
-        return [label_map.get(label.lower()) for label in labels if label.lower() in label_map]
-    else:
-        return []
-
-
-def apply_labels(event, number: int, node_id: str, labels: list[str], issue_type: str):
-    """Applies specified labels to a GitHub issue, pull request, or discussion using the appropriate API."""
-    if "Alert" in labels:
-        create_alert_label(event)
-
-    if issue_type == "discussion":
-        label_ids = get_label_ids(event, labels)
-        if not label_ids:
-            print("No valid labels to apply.")
-            return
-
-        mutation = """
-mutation($labelableId: ID!, $labelIds: [ID!]!) {
-    addLabelsToLabelable(input: {labelableId: $labelableId, labelIds: $labelIds}) {
-        labelable {
-            ... on Discussion {
-                id
-            }
-        }
-    }
-}
-"""
-        event.graphql_request(mutation, {"labelableId": node_id, "labelIds": label_ids})
-    else:
-        url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/labels"
-        event.post(url, json={"labels": labels})
-
-
-def create_alert_label(event):
-    """Creates the 'Alert' label in the repository if it doesn't exist, with a red color and description."""
-    alert_label = {"name": "Alert", "color": "FF0000", "description": "Potential spam, abuse, or off-topic."}
-    event.post(f"{GITHUB_API_URL}/repos/{event.repository}/labels", json=alert_label)
-
-
-def add_comment(event, number: int, node_id: str, comment: str, issue_type: str):
-    """Adds a comment to the specified issue, pull request, or discussion using the GitHub API."""
-    if issue_type == "discussion":
-        mutation = """
-mutation($discussionId: ID!, $body: String!) {
-    addDiscussionComment(input: {discussionId: $discussionId, body: $body}) {
-        comment {
-            id
-        }
-    }
-}
-"""
-        event.graphql_request(mutation, variables={"discussionId": node_id, "body": comment})
-    else:
-        event.post(f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/comments", json={"body": comment})
-
-
 def get_first_interaction_response(event, issue_type: str, title: str, body: str, username: str) -> str:
-    """Generates a custom LLM response for GitHub issues, PRs, or discussions based on content."""
+    """Generates a custom LLM response for GitHub issues or discussions (NOT PRs - PRs use unified call)."""
     issue_discussion_response = f"""
 👋 Hello @{username}, thank you for submitting a `{event.repository}` 🚀 {issue_type.capitalize()}. To help us address your concern efficiently, please ensure you've provided the following information:
 
@@ -281,35 +130,15 @@ Please make sure you've searched existing {issue_type}s to avoid duplicates. If 
 Thank you for your contribution to improving our project!
 """
 
-    pr_response = f"""
-👋 Hello @{username}, thank you for submitting an `{event.repository}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
-
-- ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{event.repository}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
-- ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{event.repository}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
-- ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI/) checks are passing. If any checks fail, please address the issues.
-- ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com/) for any new or modified features.
-- ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
-- ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA/) if this is your first Ultralytics PR by writing "I have read the CLA Document and I sign the CLA" in a new message.
-- ✅ **Minimize Changes**: Limit your changes to the **minimum** necessary for your bug fix or feature addition. _"It is not daily increase but daily decrease, hack away the unessential. The closer to the source, the less wastage there is."_  — Bruce Lee
-
-For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing/). Don’t hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀
-"""
-
-    if issue_type == "pull request":
-        example = os.getenv("FIRST_PR_RESPONSE") or pr_response
-    else:
-        example = os.getenv("FIRST_ISSUE_RESPONSE") or issue_discussion_response
-
+    example = os.getenv("FIRST_ISSUE_RESPONSE") or issue_discussion_response
     org_name, repo_name = event.repository.split("/")
-    repo_url = f"https://github.com/{event.repository}"
-    diff = event.get_pr_diff()[:32000] if issue_type == "pull request" else ""
 
     prompt = f"""Generate a customized response to the new GitHub {issue_type} below:
 
 CONTEXT:
 - Repository: {repo_name}
 - Organization: {org_name}
-- Repository URL: {repo_url}
+- Repository URL: https://github.com/{event.repository}
 - User: {username}
 
 INSTRUCTIONS:
@@ -332,12 +161,8 @@ EXAMPLE {issue_type.upper()} RESPONSE:
 {issue_type.upper()} DESCRIPTION:
 {body[:16000]}
 
-{"PULL REQUEST DIFF:" if issue_type == "pull request" else ""}
-{diff if issue_type == "pull request" else ""}
-
 YOUR {issue_type.upper()} RESPONSE:
 """
-    # print(f"\n\n{prompt}\n\n")  # for debug
     messages = [
         {
             "role": "system",
@@ -354,25 +179,39 @@ def main(*args, **kwargs):
     number, node_id, title, body, username, issue_type, action = get_event_content(event)
     available_labels = event.get_repo_data("labels")
     label_descriptions = {label["name"]: label.get("description", "") for label in available_labels}
-    if issue_type == "discussion":
-        current_labels = []  # For discussions, labels may need to be fetched differently or adjusted
-    else:
-        current_labels = [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
-    if relevant_labels := get_relevant_labels(issue_type, title, body, label_descriptions, current_labels):
-        apply_labels(event, number, node_id, relevant_labels, issue_type)
-        if "Alert" in relevant_labels and not event.is_org_member(username):
-            update_issue_pr_content(event, number, node_id, issue_type)
-            if issue_type != "pull request":
-                close_issue_pr(event, number, node_id, issue_type)
-            lock_issue_pr(event, number, node_id, issue_type)
-            if BLOCK_USER:
-                block_user(event, username=username)
-    else:
-        print("No relevant labels found or applied.")
+
+    # Use unified PR open response for new PRs (summary + labels + first comment in 1 API call)
+    if issue_type == "pull request" and action == "opened":
+        print("Processing PR open with unified API call...")
+        diff = event.get_pr_diff()
+        response = get_pr_open_response(event.repository, diff, title, body, label_descriptions)
+
+        if summary := response.get("summary"):
+            print("Updating PR description with summary...")
+            event.update_pr_description(number, SUMMARY_START + summary)
+
+        if relevant_labels := response.get("labels", []):
+            apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
+
+        if first_comment := response.get("first_comment"):
+            print("Adding first interaction comment...")
+            time.sleep(1)  # sleep to ensure label added first
+            event.add_comment(number, node_id, first_comment, issue_type)
+        return
+
+    # Handle issues and discussions (NOT PRs)
+    current_labels = (
+        []
+        if issue_type == "discussion"
+        else [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
+    )
+
+    relevant_labels = get_relevant_labels(issue_type, title, body, label_descriptions, current_labels)
+    apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
 
     if action in {"opened", "created"}:
         custom_response = get_first_interaction_response(event, issue_type, title, body, username)
-        add_comment(event, number, node_id, custom_response, issue_type)
+        event.add_comment(number, node_id, custom_response, issue_type)
 
 
 if __name__ == "__main__":

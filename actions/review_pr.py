@@ -55,8 +55,8 @@ def parse_diff_files(diff_text: str) -> dict:
 
 def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_description: str) -> dict:
     """Generate comprehensive PR review with line-specific comments and overall assessment."""
-    if not diff_text or "**ERROR" in diff_text:
-        return {"comments": [], "summary": f"Unable to review: {diff_text if '**ERROR' in diff_text else 'diff empty'}"}
+    if not diff_text:
+        return {"comments": [], "summary": "No changes detected in diff"}
 
     diff_files = parse_diff_files(diff_text)
     if not diff_files:
@@ -75,14 +75,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         return {"comments": [], "summary": f"All {skipped_count} changed files are generated/vendored (skipped review)"}
 
     file_list = list(diff_files.keys())
-    limit = round(128000 * 3.3 * 0.5)
+    limit = round(128000 * 3.3 * 0.5)  # 3.3 characters per token for half a 256k context window
     diff_truncated = len(diff_text) > limit
     lines_changed = sum(len(lines) for lines in diff_files.values())
-
-    valid_lines_text = "\n".join(
-        f"  {file}: {sorted(list(lines.keys())[:20])}{' ...' if len(lines) > 20 else ''}"
-        for file, lines in list(diff_files.items())[:10]
-    ) + ("\n  ..." if len(diff_files) > 10 else "")
 
     comment_guidance = (
         "Provide up to 1-3 comments only if critical issues exist"
@@ -98,7 +93,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "FORMATTING: Use backticks for code, file names, branch names, function names, variable names, packages\n\n"
         "CRITICAL RULES:\n"
         "1. Quality over quantity: Zero comments is fine for clean code - only flag truly important issues\n"
-        f"2. {comment_guidance} - these are MAXIMUMS, not targets\n"
+        f"2. {comment_guidance} - these are maximums, not targets\n"
         "3. CRITICAL: Do not post separate comments on adjacent/nearby lines (within 10 lines). Combine all related issues into ONE comment\n"
         "4. When combining issues from multiple lines, use 'start_line' (first line) and 'line' (last line) to highlight the entire range\n"
         "5. Each comment must reference separate areas - no overlapping line ranges\n"
@@ -108,7 +103,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "9. Trust the developer - only flag issues with clear evidence of problems, not hypothetical concerns\n\n"
         "SUMMARY GUIDELINES:\n"
         "- Keep summary brief, clear, and actionable - avoid overly detailed explanations\n"
-        "- Highlight only the most important findings\n\n"
+        "- Highlight only the most important findings\n"
         "- Do NOT include file names or line numbers in the summary - inline comments already show exact locations\n"
         "- Focus on what needs to be fixed, not where\n\n"
         "CODE SUGGESTIONS:\n"
@@ -129,9 +124,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- When '- old' then '+ new', new line keeps SAME line number\n"
         "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
         f"- Files changed: {len(file_list)} ({', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''})\n"
-        f"- Total changed lines: {lines_changed}\n"
-        f"- Diff {'truncated' if diff_truncated else 'complete'}: {len(diff_text[:limit])} chars{f' of {len(diff_text)}' if diff_truncated else ''}\n\n"
-        f"VALID LINE NUMBERS (use ONLY these):\n{valid_lines_text}"
+        f"- Lines changed: {lines_changed}\n"
     )
 
     messages = [
@@ -139,7 +132,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         {
             "role": "user",
             "content": (
-                f"Review PR '{repository}':\n"
+                f"Review this PR in https://github.com/{repository}:\n"
                 f"Title: {pr_title}\n"
                 f"Description: {remove_html_comments(pr_description or '')[:1000]}\n\n"
                 f"Diff:\n{diff_text[:limit]}\n\n"
@@ -147,12 +140,6 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
             ),
         },
     ]
-
-    print("\n" + "=" * 80 + "\nSYSTEM PROMPT:\n" + "=" * 80)
-    print(content)
-    print("=" * 80 + "\nUSER MESSAGE (first 2000 chars):\n" + "=" * 80)
-    print(messages[1]["content"][:9000])
-    print("=" * 80 + "\n")
 
     try:
         response = get_completion(messages, reasoning_effort="medium")
@@ -205,7 +192,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         return review_data
 
     except json.JSONDecodeError as e:
-        print(f"JSON parsing failed: {e}\nAttempted: {json_str[:500] if 'json_str' in locals() else response[:500]}...")
+        print(f"JSON parsing failed... {e}")
         return {"comments": [], "summary": "Review generation encountered a JSON parsing error"}
     except Exception as e:
         print(f"Review generation failed: {e}")
@@ -249,8 +236,9 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     review_title = f"{REVIEW_MARKER} {review_number}" if review_number > 1 else REVIEW_MARKER
     comments = review_data.get("comments", [])
-    max_severity = max((c.get("severity") for c in comments), default="SUGGESTION") if comments else None
-    event_type = "APPROVE" if not comments or max_severity in ["LOW", "SUGGESTION"] else "REQUEST_CHANGES"
+    event_type = (
+        "REQUEST_CHANGES" if any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments) else "APPROVE"
+    )
 
     body = (
         f"## {review_title}\n\n"
@@ -277,8 +265,12 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
         severity = comment.get("severity", "SUGGESTION")
         comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')}"
 
-        if suggestion := comment.get("suggestion", "").strip():
+        if suggestion := comment.get("suggestion"):
             if "```" not in suggestion:
+                # Extract original line indentation and apply to suggestion
+                if original_line := review_data.get("diff_files", {}).get(file_path, {}).get(line):
+                    indent = len(original_line) - len(original_line.lstrip())
+                    suggestion = " " * indent + suggestion.strip()
                 comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
         # Build comment with optional start_line for multi-line context

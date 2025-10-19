@@ -40,7 +40,6 @@ def add_indentation(code_block, num_spaces):
 def format_code_with_ruff(temp_dir):
     """Formats Python code files in the specified directory using ruff linter and docformatter tools."""
     if not next(Path(temp_dir).rglob("*.py"), None):
-        print("No Python code blocks found to format")
         return
 
     try:

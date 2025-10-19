@@ -28,18 +28,91 @@ def remove_outer_codeblocks(string):
     """Removes outer code block markers and language identifiers from a string while preserving inner content."""
     string = string.strip()
     if string.startswith("```") and string.endswith("```"):
-        # Get everything after first ``` and newline, up to the last ```
         string = string[string.find("\n") + 1 : string.rfind("```")].strip()
     return string
+
+
+def filter_labels(available_labels: dict, current_labels: list = None, is_pr: bool = False) -> dict:
+    """Filters labels by removing manually-assigned and mutually exclusive labels."""
+    current_labels = current_labels or []
+    filtered = available_labels.copy()
+
+    for label in {
+        "help wanted",
+        "TODO",
+        "research",
+        "non-reproducible",
+        "popular",
+        "invalid",
+        "Stale",
+        "wontfix",
+        "duplicate",
+    }:
+        filtered.pop(label, None)
+
+    if "bug" in current_labels:
+        filtered.pop("question", None)
+    elif "question" in current_labels:
+        filtered.pop("bug", None)
+
+    if "Alert" not in filtered:
+        filtered["Alert"] = (
+            "Potential spam, abuse, or illegal activity including advertising, unsolicited promotions, malware, "
+            "phishing, crypto offers, pirated software or media, free movie downloads, cracks, keygens or any other "
+            "content that violates terms of service or legal standards."
+        )
+
+    return filtered
+
+
+def get_pr_summary_guidelines() -> str:
+    """Returns PR summary formatting guidelines (used by both unified PR open and PR update/merge)."""
+    return """Summarize this PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Your response must include all 3 sections below with their markdown headers:
+
+### 🌟 Summary
+(single-line synopsis)
+
+### 📊 Key Changes
+- (bullet points highlighting major changes)
+
+### 🎯 Purpose & Impact
+- (bullet points explaining benefits and potential impact to users)"""
+
+
+def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
+    """Returns the complete PR summary generation prompt with diff (used by PR update/merge)."""
+    ratio = 3.3  # about 3.3 characters per token
+    limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
+
+    prompt = (
+        f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{diff_text[:limit]}"
+    )
+    return prompt, len(diff_text) > limit
+
+
+def get_pr_first_comment_template(repository: str) -> str:
+    """Returns the PR first comment template with checklist (used only by unified PR open)."""
+    return f"""👋 Hello @username, thank you for submitting an `{repository}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
+
+- ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{repository}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
+- ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{repository}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
+- ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI/) checks are passing. If any checks fail, please address the issues.
+- ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com/) for any new or modified features.
+- ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
+- ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA/) if this is your first Ultralytics PR by writing "I have read the CLA Document and I sign the CLA" in a new message.
+- ✅ **Minimize Changes**: Limit your changes to the **minimum** necessary for your bug fix or feature addition. _"It is not daily increase but daily decrease, hack away the unessential. The closer to the source, the less wastage there is."_  — Bruce Lee
+
+For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing/). Don't hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀"""
 
 
 def get_completion(
     messages: list[dict[str, str]],
     check_links: bool = True,
-    remove: list[str] = (" @giscus[bot]",),  # strings to remove from response
-    temperature: float = 1.0,  # note GPT-5 requires temperature=1.0
-    reasoning_effort: str = None,  # reasoning effort for GPT-5 models: minimal, low, medium, high
-) -> str:
+    remove: list[str] = (" @giscus[bot]",),
+    temperature: float = 1.0,
+    reasoning_effort: str = None,
+    response_format: dict = None,
+) -> str | dict:
     """Generates a completion using OpenAI's Responses API based on input messages."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
     url = "https://api.openai.com/v1/responses"
@@ -47,14 +120,12 @@ def get_completion(
     if messages and messages[0].get("role") == "system":
         messages[0]["content"] += "\n\n" + SYSTEM_PROMPT_ADDITION
 
-    content = ""
     max_retries = 2
-    for attempt in range(max_retries + 2):  # attempt = [0, 1, 2, 3], 2 random retries before asking for no links
+    for attempt in range(max_retries + 2):
         data = {"model": OPENAI_MODEL, "input": messages, "store": False, "temperature": temperature}
-
-        # Add reasoning for GPT-5 models
         if "gpt-5" in OPENAI_MODEL:
-            data["reasoning"] = {"effort": reasoning_effort or "low"}  # Default to low for GPT-5
+            data["reasoning"] = {"effort": reasoning_effort or "low"}
+            # GPT-5 Responses API handles JSON via prompting, not format parameter
 
         r = requests.post(url, json=data, headers=headers)
         if r.status_code != 200:
@@ -62,7 +133,6 @@ def get_completion(
         r.raise_for_status()
         response_data = r.json()
 
-        # Extract text from output array
         content = ""
         for item in response_data.get("output", []):
             if item.get("type") == "message":
@@ -71,10 +141,16 @@ def get_completion(
                         content += content_item.get("text", "")
 
         content = content.strip()
+        if response_format and response_format.get("type") == "json_object":
+            import json
+
+            return json.loads(content)
+
         content = remove_outer_codeblocks(content)
         for x in remove:
             content = content.replace(x, "")
-        if not check_links or check_links_in_string(content):  # if no checks or checks are passing return response
+
+        if not check_links or check_links_in_string(content):
             return content
 
         if attempt < max_retries:
@@ -82,9 +158,59 @@ def get_completion(
         else:
             print("Max retries reached. Updating prompt to exclude links.")
             messages.append({"role": "user", "content": "Please provide a response without any URLs or links in it."})
-            check_links = False  # automatically accept the last message
+            check_links = False
 
     return content
+
+
+def get_pr_open_response(repository: str, diff_text: str, title: str, body: str, available_labels: dict) -> dict:
+    """Generates unified PR response with summary, labels, and first comment in a single API call."""
+    ratio = 3.3  # about 3.3 characters per token
+    limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
+    is_large = len(diff_text) > limit
+
+    filtered_labels = filter_labels(available_labels, is_pr=True)
+    labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
+
+    prompt = f"""You are processing a new GitHub pull request for the {repository} repository.
+
+Generate 3 outputs in a single JSON response for the PR titled {title} with the following diff:
+{diff_text[:limit]}
+
+
+--- FIRST JSON OUTPUT (PR SUMMARY) ---
+{get_pr_summary_guidelines()}
+
+--- SECOND JSON OUTPUT (PR LABELS) ---
+Array of 1-3 most relevant label names. Only use "Alert" with high confidence for inappropriate PRs. Return empty array if no labels relevant. Available labels:
+{labels_str}
+
+--- THIRD OUTPUT (PR FIRST COMMENT) ---
+Customized welcome message adapting the template below:
+- INCLUDE ALL LINKS AND INSTRUCTIONS from the template below, customized as appropriate
+- Keep all checklist items and links from template
+- Only link to files or URLs in the template below, do not add external links
+- Mention this is automated and an engineer will assist
+- Use a few emojis
+- No sign-off or "best regards"
+- No spaces between bullet points
+
+Example comment template (adapt as needed, keep all links):
+{get_pr_first_comment_template(repository)}
+
+Return ONLY valid JSON in this exact format:
+{{"summary": "...", "labels": [...], "first_comment": "..."}}"""
+
+    messages = [
+        {"role": "system", "content": "You are an Ultralytics AI assistant processing GitHub PRs."},
+        {"role": "user", "content": prompt},
+    ]
+    result = get_completion(messages, temperature=1.0, response_format={"type": "json_object"})
+    if is_large and "summary" in result:
+        result["summary"] = (
+            "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + result["summary"]
+        )
+    return result
 
 
 if __name__ == "__main__":
