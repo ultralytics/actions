@@ -17,17 +17,19 @@ GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
 class Action:
     """Handles GitHub Actions API interactions and event processing."""
 
-    def __init__(
-        self,
-        token: str = None,
-        event_name: str = None,
-        event_data: dict = None,
-        verbose: bool = True,
-    ):
+    def __init__(self, token: str = None, event_name: str = None, event_data: dict = None, verbose: bool = True):
         """Initializes a GitHub Actions API handler with token and event data for processing events."""
         self.token = token or os.getenv("GITHUB_TOKEN")
         self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
         self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
+        self.pr = self.event_data.get("pull_request", {})
+        self.repository = self.event_data.get("repository", {}).get("full_name")
+        self.headers = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json"}
+        self.headers_diff = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github.v3.diff"}
+        self.verbose = verbose
+        self.eyes_reaction_id = None
+        self._pr_diff_cache = None
+        self._username_cache = None
         self._default_status = {
             "get": [200],
             "post": [200, 201],
@@ -36,34 +38,22 @@ class Action:
             "delete": [200, 204],
         }
 
-        self.pr = self.event_data.get("pull_request", {})
-        self.repository = self.event_data.get("repository", {}).get("full_name")
-        self.headers = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json"}
-        self.headers_diff = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github.v3.diff"}
-        self.eyes_reaction_id = None
-        self.verbose = verbose
-
     def _request(self, method: str, url: str, headers=None, expected_status=None, hard=False, **kwargs):
         """Unified request handler with error checking."""
-        headers = headers or self.headers
-        expected_status = expected_status or self._default_status[method.lower()]
-
-        response = getattr(requests, method)(url, headers=headers, **kwargs)
-        status = response.status_code
-        success = status in expected_status
+        response = getattr(requests, method)(url, headers=headers or self.headers, **kwargs)
+        expected = expected_status or self._default_status[method]
+        success = response.status_code in expected
 
         if self.verbose:
-            print(f"{'✓' if success else '✗'} {method.upper()} {url} → {status}")
+            print(f"{'✓' if success else '✗'} {method.upper()} {url} → {response.status_code}")
             if not success:
                 try:
-                    error_detail = response.json()
-                    print(f"  ❌ Error: {error_detail.get('message', 'Unknown error')}")
-                except Exception as e:
-                    print(f"  ❌ Error: {response.text[:100]}... {e}")
+                    print(f"  ❌ Error: {response.json().get('message', 'Unknown error')}")
+                except Exception:
+                    print(f"  ❌ Error: {response.text[:200]}")
 
         if not success and hard:
             response.raise_for_status()
-
         return response
 
     def get(self, url, **kwargs):
@@ -89,45 +79,47 @@ class Action:
     @staticmethod
     def _load_event_data(event_path: str) -> dict:
         """Load GitHub event data from path if it exists."""
-        if event_path and Path(event_path).exists():
-            return json.loads(Path(event_path).read_text())
-        return {}
+        return json.loads(Path(event_path).read_text()) if event_path and Path(event_path).exists() else {}
 
     def is_repo_private(self) -> bool:
-        """Checks if the repository is public using event data or GitHub API if needed."""
-        return self.event_data.get("repository", {}).get("private")
+        """Checks if the repository is public using event data."""
+        return self.event_data.get("repository", {}).get("private", False)
 
     def get_username(self) -> str | None:
-        """Gets username associated with the GitHub token."""
+        """Gets username associated with the GitHub token with caching."""
+        if self._username_cache:
+            return self._username_cache
+
         response = self.post(GITHUB_GRAPHQL_URL, json={"query": "query { viewer { login } }"})
         if response.status_code == 200:
             try:
-                return response.json()["data"]["viewer"]["login"]
+                self._username_cache = response.json()["data"]["viewer"]["login"]
             except KeyError as e:
                 print(f"Error parsing authenticated user response: {e}")
-        return None
+        return self._username_cache
 
     def is_org_member(self, username: str) -> bool:
-        """Checks if a user is a member of the organization using the GitHub API."""
-        org_name = self.repository.split("/")[0]
-        response = self.get(f"{GITHUB_API_URL}/orgs/{org_name}/members/{username}")
-        return response.status_code == 204  # 204 means the user is a member
+        """Checks if a user is a member of the organization."""
+        return self.get(f"{GITHUB_API_URL}/orgs/{self.repository.split('/')[0]}/members/{username}").status_code == 204
 
     def get_pr_diff(self) -> str:
-        """Retrieves the diff content for a specified pull request."""
+        """Retrieves the diff content for a specified pull request with caching."""
+        if self._pr_diff_cache:
+            return self._pr_diff_cache
+
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}"
         response = self.get(url, headers=self.headers_diff)
         if response.status_code == 200:
-            return response.text
+            self._pr_diff_cache = response.text
         elif response.status_code == 406:
-            return "**ERROR: DIFF TOO LARGE - PR exceeds GitHub's 20,000 line limit, unable to retrieve diff."
+            self._pr_diff_cache = "ERROR: PR diff exceeds GitHub's 20,000 line limit, unable to retrieve diff."
         else:
-            return "**ERROR: UNABLE TO RETRIEVE DIFF."
+            self._pr_diff_cache = "ERROR: UNABLE TO RETRIEVE DIFF."
+        return self._pr_diff_cache
 
     def get_repo_data(self, endpoint: str) -> dict:
         """Fetches repository data from a specified endpoint."""
-        response = self.get(f"{GITHUB_API_URL}/repos/{self.repository}/{endpoint}")
-        return response.json()
+        return self.get(f"{GITHUB_API_URL}/repos/{self.repository}/{endpoint}").json()
 
     def toggle_eyes_reaction(self, add: bool = True) -> None:
         """Adds or removes eyes emoji reaction."""
@@ -139,8 +131,8 @@ class Action:
             id = self.event_data.get("issue", {}).get("number")
         if not id:
             return
-        url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/{id}/reactions"
 
+        url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/{id}/reactions"
         if add:
             response = self.post(url, json={"content": "eyes"})
             if response.status_code == 201:
@@ -151,8 +143,7 @@ class Action:
 
     def graphql_request(self, query: str, variables: dict = None) -> dict:
         """Executes a GraphQL query against the GitHub API."""
-        r = self.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables})
-        result = r.json()
+        result = self.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables}).json()
         if "data" not in result or result.get("errors"):
             print(result.get("errors"))
         return result
@@ -166,11 +157,11 @@ class Action:
             "github.repository.private": self.is_repo_private(),
             "github.event.pull_request.number": self.pr.get("number"),
             "github.event.pull_request.head.repo.full_name": self.pr.get("head", {}).get("repo", {}).get("full_name"),
-            "github.actor": os.environ.get("GITHUB_ACTOR"),
+            "github.actor": os.getenv("GITHUB_ACTOR"),
             "github.event.pull_request.head.ref": self.pr.get("head", {}).get("ref"),
-            "github.ref": os.environ.get("GITHUB_REF"),
-            "github.head_ref": os.environ.get("GITHUB_HEAD_REF"),
-            "github.base_ref": os.environ.get("GITHUB_BASE_REF"),
+            "github.ref": os.getenv("GITHUB_REF"),
+            "github.head_ref": os.getenv("GITHUB_HEAD_REF"),
+            "github.base_ref": os.getenv("GITHUB_BASE_REF"),
             "github.base_sha": self.pr.get("base", {}).get("sha"),
         }
 
@@ -181,12 +172,9 @@ class Action:
                 "github.event.discussion.number": discussion.get("number"),
             }
 
-        max_key_length = max(len(key) for key in info)
+        width = max(len(k) for k in info) + 5
         header = f"Ultralytics Actions {__version__} Information " + "-" * 40
-        print(header)
-        for key, value in info.items():
-            print(f"{key:<{max_key_length + 5}}{value}")
-        print("-" * len(header))
+        print(f"{header}\n" + "\n".join(f"{k:<{width}}{v}" for k, v in info.items()) + f"\n{'-' * len(header)}")
 
 
 def ultralytics_actions_info():

@@ -13,6 +13,7 @@
 # │   │   ├── openai_utils.py
 # │   │   └── common_utils.py
 # │   ├── first_interaction.py
+# │   ├── review_pr.py
 # │   ├── summarize_pr.py
 # │   ├── summarize_release.py
 # │   └── update_markdown_code_blocks.py
@@ -22,4 +23,4 @@
 #     ├── test_summarize_pr.py
 #     └── ...
 
-__version__ = "0.0.100"
+__version__ = "0.1.0"
