@@ -56,7 +56,7 @@ def parse_diff_files(diff_text: str) -> dict:
 def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_description: str) -> dict:
     """Generate comprehensive PR review with line-specific comments and overall assessment."""
     if not diff_text:
-        return {"comments": [], "summary": f"No changes detected in diff"}
+        return {"comments": [], "summary": "No changes detected in diff"}
 
     diff_files = parse_diff_files(diff_text)
     if not diff_files:
