@@ -102,7 +102,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
             "content": (
                 f"Review PR '{repository}':\n"
                 f"Title: {pr_title}\n"
-                f"Description: {remove_html_comments(pr_description or "")[:1000]}\n\n"
+                f"Description: {remove_html_comments(pr_description or '')[:1000]}\n\n"
                 f"Diff:\n{diff_text[:limit]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),
