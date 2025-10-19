@@ -5,10 +5,28 @@ from __future__ import annotations
 import json
 import re
 
-from .utils import GITHUB_API_URL, Action, get_completion
+from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
 
 REVIEW_MARKER = "🔍 PR Review"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
+SKIP_PATTERNS = [
+    r"\.lock$",  # Lock files
+    r"-lock\.(json|yaml|yml)$",
+    r"\.min\.(js|css)$",  # Minified
+    r"\.bundle\.(js|css)$",
+    r"(^|/)dist/",  # Generated/vendored directories
+    r"(^|/)build/",
+    r"(^|/)vendor/",
+    r"(^|/)node_modules/",
+    r"\.pb\.py$",  # Proto generated
+    r"_pb2\.py$",
+    r"_pb2_grpc\.py$",
+    r"^package-lock\.json$",  # Package locks
+    r"^yarn\.lock$",
+    r"^poetry\.lock$",
+    r"^Pipfile\.lock$",
+    r"\.(svg|png|jpe?g|gif)$",  # Images
+]
 
 
 def parse_diff_files(diff_text: str) -> dict:
@@ -44,8 +62,20 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     if not diff_files:
         return {"comments": [], "summary": "No files with changes detected in diff"}
 
+    # Filter out generated/vendored files
+    filtered_files = {
+        path: lines
+        for path, lines in diff_files.items()
+        if not any(re.search(pattern, path) for pattern in SKIP_PATTERNS)
+    }
+    skipped_count = len(diff_files) - len(filtered_files)
+    diff_files = filtered_files
+
+    if not diff_files:
+        return {"comments": [], "summary": f"All {skipped_count} changed files are generated/vendored (skipped review)"}
+
     file_list = list(diff_files.keys())
-    limit = round(128000 * 3.3 * 0.4)
+    limit = round(128000 * 3.3 * 0.5)
     diff_truncated = len(diff_text) > limit
     lines_changed = sum(len(lines) for lines in diff_files.values())
 
@@ -54,10 +84,12 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         for file, lines in list(diff_files.items())[:10]
     ) + ("\n  ..." if len(diff_files) > 10 else "")
 
-    priority_guidance = (
-        "Prioritize the most critical/high-impact issues only"
-        if lines_changed >= 100
-        else "Prioritize commenting on different files/sections"
+    comment_guidance = (
+        "Provide up to 1-3 comments only if critical issues exist"
+        if lines_changed < 50
+        else "Provide up to 3-5 comments only if high-impact issues exist"
+        if lines_changed < 200
+        else "Provide up to 5-10 comments only for the most critical issues"
     )
 
     content = (
@@ -65,16 +97,28 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "Focus on: Code quality, style, best practices, bugs, edge cases, error handling, performance, security, documentation, test coverage\n\n"
         "FORMATTING: Use backticks for code, file names, branch names, function names, variable names, packages\n\n"
         "CRITICAL RULES:\n"
-        f"1. Generate inline comments with recommended changes for clear bugs/security/syntax issues (up to 10)\n"
-        "2. Each comment MUST reference a UNIQUE line number(s)\n"
-        "3. If a section has multiple issues, combine ALL issues into ONE comment for that section\n"
-        "4. Never create separate comments for the same line number(s)\n"
-        f"5. {priority_guidance}\n\n"
+        "1. Quality over quantity: Zero comments is fine for clean code - only flag truly important issues\n"
+        f"2. {comment_guidance} - these are MAXIMUMS, not targets\n"
+        "3. CRITICAL: Do not post separate comments on adjacent/nearby lines (within 10 lines). Combine all related issues into ONE comment\n"
+        "4. When combining issues from multiple lines, use 'start_line' (first line) and 'line' (last line) to highlight the entire range\n"
+        "5. Each comment must reference separate areas - no overlapping line ranges\n"
+        "6. Prioritize: CRITICAL bugs/security > HIGH impact issues > code quality\n"
+        "7. Keep comments concise, friendly, and easy to understand - avoid jargon when possible\n"
+        "8. DO not comment on routine changes: adding imports, adding dependencies, updating version numbers, standard refactoring\n"
+        "9. Trust the developer - only flag issues with clear evidence of problems, not hypothetical concerns\n\n"
+        "SUMMARY GUIDELINES:\n"
+        "- Keep summary brief, clear, and actionable - avoid overly detailed explanations\n"
+        "- Highlight only the most important findings\n\n"
+        "- Do NOT include file names or line numbers in the summary - inline comments already show exact locations\n"
+        "- Focus on what needs to be fixed, not where\n\n"
         "CODE SUGGESTIONS:\n"
         "- ONLY provide 'suggestion' field when you have high certainty the code is problematic AND sufficient context for a confident fix\n"
         "- If uncertain about the correct fix, omit 'suggestion' field and explain the concern in 'message' only\n"
         "- Suggestions must be ready-to-merge code with NO comments, placeholders, or explanations\n"
-        "- When providing suggestions, ensure they are complete, correct, and maintain existing indentation\n"
+        "- Suggestions replace ONLY the single line at 'line' - for multi-line fixes, describe the change in 'message' instead\n"
+        "- Do NOT provide 'start_line' when including a 'suggestion' - suggestions are always single-line only\n"
+        "- Suggestion content must match the exact indentation of the original line\n"
+        "- Never include triple backticks (```) in suggestions as they break markdown formatting\n"
         "- It's better to flag an issue without a suggestion than provide a wrong or uncertain fix\n\n"
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], "summary": "..."}\n\n'
@@ -94,9 +138,21 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         {"role": "system", "content": content},
         {
             "role": "user",
-            "content": f"Review PR '{repository}':\nTitle: {pr_title}\nDescription: {pr_description[:500]}\n\nDiff:\n{diff_text[:limit]}",
+            "content": (
+                f"Review PR '{repository}':\n"
+                f"Title: {pr_title}\n"
+                f"Description: {remove_html_comments(pr_description or '')[:1000]}\n\n"
+                f"Diff:\n{diff_text[:limit]}\n\n"
+                "Now review this diff according to the rules above. Return JSON with comments array and summary."
+            ),
         },
     ]
+
+    print("\n" + "=" * 80 + "\nSYSTEM PROMPT:\n" + "=" * 80)
+    print(content)
+    print("=" * 80 + "\nUSER MESSAGE (first 2000 chars):\n" + "=" * 80)
+    print(messages[1]["content"][:9000])
+    print("=" * 80 + "\n")
 
     try:
         response = get_completion(messages, reasoning_effort="medium")
@@ -111,17 +167,39 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         unique_comments = {}
         for c in review_data.get("comments", []):
             file_path, line_num = c.get("file"), c.get("line", 0)
-            if file_path in diff_files and line_num in diff_files[file_path]:
-                key = f"{file_path}:{line_num}"
-                if key not in unique_comments:
-                    unique_comments[key] = c
-                else:
-                    print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {c.get('message')[:60]}...")
-            else:
+            start_line = c.get("start_line")
+
+            # Validate line numbers are in diff
+            if file_path not in diff_files or line_num not in diff_files[file_path]:
                 print(f"Filtered out {file_path}:{line_num} (available: {list(diff_files.get(file_path, {}))[:10]}...)")
+                continue
+
+            # Validate start_line if provided - drop start_line for suggestions (single-line only)
+            if start_line:
+                if c.get("suggestion"):
+                    print(f"Dropping start_line for {file_path}:{line_num} - suggestions must be single-line only")
+                    c.pop("start_line", None)
+                elif start_line >= line_num:
+                    print(f"Invalid start_line {start_line} >= line {line_num} for {file_path}, dropping start_line")
+                    c.pop("start_line", None)
+                elif start_line not in diff_files[file_path]:
+                    print(f"start_line {start_line} not in diff for {file_path}, dropping start_line")
+                    c.pop("start_line", None)
+
+            # Deduplicate by line number
+            key = f"{file_path}:{line_num}"
+            if key not in unique_comments:
+                unique_comments[key] = c
+            else:
+                print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {c.get('message')[:60]}...")
 
         review_data.update(
-            {"comments": list(unique_comments.values()), "diff_files": diff_files, "diff_truncated": diff_truncated}
+            {
+                "comments": list(unique_comments.values()),
+                "diff_files": diff_files,
+                "diff_truncated": diff_truncated,
+                "skipped_files": skipped_count,
+            }
         )
         print(f"Valid comments after filtering: {len(review_data['comments'])}")
         return review_data
@@ -164,32 +242,8 @@ def dismiss_previous_reviews(event: Action) -> int:
     return review_count + 1
 
 
-def post_review_comments(event: Action, review_data: dict) -> None:
-    """Post inline review comments on specific lines of the PR."""
-    if not (pr_number := event.pr.get("number")) or not (commit_sha := event.pr.get("head", {}).get("sha")):
-        return
-
-    url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
-    diff_files = review_data.get("diff_files", {})
-
-    for comment in review_data.get("comments", [])[:50]:
-        if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
-            continue
-
-        severity = comment.get("severity", "SUGGESTION")
-        body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')}"
-
-        if suggestion := comment.get("suggestion"):
-            original_line = diff_files.get(file_path, {}).get(line, "")
-            indent = len(original_line) - len(original_line.lstrip())
-            indented = "\n".join(" " * indent + l if l.strip() else l for l in suggestion.split("\n"))
-            body += f"\n\n**Suggested change:**\n```suggestion\n{indented}\n```"
-
-        event.post(url, json={"body": body, "commit_id": commit_sha, "path": file_path, "line": line, "side": "RIGHT"})
-
-
 def post_review_summary(event: Action, review_data: dict, review_number: int) -> None:
-    """Post overall review summary as a PR review."""
+    """Post overall review summary and inline comments as a single PR review."""
     if not (pr_number := event.pr.get("number")) or not (commit_sha := event.pr.get("head", {}).get("sha")):
         return
 
@@ -205,15 +259,47 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     )
 
     if comments:
-        shown = min(len(comments), 50)
-        body += f"💬 Posted {shown} inline comment{'s' if shown != 1 else ''}{' (50 shown, more available)' if len(comments) > 50 else ''}\n"
+        shown = min(len(comments), 10)
+        body += f"💬 Posted {shown} inline comment{'s' if shown != 1 else ''}{' (10 shown, more available)' if len(comments) > 10 else ''}\n"
 
     if review_data.get("diff_truncated"):
         body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
 
+    if skipped := review_data.get("skipped_files"):
+        body += f"\n📋 **Skipped {skipped} file{'s' if skipped != 1 else ''}** (lock files, minified, images, etc.)\n"
+
+    # Build inline comments for the review
+    review_comments = []
+    for comment in comments[:10]:
+        if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
+            continue
+
+        severity = comment.get("severity", "SUGGESTION")
+        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')}"
+
+        if suggestion := comment.get("suggestion", "").strip():
+            if "```" not in suggestion:
+                comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
+
+        # Build comment with optional start_line for multi-line context
+        review_comment = {"path": file_path, "line": line, "body": comment_body, "side": "RIGHT"}
+        if start_line := comment.get("start_line"):
+            if start_line < line:
+                review_comment["start_line"] = start_line
+                review_comment["start_side"] = "RIGHT"
+                print(f"Multi-line comment: {file_path}:{start_line}-{line}")
+
+        review_comments.append(review_comment)
+
+    # Submit review with inline comments
+    payload = {"commit_id": commit_sha, "body": body, "event": event_type}
+    if review_comments:
+        payload["comments"] = review_comments
+        print(f"Posting review with {len(review_comments)} inline comments")
+
     event.post(
         f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews",
-        json={"commit_id": commit_sha, "body": body, "event": event_type},
+        json=payload,
     )
 
 
@@ -238,8 +324,6 @@ def main(*args, **kwargs):
     review = generate_pr_review(event.repository, diff, event.pr.get("title", ""), event.pr.get("body", ""))
 
     post_review_summary(event, review, review_number)
-    print(f"Posting {len(review.get('comments', []))} inline comments")
-    post_review_comments(event, review)
     print("PR review completed")
 
 
