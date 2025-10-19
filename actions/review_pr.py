@@ -273,6 +273,10 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
         if suggestion := comment.get("suggestion", "").strip():
             if "```" not in suggestion:
+                # Extract original line indentation and apply to suggestion
+                if original_line := review_data.get("diff_files", {}).get(file_path, {}).get(line):
+                    indent = len(original_line) - len(original_line.lstrip())
+                    suggestion = " " * indent + suggestion.lstrip()
                 comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
         # Build comment with optional start_line for multi-line context
