@@ -42,7 +42,7 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
         pr_numbers.update(pr_matches)
 
     prs = []
-    time.sleep(10)  # sleep 10 seconds to allow final PR summary to update on merge
+    time.sleep(10)  # Allow final PR summary to update on merge
     for pr_number in sorted(pr_numbers):  # earliest to latest
         pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}"
         pr_response = event.get(pr_url)
@@ -68,9 +68,15 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
 def get_new_contributors(event, prs: list) -> set:
     """Identify new contributors who made their first merged PR in the current release."""
     new_contributors = set()
+    checked_authors = set()
     for pr in prs:
         author = pr["author"]
-        # Check if this is the author's first contribution
+        if author in checked_authors:
+            print(f"Skipping duplicate author: {author}")
+            continue
+        checked_authors.add(author)
+
+        time.sleep(2)  # Rate limit: GitHub search API has strict limits
         url = f"{GITHUB_API_URL}/search/issues?q=repo:{event.repository}+author:{author}+is:pr+is:merged&sort=created&order=asc"
         r = event.get(url)
         if r.status_code == 200:
@@ -79,6 +85,11 @@ def get_new_contributors(event, prs: list) -> set:
                 first_pr = data["items"][0]
                 if first_pr["number"] == pr["number"]:
                     new_contributors.add(author)
+        elif r.status_code == 403:
+            print(f"⚠️ Rate limit hit checking {author}, stopping contributor check")
+            break
+        else:
+            print(f"Failed to check {author}: {r.status_code}")
     return new_contributors
 
 
