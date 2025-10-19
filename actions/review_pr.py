@@ -9,6 +9,14 @@ from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
 
 REVIEW_MARKER = "🔍 PR Review"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
+SKIP_PATTERNS = [
+    r".*\.lock$", r".*-lock\.(json|yaml|yml)$",  # Lock files
+    r".*\.min\.(js|css)$", r".*\.bundle\.(js|css)$",  # Minified
+    r"dist/.*", r"build/.*", r"vendor/.*", r"node_modules/.*",  # Generated/vendored
+    r".*\.pb\.py$", r".*_pb2\.py$", r".*_pb2_grpc\.py$",  # Proto generated
+    r"package-lock\.json$", r"yarn\.lock$", r"poetry\.lock$", r"Pipfile\.lock$",  # Package locks
+    r".*\.svg$", r".*\.png$", r".*\.jpg$", r".*\.jpeg$", r".*\.gif$",  # Images
+]
 
 
 def parse_diff_files(diff_text: str) -> dict:
@@ -44,6 +52,17 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     if not diff_files:
         return {"comments": [], "summary": "No files with changes detected in diff"}
 
+    # Filter out generated/vendored files
+    filtered_files = {
+        path: lines for path, lines in diff_files.items()
+        if not any(re.match(pattern, path) for pattern in SKIP_PATTERNS)
+    }
+    skipped_count = len(diff_files) - len(filtered_files)
+    diff_files = filtered_files
+
+    if not diff_files:
+        return {"comments": [], "summary": f"All {skipped_count} changed files are generated/vendored (skipped review)"}
+
     file_list = list(diff_files.keys())
     limit = round(128000 * 3.3 * 0.5)
     diff_truncated = len(diff_text) > limit
@@ -77,8 +96,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- ONLY provide 'suggestion' field when you have high certainty the code is problematic AND sufficient context for a confident fix\n"
         "- If uncertain about the correct fix, omit 'suggestion' field and explain the concern in 'message' only\n"
         "- Suggestions must be ready-to-merge code with NO comments, placeholders, or explanations\n"
-        "- Suggestions must match the indentation of the original line (count leading spaces/tabs precisely)\n"
-        "- Multi-line suggestions: each line must have correct indentation, no trailing whitespace\n"
+        "- For multi-line replacements, provide 'start_line' (first line to replace) and 'line' (last line to replace) in the JSON\n"
+        "- For single-line replacements, only provide 'line' (omit 'start_line')\n"
+        "- Suggestion content must match the exact indentation of the original code\n"
         "- Never include triple backticks (```) in suggestions as they break markdown formatting\n"
         "- It's better to flag an issue without a suggestion than provide a wrong or uncertain fix\n\n"
         "Return JSON: "
@@ -122,17 +142,27 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         unique_comments = {}
         for c in review_data.get("comments", []):
             file_path, line_num = c.get("file"), c.get("line", 0)
-            if file_path in diff_files and line_num in diff_files[file_path]:
-                key = f"{file_path}:{line_num}"
-                if key not in unique_comments:
-                    unique_comments[key] = c
-                else:
-                    print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {c.get('message')[:60]}...")
-            else:
+            start_line = c.get("start_line")
+            
+            # Validate line numbers are in diff
+            if file_path not in diff_files or line_num not in diff_files[file_path]:
                 print(f"Filtered out {file_path}:{line_num} (available: {list(diff_files.get(file_path, {}))[:10]}...)")
+                continue
+            
+            # Validate start_line if provided
+            if start_line and (start_line >= line_num or start_line not in diff_files[file_path]):
+                print(f"Invalid start_line {start_line} for {file_path}:{line_num}, using single-line comment")
+                c.pop("start_line", None)
+            
+            # Deduplicate by line number
+            key = f"{file_path}:{line_num}"
+            if key not in unique_comments:
+                unique_comments[key] = c
+            else:
+                print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {c.get('message')[:60]}...")
 
         review_data.update(
-            {"comments": list(unique_comments.values()), "diff_files": diff_files, "diff_truncated": diff_truncated}
+            {"comments": list(unique_comments.values()), "diff_files": diff_files, "diff_truncated": diff_truncated, "skipped_files": skipped_count}
         )
         print(f"Valid comments after filtering: {len(review_data['comments'])}")
         return review_data
@@ -194,7 +224,14 @@ def post_review_comments(event: Action, review_data: dict) -> None:
             if "```" not in suggestion:
                 body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
-        event.post(url, json={"body": body, "commit_id": commit_sha, "path": file_path, "line": line, "side": "RIGHT"})
+        # Build comment payload with optional start_line for multi-line suggestions
+        payload = {"body": body, "commit_id": commit_sha, "path": file_path, "line": line, "side": "RIGHT"}
+        if start_line := comment.get("start_line"):
+            if start_line < line:  # Validate range
+                payload["start_line"] = start_line
+                payload["start_side"] = "RIGHT"
+
+        event.post(url, json=payload)
 
 
 def post_review_summary(event: Action, review_data: dict, review_number: int) -> None:
@@ -219,6 +256,9 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     if review_data.get("diff_truncated"):
         body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
+
+    if skipped := review_data.get("skipped_files"):
+        body += f"\n📋 **Skipped {skipped} generated/vendored file{'s' if skipped != 1 else ''}** (lock files, minified, images, etc.)\n"
 
     event.post(
         f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews",
