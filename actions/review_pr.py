@@ -108,7 +108,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "9. Trust the developer - only flag issues with clear evidence of problems, not hypothetical concerns\n\n"
         "SUMMARY GUIDELINES:\n"
         "- Keep summary brief, clear, and actionable - avoid overly detailed explanations\n"
-        "- Highlight only the most important findings\n\n"
+        "- Highlight only the most important findings\n"
         "- Do NOT include file names or line numbers in the summary - inline comments already show exact locations\n"
         "- Focus on what needs to be fixed, not where\n\n"
         "CODE SUGGESTIONS:\n"
