@@ -14,10 +14,10 @@ SKIP_PATTERNS = [
     r".*-lock\.(json|yaml|yml)$",  # Lock files
     r".*\.min\.(js|css)$",
     r".*\.bundle\.(js|css)$",  # Minified
-    r"dist/.*",
-    r"build/.*",
-    r"vendor/.*",
-    r"node_modules/.*",  # Generated/vendored
+    r".*dist/.*",
+    r".*build/.*",
+    r".*vendor/.*",
+    r".*node_modules/.*",  # Generated/vendored
     r".*\.pb\.py$",
     r".*_pb2\.py$",
     r".*_pb2_grpc\.py$",  # Proto generated
@@ -107,7 +107,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "4. If a section has multiple issues, combine ALL issues into ONE comment for that section\n"
         "5. Never create separate comments for the same line number(s)\n"
         "6. Prioritize: CRITICAL bugs/security > HIGH impact issues > code quality\n"
-        "7. Keep comments concise, friendly, and easy to understand - avoid jargon when possible\n\n"
+        "7. Keep comments concise, friendly, and easy to understand - avoid jargon when possible\n"
+        "8. DO not comment on routine changes: adding imports, adding dependencies, updating version numbers, standard refactoring\n"
+        "9. Trust the developer - only flag issues with clear evidence of problems, not hypothetical concerns\n\n"
         "SUMMARY GUIDELINES:\n"
         "- Use numbered lists when summarizing multiple key points\n"
         "- Keep summary concise and actionable\n"
@@ -116,9 +118,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- ONLY provide 'suggestion' field when you have high certainty the code is problematic AND sufficient context for a confident fix\n"
         "- If uncertain about the correct fix, omit 'suggestion' field and explain the concern in 'message' only\n"
         "- Suggestions must be ready-to-merge code with NO comments, placeholders, or explanations\n"
-        "- For multi-line replacements, provide 'start_line' (first line to replace) and 'line' (last line to replace) in the JSON\n"
-        "- For single-line replacements, only provide 'line' (omit 'start_line')\n"
-        "- Suggestion content must match the exact indentation of the original code\n"
+        "- Suggestions replace ONLY the single line at 'line' - for multi-line fixes, describe the change in 'message' instead\n"
+        "- Do NOT provide 'start_line' when including a 'suggestion' - suggestions are always single-line only\n"
+        "- Suggestion content must match the exact indentation of the original line\n"
         "- Never include triple backticks (```) in suggestions as they break markdown formatting\n"
         "- It's better to flag an issue without a suggestion than provide a wrong or uncertain fix\n\n"
         "Return JSON: "
@@ -169,9 +171,12 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 print(f"Filtered out {file_path}:{line_num} (available: {list(diff_files.get(file_path, {}))[:10]}...)")
                 continue
 
-            # Validate start_line if provided
+            # Validate start_line if provided - drop start_line for suggestions (single-line only)
             if start_line:
-                if start_line >= line_num:
+                if c.get("suggestion"):
+                    print(f"Dropping start_line for {file_path}:{line_num} - suggestions must be single-line only")
+                    c.pop("start_line", None)
+                elif start_line >= line_num:
                     print(f"Invalid start_line {start_line} >= line {line_num} for {file_path}, dropping start_line")
                     c.pop("start_line", None)
                 elif start_line not in diff_files[file_path]:
