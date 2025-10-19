@@ -90,7 +90,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     content = (
         "You are an expert code reviewer for Ultralytics. Provide detailed inline comments on specific code changes.\n\n"
         "Focus on: Code quality, style, best practices, bugs, edge cases, error handling, performance, security, documentation, test coverage\n\n"
-        "FORMATTING: Use backticks for code, file names, branch names, function names, variable names, packages\n\n"
+        "FORMATTING: Use backticks for all summary and suggestion code, files, branches, functions, variables, packages, e.g. `x=3`\n\n"
         "CRITICAL RULES:\n"
         "1. Quality over quantity: Zero comments is fine for clean code - only flag truly important issues\n"
         f"2. {comment_guidance} - these are maximums, not targets\n"
@@ -113,7 +113,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- Suggestions replace ONLY the single line at 'line' - for multi-line fixes, describe the change in 'message' instead\n"
         "- Do NOT provide 'start_line' when including a 'suggestion' - suggestions are always single-line only\n"
         "- Suggestion content must match the exact indentation of the original line\n"
-        "- Never include triple backticks (```) in suggestions as they break markdown formatting\n"
+        "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n"
         "- It's better to flag an issue without a suggestion than provide a wrong or uncertain fix\n\n"
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], "summary": "..."}\n\n'
@@ -236,9 +236,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     review_title = f"{REVIEW_MARKER} {review_number}" if review_number > 1 else REVIEW_MARKER
     comments = review_data.get("comments", [])
-    event_type = (
-        "REQUEST_CHANGES" if any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments) else "APPROVE"
-    )
+    event_type = "COMMENT" if any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments) else "APPROVE"
 
     body = (
         f"## {review_title}\n\n"
