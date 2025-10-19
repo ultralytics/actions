@@ -195,9 +195,7 @@ class Action:
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}"
         response = self.get(url, headers=self.headers_diff)
         if response.status_code == 200:
-            if not response.text:
-                response.text = "ERROR: DIFF IS EMPTY, THERE ARE NO CODE CHANGES IN THIS PR."
-            self._pr_diff_cache = response.text
+            self._pr_diff_cache = response.text or "ERROR: EMPTY DIFF, NO CODE CHANGES IN THIS PR."
         elif response.status_code == 406:
             self._pr_diff_cache = "ERROR: PR diff exceeds GitHub's 20,000 line limit, unable to retrieve diff."
         else:
