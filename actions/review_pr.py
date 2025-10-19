@@ -170,9 +170,13 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 continue
 
             # Validate start_line if provided
-            if start_line and (start_line >= line_num or start_line not in diff_files[file_path]):
-                print(f"Invalid start_line {start_line} for {file_path}:{line_num}, using single-line comment")
-                c.pop("start_line", None)
+            if start_line:
+                if start_line >= line_num:
+                    print(f"Invalid start_line {start_line} >= line {line_num} for {file_path}, dropping start_line")
+                    c.pop("start_line", None)
+                elif start_line not in diff_files[file_path]:
+                    print(f"start_line {start_line} not in diff for {file_path}, dropping start_line")
+                    c.pop("start_line", None)
 
             # Deduplicate by line number
             key = f"{file_path}:{line_num}"
@@ -255,7 +259,9 @@ def post_review_comments(event: Action, review_data: dict) -> None:
             if start_line < line:  # Validate range
                 payload["start_line"] = start_line
                 payload["start_side"] = "RIGHT"
+                print(f"Multi-line comment: {file_path}:{start_line}-{line}")
 
+        print(f"Posting comment payload: {json.dumps({k: v for k, v in payload.items() if k != 'body'}, indent=2)}")
         event.post(url, json=payload)
 
 
