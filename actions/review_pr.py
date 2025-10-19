@@ -74,7 +74,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- ONLY provide 'suggestion' field when you have high certainty the code is problematic AND sufficient context for a confident fix\n"
         "- If uncertain about the correct fix, omit 'suggestion' field and explain the concern in 'message' only\n"
         "- Suggestions must be ready-to-merge code with NO comments, placeholders, or explanations\n"
-        "- When providing suggestions, ensure they are complete, correct, and maintain existing indentation\n"
+        "- Suggestions must match the indentation of the original line (count leading spaces/tabs precisely)\n"
+        "- Multi-line suggestions: each line must have correct indentation, no trailing whitespace\n"
         "- It's better to flag an issue without a suggestion than provide a wrong or uncertain fix\n\n"
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], "summary": "..."}\n\n'
@@ -179,8 +180,9 @@ def post_review_comments(event: Action, review_data: dict) -> None:
         severity = comment.get("severity", "SUGGESTION")
         body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')}"
 
-        if suggestion := comment.get("suggestion"):
-            body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
+        if suggestion := comment.get("suggestion", "").strip():
+            if "```" not in suggestion:
+                body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
         event.post(url, json={"body": body, "commit_id": commit_sha, "path": file_path, "line": line, "side": "RIGHT"})
 
