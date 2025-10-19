@@ -386,7 +386,7 @@ Thank you 🙏
         try:
             data = response.json()["data"]["repository"]["pullRequest"]
             comments = data["reviews"]["nodes"] + data["comments"]["nodes"]
-            token_username = self.get_username()
+            username = self.get_username()
             author = data["author"]["login"] if data["author"]["__typename"] != "Bot" else None
 
             contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
@@ -399,10 +399,10 @@ Thank you 🙏
                             contributors.add(login)
 
             contributors.discard(author)
-            contributors.discard(token_username)
+            contributors.discard(username)
 
             pr_credit = ""
-            if author and author != token_username:
+            if author and author != username:
                 pr_credit += f"@{author}"
             if contributors:
                 pr_credit += (" with contributions from " if pr_credit else "") + ", ".join(
