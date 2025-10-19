@@ -247,7 +247,7 @@ runs:
 
     # PR Review --------------------------------------------------------------------------------------------------------
     - name: PR Review
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target' || github.event_name == 'issue_comment') && inputs.review == 'true' && (github.event.action == 'opened' || github.event.action == 'review_requested' || github.event.action == 'created')
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.review == 'true' && (github.event.action == 'opened' || github.event.action == 'review_requested')
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
