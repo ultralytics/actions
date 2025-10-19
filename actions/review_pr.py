@@ -152,6 +152,12 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         },
     ]
 
+    print("\n" + "=" * 80 + "\nSYSTEM PROMPT:\n" + "=" * 80)
+    print(content)
+    print("=" * 80 + "\nUSER MESSAGE (first 2000 chars):\n" + "=" * 80)
+    print(messages[1]["content"][:9000])
+    print("=" * 80 + "\n")
+
     try:
         response = get_completion(messages, reasoning_effort="medium")
         print("\n" + "=" * 80 + f"\nFULL AI RESPONSE:\n{response}\n" + "=" * 80 + "\n")
