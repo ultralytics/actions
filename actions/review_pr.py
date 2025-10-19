@@ -93,7 +93,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "FORMATTING: Use backticks for code, file names, branch names, function names, variable names, packages\n\n"
         "CRITICAL RULES:\n"
         "1. Quality over quantity: Zero comments is fine for clean code - only flag truly important issues\n"
-        f"2. {comment_guidance} - these are MAXIMUMS, not targets\n"
+        f"2. {comment_guidance} - these are maximums, not targets\n"
         "3. CRITICAL: Do not post separate comments on adjacent/nearby lines (within 10 lines). Combine all related issues into ONE comment\n"
         "4. When combining issues from multiple lines, use 'start_line' (first line) and 'line' (last line) to highlight the entire range\n"
         "5. Each comment must reference separate areas - no overlapping line ranges\n"
