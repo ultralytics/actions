@@ -236,7 +236,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     review_title = f"{REVIEW_MARKER} {review_number}" if review_number > 1 else REVIEW_MARKER
     comments = review_data.get("comments", [])
-    event_type = "COMMENT" if any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments) else "APPROVE"
+    event_type = "REQUEST_CHANGES" if any(c.get("severity") == "CRITICAL" for c in comments) else "COMMENT" if comments else "APPROVE"
 
     body = (
         f"## {review_title}\n\n"
@@ -311,8 +311,7 @@ def main(*args, **kwargs):
     review_number = dismiss_previous_reviews(event)
 
     diff = event.get_pr_diff()
-    pr_description = event._pr_summary_cache or event.pr.get("body", "")
-    review = generate_pr_review(event.repository, diff, event.pr.get("title", ""), pr_description)
+    review = generate_pr_review(event.repository, diff, event.pr.get("title", ""), event.pr.get("body", ""))
 
     post_review_summary(event, review, review_number)
     print("PR review completed")
