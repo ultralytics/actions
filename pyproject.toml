@@ -85,6 +85,7 @@ dev = [
 
 [project.scripts]
 ultralytics-actions-first-interaction = "actions.first_interaction:main"
+ultralytics-actions-review-pr = "actions.review_pr:main"
 ultralytics-actions-summarize-pr = "actions.summarize_pr:main"
 ultralytics-actions-summarize-release = "actions.summarize_release:main"
 ultralytics-actions-update-markdown-code-blocks = "actions.update_markdown_code_blocks:main"
