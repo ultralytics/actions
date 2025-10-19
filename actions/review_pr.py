@@ -7,7 +7,6 @@ import re
 
 from .utils import GITHUB_API_URL, Action, get_completion
 
-REVIEW_KEYWORD = "@ultralytics/review"
 REVIEW_MARKER = "🔍 PR Review"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
 
@@ -222,17 +221,8 @@ def main(*args, **kwargs):
     """Main entry point for PR review action."""
     event = Action(*args, **kwargs)
 
-    # Handle comment-triggered reviews
-    if event.event_name == "issue_comment":
-        comment_body = event.event_data.get("comment", {}).get("body", "")
-        username = event.event_data.get("comment", {}).get("user", {}).get("login", "")
-        if REVIEW_KEYWORD not in comment_body or not event.is_org_member(username):
-            return
-        event.toggle_eyes_reaction(True)
-        event.pr = event.get_repo_data(f"pulls/{event.event_data['issue']['number']}")
-
     # Handle review requests
-    elif event.event_name == "pull_request" and event.event_data.get("action") == "review_requested":
+    if event.event_name == "pull_request" and event.event_data.get("action") == "review_requested":
         if event.event_data.get("requested_reviewer", {}).get("login") != event.get_username():
             return
         print(f"Review requested from {event.get_username()}")
@@ -250,10 +240,6 @@ def main(*args, **kwargs):
     post_review_summary(event, review, review_number)
     print(f"Posting {len(review.get('comments', []))} inline comments")
     post_review_comments(event, review)
-
-    if event.event_name == "issue_comment":
-        event.toggle_eyes_reaction(False)
-
     print("PR review completed")
 
 
