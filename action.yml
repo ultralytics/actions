@@ -94,8 +94,10 @@ runs:
         INPUTS_SPELLING: ${{ inputs.spelling }}
       run: |
         # For debug
-        # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@main codespell tomli
-        packages="ultralytics-actions"
+        # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@update codespell tomli
+        sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@update codespell tomli
+        # packages="ultralytics-actions"
+        packages=""
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
