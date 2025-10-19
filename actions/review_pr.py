@@ -180,10 +180,7 @@ def post_review_comments(event: Action, review_data: dict) -> None:
         body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')}"
 
         if suggestion := comment.get("suggestion"):
-            original_line = diff_files.get(file_path, {}).get(line, "")
-            indent = len(original_line) - len(original_line.lstrip())
-            indented = "\n".join(" " * indent + l if l.strip() else l for l in suggestion.split("\n"))
-            body += f"\n\n**Suggested change:**\n```suggestion\n{indented}\n```"
+            body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
         event.post(url, json={"body": body, "commit_id": commit_sha, "path": file_path, "line": line, "side": "RIGHT"})
 
