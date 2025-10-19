@@ -55,16 +55,24 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         for file, lines in list(diff_files.items())[:10]
     ) + ("\n  ..." if len(diff_files) > 10 else "")
 
+    priority_guidance = "Prioritize the most critical/high-impact issues only" if lines_changed >= 100 else "Prioritize commenting on different files/sections"
+
     content = (
         "You are an expert code reviewer for Ultralytics. Provide detailed inline comments on specific code changes.\n\n"
         "Focus on: Code quality, style, best practices, bugs, edge cases, error handling, performance, security, documentation, test coverage\n\n"
         "FORMATTING: Use backticks for code, file names, branch names, function names, variable names, packages\n\n"
         "CRITICAL RULES:\n"
-        f"1. Generate inline comments with recommended changes if applicable (up to 10)\n"
+        f"1. Generate inline comments with recommended changes for clear bugs/security/syntax issues (up to 10)\n"
         "2. Each comment MUST reference a UNIQUE line number(s)\n"
         "3. If a line has multiple issues, combine ALL issues into ONE comment for that line\n"
         "4. Never create separate comments for the same line number\n"
-        f"5. {'Prioritize the most critical/high-impact issues only' if lines_changed >= 100 else 'Prioritize commenting on different files/sections'}\n\n"
+        f"5. {priority_guidance}\n\n"
+        "CODE SUGGESTIONS:\n"
+        "- ONLY provide 'suggestion' field when you have HIGH CERTAINTY the code is problematic AND sufficient context for a confident fix\n"
+        "- If uncertain about the correct fix, omit 'suggestion' field and explain the concern in 'message' only\n"
+        "- Suggestions must be ready-to-merge code with NO comments, placeholders, or explanations\n"
+        "- When providing suggestions, ensure they are complete, correct, and maintain existing indentation\n"
+        "- It's better to flag an issue without a suggestion than provide a wrong or uncertain fix\n\n"
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], "summary": "..."}\n\n'
         "Rules:\n"
@@ -73,7 +81,6 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- Line numbers must match NEW file line numbers from @@ hunks\n"
         "- When '- old' then '+ new', new line keeps SAME line number\n"
         "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
-        "- Suggestions must be ready-to-merge code with NO comments or explanations\n"
         f"- Files changed: {len(file_list)} ({', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''})\n"
         f"- Total changed lines: {lines_changed}\n"
         f"- Diff {'truncated' if diff_truncated else 'complete'}: {len(diff_text[:limit])} chars{f' of {len(diff_text)}' if diff_truncated else ''}\n\n"
@@ -82,10 +89,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
     messages = [
         {"role": "system", "content": content},
-        {
-            "role": "user",
-            "content": f"Review PR '{repository}':\nTitle: {pr_title}\nDescription: {pr_description[:500]}\n\nDiff:\n{diff_text[:limit]}",
-        },
+        {"role": "user", "content": f"Review PR '{repository}':\nTitle: {pr_title}\nDescription: {pr_description[:500]}\n\nDiff:\n{diff_text[:limit]}"},
     ]
 
     try:
@@ -108,13 +112,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 else:
                     print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {c.get('message')[:60]}...")
             else:
-                print(
-                    f"Filtered out: {file_path}:{line_num} (available: {list(diff_files.get(file_path, {}))[:10]}...)"
-                )
+                print(f"Filtered out {file_path}:{line_num} (available: {list(diff_files.get(file_path, {}))[:10]}...)")
 
-        review_data.update(
-            {"comments": list(unique_comments.values()), "diff_files": diff_files, "diff_truncated": diff_truncated}
-        )
+        review_data.update({"comments": list(unique_comments.values()), "diff_files": diff_files, "diff_truncated": diff_truncated})
         print(f"Valid comments after filtering: {len(review_data['comments'])}")
         return review_data
 
@@ -124,17 +124,12 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     except Exception as e:
         print(f"Review generation failed: {e}")
         import traceback
-
         traceback.print_exc()
         return {"comments": [], "summary": "Review generation encountered an error"}
 
 
 def dismiss_previous_reviews(event: Action) -> int:
-    """
-    Dismiss previous bot reviews and delete inline comments.
-
-    Returns count for numbering.
-    """
+    """Dismiss previous bot reviews and delete inline comments, returns count for numbering."""
     if not (pr_number := event.pr.get("number")) or not (bot_username := event.get_username()):
         return 1
 
@@ -152,10 +147,7 @@ def dismiss_previous_reviews(event: Action) -> int:
     if (response := event.get(comments_url)).status_code == 200:
         for comment in response.json():
             if comment.get("user", {}).get("login") == bot_username and (comment_id := comment.get("id")):
-                event.delete(
-                    f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments/{comment_id}",
-                    expected_status=[200, 204, 404],
-                )
+                event.delete(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments/{comment_id}", expected_status=[200, 204, 404])
 
     return review_count + 1
 
@@ -207,10 +199,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     if review_data.get("diff_truncated"):
         body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
 
-    event.post(
-        f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews",
-        json={"commit_id": commit_sha, "body": body, "event": event_type},
-    )
+    event.post(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews", json={"commit_id": commit_sha, "body": body, "event": event_type})
 
 
 def main(*args, **kwargs):
