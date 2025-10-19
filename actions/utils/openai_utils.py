@@ -81,8 +81,6 @@ def get_pr_summary_guidelines() -> str:
 
 def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
     """Returns the complete PR summary generation prompt with diff (used by PR update/merge)."""
-    if not diff_text:
-        diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE ZERO CODE CHANGES IN THIS PR."
     ratio = 3.3  # about 3.3 characters per token
     limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
 
@@ -167,8 +165,6 @@ def get_completion(
 
 def get_pr_open_response(repository: str, diff_text: str, title: str, body: str, available_labels: dict) -> dict:
     """Generates unified PR response with summary, labels, and first comment in a single API call."""
-    if not diff_text:
-        diff_text = "**ERROR: DIFF IS EMPTY, THERE ARE NO CODE CHANGES IN THIS PR."
     ratio = 3.3  # about 3.3 characters per token
     limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
     is_large = len(diff_text) > limit
