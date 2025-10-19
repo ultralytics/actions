@@ -10,26 +10,22 @@ from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
 REVIEW_MARKER = "🔍 PR Review"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
 SKIP_PATTERNS = [
-    r".*\.lock$",
-    r".*-lock\.(json|yaml|yml)$",  # Lock files
-    r".*\.min\.(js|css)$",
-    r".*\.bundle\.(js|css)$",  # Minified
-    r".*dist/.*",
-    r".*build/.*",
-    r".*vendor/.*",
-    r".*node_modules/.*",  # Generated/vendored
-    r".*\.pb\.py$",
-    r".*_pb2\.py$",
-    r".*_pb2_grpc\.py$",  # Proto generated
-    r"package-lock\.json$",
-    r"yarn\.lock$",
-    r"poetry\.lock$",
-    r"Pipfile\.lock$",  # Package locks
-    r".*\.svg$",
-    r".*\.png$",
-    r".*\.jpg$",
-    r".*\.jpeg$",
-    r".*\.gif$",  # Images
+    r"\.lock$",  # Lock files
+    r"-lock\.(json|yaml|yml)$",
+    r"\.min\.(js|css)$",  # Minified
+    r"\.bundle\.(js|css)$",
+    r"(^|/)dist/",  # Generated/vendored directories
+    r"(^|/)build/",
+    r"(^|/)vendor/",
+    r"(^|/)node_modules/",
+    r"\.pb\.py$",  # Proto generated
+    r"_pb2\.py$",
+    r"_pb2_grpc\.py$",
+    r"^package-lock\.json$",  # Package locks
+    r"^yarn\.lock$",
+    r"^poetry\.lock$",
+    r"^Pipfile\.lock$",
+    r"\.(svg|png|jpe?g|gif)$",  # Images
 ]
 
 
@@ -70,7 +66,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     filtered_files = {
         path: lines
         for path, lines in diff_files.items()
-        if not any(re.match(pattern, path) for pattern in SKIP_PATTERNS)
+        if not any(re.search(pattern, path) for pattern in SKIP_PATTERNS)
     }
     skipped_count = len(diff_files) - len(filtered_files)
     diff_files = filtered_files
