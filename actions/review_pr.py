@@ -90,7 +90,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     content = (
         "You are an expert code reviewer for Ultralytics. Provide detailed inline comments on specific code changes.\n\n"
         "Focus on: Code quality, style, best practices, bugs, edge cases, error handling, performance, security, documentation, test coverage\n\n"
-        "FORMATTING: Use backticks for all summary and suggestion code, files, branchs, functions, variables, packages, e.g. `x=3`\n\n"
+        "FORMATTING: Use backticks for all summary and suggestion code, files, branches, functions, variables, packages, e.g. `x=3`\n\n"
         "CRITICAL RULES:\n"
         "1. Quality over quantity: Zero comments is fine for clean code - only flag truly important issues\n"
         f"2. {comment_guidance} - these are maximums, not targets\n"
