@@ -81,24 +81,18 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
     content = (
         "You are an expert code reviewer for Ultralytics. Provide detailed inline comments on specific code changes.\n\n"
-        "Focus on: Code quality, style, best practices, bugs, performance, edge cases, error handling, security, documentation, test coverage\n\n"
-        "FORMATTING: Use backticks for all summary and suggestion code, files, branches, functions, variables, packages, e.g. `x=3`\n\n"
+        "Focus on: Bugs, security, performance, best practices, edge cases, error handling\n\n"
+        "FORMATTING: Use backticks for code: `x=3`, `file.py`, `function()`\n\n"
         "CRITICAL RULES:\n"
-        "1. Quality over quantity: Zero comments is fine for clean code - only flag truly important issues\n"
-        "2. Be selective and prioritize: Focus on the most impactful issues that would genuinely improve the code\n"
-        "3. CRITICAL: Do not post separate comments on adjacent/nearby lines (within 10 lines). Combine all related issues into ONE comment\n"
-        "4. When combining issues from multiple lines, use 'start_line' (first line) and 'line' (last line) to highlight the entire range\n"
-        "5. Each comment must reference separate areas - no overlapping line ranges\n"
-        "6. Prioritize: CRITICAL bugs/security > HIGH impact issues > code quality\n"
-        "7. Keep comments concise, friendly, and easy to understand - avoid jargon when possible\n"
-        "8. DO not comment on routine changes: adding imports, adding dependencies, updating version numbers, standard refactoring\n"
-        "9. Trust the developer - only flag issues with clear evidence of problems, not hypothetical concerns\n\n"
-        "SUMMARY GUIDELINES:\n"
-        "- Keep summary brief, clear, and actionable - avoid overly detailed explanations\n"
-        "- Highlight only the most important findings\n"
-        "- Do NOT include file names or line numbers in the summary - inline comments already show exact locations\n"
-        "- Focus on what needs to be fixed, not where\n\n"
-        "CODE SUGGESTIONS:\n"
+        "1. Quality over quantity - zero comments is fine for clean code, only flag truly important issues\n"
+        "2. Combine issues that are directly related to the same problem\n"
+        "3. Use 'start_line' and 'line' to highlight multi-line ranges when issues span multiple lines\n"
+        "4. Prioritize: CRITICAL bugs/security > HIGH impact > code quality improvements\n"
+        "5. Keep comments concise and friendly - avoid jargon\n"
+        "6. Skip routine changes: imports, version updates, standard refactoring\n\n"
+        "SUMMARY:\n"
+        "- Brief and actionable - what needs fixing, not where (locations shown in inline comments)\n\n"
+        "SUGGESTIONS:\n"
         "- ONLY provide 'suggestion' field when you have high certainty the code is problematic AND sufficient context for a confident fix\n"
         "- If uncertain about the correct fix, omit 'suggestion' field and explain the concern in 'message' only\n"
         "- Suggestions must be ready-to-merge code with NO comments, placeholders, or explanations\n"
@@ -110,10 +104,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], "summary": "..."}\n\n'
         "Rules:\n"
-        "- Only comment on NEW lines (starting with + in diff)\n"
-        "- Use exact file paths from diff (no ./ prefix)\n"
-        "- Line numbers must match NEW file line numbers from @@ hunks\n"
-        "- When '- old' then '+ new', new line keeps SAME line number\n"
+        "- Only NEW lines (+ in diff), exact paths (no ./), correct line numbers from @@ hunks\n"
         "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
         f"- Files changed: {len(file_list)} ({', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''})\n"
         f"- Lines changed: {lines_changed}\n"
@@ -301,15 +292,8 @@ def main(*args, **kwargs):
         return
 
     # Skip self-authored or bot PRs unless manually review_requested
-    if event.event_data.get("action") != "review_requested":
-        if pr_author := event.pr.get("user", {}).get("login"):
-            if pr_author == event.get_username():
-                print(f"Skipping: PR author ({pr_author}) is the same as reviewer")
-                return
-            # Check both user.type and [bot] suffix for robust bot detection
-            if event.pr.get("user", {}).get("type") == "Bot" or pr_author.endswith("[bot]"):
-                print(f"Skipping: PR author ({pr_author}) is a bot")
-                return
+    if event.event_data.get("action") != "review_requested" and event.should_skip_pr_author():
+        return
 
     print(f"Starting PR review for #{event.pr['number']}")
     review_number = dismiss_previous_reviews(event)

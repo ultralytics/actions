@@ -5,12 +5,14 @@ from __future__ import annotations
 import os
 import time
 
+from . import review_pr
 from .utils import Action, filter_labels, get_completion, get_pr_open_response, remove_html_comments
 
 SUMMARY_START = (
     "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
 )
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
+AUTO_PR_REVIEW = os.getenv("REVIEW", "true").lower() == "true"
 
 
 def apply_and_check_labels(event, number, node_id, issue_type, username, labels, label_descriptions):
@@ -185,13 +187,18 @@ def main(*args, **kwargs):
 
     # Use unified PR open response for new PRs (summary + labels + first comment in 1 API call)
     if issue_type == "pull request" and action == "opened":
+        if event.should_skip_pr_author():
+            return
+
         print("Processing PR open with unified API call...")
         diff = event.get_pr_diff()
         response = get_pr_open_response(event.repository, diff, title, body, label_descriptions)
 
         if summary := response.get("summary"):
             print("Updating PR description with summary...")
-            event.update_pr_description(number, SUMMARY_START + summary)
+            event.update_pr_description(number, SUMMARY_START + summary + "\n\n" + body)
+        else:
+            summary = body
 
         if relevant_labels := response.get("labels", []):
             apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
@@ -200,6 +207,14 @@ def main(*args, **kwargs):
             print("Adding first interaction comment...")
             time.sleep(1)  # sleep to ensure label added first
             event.add_comment(number, node_id, first_comment, issue_type)
+
+        # Automatic PR review after first interaction
+        if AUTO_PR_REVIEW:
+            print("Starting automatic PR review...")
+            review_number = review_pr.dismiss_previous_reviews(event)
+            review_data = review_pr.generate_pr_review(event.repository, diff, title, summary)
+            review_pr.post_review_summary(event, review_data, review_number)
+            print("PR review completed")
         return
 
     # Handle issues and discussions (NOT PRs)
