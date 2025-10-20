@@ -196,7 +196,9 @@ def main(*args, **kwargs):
 
         if summary := response.get("summary"):
             print("Updating PR description with summary...")
-            event.update_pr_description(number, SUMMARY_START + summary)
+            event.update_pr_description(number, SUMMARY_START + summary + "\n\n" + body)
+        else:
+            summary = body
 
         if relevant_labels := response.get("labels", []):
             apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
