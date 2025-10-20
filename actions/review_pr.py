@@ -81,8 +81,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
     content = (
         "You are an expert code reviewer for Ultralytics. Provide detailed inline comments on specific code changes.\n\n"
-        "Focus on: Code quality, style, best practices, bugs, performance, edge cases, error handling, security, documentation, test coverage\n\n"
-        "FORMATTING: Use backticks for all summary and suggestion code, files, branches, functions, variables, packages, e.g. `x=3`\n\n"
+        "Focus on: Bugs, security, performance, best practices, edge cases, error handling\n\n"
+        "FORMATTING: Use backticks for code: `x=3`, `file.py`, `function()`\n\n"
         "CRITICAL RULES:\n"
         "1. Quality over quantity: Zero comments is fine for clean code - only flag truly important issues\n"
         "2. Be selective and prioritize: Focus on the most impactful issues that would genuinely improve the code\n"
@@ -110,10 +110,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], "summary": "..."}\n\n'
         "Rules:\n"
-        "- Only comment on NEW lines (starting with + in diff)\n"
-        "- Use exact file paths from diff (no ./ prefix)\n"
-        "- Line numbers must match NEW file line numbers from @@ hunks\n"
-        "- When '- old' then '+ new', new line keeps SAME line number\n"
+        "- Only NEW lines (+ in diff), exact paths (no ./), correct line numbers from @@ hunks\n"
         "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
         f"- Files changed: {len(file_list)} ({', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''})\n"
         f"- Lines changed: {lines_changed}\n"
