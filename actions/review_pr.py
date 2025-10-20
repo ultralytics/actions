@@ -241,12 +241,12 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     body = (
         f"## {review_title}\n\n"
         "<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)</sub>\n\n"
-        f"{review_data.get('summary', 'Review completed')}\n\n"
+        f"{review_data.get('summary', 'Review completed')[:1000]}\n\n"  # Clip summary length
     )
 
     if comments:
         shown = min(len(comments), 10)
-        body += f"💬 Posted {shown} inline comment{'s' if shown != 1 else ''}{' (10 shown, more available)' if len(comments) > 10 else ''}\n"
+        body += f"💬 Posted {shown} inline comment{'s' if shown != 1 else ''}\n"
 
     if review_data.get("diff_truncated"):
         body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
@@ -256,14 +256,15 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     # Build inline comments for the review
     review_comments = []
-    for comment in comments[:10]:
+    for comment in comments[:10]:  # Limit to 10 comments
         if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
             continue
 
         severity = comment.get("severity", "SUGGESTION")
-        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')}"
+        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')[:1000]}"
 
         if suggestion := comment.get("suggestion"):
+            suggestion = suggestion[:1000]  # Clip suggestion length
             if "```" not in suggestion:
                 # Extract original line indentation and apply to suggestion
                 if original_line := review_data.get("diff_files", {}).get(file_path, {}).get(line):
