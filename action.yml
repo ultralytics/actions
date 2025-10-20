@@ -242,6 +242,7 @@ runs:
         BRAVE_API_KEY: ${{ inputs.brave_api_key }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
+        REVIEW: ${{ inputs.review }}
       run: |
         ultralytics-actions-first-interaction
       shell: bash
@@ -250,10 +251,9 @@ runs:
     # PR Review --------------------------------------------------------------------------------------------------------
     - name: PR Review
       if: |
-        (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (
-          (inputs.review == 'true' && github.event.action == 'opened') ||
-          (github.event.action == 'review_requested' && github.event.requested_reviewer.login == inputs.github_username)
-        )
+        (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') &&
+        github.event.action == 'review_requested' &&
+        github.event.requested_reviewer.login == inputs.github_username
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
