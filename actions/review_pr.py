@@ -307,14 +307,15 @@ def main(*args, **kwargs):
         print(f"Skipping: PR state is {event.pr.get('state') if event.pr else 'None'}")
         return
 
-    # Skip if PR author is the requested reviewer or is a bot
-    if pr_author := event.pr.get("user", {}).get("login"):
-        if pr_author == event.get_username():
-            print(f"Skipping: PR author ({pr_author}) is the same as reviewer")
-            return
-        if pr_author.endswith("[bot]"):
-            print(f"Skipping: PR author ({pr_author}) is a bot")
-            return
+    # Skip PR open if author is bot or self-review (allow manual review_requested)
+    if event.event_data.get("action") == "opened":
+        if pr_author := event.pr.get("user", {}).get("login"):
+            if pr_author == event.get_username():
+                print(f"Skipping: PR author ({pr_author}) is the same as reviewer")
+                return
+            if pr_author.endswith("[bot]"):
+                print(f"Skipping: PR author ({pr_author}) is a bot")
+                return
 
     print(f"Starting PR review for #{event.pr['number']}")
     review_number = dismiss_previous_reviews(event)
