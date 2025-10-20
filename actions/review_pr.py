@@ -301,15 +301,8 @@ def main(*args, **kwargs):
         return
 
     # Skip self-authored or bot PRs unless manually review_requested
-    if event.event_data.get("action") != "review_requested":
-        if pr_author := event.pr.get("user", {}).get("login"):
-            if pr_author == event.get_username():
-                print(f"Skipping: PR author ({pr_author}) is the same as reviewer")
-                return
-            # Check both user.type and [bot] suffix for robust bot detection
-            if event.pr.get("user", {}).get("type") == "Bot" or pr_author.endswith("[bot]"):
-                print(f"Skipping: PR author ({pr_author}) is a bot")
-                return
+    if event.event_data.get("action") != "review_requested" and event.should_skip_pr_author():
+        return
 
     print(f"Starting PR review for #{event.pr['number']}")
     review_number = dismiss_previous_reviews(event)

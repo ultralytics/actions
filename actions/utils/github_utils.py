@@ -188,6 +188,20 @@ class Action:
         """Checks if a user is a member of the organization."""
         return self.get(f"{GITHUB_API_URL}/orgs/{self.repository.split('/')[0]}/members/{username}").status_code == 204
 
+    def should_skip_pr_author(self) -> bool:
+        """Checks if PR should be skipped based on author (self-authored or bot PRs)."""
+        if not self.pr:
+            return False
+        if pr_author := self.pr.get("user", {}).get("login"):
+            if pr_author == self.get_username():
+                print(f"Skipping: PR author ({pr_author}) is the same as bot")
+                return True
+            # Check both user.type and [bot] suffix for robust bot detection
+            if self.pr.get("user", {}).get("type") == "Bot" or pr_author.endswith("[bot]"):
+                print(f"Skipping: PR author ({pr_author}) is a bot")
+                return True
+        return False
+
     def is_fork_pr(self) -> bool:
         """Checks if PR is from a fork (different repo than base)."""
         if not self.pr:
