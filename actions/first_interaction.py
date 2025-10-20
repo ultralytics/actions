@@ -12,7 +12,7 @@ SUMMARY_START = (
     "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
 )
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
-AUTO_PR_REVIEW = os.getenv("AUTO_PR_REVIEW", "true").lower() == "true"
+AUTO_PR_REVIEW = os.getenv("REVIEW", "true").lower() == "true"
 
 
 def apply_and_check_labels(event, number, node_id, issue_type, username, labels, label_descriptions):
