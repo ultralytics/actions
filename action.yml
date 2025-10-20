@@ -95,7 +95,9 @@ runs:
       run: |
         # For debug
         # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@main codespell tomli
-        packages="ultralytics-actions"
+        # packages="ultralytics-actions"
+        sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@auto-review codespell tomli
+        packages=""
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
