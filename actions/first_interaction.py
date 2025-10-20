@@ -5,8 +5,8 @@ from __future__ import annotations
 import os
 import time
 
-from .utils import Action, filter_labels, get_completion, get_pr_open_response, remove_html_comments
 from . import review_pr
+from .utils import Action, filter_labels, get_completion, get_pr_open_response, remove_html_comments
 
 SUMMARY_START = (
     "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
