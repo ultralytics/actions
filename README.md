@@ -26,7 +26,7 @@ Ultralytics Actions automatically applies formats, updates, and enhancements usi
 - **Spell Check:** Common misspellings are caught using [codespell](https://github.com/codespell-project/codespell).
 - **Broken Links Check:** Broken links in documentation and Markdown files are identified using [Lychee](https://github.com/lycheeverse/lychee).
 - **PR Summary:** Concise Pull Request summaries are generated using [OpenAI](https://openai.com/) GPT-5, improving clarity and review efficiency.
-- **PR Review:** AI-powered inline code reviews identify critical bugs, security issues, and code quality concerns with suggested fixes.
+- **PR Review:** AI-powered code reviews identify critical bugs, security issues, and code quality concerns with suggested fixes.
 - **Auto-labeling:** Relevant labels are applied to issues and pull requests via [OpenAI](https://openai.com/) GPT-5 for intelligent categorization.
 
 ## 🛠️ How It Works
