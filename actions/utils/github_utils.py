@@ -34,7 +34,6 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             closingIssuesReferences(first: 50) { nodes { number } }
             url
             title
-            body
             author { login, __typename }
             reviews(first: 50) { nodes { author { login, __typename } } }
             comments(first: 50) { nodes { author { login, __typename } } }

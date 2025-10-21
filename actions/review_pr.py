@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 
-from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
+from .utils import GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
 
 REVIEW_MARKER = "🔍 PR Review"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
@@ -75,8 +75,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         return {"comments": [], "summary": f"All {skipped_count} changed files are generated/vendored (skipped review)"}
 
     file_list = list(diff_files.keys())
-    limit = round(128000 * 3.3 * 0.5)  # 3.3 characters per token for half a 256k context window
-    diff_truncated = len(diff_text) > limit
+    diff_truncated = len(diff_text) > MAX_PROMPT_CHARS
     lines_changed = sum(len(lines) for lines in diff_files.values())
 
     content = (
@@ -118,7 +117,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 f"Review this PR in https://github.com/{repository}:\n"
                 f"Title: {pr_title}\n"
                 f"Description: {remove_html_comments(pr_description or '')[:1000]}\n\n"
-                f"Diff:\n{diff_text[:limit]}\n\n"
+                f"Diff:\n{diff_text[:MAX_PROMPT_CHARS]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),
         },
@@ -161,7 +160,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
             if key not in unique_comments:
                 unique_comments[key] = c
             else:
-                print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {c.get('message')[:60]}...")
+                print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {(c.get('message') or '')[:60]}...")
 
         review_data.update(
             {
@@ -174,15 +173,16 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         print(f"Valid comments after filtering: {len(review_data['comments'])}")
         return review_data
 
-    except json.JSONDecodeError as e:
-        print(f"JSON parsing failed... {e}")
-        return {"comments": [], "summary": "Review generation encountered a JSON parsing error"}
     except Exception as e:
-        print(f"Review generation failed: {e}")
         import traceback
 
-        traceback.print_exc()
-        return {"comments": [], "summary": "Review generation encountered an error"}
+        error_details = traceback.format_exc()
+        print(f"Review generation failed: {e}\n{error_details}")
+        summary = (
+            f"⚠️ Review generation encountered an error: `{type(e).__name__}`\n\n"
+            f"<details><summary>Debug Info</summary>\n\n```\n{error_details}\n```\n</details>"
+        )
+        return {"comments": [], "summary": summary}
 
 
 def dismiss_previous_reviews(event: Action) -> int:
@@ -239,12 +239,12 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     # Build inline comments for the review
     review_comments = []
-    for comment in comments[:10]:  # Limit to 10 comments
+    for comment in comments[:10]:  # Limit inline comments
         if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
             continue
 
-        severity = comment.get("severity", "SUGGESTION")
-        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')[:1000]}"
+        severity = comment.get("severity") or "SUGGESTION"
+        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {(comment.get('message') or '')[:1000]}"
 
         if suggestion := comment.get("suggestion"):
             suggestion = suggestion[:1000]  # Clip suggestion length
@@ -299,7 +299,7 @@ def main(*args, **kwargs):
     review_number = dismiss_previous_reviews(event)
 
     diff = event.get_pr_diff()
-    review = generate_pr_review(event.repository, diff, event.pr.get("title", ""), event.pr.get("body", ""))
+    review = generate_pr_review(event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "")
 
     post_review_summary(event, review, review_number)
     print("PR review completed")

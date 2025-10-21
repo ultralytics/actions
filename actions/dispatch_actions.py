@@ -92,7 +92,7 @@ def main(*args, **kwargs):
         return
 
     # Get comment info
-    comment_body = event.event_data["comment"].get("body", "")
+    comment_body = event.event_data["comment"].get("body") or ""
     username = event.event_data["comment"]["user"]["login"]
 
     # Check for keyword without surrounding backticks to avoid triggering on replies

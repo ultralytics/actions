@@ -52,7 +52,7 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
                 {
                     "number": pr_data["number"],
                     "title": pr_data["title"],
-                    "body": remove_html_comments(pr_data.get("body", "")),
+                    "body": remove_html_comments(pr_data.get("body") or ""),
                     "author": pr_data["user"]["login"],
                     "html_url": pr_data["html_url"],
                     "merged_at": pr_data["merged_at"],
