@@ -108,8 +108,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n"
         "- It's better to flag an issue without a suggestion than provide a wrong or uncertain fix\n\n"
         "LINE NUMBERS:\n"
-        "- RIGHT side (added +): line numbers from NEW file\n"
-        "- LEFT side (removed -): line numbers from OLD file\n"
+        "- RIGHT side (added +): line numbers from NEW file, suggestions allowed\n"
+        "- LEFT side (removed -): line numbers from OLD file, no suggestions\n"
         "- CRITICAL: Verify line numbers match @@ hunks - incorrect numbers are rejected\n\n"
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "side": "RIGHT", "severity": "HIGH", "message": "..."}], "summary": "..."}\n\n'
@@ -162,6 +162,10 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                     print(f"Switching {file_path}:{line_num} from {side} to {other_side}")
                     c["side"] = other_side
                     side = other_side
+                    # GitHub rejects suggestions on removed lines
+                    if side == "LEFT" and c.get("suggestion"):
+                        print(f"Dropping suggestion for {file_path}:{line_num} - LEFT side doesn't support suggestions")
+                        c.pop("suggestion", None)
                 else:
                     available = {s: list(diff_files[file_path][s].keys())[:10] for s in ["RIGHT", "LEFT"]}
                     print(f"Filtered out {file_path}:{line_num} (available: {available})")
