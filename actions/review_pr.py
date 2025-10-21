@@ -151,7 +151,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         for c in review_data.get("comments", []):
             file_path, line_num = c.get("file"), c.get("line", 0)
             start_line = c.get("start_line")
-            side = c.get("side", "RIGHT")  # Default to RIGHT (added lines)
+            side = (c.get("side") or "RIGHT").upper()  # Default to RIGHT (added lines)
 
             # Validate line numbers are in diff (check appropriate side)
             if file_path not in diff_files:
