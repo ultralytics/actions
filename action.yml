@@ -101,7 +101,7 @@ runs:
           packages="git+https://github.com/ultralytics/actions@${GITHUB_REF#refs/heads/}"
         else
           # packages="ultralytics-actions"
-          "git+https://github.com/ultralytics/actions@main"
+          packages="git+https://github.com/ultralytics/actions@main"
         fi
 
         if [ "$INPUTS_SPELLING" = "true" ]; then
