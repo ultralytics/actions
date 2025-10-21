@@ -124,7 +124,10 @@ def get_completion(
             data["reasoning"] = {"effort": reasoning_effort or "low"}
 
         try:
+            start_time = time.time()
             r = requests.post(url, json=data, headers=headers, timeout=600)
+            elapsed = time.time() - start_time
+            print(f"{'✓' if r.status_code == 200 else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
             r.raise_for_status()
 
             # Parse response
