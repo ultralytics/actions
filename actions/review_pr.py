@@ -173,15 +173,16 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         print(f"Valid comments after filtering: {len(review_data['comments'])}")
         return review_data
 
-    except json.JSONDecodeError as e:
-        print(f"JSON parsing failed... {e}")
-        return {"comments": [], "summary": "Review generation encountered a JSON parsing error"}
     except Exception as e:
-        print(f"Review generation failed: {e}")
         import traceback
 
-        traceback.print_exc()
-        return {"comments": [], "summary": "Review generation encountered an error"}
+        error_details = traceback.format_exc()
+        print(f"Review generation failed: {e}\n{error_details}")
+        summary = (
+            f"⚠️ Review generation encountered an error: `{type(e).__name__}`\n\n"
+            f"<details><summary>Debug Info</summary>\n\n```\n{error_details}\n```\n</details>"
+        )
+        return {"comments": [], "summary": summary}
 
 
 def dismiss_previous_reviews(event: Action) -> int:
