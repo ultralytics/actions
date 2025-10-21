@@ -144,7 +144,10 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         json_str = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
         review_data = json.loads(json_str.group(1) if json_str else response)
         print(json.dumps(review_data, indent=2))
-        print(f"AI generated {len(review_data.get('comments', []))} comments")
+        
+        # Count comments BEFORE filtering (for COMMENT vs APPROVE decision)
+        comments_before_filtering = len(review_data.get('comments', []))
+        print(f"AI generated {comments_before_filtering} comments")
 
         # Validate, filter, and deduplicate comments
         unique_comments = {}
@@ -195,6 +198,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         review_data.update(
             {
                 "comments": list(unique_comments.values()),
+                "comments_before_filtering": comments_before_filtering,
                 "diff_files": diff_files,
                 "diff_truncated": diff_truncated,
                 "skipped_files": skipped_count,
@@ -251,27 +255,11 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     comments = review_data.get("comments", [])
     summary = review_data.get("summary") or ""
 
-    # Don't approve if error occurred or if there are critical/high severity issues
+    # Don't approve if error occurred, inline comments exist, or critical/high severity issues
     has_error = not summary or ERROR_MARKER in summary
+    has_inline_comments = review_data.get("comments_before_filtering", 0) > 0
     has_issues = any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments)
-    requests_changes = any(
-        phrase in summary.lower()
-        for phrase in [
-            "please",
-            "should",
-            "must",
-            "raise",
-            "needs",
-            "before merging",
-            "fix",
-            "error",
-            "issue",
-            "problem",
-            "warning",
-            "concern",
-        ]
-    )
-    event_type = "COMMENT" if (has_error or has_issues or requests_changes) else "APPROVE"
+    event_type = "COMMENT" if (has_error or has_inline_comments or has_issues) else "APPROVE"
 
     body = (
         f"## {review_title}\n\n"
