@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import time
+
+
+
 from datetime import datetime
 
 from .utils import GITHUB_API_URL, Action
@@ -16,7 +19,17 @@ def get_pr_branch(event) -> str:
     """Gets the PR branch name."""
     pr_number = event.event_data["issue"]["number"]
     pr_data = event.get_repo_data(f"pulls/{pr_number}")
-    return pr_data.get("head", {}).get("ref", "main")
+    return pr_data.get("head", {}).get("ref", "main")        
+
+
+
+
+
+
+
+
+
+
 
 
 def trigger_and_get_workflow_info(event, branch: str) -> list[dict]:
