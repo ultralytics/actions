@@ -125,6 +125,8 @@ def get_completion(
 
         try:
             r = requests.post(url, json=data, headers=headers, timeout=600)
+            success = r.status_code == 200
+            print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({r.elapsed.total_seconds():.1f}s)")
             r.raise_for_status()
 
             # Parse response
