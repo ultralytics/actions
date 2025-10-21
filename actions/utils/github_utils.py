@@ -131,7 +131,7 @@ class Action:
 
         if self.verbose:
             elapsed = r.elapsed.total_seconds()
-            print(f"{'✓' if success else '✗'} {method.upper()} {url} → {r.status_code} ({elapsed:.1f}s)")
+            print(f"{'✓' if success else '✗'} {method.upper()} {url} → {r.status_code} ({elapsed:.1f}s)", flush=True)
             if not success:
                 try:
                     print(f"  ❌ Error: {r.json().get('message', 'Unknown error')}")
