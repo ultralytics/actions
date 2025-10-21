@@ -15,6 +15,7 @@ def test_check_pypi_version():
         with patch("requests.get") as mock_get:
             mock_response = MagicMock()
             mock_response.status_code = 200
+            mock_response.elapsed.total_seconds.return_value = 0.5
             mock_response.json.return_value = {"info": {"version": "0.9.0"}}
             mock_get.return_value = mock_response
 
@@ -43,6 +44,7 @@ def test_action_request_methods():
     with patch("requests.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status_code = 200
+        mock_response.elapsed.total_seconds.return_value = 0.3
         mock_get.return_value = mock_response
 
         action = Action(token="test-token")

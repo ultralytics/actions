@@ -125,21 +125,22 @@ class Action:
 
     def _request(self, method: str, url: str, headers=None, expected_status=None, hard=False, **kwargs):
         """Unified request handler with error checking."""
-        response = getattr(requests, method)(url, headers=headers or self.headers, **kwargs)
+        r = getattr(requests, method)(url, headers=headers or self.headers, **kwargs)
         expected = expected_status or self._default_status[method]
-        success = response.status_code in expected
+        success = r.status_code in expected
 
         if self.verbose:
-            print(f"{'✓' if success else '✗'} {method.upper()} {url} → {response.status_code}")
+            elapsed = r.elapsed.total_seconds()
+            print(f"{'✓' if success else '✗'} {method.upper()} {url} → {r.status_code} ({elapsed:.1f}s)")
             if not success:
                 try:
-                    print(f"  ❌ Error: {response.json().get('message', 'Unknown error')}")
+                    print(f"  ❌ Error: {r.json().get('message', 'Unknown error')}")
                 except Exception:
-                    print(f"  ❌ Error: {response.text[:200]}")
+                    print(f"  ❌ Error: {r.text[:200]}")
 
         if not success and hard:
-            response.raise_for_status()
-        return response
+            r.raise_for_status()
+        return r
 
     def get(self, url, **kwargs):
         """Performs GET request with error handling."""
