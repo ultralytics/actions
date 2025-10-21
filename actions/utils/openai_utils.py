@@ -124,7 +124,7 @@ def get_completion(
     max_retries = 2
     for attempt in range(max_retries + 2):
         data = {"model": model, "input": messages, "store": False, "temperature": temperature}
-        if "gpt-5" in model_name:
+        if "gpt-5" in model:
             data["reasoning"] = {"effort": reasoning_effort or "low"}
             # GPT-5 Responses API handles JSON via prompting, not format parameter
 
