@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 
 import requests
 
@@ -110,52 +111,59 @@ def get_completion(
     response_format: dict = None,
     model: str = OPENAI_MODEL,
 ) -> str | dict:
-    """Generates a completion using OpenAI's Responses API based on input messages."""
+    """Generates a completion using OpenAI's Responses API with retry logic."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
     url = "https://api.openai.com/v1/responses"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
     if messages and messages[0].get("role") == "system":
         messages[0]["content"] += "\n\n" + SYSTEM_PROMPT_ADDITION
 
-    max_retries = 2
-    for attempt in range(max_retries + 2):
+    for attempt in range(3):
         data = {"model": model, "input": messages, "store": False, "temperature": temperature}
         if "gpt-5" in model:
             data["reasoning"] = {"effort": reasoning_effort or "low"}
-            # GPT-5 Responses API handles JSON via prompting, not format parameter
 
-        r = requests.post(url, json=data, headers=headers)
-        if r.status_code != 200:
-            print(f"❌ OpenAI error {r.status_code}:\n{r.text}\n")
-        r.raise_for_status()
-        response_data = r.json()
+        try:
+            r = requests.post(url, json=data, headers=headers, timeout=600)
+            r.raise_for_status()
 
-        content = ""
-        for item in response_data.get("output", []):
-            if item.get("type") == "message":
-                for content_item in item.get("content", []):
-                    if content_item.get("type") == "output_text":
-                        content += content_item.get("text") or ""
+            # Parse response
+            content = ""
+            for item in r.json().get("output", []):
+                if item.get("type") == "message":
+                    for c in item.get("content", []):
+                        if c.get("type") == "output_text":
+                            content += c.get("text") or ""
+            content = content.strip()
 
-        content = content.strip()
-        if response_format and response_format.get("type") == "json_object":
-            import json
+            if response_format and response_format.get("type") == "json_object":
+                import json
 
-            return json.loads(content)
+                return json.loads(content)
 
-        content = remove_outer_codeblocks(content)
-        for x in remove:
-            content = content.replace(x, "")
+            content = remove_outer_codeblocks(content)
+            for x in remove:
+                content = content.replace(x, "")
 
-        if not check_links or check_links_in_string(content):
+            # Retry on bad links
+            if attempt < 2 and check_links and not check_links_in_string(content):
+                print(f"Bad URLs detected, retrying")
+                continue
+
             return content
 
-        if attempt < max_retries:
-            print(f"Attempt {attempt + 1}: Found bad URLs. Retrying with a new random seed.")
-        else:
-            print("Max retries reached. Updating prompt to exclude links.")
-            messages.append({"role": "user", "content": "Please provide a response without any URLs or links in it."})
-            check_links = False
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            if attempt < 2:
+                print(f"Connection error, retrying in {2**attempt}s")
+                time.sleep(2**attempt)
+                continue
+            raise
+        except requests.exceptions.HTTPError as e:
+            if attempt < 2 and e.response and e.response.status_code >= 500:
+                print(f"Server error {e.response.status_code}, retrying in {2**attempt}s")
+                time.sleep(2**attempt)
+                continue
+            raise
 
     return content
 
