@@ -97,7 +97,7 @@ runs:
       run: |
         # For debug
         # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@main codespell tomli
-        
+
         # Install from git branch if testing in ultralytics/actions repo, otherwise from PyPI
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
           echo "Installing from git branch: $GITHUB_REF"
@@ -105,7 +105,7 @@ runs:
         else
           packages="ultralytics-actions"
         fi
-        
+
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
