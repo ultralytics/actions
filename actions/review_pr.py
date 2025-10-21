@@ -144,9 +144,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         json_str = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
         review_data = json.loads(json_str.group(1) if json_str else response)
         print(json.dumps(review_data, indent=2))
-        
+
         # Count comments BEFORE filtering (for COMMENT vs APPROVE decision)
-        comments_before_filtering = len(review_data.get('comments', []))
+        comments_before_filtering = len(review_data.get("comments", []))
         print(f"AI generated {comments_before_filtering} comments")
 
         # Validate, filter, and deduplicate comments
