@@ -83,6 +83,12 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Checkout Actions Repo (for testing)
+      if: github.repository == 'ultralytics/actions'
+      uses: actions/checkout@v4
+      with:
+        path: ultralytics-actions-repo
+        
     - uses: astral-sh/setup-uv@v7
       with:
         ignore-empty-workdir: true
@@ -92,10 +98,19 @@ runs:
       # Note tomli required for codespell with pyproject.toml
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
         # For debug
         # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@main codespell tomli
-        packages="ultralytics-actions"
+        
+        # Install from local source if testing in ultralytics/actions repo, otherwise from PyPI
+        if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
+          echo "Installing from local source for testing"
+          packages="./ultralytics-actions-repo"
+        else
+          packages="ultralytics-actions"
+        fi
+        
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
