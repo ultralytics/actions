@@ -43,7 +43,7 @@ jobs:
           all_prs = json.loads(result.stdout)
 
           summary = ["# 🔍 Open Pull Requests - Ultralytics Organization\n"]
-          
+
           for repo_name in sorted(set(pr["repository"]["name"] for pr in all_prs)):
               if repo_name not in repos:
                   continue
@@ -88,7 +88,7 @@ jobs:
           repos = [r["name"] for r in json.loads(result.stdout) if not r["isArchived"]]
 
           summary = ["\n# 🤖 Merging Dependabot GitHub Actions PRs\n"]
-          
+
           for repo in repos:
               result = subprocess.run(
                   ["gh", "pr", "list", "--repo", f"ultralytics/{repo}", "--author", "app/dependabot",
