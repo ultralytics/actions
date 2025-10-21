@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 
-from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
+from .utils import GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
 
 REVIEW_MARKER = "🔍 PR Review"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
@@ -75,8 +75,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         return {"comments": [], "summary": f"All {skipped_count} changed files are generated/vendored (skipped review)"}
 
     file_list = list(diff_files.keys())
-    limit = round(128000 * 3.3 * 0.5)  # 3.3 characters per token for half a 256k context window
-    diff_truncated = len(diff_text) > limit
+    diff_truncated = len(diff_text) > MAX_PROMPT_CHARS
     lines_changed = sum(len(lines) for lines in diff_files.values())
 
     content = (
@@ -118,7 +117,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 f"Review this PR in https://github.com/{repository}:\n"
                 f"Title: {pr_title}\n"
                 f"Description: {remove_html_comments(pr_description or '')[:1000]}\n\n"
-                f"Diff:\n{diff_text[:limit]}\n\n"
+                f"Diff:\n{diff_text[:MAX_PROMPT_CHARS]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),
         },
@@ -239,7 +238,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     # Build inline comments for the review
     review_comments = []
-    for comment in comments[:10]:  # Limit to 10 comments
+    for comment in comments[:10]:  # Limit inline comments
         if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
             continue
 

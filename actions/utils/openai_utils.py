@@ -10,6 +10,7 @@ from actions.utils.common_utils import check_links_in_string
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-2025-08-07")
+MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% of 128k context)
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
   - Avoid Equations: Do not include equations or mathematical notations.
@@ -81,13 +82,10 @@ def get_pr_summary_guidelines() -> str:
 
 def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
     """Returns the complete PR summary generation prompt with diff (used by PR update/merge)."""
-    ratio = 3.3  # about 3.3 characters per token
-    limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
-
     prompt = (
-        f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{diff_text[:limit]}"
+        f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{diff_text[:MAX_PROMPT_CHARS]}"
     )
-    return prompt, len(diff_text) > limit
+    return prompt, len(diff_text) > MAX_PROMPT_CHARS
 
 
 def get_pr_first_comment_template(repository: str) -> str:
@@ -166,9 +164,7 @@ def get_completion(
 
 def get_pr_open_response(repository: str, diff_text: str, title: str, body: str, available_labels: dict) -> dict:
     """Generates unified PR response with summary, labels, and first comment in a single API call."""
-    ratio = 3.3  # about 3.3 characters per token
-    limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
-    is_large = len(diff_text) > limit
+    is_large = len(diff_text) > MAX_PROMPT_CHARS
 
     filtered_labels = filter_labels(available_labels, is_pr=True)
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
@@ -176,7 +172,7 @@ def get_pr_open_response(repository: str, diff_text: str, title: str, body: str,
     prompt = f"""You are processing a new GitHub pull request for the {repository} repository.
 
 Generate 3 outputs in a single JSON response for the PR titled {title} with the following diff:
-{diff_text[:limit]}
+{diff_text[:MAX_PROMPT_CHARS]}
 
 
 --- FIRST JSON OUTPUT (PR SUMMARY) ---

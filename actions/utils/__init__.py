@@ -10,6 +10,7 @@ from .common_utils import (
 )
 from .github_utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, ultralytics_actions_info
 from .openai_utils import (
+    MAX_PROMPT_CHARS,
     filter_labels,
     get_completion,
     get_pr_open_response,
@@ -21,6 +22,7 @@ from .version_utils import check_pubdev_version, check_pypi_version
 __all__ = (
     "GITHUB_API_URL",
     "GITHUB_GRAPHQL_URL",
+    "MAX_PROMPT_CHARS",
     "REQUESTS_HEADERS",
     "URL_IGNORE_LIST",
     "REDIRECT_START_IGNORE_LIST",
