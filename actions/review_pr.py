@@ -278,9 +278,6 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
             continue
 
         severity = comment.get("severity") or "SUGGESTION"
-        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {(comment.get('message') or '')[:1000]}"
-
-        # Get side (LEFT for removed lines, RIGHT for added lines)
         side = comment.get("side", "RIGHT")
         comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {(comment.get('message') or '')[:1000]}"
 
