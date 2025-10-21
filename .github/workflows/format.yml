@@ -22,7 +22,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Run Ultralytics Actions
-        uses: ultralytics/actions@${{ github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || 'main' }}
+        uses: ultralytics/actions@${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && github.head_ref || 'main' }}
         with:
           token: ${{ secrets._GITHUB_TOKEN || secrets.GITHUB_TOKEN }} # Auto-generated token
           labels: true # Auto-label issues/PRs using AI
