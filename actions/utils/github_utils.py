@@ -188,6 +188,20 @@ class Action:
         """Checks if a user is a member of the organization."""
         return self.get(f"{GITHUB_API_URL}/orgs/{self.repository.split('/')[0]}/members/{username}").status_code == 204
 
+    def should_skip_pr_author(self) -> bool:
+        """Checks if PR should be skipped based on author (self-authored or bot PRs)."""
+        if not self.pr:
+            return False
+        if pr_author := self.pr.get("user", {}).get("login"):
+            if pr_author == self.get_username():
+                print(f"Skipping: PR author ({pr_author}) is the same as bot")
+                return True
+            # Check both user.type and [bot] suffix for robust bot detection
+            if self.pr.get("user", {}).get("type") == "Bot" or pr_author.endswith("[bot]"):
+                print(f"Skipping: PR author ({pr_author}) is a bot")
+                return True
+        return False
+
     def is_fork_pr(self) -> bool:
         """Checks if PR is from a fork (different repo than base)."""
         if not self.pr:
@@ -267,10 +281,10 @@ class Action:
         start = "## 🛠️ PR Summary"
         if start in description:
             print("Existing PR Summary found, replacing.")
-            updated_description = description.split(start)[0] + new_summary
+            updated_description = description.split(start)[0].rstrip() + "\n\n" + new_summary
         else:
             print("PR Summary not found, appending.")
-            updated_description = description + "\n\n" + new_summary
+            updated_description = (description.rstrip() + "\n\n" + new_summary) if description.strip() else new_summary
 
         self.patch(url, json={"body": updated_description})
         self._pr_summary_cache = new_summary
@@ -386,7 +400,7 @@ Thank you 🙏
         try:
             data = response.json()["data"]["repository"]["pullRequest"]
             comments = data["reviews"]["nodes"] + data["comments"]["nodes"]
-            token_username = self.get_username()
+            username = self.get_username()
             author = data["author"]["login"] if data["author"]["__typename"] != "Bot" else None
 
             contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
@@ -399,10 +413,10 @@ Thank you 🙏
                             contributors.add(login)
 
             contributors.discard(author)
-            contributors.discard(token_username)
+            contributors.discard(username)
 
             pr_credit = ""
-            if author and author != token_username:
+            if author and author != username:
                 pr_credit += f"@{author}"
             if contributors:
                 pr_credit += (" with contributions from " if pr_credit else "") + ", ".join(
