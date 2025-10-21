@@ -150,8 +150,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     ]
 
     # Debug: print prompts sent to AI
-    print(f"System prompt (first 1000 chars):\n{messages[0]['content'][:1000]}...\n")
-    print(f"User prompt (first 1000 chars):\n{messages[1]['content'][:1000]}...\n")
+    print(f"System prompt (first 1000 chars):\n{messages[0]['content'][:2000]}...\n")
+    print(f"User prompt (first 1000 chars):\n{messages[1]['content'][:2000]}...\n")
 
     try:
         response = get_completion(messages, reasoning_effort="low", model="gpt-5-codex")
