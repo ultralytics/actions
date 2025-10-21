@@ -281,10 +281,10 @@ class Action:
         start = "## 🛠️ PR Summary"
         if start in description:
             print("Existing PR Summary found, replacing.")
-            updated_description = description.split(start)[0] + new_summary
+            updated_description = description.split(start)[0].rstrip() + "\n\n" + new_summary
         else:
             print("PR Summary not found, appending.")
-            updated_description = description + "\n\n" + new_summary
+            updated_description = (description.rstrip() + "\n\n" + new_summary) if description.strip() else new_summary
 
         self.patch(url, json={"body": updated_description})
         self._pr_summary_cache = new_summary
