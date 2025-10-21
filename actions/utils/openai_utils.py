@@ -82,9 +82,7 @@ def get_pr_summary_guidelines() -> str:
 
 def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
     """Returns the complete PR summary generation prompt with diff (used by PR update/merge)."""
-    prompt = (
-        f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{diff_text[:MAX_PROMPT_CHARS]}"
-    )
+    prompt = f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{diff_text[:MAX_PROMPT_CHARS]}"
     return prompt, len(diff_text) > MAX_PROMPT_CHARS
 
 
