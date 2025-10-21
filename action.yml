@@ -83,12 +83,6 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Checkout Actions Repo (for testing)
-      if: github.repository == 'ultralytics/actions'
-      uses: actions/checkout@v5
-      with:
-        path: ultralytics-actions-repo
-
     - uses: astral-sh/setup-uv@v7
       with:
         ignore-empty-workdir: true
@@ -99,18 +93,19 @@ runs:
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
         GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_REF: ${{ github.ref }}
       run: |
         # For debug
         # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@main codespell tomli
-
-        # Install from local source if testing in ultralytics/actions repo (non-fork), otherwise from PyPI
-        if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ] && [ -d "./ultralytics-actions-repo" ]; then
-          echo "Installing from local source for testing"
-          packages="./ultralytics-actions-repo"
+        
+        # Install from git branch if testing in ultralytics/actions repo, otherwise from PyPI
+        if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
+          echo "Installing from git branch: $GITHUB_REF"
+          packages="git+https://github.com/ultralytics/actions@${GITHUB_REF#refs/heads/}"
         else
           packages="ultralytics-actions"
         fi
-
+        
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
