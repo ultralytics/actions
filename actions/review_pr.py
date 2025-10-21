@@ -309,7 +309,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
         review_comments.append(review_comment)
 
     # Submit review with inline comments
-    payload = {"commit_id": commit_sha, "body": body, "event": event_type}
+    payload = {"commit_id": commit_sha, "body": body.strip(), "event": event_type}
     if review_comments:
         payload["comments"] = review_comments
         print(f"Posting review with {len(review_comments)} inline comments")

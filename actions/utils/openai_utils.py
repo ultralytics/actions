@@ -161,8 +161,9 @@ def get_completion(
                 continue
             raise
         except requests.exceptions.HTTPError as e:
-            if attempt < 2 and e.response and e.response.status_code >= 500:
-                print(f"Server error {e.response.status_code}, retrying in {2**attempt}s")
+            status_code = getattr(e.response, "status_code", 0) if e.response else 0
+            if attempt < 2 and status_code >= 500:
+                print(f"Server error {status_code}, retrying in {2**attempt}s")
                 time.sleep(2**attempt)
                 continue
             raise
