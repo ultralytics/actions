@@ -161,7 +161,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
             if key not in unique_comments:
                 unique_comments[key] = c
             else:
-                print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {c.get('message')[:60]}...")
+                print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {(c.get('message') or '')[:60]}...")
 
         review_data.update(
             {
@@ -243,8 +243,8 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
         if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
             continue
 
-        severity = comment.get("severity", "SUGGESTION")
-        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')[:1000]}"
+        severity = comment.get("severity") or "SUGGESTION"
+        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {(comment.get('message') or '')[:1000]}"
 
         if suggestion := comment.get("suggestion"):
             suggestion = suggestion[:1000]  # Clip suggestion length
@@ -299,7 +299,7 @@ def main(*args, **kwargs):
     review_number = dismiss_previous_reviews(event)
 
     diff = event.get_pr_diff()
-    review = generate_pr_review(event.repository, diff, event.pr.get("title", ""), event.pr.get("body", ""))
+    review = generate_pr_review(event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "")
 
     post_review_summary(event, review, review_number)
     print("PR review completed")

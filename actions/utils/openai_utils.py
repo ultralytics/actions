@@ -139,7 +139,7 @@ def get_completion(
             if item.get("type") == "message":
                 for content_item in item.get("content", []):
                     if content_item.get("type") == "output_text":
-                        content += content_item.get("text", "")
+                        content += content_item.get("text") or ""
 
         content = content.strip()
         if response_format and response_format.get("type") == "json_object":

@@ -82,7 +82,7 @@ def label_fixed_issues(event, pr_summary):
     if not pr_credit:
         return None
 
-    comment = generate_issue_comment(data["url"], pr_summary, pr_credit, data.get("title", ""))
+    comment = generate_issue_comment(data["url"], pr_summary, pr_credit, data.get("title") or "")
 
     for issue in data["closingIssuesReferences"]["nodes"]:
         number = issue["number"]
