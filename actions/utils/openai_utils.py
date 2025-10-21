@@ -147,12 +147,12 @@ def get_completion(
 
             # Retry on bad links
             if attempt < 2 and check_links and not check_links_in_string(content):
-                print(f"Bad URLs detected, retrying")
+                print("Bad URLs detected, retrying")
                 continue
 
             return content
 
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
             if attempt < 2:
                 print(f"Connection error, retrying in {2**attempt}s")
                 time.sleep(2**attempt)
