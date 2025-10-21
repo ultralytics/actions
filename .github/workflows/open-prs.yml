@@ -51,20 +51,24 @@ jobs:
               repo_prs = [pr for pr in all_prs if pr["repository"]["name"] == repo_name]
               summary.append(f"## 📦 [{repo_name}]({repos[repo_name]}) - {len(repo_prs)} open PR{'s' if len(repo_prs) > 1 else ''}")
               
-              for pr in repo_prs[:10]:
+              for pr in repo_prs[:30]:
                   age_days = (datetime.now(timezone.utc) - datetime.fromisoformat(pr["createdAt"].replace("Z", "+00:00"))).days
                   if age_days == 0:
-                      badge = " 🆕NEW"
+                      emoji = "🆕"
                   elif age_days <= 7:
-                      badge = f" 🟢({age_days}d)"
+                      emoji = "🟢"
                   elif age_days <= 30:
-                      badge = f" 🟡({age_days}d)"
+                      emoji = "🟡"
                   else:
-                      badge = f" 🔴({age_days}d)"
-                  summary.append(f"- 🔀 [#{pr['number']}]({pr['url']}) {pr['title']}{badge}")
+                      emoji = "🔴"
+                  
+                  if age_days == 0:
+                      summary.append(f"- 🔀 [#{pr['number']}]({pr['url']}) {pr['title']} {emoji} NEW")
+                  else:
+                      summary.append(f"- 🔀 [#{pr['number']}]({pr['url']}) {pr['title']} {emoji} {age_days} days")
               
-              if len(repo_prs) > 10:
-                  summary.append(f"- ... {len(repo_prs) - 10} more PRs")
+              if len(repo_prs) > 30:
+                  summary.append(f"- ... {len(repo_prs) - 30} more PRs")
               summary.append("")
 
           with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
