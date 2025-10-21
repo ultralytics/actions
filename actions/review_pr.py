@@ -140,11 +140,10 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
     try:
         response = get_completion(messages, reasoning_effort="medium", model="gpt-5-codex")
-        print("\n" + "=" * 80 + f"\nFULL AI RESPONSE:\n{response}\n" + "=" * 80 + "\n")
 
         json_str = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
         review_data = json.loads(json_str.group(1) if json_str else response)
-
+        print(json.dumps(review_data, indent=2))
         print(f"AI generated {len(review_data.get('comments', []))} comments")
 
         # Validate, filter, and deduplicate comments
