@@ -30,9 +30,10 @@ SKIP_PATTERNS = [
 ]
 
 
-def parse_diff_files(diff_text: str) -> dict:
-    """Parse diff to extract file paths, valid line numbers, and line content for comments (both sides)."""
+def parse_diff_files(diff_text: str) -> tuple[dict, str]:
+    """Parse diff and return file mapping with line numbers AND augmented diff with explicit line numbers."""
     files, current_file, new_line, old_line = {}, None, 0, 0
+    augmented_lines = []
 
     for line in diff_text.split("\n"):
         if line.startswith("diff --git"):
@@ -41,23 +42,31 @@ def parse_diff_files(diff_text: str) -> dict:
             new_line, old_line = 0, 0
             if current_file:
                 files[current_file] = {"RIGHT": {}, "LEFT": {}}
+            augmented_lines.append(line)
         elif line.startswith("@@") and current_file:
-            # Extract both old and new line numbers
             match = re.search(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)?", line)
             if match:
                 old_line, new_line = int(match.group(1)), int(match.group(2))
+            augmented_lines.append(line)
         elif current_file and (new_line > 0 or old_line > 0):
             if line.startswith("+") and not line.startswith("+++"):
-                files[current_file]["RIGHT"][new_line] = line[1:]  # Added line (right/new side)
+                files[current_file]["RIGHT"][new_line] = line[1:]
+                augmented_lines.append(f"R{new_line:>5} {line}")  # Prefix with RIGHT line number
                 new_line += 1
             elif line.startswith("-") and not line.startswith("---"):
-                files[current_file]["LEFT"][old_line] = line[1:]  # Removed line (left/old side)
+                files[current_file]["LEFT"][old_line] = line[1:]
+                augmented_lines.append(f"L{old_line:>5} {line}")  # Prefix with LEFT line number
                 old_line += 1
-            elif not line.startswith("\\"):  # Context line (ignore "No newline" markers)
+            elif not line.startswith("\\"):
+                augmented_lines.append(f"       {line}")  # Context line, no number
                 new_line += 1
                 old_line += 1
+            else:
+                augmented_lines.append(line)
+        else:
+            augmented_lines.append(line)
 
-    return files
+    return files, "\n".join(augmented_lines)
 
 
 def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_description: str) -> dict:
@@ -65,7 +74,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     if not diff_text:
         return {"comments": [], "summary": "No changes detected in diff"}
 
-    diff_files = parse_diff_files(diff_text)
+    diff_files, augmented_diff = parse_diff_files(diff_text)
     if not diff_files:
         return {"comments": [], "summary": "No files with changes detected in diff"}
 
@@ -82,7 +91,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         return {"comments": [], "summary": f"All {skipped_count} changed files are generated/vendored (skipped review)"}
 
     file_list = list(diff_files.keys())
-    diff_truncated = len(diff_text) > MAX_PROMPT_CHARS
+    diff_truncated = len(augmented_diff) > MAX_PROMPT_CHARS
     lines_changed = sum(len(sides["RIGHT"]) + len(sides["LEFT"]) for sides in diff_files.values())
 
     content = (
@@ -108,17 +117,19 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n"
         "- It's better to flag an issue without a suggestion than provide a wrong or uncertain fix\n\n"
         "LINE NUMBERS:\n"
-        "- You MUST extract line numbers directly from the @@ hunk headers in the diff below\n"
-        "- RIGHT (added +): Find @@ lines, use numbers after +N (e.g., @@ -10,5 +20,7 @@ means RIGHT starts at line 20)\n"
-        "- LEFT (removed -): Find @@ lines, use numbers after -N (e.g., @@ -10,5 +20,7 @@ means LEFT starts at line 10)\n"
-        "- Count forward from hunk start: + lines increment RIGHT, - lines increment LEFT, context lines increment both\n"
-        "- CRITICAL: Using line numbers not in the diff will cause your comment to be rejected\n"
-        "- Suggestions only work on RIGHT (added) lines, never on LEFT (removed) lines\n\n"
+        "- Each line in the diff is prefixed with its line number for clarity:\n"
+        "  R  123 +added code     <- RIGHT side (new file), line 123\n"
+        "  L   45 -removed code   <- LEFT side (old file), line 45\n"
+        "         context line    <- context (no number needed)\n"
+        "- Extract the number after R or L prefix to get the exact line number\n"
+        "- Use 'side': 'RIGHT' for R-prefixed lines, 'side': 'LEFT' for L-prefixed lines\n"
+        "- Suggestions only work on RIGHT lines, never on LEFT lines\n"
+        "- CRITICAL: Only use line numbers that you see explicitly prefixed in the diff\n\n"
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "side": "RIGHT", "severity": "HIGH", "message": "..."}], "summary": "..."}\n\n'
         "Rules:\n"
-        "- Verify line numbers from @@ hunks: +N for RIGHT (added), -N for LEFT (removed)\n"
-        "- Exact paths (no ./), 'side' field defaults to RIGHT if omitted\n"
+        "- Extract line numbers from R#### or L#### prefixes in the diff\n"
+        "- Exact paths (no ./), 'side' field must match R (RIGHT) or L (LEFT) prefix\n"
         "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
         f"- Files changed: {len(file_list)} ({', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''})\n"
         f"- Lines changed: {lines_changed}\n"
@@ -132,14 +143,18 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 f"Review this PR in https://github.com/{repository}:\n"
                 f"Title: {pr_title}\n"
                 f"Description: {remove_html_comments(pr_description or '')[:1000]}\n\n"
-                f"Diff:\n{diff_text[:MAX_PROMPT_CHARS]}\n\n"
+                f"Diff:\n{augmented_diff[:MAX_PROMPT_CHARS]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),
         },
     ]
 
+    # Debug: print prompts sent to AI
+    # print(f"\nSystem prompt (first 1000 chars):\n{messages[0]['content'][:2000]}...\n")
+    # print(f"\nUser prompt (first 1000 chars):\n{messages[1]['content'][:2000]}...\n")
+
     try:
-        response = get_completion(messages, reasoning_effort="medium", model="gpt-5-codex")
+        response = get_completion(messages, reasoning_effort="low", model="gpt-5-codex")
 
         json_str = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
         review_data = json.loads(json_str.group(1) if json_str else response)
