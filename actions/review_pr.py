@@ -154,7 +154,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     print(f"User prompt (first 1000 chars):\n{messages[1]['content'][:1000]}...\n")
 
     try:
-        response = get_completion(messages, reasoning_effort="medium", model="gpt-5-codex")
+        response = get_completion(messages, reasoning_effort="low", model="gpt-5-codex")
 
         json_str = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
         review_data = json.loads(json_str.group(1) if json_str else response)
