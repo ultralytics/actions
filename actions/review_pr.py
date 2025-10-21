@@ -225,7 +225,24 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     # Don't approve if error occurred or if there are critical/high severity issues
     has_error = not summary or ERROR_MARKER in summary
     has_issues = any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments)
-    event_type = "COMMENT" if (has_error or has_issues) else "APPROVE"
+    requests_changes = any(
+        phrase in summary.lower()
+        for phrase in [
+            "please",
+            "should",
+            "must",
+            "need to",
+            "needs to",
+            "before merging",
+            "fix",
+            "error",
+            "issue",
+            "problem",
+            "warning",
+            "concern",
+        ]
+    )
+    event_type = "COMMENT" if (has_error or has_issues or requests_changes) else "APPROVE"
 
     body = (
         f"## {review_title}\n\n"
