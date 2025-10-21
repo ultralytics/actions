@@ -1,11 +1,15 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+# List Open PRs across Ultralytics repositories
+# This workflow scans all public repos in the Ultralytics organization and lists open PRs
+# For repos with >10 open PRs, only the 10 most recent are shown
+
 name: List Open PRs
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 3 * * *"
+    - cron: "0 3 * * *" # daily at 03:00 UTC
 
 permissions:
   contents: write
