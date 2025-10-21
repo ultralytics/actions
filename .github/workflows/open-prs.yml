@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "0 3 * * *" # daily at 03:00 UTC
-    
+
 permissions:
   contents: write
   pull-requests: write
@@ -29,7 +29,7 @@ jobs:
           # Get all public non-archived repos
           gh repo list ultralytics --limit 1000 --json name,url,isArchived --visibility public | \
             jq '[.[] | select(.isArchived == false)]' > /tmp/active_repos.json
-          
+
           # Get all open PRs across organization
           gh search prs --owner ultralytics --state open --limit 1000 --json repository,number,title,url \
             --sort created --order desc > /tmp/all_prs.json
@@ -59,11 +59,11 @@ jobs:
           GH_TOKEN: ${{ secrets._GITHUB_TOKEN }}
         run: |
           max_prs=1  # Maximum PRs to merge per repo
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "# 🤖 Merging Dependabot GitHub Actions PRs" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           for repo in $(jq -r '.[].name' /tmp/active_repos.json); do
             repo_merged=0
             prs=$(gh pr list --repo "ultralytics/$repo" --author app/dependabot --state open \
@@ -90,5 +90,5 @@ jobs:
               fi
             done
           done
-          
+
           exit 0
