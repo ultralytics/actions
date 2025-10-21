@@ -94,7 +94,7 @@ runs:
         INPUTS_SPELLING: ${{ inputs.spelling }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_REF: ${{ github.ref }}
-      run: |        
+      run: |
         # Install from git branch if testing in ultralytics/actions repo, otherwise from PyPI
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
           echo "Installing from git branch: $GITHUB_REF"
@@ -102,7 +102,7 @@ runs:
         else
           packages="ultralytics-actions"
         fi
-        
+
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages="$packages codespell tomli"
         fi
