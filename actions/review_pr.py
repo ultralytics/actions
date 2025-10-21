@@ -226,7 +226,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     has_error = not summary or ERROR_MARKER in summary
     has_issues = any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments)
     requests_changes = any(
-        phrase in summary_lower
+        phrase in summary.lower()
         for phrase in [
             "please",
             "should",
