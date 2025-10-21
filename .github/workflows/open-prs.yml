@@ -49,7 +49,14 @@ jobs:
               
               for pr in repo_prs[:10]:
                   age_days = (datetime.now(timezone.utc) - datetime.fromisoformat(pr["createdAt"].replace("Z", "+00:00"))).days
-                  badge = " **[🆕 NEW]**" if age_days == 0 else f" ({age_days}d)"
+                  if age_days == 0:
+                      badge = " 🆕NEW"
+                  elif age_days <= 7:
+                      badge = f" 🟢({age_days}d)"
+                  elif age_days <= 30:
+                      badge = f" 🟡({age_days}d)"
+                  else:
+                      badge = f" 🔴({age_days}d)"
                   summary.append(f"- 🔀 [#{pr['number']}]({pr['url']}) {pr['title']}{badge}")
               
               if len(repo_prs) > 10:
