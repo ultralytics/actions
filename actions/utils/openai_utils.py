@@ -112,7 +112,7 @@ def get_completion(
     temperature: float = 1.0,
     reasoning_effort: str = None,
     response_format: dict = None,
-    model: str = None,
+    model: str = OPENAI_MODEL,
 ) -> str | dict:
     """Generates a completion using OpenAI's Responses API based on input messages."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
@@ -123,8 +123,7 @@ def get_completion(
 
     max_retries = 2
     for attempt in range(max_retries + 2):
-        model_name = model or OPENAI_MODEL
-        data = {"model": model_name, "input": messages, "store": False, "temperature": temperature}
+        data = {"model": model, "input": messages, "store": False, "temperature": temperature}
         if "gpt-5" in model_name:
             data["reasoning"] = {"effort": reasoning_effort or "low"}
             # GPT-5 Responses API handles JSON via prompting, not format parameter
