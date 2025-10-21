@@ -285,7 +285,6 @@ runs:
         github.event.action == 'review_requested' &&
         github.event.requested_reviewer.login == inputs.github_username
       env:
-        PYTHONUNBUFFERED: "1"
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
