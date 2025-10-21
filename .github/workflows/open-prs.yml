@@ -1,15 +1,11 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-# List Open PRs across Ultralytics repositories
-# This workflow scans all public repos in the Ultralytics organization and lists open PRs
-# For repos with >10 open PRs, only the 10 most recent are shown
-
 name: List Open PRs
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 3 * * *" # daily at 03:00 UTC
+    - cron: "0 3 * * *"
 
 permissions:
   contents: write
@@ -22,73 +18,84 @@ jobs:
       - name: List open PRs
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: python
         run: |
-          echo "# 🔍 Open Pull Requests - Ultralytics Organization" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          import os, json, subprocess
+          from datetime import datetime, timezone
 
-          # Get all public non-archived repos
-          gh repo list ultralytics --limit 1000 --json name,url,isArchived --visibility public | \
-            jq '[.[] | select(.isArchived == false)]' > /tmp/active_repos.json
+          # Get active public repos
+          result = subprocess.run(
+              ["gh", "repo", "list", "ultralytics", "--limit", "1000", "--json", "name,url,isArchived", "--visibility", "public"],
+              capture_output=True, text=True, check=True
+          )
+          repos = {r["name"]: r["url"] for r in json.loads(result.stdout) if not r["isArchived"]}
 
-          # Get all open PRs across organization
-          gh search prs --owner ultralytics --state open --limit 1000 --json repository,number,title,url \
-            --sort created --order desc > /tmp/all_prs.json
+          # Get all open PRs
+          result = subprocess.run(
+              ["gh", "search", "prs", "--owner", "ultralytics", "--state", "open", "--limit", "1000",
+               "--json", "repository,number,title,url,createdAt", "--sort", "created", "--order", "desc"],
+              capture_output=True, text=True, check=True
+          )
+          all_prs = json.loads(result.stdout)
 
-          # Process by repository
-          for repo in $(jq -r '[.[].repository.name] | unique | .[]' /tmp/all_prs.json); do
-            url=$(jq -r --arg repo "$repo" '.[] | select(.name == $repo) | .url' /tmp/active_repos.json)
-            [[ -z "$url" || "$url" == "null" ]] && continue
-            
-            repo_prs=$(jq --arg repo "$repo" '[.[] | select(.repository.name == $repo)]' /tmp/all_prs.json)
-            count=$(echo "$repo_prs" | jq 'length')
-            pr_text="PR"; [ "$count" -gt 1 ] && pr_text="PRs"
-            
-            echo "## 📦 [$repo]($url) - $count open $pr_text" >> $GITHUB_STEP_SUMMARY
-            
-            if [ "$count" -gt 10 ]; then
-              echo "$repo_prs" | jq -r '.[0:10] | .[] | "- 🔀 [#\(.number)](\(.url)) \(.title)"' >> $GITHUB_STEP_SUMMARY
-              echo "- ... $((count - 10)) more PRs" >> $GITHUB_STEP_SUMMARY
-            else
-              echo "$repo_prs" | jq -r '.[] | "- 🔀 [#\(.number)](\(.url)) \(.title)"' >> $GITHUB_STEP_SUMMARY
-            fi
-            echo "" >> $GITHUB_STEP_SUMMARY
-          done
+          summary = ["# 🔍 Open Pull Requests - Ultralytics Organization\n"]
+          
+          for repo_name in sorted(set(pr["repository"]["name"] for pr in all_prs)):
+              if repo_name not in repos:
+                  continue
+              
+              repo_prs = [pr for pr in all_prs if pr["repository"]["name"] == repo_name]
+              summary.append(f"## 📦 [{repo_name}]({repos[repo_name]}) - {len(repo_prs)} open PR{'s' if len(repo_prs) > 1 else ''}")
+              
+              for pr in repo_prs[:10]:
+                  age_days = (datetime.now(timezone.utc) - datetime.fromisoformat(pr["createdAt"].replace("Z", "+00:00"))).days
+                  badge = " **[🆕 NEW]**" if age_days == 0 else f" ({age_days}d)"
+                  summary.append(f"- 🔀 [#{pr['number']}]({pr['url']}) {pr['title']}{badge}")
+              
+              if len(repo_prs) > 10:
+                  summary.append(f"- ... {len(repo_prs) - 10} more PRs")
+              summary.append("")
+
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("\n".join(summary))
 
       - name: Merge Dependabot Actions PRs
         env:
           GH_TOKEN: ${{ secrets._GITHUB_TOKEN }}
+        shell: python
         run: |
-          max_prs=1  # Maximum PRs to merge per repo
+          import os, json, subprocess
 
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "# 🤖 Merging Dependabot GitHub Actions PRs" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          result = subprocess.run(
+              ["gh", "repo", "list", "ultralytics", "--limit", "1000", "--json", "name,isArchived", "--visibility", "public"],
+              capture_output=True, text=True, check=True
+          )
+          repos = [r["name"] for r in json.loads(result.stdout) if not r["isArchived"]]
 
-          for repo in $(jq -r '.[].name' /tmp/active_repos.json); do
-            repo_merged=0
-            prs=$(gh pr list --repo "ultralytics/$repo" --author app/dependabot --state open \
-              --json number,files,mergeable 2>/dev/null || echo "[]")
-            
-            for pr in $(echo "$prs" | jq -c '.[]'); do
-              [ $repo_merged -ge $max_prs ] && break
+          summary = ["\n# 🤖 Merging Dependabot GitHub Actions PRs\n"]
+          
+          for repo in repos:
+              result = subprocess.run(
+                  ["gh", "pr", "list", "--repo", f"ultralytics/{repo}", "--author", "app/dependabot",
+                   "--state", "open", "--json", "number,files,mergeable"],
+                  capture_output=True, text=True
+              )
+              if result.returncode != 0:
+                  continue
               
-              pr_number=$(echo "$pr" | jq -r '.number')
-              mergeable=$(echo "$pr" | jq -r '.mergeable')
-              
-              # Skip if not mergeable
-              [ "$mergeable" != "MERGEABLE" ] && continue
-              
-              # Check if all files are in .github/workflows
-              all_workflows=$(echo "$pr" | jq '[.files[].path | startswith(".github/workflows/")] | all')
-              
-              # Merge if only workflow files
-              if [ "$all_workflows" = "true" ]; then
-                if gh pr merge "$pr_number" --repo "ultralytics/$repo" --squash --admin 2>/dev/null; then
-                  echo "- ✅ Merged ultralytics/$repo#$pr_number" >> $GITHUB_STEP_SUMMARY
-                  repo_merged=$((repo_merged + 1))
-                fi
-              fi
-            done
-          done
+              merged = 0
+              for pr in json.loads(result.stdout):
+                  if merged >= 1 or pr["mergeable"] != "MERGEABLE":
+                      continue
+                  if all(f["path"].startswith(".github/workflows/") for f in pr["files"]):
+                      result = subprocess.run(
+                          ["gh", "pr", "merge", str(pr["number"]), "--repo", f"ultralytics/{repo}", 
+                           "--squash", "--admin"],
+                          capture_output=True
+                      )
+                      if result.returncode == 0:
+                          summary.append(f"- ✅ Merged ultralytics/{repo}#{pr['number']}")
+                          merged += 1
 
-          exit 0
+          with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
+              f.write("\n".join(summary))
