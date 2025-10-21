@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import time
 
 import requests
 
@@ -10,6 +11,7 @@ from actions.utils.common_utils import check_links_in_string
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-2025-08-07")
+MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% of 128k context)
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
   - Avoid Equations: Do not include equations or mathematical notations.
@@ -81,13 +83,8 @@ def get_pr_summary_guidelines() -> str:
 
 def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
     """Returns the complete PR summary generation prompt with diff (used by PR update/merge)."""
-    ratio = 3.3  # about 3.3 characters per token
-    limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
-
-    prompt = (
-        f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{diff_text[:limit]}"
-    )
-    return prompt, len(diff_text) > limit
+    prompt = f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{diff_text[:MAX_PROMPT_CHARS]}"
+    return prompt, len(diff_text) > MAX_PROMPT_CHARS
 
 
 def get_pr_first_comment_template(repository: str) -> str:
@@ -114,61 +111,69 @@ def get_completion(
     response_format: dict = None,
     model: str = OPENAI_MODEL,
 ) -> str | dict:
-    """Generates a completion using OpenAI's Responses API based on input messages."""
+    """Generates a completion using OpenAI's Responses API with retry logic."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
     url = "https://api.openai.com/v1/responses"
     headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
     if messages and messages[0].get("role") == "system":
         messages[0]["content"] += "\n\n" + SYSTEM_PROMPT_ADDITION
 
-    max_retries = 2
-    for attempt in range(max_retries + 2):
+    for attempt in range(3):
         data = {"model": model, "input": messages, "store": False, "temperature": temperature}
         if "gpt-5" in model:
             data["reasoning"] = {"effort": reasoning_effort or "low"}
-            # GPT-5 Responses API handles JSON via prompting, not format parameter
 
-        r = requests.post(url, json=data, headers=headers)
-        if r.status_code != 200:
-            print(f"❌ OpenAI error {r.status_code}:\n{r.text}\n")
-        r.raise_for_status()
-        response_data = r.json()
+        try:
+            r = requests.post(url, json=data, headers=headers, timeout=600)
+            success = r.status_code == 200
+            print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({r.elapsed.total_seconds():.1f}s)")
+            r.raise_for_status()
 
-        content = ""
-        for item in response_data.get("output", []):
-            if item.get("type") == "message":
-                for content_item in item.get("content", []):
-                    if content_item.get("type") == "output_text":
-                        content += content_item.get("text", "")
+            # Parse response
+            content = ""
+            for item in r.json().get("output", []):
+                if item.get("type") == "message":
+                    for c in item.get("content", []):
+                        if c.get("type") == "output_text":
+                            content += c.get("text") or ""
+            content = content.strip()
 
-        content = content.strip()
-        if response_format and response_format.get("type") == "json_object":
-            import json
+            if response_format and response_format.get("type") == "json_object":
+                import json
 
-            return json.loads(content)
+                return json.loads(content)
 
-        content = remove_outer_codeblocks(content)
-        for x in remove:
-            content = content.replace(x, "")
+            content = remove_outer_codeblocks(content)
+            for x in remove:
+                content = content.replace(x, "")
 
-        if not check_links or check_links_in_string(content):
+            # Retry on bad links
+            if attempt < 2 and check_links and not check_links_in_string(content):
+                print("Bad URLs detected, retrying")
+                continue
+
             return content
 
-        if attempt < max_retries:
-            print(f"Attempt {attempt + 1}: Found bad URLs. Retrying with a new random seed.")
-        else:
-            print("Max retries reached. Updating prompt to exclude links.")
-            messages.append({"role": "user", "content": "Please provide a response without any URLs or links in it."})
-            check_links = False
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+            if attempt < 2:
+                print(f"Connection error, retrying in {2**attempt}s")
+                time.sleep(2**attempt)
+                continue
+            raise
+        except requests.exceptions.HTTPError as e:
+            status_code = getattr(e.response, "status_code", 0) if e.response else 0
+            if attempt < 2 and status_code >= 500:
+                print(f"Server error {status_code}, retrying in {2**attempt}s")
+                time.sleep(2**attempt)
+                continue
+            raise
 
     return content
 
 
 def get_pr_open_response(repository: str, diff_text: str, title: str, body: str, available_labels: dict) -> dict:
     """Generates unified PR response with summary, labels, and first comment in a single API call."""
-    ratio = 3.3  # about 3.3 characters per token
-    limit = round(128000 * ratio * 0.5)  # use up to 50% of the 128k context window for prompt
-    is_large = len(diff_text) > limit
+    is_large = len(diff_text) > MAX_PROMPT_CHARS
 
     filtered_labels = filter_labels(available_labels, is_pr=True)
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
@@ -176,7 +181,7 @@ def get_pr_open_response(repository: str, diff_text: str, title: str, body: str,
     prompt = f"""You are processing a new GitHub pull request for the {repository} repository.
 
 Generate 3 outputs in a single JSON response for the PR titled {title} with the following diff:
-{diff_text[:limit]}
+{diff_text[:MAX_PROMPT_CHARS]}
 
 
 --- FIRST JSON OUTPUT (PR SUMMARY) ---

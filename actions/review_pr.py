@@ -5,9 +5,10 @@ from __future__ import annotations
 import json
 import re
 
-from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
+from .utils import GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
 
 REVIEW_MARKER = "🔍 PR Review"
+ERROR_MARKER = "⚠️ Review generation encountered an error"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
 SKIP_PATTERNS = [
     r"\.lock$",  # Lock files
@@ -29,28 +30,43 @@ SKIP_PATTERNS = [
 ]
 
 
-def parse_diff_files(diff_text: str) -> dict:
-    """Parse diff to extract file paths, valid line numbers, and line content for comments."""
-    files, current_file, current_line = {}, None, 0
+def parse_diff_files(diff_text: str) -> tuple[dict, str]:
+    """Parse diff and return file mapping with line numbers AND augmented diff with explicit line numbers."""
+    files, current_file, new_line, old_line = {}, None, 0, 0
+    augmented_lines = []
 
     for line in diff_text.split("\n"):
         if line.startswith("diff --git"):
             match = re.search(r" b/(.+)$", line)
             current_file = match.group(1) if match else None
-            current_line = 0
+            new_line, old_line = 0, 0
             if current_file:
-                files[current_file] = {}
+                files[current_file] = {"RIGHT": {}, "LEFT": {}}
+            augmented_lines.append(line)
         elif line.startswith("@@") and current_file:
-            match = re.search(r"@@.*\+(\d+)(?:,\d+)?", line)
-            current_line = int(match.group(1)) if match else 0
-        elif current_file and current_line > 0:
+            match = re.search(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)?", line)
+            if match:
+                old_line, new_line = int(match.group(1)), int(match.group(2))
+            augmented_lines.append(line)
+        elif current_file and (new_line > 0 or old_line > 0):
             if line.startswith("+") and not line.startswith("+++"):
-                files[current_file][current_line] = line[1:]
-                current_line += 1
-            elif not line.startswith("-"):
-                current_line += 1
+                files[current_file]["RIGHT"][new_line] = line[1:]
+                augmented_lines.append(f"R{new_line:>5} {line}")  # Prefix with RIGHT line number
+                new_line += 1
+            elif line.startswith("-") and not line.startswith("---"):
+                files[current_file]["LEFT"][old_line] = line[1:]
+                augmented_lines.append(f"L{old_line:>5} {line}")  # Prefix with LEFT line number
+                old_line += 1
+            elif not line.startswith("\\"):
+                augmented_lines.append(f"       {line}")  # Context line, no number
+                new_line += 1
+                old_line += 1
+            else:
+                augmented_lines.append(line)
+        else:
+            augmented_lines.append(line)
 
-    return files
+    return files, "\n".join(augmented_lines)
 
 
 def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_description: str) -> dict:
@@ -58,14 +74,14 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     if not diff_text:
         return {"comments": [], "summary": "No changes detected in diff"}
 
-    diff_files = parse_diff_files(diff_text)
+    diff_files, augmented_diff = parse_diff_files(diff_text)
     if not diff_files:
         return {"comments": [], "summary": "No files with changes detected in diff"}
 
     # Filter out generated/vendored files
     filtered_files = {
-        path: lines
-        for path, lines in diff_files.items()
+        path: sides
+        for path, sides in diff_files.items()
         if not any(re.search(pattern, path) for pattern in SKIP_PATTERNS)
     }
     skipped_count = len(diff_files) - len(filtered_files)
@@ -75,9 +91,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         return {"comments": [], "summary": f"All {skipped_count} changed files are generated/vendored (skipped review)"}
 
     file_list = list(diff_files.keys())
-    limit = round(128000 * 3.3 * 0.5)  # 3.3 characters per token for half a 256k context window
-    diff_truncated = len(diff_text) > limit
-    lines_changed = sum(len(lines) for lines in diff_files.values())
+    diff_truncated = len(augmented_diff) > MAX_PROMPT_CHARS
+    lines_changed = sum(len(sides["RIGHT"]) + len(sides["LEFT"]) for sides in diff_files.values())
 
     content = (
         "You are an expert code reviewer for Ultralytics. Provide detailed inline comments on specific code changes.\n\n"
@@ -101,10 +116,20 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- Suggestion content must match the exact indentation of the original line\n"
         "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n"
         "- It's better to flag an issue without a suggestion than provide a wrong or uncertain fix\n\n"
+        "LINE NUMBERS:\n"
+        "- Each line in the diff is prefixed with its line number for clarity:\n"
+        "  R  123 +added code     <- RIGHT side (new file), line 123\n"
+        "  L   45 -removed code   <- LEFT side (old file), line 45\n"
+        "         context line    <- context (no number needed)\n"
+        "- Extract the number after R or L prefix to get the exact line number\n"
+        "- Use 'side': 'RIGHT' for R-prefixed lines, 'side': 'LEFT' for L-prefixed lines\n"
+        "- Suggestions only work on RIGHT lines, never on LEFT lines\n"
+        "- CRITICAL: Only use line numbers that you see explicitly prefixed in the diff\n\n"
         "Return JSON: "
-        '{"comments": [{"file": "exact/path", "line": N, "severity": "HIGH", "message": "...", "suggestion": "..."}], "summary": "..."}\n\n'
+        '{"comments": [{"file": "exact/path", "line": N, "side": "RIGHT", "severity": "HIGH", "message": "..."}], "summary": "..."}\n\n'
         "Rules:\n"
-        "- Only NEW lines (+ in diff), exact paths (no ./), correct line numbers from @@ hunks\n"
+        "- Extract line numbers from R#### or L#### prefixes in the diff\n"
+        "- Exact paths (no ./), 'side' field must match R (RIGHT) or L (LEFT) prefix\n"
         "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
         f"- Files changed: {len(file_list)} ({', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''})\n"
         f"- Lines changed: {lines_changed}\n"
@@ -118,31 +143,47 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 f"Review this PR in https://github.com/{repository}:\n"
                 f"Title: {pr_title}\n"
                 f"Description: {remove_html_comments(pr_description or '')[:1000]}\n\n"
-                f"Diff:\n{diff_text[:limit]}\n\n"
+                f"Diff:\n{augmented_diff[:MAX_PROMPT_CHARS]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),
         },
     ]
 
+    # Debug: print prompts sent to AI
+    # print(f"\nSystem prompt (first 1000 chars):\n{messages[0]['content'][:2000]}...\n")
+    # print(f"\nUser prompt (first 1000 chars):\n{messages[1]['content'][:2000]}...\n")
+
     try:
-        response = get_completion(messages, reasoning_effort="medium", model="gpt-5-codex")
-        print("\n" + "=" * 80 + f"\nFULL AI RESPONSE:\n{response}\n" + "=" * 80 + "\n")
+        response = get_completion(messages, reasoning_effort="low", model="gpt-5-codex")
 
         json_str = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
         review_data = json.loads(json_str.group(1) if json_str else response)
+        print(json.dumps(review_data, indent=2))
 
-        print(f"AI generated {len(review_data.get('comments', []))} comments")
+        # Count comments BEFORE filtering (for COMMENT vs APPROVE decision)
+        comments_before_filtering = len(review_data.get("comments", []))
+        print(f"AI generated {comments_before_filtering} comments")
 
         # Validate, filter, and deduplicate comments
         unique_comments = {}
         for c in review_data.get("comments", []):
             file_path, line_num = c.get("file"), c.get("line", 0)
             start_line = c.get("start_line")
+            side = (c.get("side") or "RIGHT").upper()  # Default to RIGHT (added lines)
 
-            # Validate line numbers are in diff
-            if file_path not in diff_files or line_num not in diff_files[file_path]:
-                print(f"Filtered out {file_path}:{line_num} (available: {list(diff_files.get(file_path, {}))[:10]}...)")
+            # Validate line numbers are in diff (check appropriate side)
+            if file_path not in diff_files:
+                print(f"Filtered out {file_path}:{line_num} (file not in diff)")
                 continue
+            if line_num not in diff_files[file_path].get(side, {}):
+                available = {s: list(diff_files[file_path][s].keys())[:10] for s in ["RIGHT", "LEFT"]}
+                print(f"Filtered out {file_path}:{line_num} (side={side}, available: {available})")
+                continue
+
+            # GitHub rejects suggestions on removed lines
+            if side == "LEFT" and c.get("suggestion"):
+                print(f"Dropping suggestion for {file_path}:{line_num} - LEFT side doesn't support suggestions")
+                c.pop("suggestion", None)
 
             # Validate start_line if provided - drop start_line for suggestions (single-line only)
             if start_line:
@@ -152,20 +193,21 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 elif start_line >= line_num:
                     print(f"Invalid start_line {start_line} >= line {line_num} for {file_path}, dropping start_line")
                     c.pop("start_line", None)
-                elif start_line not in diff_files[file_path]:
+                elif start_line not in diff_files[file_path].get(side, {}):
                     print(f"start_line {start_line} not in diff for {file_path}, dropping start_line")
                     c.pop("start_line", None)
 
-            # Deduplicate by line number
-            key = f"{file_path}:{line_num}"
+            # Deduplicate by line number and side
+            key = f"{file_path}:{side}:{line_num}"
             if key not in unique_comments:
                 unique_comments[key] = c
             else:
-                print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {c.get('message')[:60]}...")
+                print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {(c.get('message') or '')[:60]}...")
 
         review_data.update(
             {
                 "comments": list(unique_comments.values()),
+                "comments_before_filtering": comments_before_filtering,
                 "diff_files": diff_files,
                 "diff_truncated": diff_truncated,
                 "skipped_files": skipped_count,
@@ -174,15 +216,16 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         print(f"Valid comments after filtering: {len(review_data['comments'])}")
         return review_data
 
-    except json.JSONDecodeError as e:
-        print(f"JSON parsing failed... {e}")
-        return {"comments": [], "summary": "Review generation encountered a JSON parsing error"}
     except Exception as e:
-        print(f"Review generation failed: {e}")
         import traceback
 
-        traceback.print_exc()
-        return {"comments": [], "summary": "Review generation encountered an error"}
+        error_details = traceback.format_exc()
+        print(f"Review generation failed: {e}\n{error_details}")
+        summary = (
+            f"{ERROR_MARKER}: `{type(e).__name__}`\n\n"
+            f"<details><summary>Debug Info</summary>\n\n```\n{error_details}\n```\n</details>"
+        )
+        return {"comments": [], "summary": summary}
 
 
 def dismiss_previous_reviews(event: Action) -> int:
@@ -219,7 +262,13 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     review_title = f"{REVIEW_MARKER} {review_number}" if review_number > 1 else REVIEW_MARKER
     comments = review_data.get("comments", [])
-    event_type = "COMMENT" if any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments) else "APPROVE"
+    summary = review_data.get("summary") or ""
+
+    # Don't approve if error occurred, inline comments exist, or critical/high severity issues
+    has_error = not summary or ERROR_MARKER in summary
+    has_inline_comments = review_data.get("comments_before_filtering", 0) > 0
+    has_issues = any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments)
+    event_type = "COMMENT" if (has_error or has_inline_comments or has_issues) else "APPROVE"
 
     body = (
         f"## {review_title}\n\n"
@@ -239,37 +288,36 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     # Build inline comments for the review
     review_comments = []
-    for comment in comments[:10]:  # Limit to 10 comments
+    for comment in comments[:10]:  # Limit inline comments
         if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
             continue
 
-        severity = comment.get("severity", "SUGGESTION")
-        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {comment.get('message', '')[:1000]}"
+        severity = comment.get("severity") or "SUGGESTION"
+        side = comment.get("side", "RIGHT")
+        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {(comment.get('message') or '')[:1000]}"
 
         if suggestion := comment.get("suggestion"):
             suggestion = suggestion[:1000]  # Clip suggestion length
             if "```" not in suggestion:
                 # Extract original line indentation and apply to suggestion
-                if original_line := review_data.get("diff_files", {}).get(file_path, {}).get(line):
+                if original_line := review_data.get("diff_files", {}).get(file_path, {}).get(side, {}).get(line):
                     indent = len(original_line) - len(original_line.lstrip())
                     suggestion = " " * indent + suggestion.strip()
                 comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
         # Build comment with optional start_line for multi-line context
-        review_comment = {"path": file_path, "line": line, "body": comment_body, "side": "RIGHT"}
+        review_comment = {"path": file_path, "line": line, "body": comment_body, "side": side}
         if start_line := comment.get("start_line"):
             if start_line < line:
                 review_comment["start_line"] = start_line
-                review_comment["start_side"] = "RIGHT"
-                print(f"Multi-line comment: {file_path}:{start_line}-{line}")
+                review_comment["start_side"] = side
 
         review_comments.append(review_comment)
 
     # Submit review with inline comments
-    payload = {"commit_id": commit_sha, "body": body, "event": event_type}
+    payload = {"commit_id": commit_sha, "body": body.strip(), "event": event_type}
     if review_comments:
         payload["comments"] = review_comments
-        print(f"Posting review with {len(review_comments)} inline comments")
 
     event.post(
         f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews",
@@ -299,7 +347,7 @@ def main(*args, **kwargs):
     review_number = dismiss_previous_reviews(event)
 
     diff = event.get_pr_diff()
-    review = generate_pr_review(event.repository, diff, event.pr.get("title", ""), event.pr.get("body", ""))
+    review = generate_pr_review(event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "")
 
     post_review_summary(event, review, review_number)
     print("PR review completed")

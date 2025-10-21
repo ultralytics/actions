@@ -52,7 +52,7 @@ def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
     number = item["number"]
     node_id = item.get("node_id") or item.get("id")
     title = item["title"]
-    body = remove_html_comments(item.get("body", ""))
+    body = remove_html_comments(item.get("body") or "")
     username = item["user"]["login"]
     return number, node_id, title, body, username, issue_type, action
 
@@ -183,7 +183,7 @@ def main(*args, **kwargs):
 
     number, node_id, title, body, username, issue_type, action = get_event_content(event)
     available_labels = event.get_repo_data("labels")
-    label_descriptions = {label["name"]: label.get("description", "") for label in available_labels}
+    label_descriptions = {label["name"]: label.get("description") or "" for label in available_labels}
 
     # Use unified PR open response for new PRs (summary + labels + first comment in 1 API call)
     if issue_type == "pull request" and action == "opened":
