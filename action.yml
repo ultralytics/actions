@@ -232,6 +232,12 @@ runs:
         GITHUB_USERNAME: ${{ inputs.github_username }}
         GITHUB_EMAIL: ${{ inputs.github_email }}
       run: |
+        # Check if last commit was by the bot to prevent recursive loops
+        LAST_AUTHOR=$(git log -1 --pretty=format:'%an')
+        if [ "$LAST_AUTHOR" = "$GITHUB_USERNAME" ]; then
+          echo "Last commit was by $GITHUB_USERNAME, skipping to prevent recursive loop"
+          exit 0
+        fi
         git config --global user.name "$GITHUB_USERNAME"
         git config --global user.email "$GITHUB_EMAIL"
         git add .
