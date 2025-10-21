@@ -28,6 +28,7 @@ def test_get_completion(mock_post):
     # Setup mock response with Responses API structure
     mock_response = MagicMock()
     mock_response.status_code = 200
+    mock_response.elapsed.total_seconds.return_value = 1.5
     mock_response.json.return_value = {
         "output": [
             {
@@ -57,6 +58,7 @@ def test_get_completion_with_link_check(mock_check_links, mock_post):
     # Setup mocks with Responses API structure
     mock_response = MagicMock()
     mock_response.status_code = 200
+    mock_response.elapsed.total_seconds.return_value = 2.0
     mock_response.json.return_value = {
         "output": [
             {
