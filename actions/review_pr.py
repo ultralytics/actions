@@ -8,6 +8,7 @@ import re
 from .utils import GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
 
 REVIEW_MARKER = "🔍 PR Review"
+ERROR_MARKER = "⚠️ Review generation encountered an error"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
 SKIP_PATTERNS = [
     r"\.lock$",  # Lock files
@@ -179,7 +180,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         error_details = traceback.format_exc()
         print(f"Review generation failed: {e}\n{error_details}")
         summary = (
-            f"⚠️ Review generation encountered an error: `{type(e).__name__}`\n\n"
+            f"{ERROR_MARKER}: `{type(e).__name__}`\n\n"
             f"<details><summary>Debug Info</summary>\n\n```\n{error_details}\n```\n</details>"
         )
         return {"comments": [], "summary": summary}
@@ -219,7 +220,12 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     review_title = f"{REVIEW_MARKER} {review_number}" if review_number > 1 else REVIEW_MARKER
     comments = review_data.get("comments", [])
-    event_type = "COMMENT" if any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments) else "APPROVE"
+    summary = review_data.get("summary", "")
+    
+    # Don't approve if error occurred or if there are critical/high severity issues
+    has_error = ERROR_MARKER in summary
+    has_issues = any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments)
+    event_type = "COMMENT" if (has_error or has_issues) else "APPROVE"
 
     body = (
         f"## {review_title}\n\n"
