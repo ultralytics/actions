@@ -161,20 +161,14 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 print(f"Filtered out {file_path}:{line_num} (file not in diff)")
                 continue
             if line_num not in diff_files[file_path].get(side, {}):
-                # Try other side if not found
-                other_side = "LEFT" if side == "RIGHT" else "RIGHT"
-                if line_num in diff_files[file_path].get(other_side, {}):
-                    print(f"Switching {file_path}:{line_num} from {side} to {other_side}")
-                    c["side"] = other_side
-                    side = other_side
-                    # GitHub rejects suggestions on removed lines
-                    if side == "LEFT" and c.get("suggestion"):
-                        print(f"Dropping suggestion for {file_path}:{line_num} - LEFT side doesn't support suggestions")
-                        c.pop("suggestion", None)
-                else:
-                    available = {s: list(diff_files[file_path][s].keys())[:10] for s in ["RIGHT", "LEFT"]}
-                    print(f"Filtered out {file_path}:{line_num} (available: {available})")
-                    continue
+                available = {s: list(diff_files[file_path][s].keys())[:10] for s in ["RIGHT", "LEFT"]}
+                print(f"Filtered out {file_path}:{line_num} (side={side}, available: {available})")
+                continue
+
+            # GitHub rejects suggestions on removed lines
+            if side == "LEFT" and c.get("suggestion"):
+                print(f"Dropping suggestion for {file_path}:{line_num} - LEFT side doesn't support suggestions")
+                c.pop("suggestion", None)
 
             # Validate start_line if provided - drop start_line for suggestions (single-line only)
             if start_line:
@@ -284,10 +278,8 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
             continue
 
         severity = comment.get("severity") or "SUGGESTION"
-        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {(comment.get('message') or '')[:1000]}"
-
-        # Get side (LEFT for removed lines, RIGHT for added lines)
         side = comment.get("side", "RIGHT")
+        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {(comment.get('message') or '')[:1000]}"
 
         if suggestion := comment.get("suggestion"):
             suggestion = suggestion[:1000]  # Clip suggestion length
@@ -304,7 +296,6 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
             if start_line < line:
                 review_comment["start_line"] = start_line
                 review_comment["start_side"] = side
-                print(f"Multi-line comment: {file_path}:{start_line}-{line} ({side})")
 
         review_comments.append(review_comment)
 
@@ -312,7 +303,6 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     payload = {"commit_id": commit_sha, "body": body.strip(), "event": event_type}
     if review_comments:
         payload["comments"] = review_comments
-        print(f"Posting review with {len(review_comments)} inline comments")
 
     event.post(
         f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews",
