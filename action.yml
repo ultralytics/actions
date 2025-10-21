@@ -84,7 +84,9 @@ runs:
   using: "composite"
   steps:
     - name: Checkout Actions Repo (for testing)
-      if: github.repository == 'ultralytics/actions'
+      if: |
+        github.repository == 'ultralytics/actions' && 
+        (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
       uses: actions/checkout@v4
       with:
         path: ultralytics-actions-repo
@@ -103,8 +105,8 @@ runs:
         # For debug
         # sudo env "PATH=$PATH" uv pip install --system --break-system-packages git+https://github.com/ultralytics/actions@main codespell tomli
         
-        # Install from local source if testing in ultralytics/actions repo, otherwise from PyPI
-        if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
+        # Install from local source if testing in ultralytics/actions repo (non-fork), otherwise from PyPI
+        if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ] && [ -d "./ultralytics-actions-repo" ]; then
           echo "Installing from local source for testing"
           packages="./ultralytics-actions-repo"
         else
