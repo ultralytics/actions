@@ -124,10 +124,9 @@ def get_completion(
             data["reasoning"] = {"effort": reasoning_effort or "low"}
 
         try:
-            start_time = time.time()
             r = requests.post(url, json=data, headers=headers, timeout=600)
-            elapsed = time.time() - start_time
-            print(f"{'✓' if r.status_code == 200 else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
+            success = r.status_code == 200
+            print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({r.elapsed.total_seconds():.1f}s)")
             r.raise_for_status()
 
             # Parse response
@@ -150,12 +149,12 @@ def get_completion(
 
             # Retry on bad links
             if attempt < 2 and check_links and not check_links_in_string(content):
-                print("Bad URLs detected, retrying")
+                print(f"Bad URLs detected, retrying")
                 continue
 
             return content
 
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
             if attempt < 2:
                 print(f"Connection error, retrying in {2**attempt}s")
                 time.sleep(2**attempt)
