@@ -41,7 +41,7 @@ def test_action_init():
 
 def test_action_request_methods():
     """Test Action HTTP request methods."""
-    with patch("requests.get") as mock_get:
+    with patch("requests.Session.get") as mock_get:
         mock_response = MagicMock()
         mock_response.status_code = 200
         mock_response.elapsed.total_seconds.return_value = 0.3
