@@ -9,9 +9,6 @@ import requests
 
 from actions.utils.common_utils import check_links_in_string
 
-# Create a session for connection pooling
-_session = requests.Session()
-
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-2025-08-07")
 MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% of 128k context)
@@ -133,7 +130,7 @@ def get_completion(
             data["reasoning"] = {"effort": reasoning_effort or "low"}
 
         try:
-            r = _session.post(url, json=data, headers=headers, timeout=(30, 600))
+            r = requests.post(url, json=data, headers=headers, timeout=(30, 600))
             elapsed = r.elapsed.total_seconds()
             success = r.status_code == 200
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")

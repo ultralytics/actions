@@ -22,7 +22,7 @@ def test_remove_outer_codeblocks():
     assert remove_outer_codeblocks(input_str) == input_str
 
 
-@patch("actions.utils.openai_utils._session.post")
+@patch("requests.post")
 def test_get_completion(mock_post):
     """Test OpenAI Responses API completion function with mocked response."""
     # Setup mock response with Responses API structure
@@ -51,7 +51,7 @@ def test_get_completion(mock_post):
     mock_post.assert_called_once()
 
 
-@patch("actions.utils.openai_utils._session.post")
+@patch("requests.post")
 @patch("actions.utils.openai_utils.check_links_in_string")
 def test_get_completion_with_link_check(mock_check_links, mock_post):
     """Test get_completion with link checking."""
