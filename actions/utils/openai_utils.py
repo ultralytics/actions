@@ -12,6 +12,12 @@ from actions.utils.common_utils import check_links_in_string
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-2025-08-07")
 MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% of 128k context)
+MODEL_COSTS = {
+    "gpt-5-codex": (1.25, 10.00),
+    "gpt-5-2025-08-07": (1.25, 10.00),
+    "gpt-5-nano-2025-08-07": (0.05, 0.40),
+    "gpt-5-mini-2025-08-07": (0.25, 2.00),
+}
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
   - Avoid Equations: Do not include equations or mathematical notations.
@@ -125,18 +131,36 @@ def get_completion(
 
         try:
             r = requests.post(url, json=data, headers=headers, timeout=600)
+            elapsed = r.elapsed.total_seconds()
             success = r.status_code == 200
-            print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({r.elapsed.total_seconds():.1f}s)")
+            print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
             r.raise_for_status()
 
             # Parse response
+            response_json = r.json()
             content = ""
-            for item in r.json().get("output", []):
+            for item in response_json.get("output", []):
                 if item.get("type") == "message":
                     for c in item.get("content", []):
                         if c.get("type") == "output_text":
                             content += c.get("text") or ""
             content = content.strip()
+
+            # Extract and print token usage
+            if usage := response_json.get("usage"):
+                input_tokens = usage.get("input_tokens", 0)
+                output_tokens = usage.get("output_tokens", 0)
+                thinking_tokens = usage.get("output_tokens_details", {}).get("reasoning_tokens", 0) or 0
+
+                # Calculate cost
+                costs = MODEL_COSTS.get(model, (0.0, 0.0))
+                cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
+
+                # Format summary
+                token_str = f"{input_tokens}→{output_tokens - thinking_tokens}"
+                if thinking_tokens > 0:
+                    token_str += f" (+{thinking_tokens} thinking)"
+                print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)")
 
             if response_format and response_format.get("type") == "json_object":
                 import json
