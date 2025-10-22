@@ -303,9 +303,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
                     non_empty = [l for l in lines if l.strip()]
                     min_indent = min((len(l) - len(l.lstrip()) for l in non_empty), default=0) if non_empty else 0
                     # Dedent and reindent, preserving empty lines
-                    suggestion = "\n".join(
-                        "" if not l.strip() else " " * base_indent + l[min_indent:] for l in lines
-                    )
+                    suggestion = "\n".join("" if not l.strip() else " " * base_indent + l[min_indent:] for l in lines)
                 comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
         # Build comment with optional start_line for multi-line context
