@@ -95,8 +95,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     lines_changed = sum(len(sides["RIGHT"]) + len(sides["LEFT"]) for sides in diff_files.values())
 
     content = (
-        "You are an expert code reviewer for Ultralytics. Provide detailed inline comments on specific code changes.\n\n"
-        "Focus on: Bugs, security, performance, best practices, edge cases, error handling, code clarity\n\n"
+        "You are an expert code reviewer for Ultralytics. Review the code changes and provide inline comments where you identify issues or opportunities for improvement.\n\n"
+        "Focus on: bugs, security vulnerabilities, performance issues, best practices, edge cases, error handling, and code clarity.\n\n"
         "CRITICAL RULES:\n"
         "1. Provide balanced, constructive feedback - flag bugs, improvements, and best practice issues\n"
         "2. For issues spanning multiple adjacent lines, use 'start_line' to create ONE multi-line comment, never separate comments\n"
