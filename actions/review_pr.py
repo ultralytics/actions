@@ -301,6 +301,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
                 if original_line := review_data.get("diff_files", {}).get(file_path, {}).get(side, {}).get(line):
                     indent = len(original_line) - len(original_line.lstrip())
                     suggestion = " " * indent + suggestion.strip()
+                comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
         # Build comment with optional start_line for multi-line context
         review_comment = {"path": file_path, "line": line, "body": comment_body, "side": side}
