@@ -126,8 +126,11 @@ class Action:
 
     def __del__(self):
         """Cleanup session on garbage collection."""
-        if hasattr(self, "session"):
-            self.session.close()
+        try:
+            if hasattr(self, "session"):
+                self.session.close()
+        except Exception:
+            pass
 
     def _request(self, method: str, url: str, headers=None, expected_status=None, hard=False, **kwargs):
         """Unified request handler with error checking."""
