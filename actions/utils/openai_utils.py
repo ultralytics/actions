@@ -158,7 +158,7 @@ def get_completion(
 
                 # Format summary
                 token_str = f"{input_tokens}→{output_tokens - thinking_tokens}"
-                if thinking_tokens > 0:
+                if thinking_tokens:
                     token_str += f" (+{thinking_tokens} thinking)"
                 print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)")
 
