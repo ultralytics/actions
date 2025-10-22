@@ -96,9 +96,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
     content = (
         "You are an expert code reviewer for Ultralytics. Provide detailed inline comments on specific code changes.\n\n"
-        "Focus on: Bugs, security, performance, best practices, edge cases, error handling\n\n"
+        "Focus on: Bugs, security, performance, best practices, edge cases, error handling, code clarity\n\n"
         "CRITICAL RULES:\n"
-        "1. Quality over quantity - zero comments is fine for clean code, only flag truly important issues\n"
+        "1. Provide balanced, constructive feedback - flag bugs, improvements, and best practice issues\n"
         "2. Combine issues that are directly related to the same problem\n"
         "3. Use 'start_line' and 'line' to highlight multi-line ranges when issues span multiple lines\n"
         "4. Prioritize: CRITICAL bugs/security > HIGH impact > code quality improvements\n"
