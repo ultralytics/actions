@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 
-from .utils import GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
+from .utils import ACTIONS_CREDIT, GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
 
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
@@ -272,7 +272,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     body = (
         f"{review_title}\n\n"
-        "<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>\n\n"
+        f"{ACTIONS_CREDIT}\n\n"
         f"{review_data.get('summary', 'Review completed')[:1000]}\n\n"  # Clip summary length
     )
 

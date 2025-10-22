@@ -23,6 +23,7 @@ REQUESTS_HEADERS = {
     "Sec-Fetch-User": "?1",
     "Sec-Fetch-Dest": "document",
 }
+ACTIONS_CREDIT = "<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>"
 BAD_HTTP_CODES = frozenset(
     {
         204,  # No content
