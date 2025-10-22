@@ -95,8 +95,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     lines_changed = sum(len(sides["RIGHT"]) + len(sides["LEFT"]) for sides in diff_files.values())
 
     content = (
-        "You are an expert code reviewer for Ultralytics. Provide detailed inline comments on specific code changes.\n\n"
-        "Focus on: Bugs, security, performance, best practices, edge cases, error handling, code clarity\n\n"
+        "You are an expert code reviewer for Ultralytics. Review the code changes and provide inline comments where you identify issues or opportunities for improvement.\n\n"
+        "Focus on: bugs, security vulnerabilities, performance issues, best practices, edge cases, error handling, and code clarity.\n\n"
         "CRITICAL RULES:\n"
         "1. Provide balanced, constructive feedback - flag bugs, improvements, and best practice issues\n"
         "2. For issues spanning multiple adjacent lines, use 'start_line' to create ONE multi-line comment, never separate comments\n"
@@ -108,14 +108,12 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "SUMMARY:\n"
         "- Brief and actionable - what needs fixing, not where (locations shown in inline comments)\n\n"
         "SUGGESTIONS:\n"
-        "- ONLY provide 'suggestion' field when you have high certainty the code is problematic AND sufficient context for a confident fix\n"
-        "- If uncertain about the correct fix, omit 'suggestion' field and explain the concern in 'message' only\n"
-        "- Suggestions must be ready-to-merge code with NO comments, placeholders, or explanations\n"
-        "- Suggestions replace ONLY the single line at 'line' - for multi-line fixes, describe the change in 'message' instead\n"
-        "- Do NOT provide 'start_line' when including a 'suggestion' - suggestions are always single-line only\n"
-        "- Suggestion content must match the exact indentation of the original line\n"
-        "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n"
-        "- It's better to flag an issue without a suggestion than provide a wrong or uncertain fix\n\n"
+        "- Provide 'suggestion' field with ready-to-merge code when you can confidently fix the issue\n"
+        "- Suggestions must be complete, working code with NO comments, placeholders, or explanations\n"
+        "- For single-line fixes: provide 'suggestion' without 'start_line' to replace the line at 'line'\n"
+        "- Do not provide multi-line fixes: suggestions should only be single line\n"
+        "- Match the exact indentation of the original code\n"
+        "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n\n"
         "LINE NUMBERS:\n"
         "- Each line in the diff is prefixed with its line number for clarity:\n"
         "  R  123 +added code     <- RIGHT side (new file), line 123\n"
@@ -149,9 +147,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         },
     ]
 
-    # Debug: print prompts sent to AI
-    print(f"\nSystem prompt (first 2000 chars):\n{messages[0]['content'][:2000]}...\n")
-    print(f"\nUser prompt (first 2000 chars):\n{messages[1]['content'][:2000]}...\n")
+    # Debug output
+    # print(f"\nSystem prompt (first 2000 chars):\n{messages[0]['content'][:2000]}...\n")
+    # print(f"\nUser prompt (first 2000 chars):\n{messages[1]['content'][:2000]}...\n")
 
     try:
         response = get_completion(messages, reasoning_effort="low", model="gpt-5-codex")
