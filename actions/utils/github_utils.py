@@ -136,7 +136,7 @@ class Action:
                 try:
                     error_data = r.json()
                     print(f"  ❌ Error: {error_data.get('message', 'Unknown error')}")
-                    if errors := error_data.get('errors'):
+                    if errors := error_data.get("errors"):
                         print(f"  Details: {errors}")
                 except Exception:
                     print(f"  ❌ Error: {r.text[:1000]}")
