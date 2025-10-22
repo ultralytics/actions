@@ -296,10 +296,18 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
         if suggestion := comment.get("suggestion"):
             suggestion = suggestion[:1000]  # Clip suggestion length
             if "```" not in suggestion:
-                # Extract original line(s) indentation and apply to suggestion
-                if original_line := review_data.get("diff_files", {}).get(file_path, {}).get(side, {}).get(line):
-                    indent = len(original_line) - len(original_line.lstrip())
-                    suggestion = "\n".join(" " * indent + s.strip() for s in suggestion.split("\n"))
+                # Get indentation from start_line for multi-line, or line for single-line
+                check_line = comment.get("start_line") or line
+                if original_line := review_data.get("diff_files", {}).get(file_path, {}).get(side, {}).get(check_line):
+                    base_indent = len(original_line) - len(original_line.lstrip())
+                    lines = suggestion.split("\n")
+                    # Find minimum indentation in suggestion (excluding empty lines)
+                    non_empty = [l for l in lines if l.strip()]
+                    min_indent = min((len(l) - len(l.lstrip()) for l in non_empty), default=0) if non_empty else 0
+                    # Dedent and reindent, preserving empty lines
+                    suggestion = "\n".join(
+                        "" if not l.strip() else " " * base_indent + l[min_indent:] for l in lines
+                    )
                 comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
         # Build comment with optional start_line for multi-line context
