@@ -7,7 +7,7 @@ import re
 
 from .utils import GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
 
-REVIEW_MARKER = "🔍 PR Review"
+REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
 SKIP_PATTERNS = [
@@ -271,7 +271,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     event_type = "COMMENT" if (has_error or has_inline_comments or has_issues) else "APPROVE"
 
     body = (
-        f"## {review_title}\n\n"
+        f"{review_title}\n\n"
         "<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>\n\n"
         f"{review_data.get('summary', 'Review completed')[:1000]}\n\n"  # Clip summary length
     )
