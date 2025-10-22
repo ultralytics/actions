@@ -111,9 +111,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- ONLY provide 'suggestion' field when you have high certainty the code is problematic AND sufficient context for a confident fix\n"
         "- If uncertain about the correct fix, omit 'suggestion' field and explain the concern in 'message' only\n"
         "- Suggestions must be ready-to-merge code with NO comments, placeholders, or explanations\n"
-        "- Suggestions replace ONLY the single line at 'line' - for multi-line fixes, describe the change in 'message' instead\n"
-        "- Do NOT provide 'start_line' when including a 'suggestion' - suggestions are always single-line only\n"
-        "- Suggestion content must match the exact indentation of the original line\n"
+        "- For single-line fixes: provide 'suggestion' without 'start_line' to replace the line at 'line'\n"
+        "- For multi-line fixes: provide both 'start_line' and 'suggestion' to replace the entire range\n"
+        "- Suggestion content must match the exact indentation of the original line(s)\n"
         "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n"
         "- It's better to flag an issue without a suggestion than provide a wrong or uncertain fix\n\n"
         "LINE NUMBERS:\n"
@@ -185,12 +185,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 print(f"Dropping suggestion for {file_path}:{line_num} - LEFT side doesn't support suggestions")
                 c.pop("suggestion", None)
 
-            # Validate start_line if provided - drop start_line for suggestions (single-line only)
+            # Validate start_line if provided
             if start_line:
-                if c.get("suggestion"):
-                    print(f"Dropping start_line for {file_path}:{line_num} - suggestions must be single-line only")
-                    c.pop("start_line", None)
-                elif start_line >= line_num:
+                if start_line >= line_num:
                     print(f"Invalid start_line {start_line} >= line {line_num} for {file_path}, dropping start_line")
                     c.pop("start_line", None)
                 elif start_line not in diff_files[file_path].get(side, {}):
@@ -299,10 +296,10 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
         if suggestion := comment.get("suggestion"):
             suggestion = suggestion[:1000]  # Clip suggestion length
             if "```" not in suggestion:
-                # Extract original line indentation and apply to suggestion
+                # Extract original line(s) indentation and apply to suggestion
                 if original_line := review_data.get("diff_files", {}).get(file_path, {}).get(side, {}).get(line):
                     indent = len(original_line) - len(original_line.lstrip())
-                    suggestion = " " * indent + suggestion.strip()
+                    suggestion = "\n".join(" " * indent + s.strip() for s in suggestion.split("\n"))
                 comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
         # Build comment with optional start_line for multi-line context
