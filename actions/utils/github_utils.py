@@ -109,7 +109,7 @@ class Action:
         self.pr = self.event_data.get("pull_request", {})
         self.repository = self.event_data.get("repository", {}).get("full_name")
         self.headers = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json"}
-        self.headers_diff = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github.v3.diff"}
+        self.headers_diff = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github.v3.patch"}
         self.verbose = verbose
         self.eyes_reaction_id = None
         self._pr_diff_cache = None
