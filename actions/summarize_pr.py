@@ -5,7 +5,7 @@ from __future__ import annotations
 from .utils import GITHUB_API_URL, Action, get_completion, get_pr_summary_prompt
 
 SUMMARY_START = (
-    "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
+    "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>\n\n"
 )
 
 

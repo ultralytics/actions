@@ -9,7 +9,7 @@ from . import review_pr
 from .utils import Action, filter_labels, get_completion, get_pr_open_response, remove_html_comments
 
 SUMMARY_START = (
-    "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
+    "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>\n\n"
 )
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 AUTO_PR_REVIEW = os.getenv("REVIEW", "true").lower() == "true"

@@ -272,7 +272,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     body = (
         f"## {review_title}\n\n"
-        "<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)</sub>\n\n"
+        "<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>\n\n"
         f"{review_data.get('summary', 'Review completed')[:1000]}\n\n"  # Clip summary length
     )
 

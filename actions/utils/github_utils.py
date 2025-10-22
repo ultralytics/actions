@@ -376,7 +376,7 @@ class Action:
     def handle_alert(self, number: int, node_id: str, issue_type: str, username: str, block: bool = False):
         """Handles content flagged as alert: updates content, locks, optionally closes and blocks user."""
         new_title = "Content Under Review"
-        new_body = """This post has been flagged for review by [Ultralytics Actions](https://ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
+        new_body = """This post has been flagged for review by [Ultralytics Actions](https://www.ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
 
 - [Code of Conduct](https://docs.ultralytics.com/help/code-of-conduct/)
 - [Security Policy](https://docs.ultralytics.com/help/security/)
