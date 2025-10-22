@@ -99,8 +99,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "Focus on: Bugs, security, performance, best practices, edge cases, error handling, code clarity\n\n"
         "CRITICAL RULES:\n"
         "1. Provide balanced, constructive feedback - flag bugs, improvements, and best practice issues\n"
-        "2. Combine issues that are directly related to the same problem\n"
-        "3. Use 'start_line' and 'line' to highlight multi-line ranges when issues span multiple lines\n"
+        "2. For issues spanning multiple adjacent lines, use 'start_line' to create ONE multi-line comment, never separate comments\n"
+        "3. Combine related issues into a single comment when they stem from the same root cause\n"
         "4. Prioritize: CRITICAL bugs/security > HIGH impact > code quality improvements\n"
         "5. Keep comments concise and friendly - avoid jargon\n"
         "6. Use backticks for code: `x=3`, `file.py`, `function()`\n"
@@ -140,10 +140,10 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         {
             "role": "user",
             "content": (
-                f"Review this PR in https://github.com/{repository}:\n"
-                f"Title: {pr_title}\n"
-                f"Description: {remove_html_comments(pr_description or '')[:1000]}\n\n"
-                f"Diff:\n{augmented_diff[:MAX_PROMPT_CHARS]}\n\n"
+                f"Review this PR in https://github.com/{repository}:\n\n"
+                f"TITLE:\n{pr_title}\n\n"
+                f"BODY:\n{remove_html_comments(pr_description or '')[:1000]}\n\n"
+                f"DIFF:\n{augmented_diff[:MAX_PROMPT_CHARS]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),
         },
