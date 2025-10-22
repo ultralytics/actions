@@ -150,7 +150,7 @@ def get_completion(
             if usage := response_json.get("usage"):
                 input_tokens = usage.get("input_tokens", 0)
                 output_tokens = usage.get("output_tokens", 0)
-                thinking_tokens = usage.get("output_tokens_details", {}).get("reasoning_tokens", 0) or 0
+                thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
 
                 # Calculate cost
                 costs = MODEL_COSTS.get(model, (0.0, 0.0))
