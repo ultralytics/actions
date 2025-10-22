@@ -111,7 +111,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- Provide 'suggestion' field with ready-to-merge code when you can confidently fix the issue\n"
         "- Suggestions must be complete, working code with NO comments, placeholders, or explanations\n"
         "- For single-line fixes: provide 'suggestion' without 'start_line' to replace the line at 'line'\n"
-        "- For multi-line fixes: provide both 'start_line' and 'suggestion' to replace the entire range\n"
+        "- Do not provide multi-line fixes: suggestions should only be single line\n"
         "- Match the exact indentation of the original code\n"
         "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n\n"
         "LINE NUMBERS:\n"
