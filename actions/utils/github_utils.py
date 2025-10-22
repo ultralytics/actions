@@ -110,6 +110,7 @@ class Action:
         self.repository = self.event_data.get("repository", {}).get("full_name")
         self.headers = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json"}
         self.headers_diff = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github.v3.diff"}
+        self.session = requests.Session()
         self.verbose = verbose
         self.eyes_reaction_id = None
         self._pr_diff_cache = None
@@ -125,7 +126,7 @@ class Action:
 
     def _request(self, method: str, url: str, headers=None, expected_status=None, hard=False, **kwargs):
         """Unified request handler with error checking."""
-        r = getattr(requests, method)(url, headers=headers or self.headers, **kwargs)
+        r = getattr(self.session, method)(url, headers=headers or self.headers, **kwargs)
         expected = expected_status or self._default_status[method]
         success = r.status_code in expected
 
