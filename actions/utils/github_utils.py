@@ -134,9 +134,12 @@ class Action:
             print(f"{'✓' if success else '✗'} {method.upper()} {url} → {r.status_code} ({elapsed:.1f}s)", flush=True)
             if not success:
                 try:
-                    print(f"  ❌ Error: {r.json().get('message', 'Unknown error')}")
+                    error_data = r.json()
+                    print(f"  ❌ Error: {error_data.get('message', 'Unknown error')}")
+                    if errors := error_data.get("errors"):
+                        print(f"  Details: {errors}")
                 except Exception:
-                    print(f"  ❌ Error: {r.text[:200]}")
+                    print(f"  ❌ Error: {r.text[:1000]}")
 
         if not success and hard:
             r.raise_for_status()
@@ -373,7 +376,7 @@ class Action:
     def handle_alert(self, number: int, node_id: str, issue_type: str, username: str, block: bool = False):
         """Handles content flagged as alert: updates content, locks, optionally closes and blocks user."""
         new_title = "Content Under Review"
-        new_body = """This post has been flagged for review by [Ultralytics Actions](https://ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
+        new_body = """This post has been flagged for review by [Ultralytics Actions](https://www.ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
 
 - [Code of Conduct](https://docs.ultralytics.com/help/code-of-conduct/)
 - [Security Policy](https://docs.ultralytics.com/help/security/)

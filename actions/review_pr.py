@@ -5,9 +5,9 @@ from __future__ import annotations
 import json
 import re
 
-from .utils import GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
+from .utils import ACTIONS_CREDIT, GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
 
-REVIEW_MARKER = "🔍 PR Review"
+REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
 SKIP_PATTERNS = [
@@ -96,15 +96,15 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
 
     content = (
         "You are an expert code reviewer for Ultralytics. Provide detailed inline comments on specific code changes.\n\n"
-        "Focus on: Bugs, security, performance, best practices, edge cases, error handling\n\n"
-        "FORMATTING: Use backticks for code: `x=3`, `file.py`, `function()`\n\n"
+        "Focus on: Bugs, security, performance, best practices, edge cases, error handling, code clarity\n\n"
         "CRITICAL RULES:\n"
-        "1. Quality over quantity - zero comments is fine for clean code, only flag truly important issues\n"
-        "2. Combine issues that are directly related to the same problem\n"
-        "3. Use 'start_line' and 'line' to highlight multi-line ranges when issues span multiple lines\n"
+        "1. Provide balanced, constructive feedback - flag bugs, improvements, and best practice issues\n"
+        "2. For issues spanning multiple adjacent lines, use 'start_line' to create ONE multi-line comment, never separate comments\n"
+        "3. Combine related issues into a single comment when they stem from the same root cause\n"
         "4. Prioritize: CRITICAL bugs/security > HIGH impact > code quality improvements\n"
         "5. Keep comments concise and friendly - avoid jargon\n"
-        "6. Skip routine changes: imports, version updates, standard refactoring\n\n"
+        "6. Use backticks for code: `x=3`, `file.py`, `function()`\n"
+        "7. Skip routine changes: imports, version updates, standard refactoring\n\n"
         "SUMMARY:\n"
         "- Brief and actionable - what needs fixing, not where (locations shown in inline comments)\n\n"
         "SUGGESTIONS:\n"
@@ -131,7 +131,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- Extract line numbers from R#### or L#### prefixes in the diff\n"
         "- Exact paths (no ./), 'side' field must match R (RIGHT) or L (LEFT) prefix\n"
         "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
-        f"- Files changed: {len(file_list)} ({', '.join(file_list[:10])}{'...' if len(file_list) > 10 else ''})\n"
+        f"- Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''})\n"
         f"- Lines changed: {lines_changed}\n"
     )
 
@@ -140,18 +140,18 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         {
             "role": "user",
             "content": (
-                f"Review this PR in https://github.com/{repository}:\n"
-                f"Title: {pr_title}\n"
-                f"Description: {remove_html_comments(pr_description or '')[:1000]}\n\n"
-                f"Diff:\n{augmented_diff[:MAX_PROMPT_CHARS]}\n\n"
+                f"Review this PR in https://github.com/{repository}:\n\n"
+                f"TITLE:\n{pr_title}\n\n"
+                f"BODY:\n{remove_html_comments(pr_description or '')[:1000]}\n\n"
+                f"DIFF:\n{augmented_diff[:MAX_PROMPT_CHARS]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),
         },
     ]
 
     # Debug: print prompts sent to AI
-    # print(f"\nSystem prompt (first 1000 chars):\n{messages[0]['content'][:2000]}...\n")
-    # print(f"\nUser prompt (first 1000 chars):\n{messages[1]['content'][:2000]}...\n")
+    print(f"\nSystem prompt (first 2000 chars):\n{messages[0]['content'][:2000]}...\n")
+    print(f"\nUser prompt (first 2000 chars):\n{messages[1]['content'][:2000]}...\n")
 
     try:
         response = get_completion(messages, reasoning_effort="low", model="gpt-5-codex")
@@ -271,8 +271,8 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     event_type = "COMMENT" if (has_error or has_inline_comments or has_issues) else "APPROVE"
 
     body = (
-        f"## {review_title}\n\n"
-        "<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)</sub>\n\n"
+        f"{review_title}\n\n"
+        f"{ACTIONS_CREDIT}\n\n"
         f"{review_data.get('summary', 'Review completed')[:1000]}\n\n"  # Clip summary length
     )
 

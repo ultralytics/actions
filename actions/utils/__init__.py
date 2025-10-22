@@ -1,6 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 from .common_utils import (
+    ACTIONS_CREDIT,
     REDIRECT_END_IGNORE_LIST,
     REDIRECT_START_IGNORE_LIST,
     REQUESTS_HEADERS,
@@ -20,6 +21,7 @@ from .openai_utils import (
 from .version_utils import check_pubdev_version, check_pypi_version
 
 __all__ = (
+    "ACTIONS_CREDIT",
     "GITHUB_API_URL",
     "GITHUB_GRAPHQL_URL",
     "MAX_PROMPT_CHARS",
