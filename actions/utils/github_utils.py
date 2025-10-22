@@ -134,9 +134,12 @@ class Action:
             print(f"{'✓' if success else '✗'} {method.upper()} {url} → {r.status_code} ({elapsed:.1f}s)", flush=True)
             if not success:
                 try:
-                    print(f"  ❌ Error: {r.json().get('message', 'Unknown error')}")
+                    error_data = r.json()
+                    print(f"  ❌ Error: {error_data.get('message', 'Unknown error')}")
+                    if errors := error_data.get('errors'):
+                        print(f"  Details: {errors}")
                 except Exception:
-                    print(f"  ❌ Error: {r.text[:200]}")
+                    print(f"  ❌ Error: {r.text[:1000]}")
 
         if not success and hard:
             r.raise_for_status()
