@@ -130,7 +130,7 @@ def get_completion(
             data["reasoning"] = {"effort": reasoning_effort or "low"}
 
         try:
-            r = requests.post(url, json=data, headers=headers, timeout=600)
+            r = requests.post(url, json=data, headers=headers, timeout=(30, 900))
             elapsed = r.elapsed.total_seconds()
             success = r.status_code == 200
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
