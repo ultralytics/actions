@@ -13,11 +13,7 @@ WORKFLOW_FILES = ["ci.yml", "docker.yml"]
 
 
 def get_pr_branch(event) -> tuple[str, str | None]:
-    """
-    Gets the PR branch name, creating temp branch for forks.
-
-    Returns (branch, temp_branch_to_delete).
-    """
+    """Gets the PR branch name, creating temp branch for forks, returning (branch, temp_branch_to_delete)."""
     pr_number = event.event_data["issue"]["number"]
     pr_data = event.get_repo_data(f"pulls/{pr_number}")
     head = pr_data.get("head", {})
@@ -38,11 +34,7 @@ def get_pr_branch(event) -> tuple[str, str | None]:
 
 
 def trigger_and_get_workflow_info(event, branch: str, temp_branch: str | None = None) -> list[dict]:
-    """
-    Triggers workflows and returns their information.
-
-    Deletes temp_branch if provided.
-    """
+    """Triggers workflows and returns their information, deleting temp branch if provided."""
     repo = event.repository
     results = []
 
