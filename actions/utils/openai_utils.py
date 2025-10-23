@@ -40,7 +40,7 @@ def remove_outer_codeblocks(string):
     return string
 
 
-def filter_labels(available_labels: dict, current_labels: list = None, is_pr: bool = False) -> dict:
+def filter_labels(available_labels: dict, current_labels: list | None = None, is_pr: bool = False) -> dict:
     """Filters labels by removing manually-assigned and mutually exclusive labels."""
     current_labels = current_labels or []
     filtered = available_labels.copy()
@@ -113,8 +113,8 @@ def get_completion(
     check_links: bool = True,
     remove: list[str] = (" @giscus[bot]",),
     temperature: float = 1.0,
-    reasoning_effort: str = None,
-    response_format: dict = None,
+    reasoning_effort: str | None = None,
+    response_format: dict | None = None,
     model: str = OPENAI_MODEL,
 ) -> str | dict:
     """Generates a completion using OpenAI's Responses API with retry logic."""

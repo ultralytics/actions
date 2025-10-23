@@ -101,7 +101,13 @@ mutation($labelableId: ID!, $labelIds: [ID!]!) {
 class Action:
     """Handles GitHub Actions API interactions and event processing."""
 
-    def __init__(self, token: str = None, event_name: str = None, event_data: dict = None, verbose: bool = True):
+    def __init__(
+        self,
+        token: str | None = None,
+        event_name: str | None = None,
+        event_data: dict | None = None,
+        verbose: bool = True,
+    ):
         """Initializes a GitHub Actions API handler with token and event data for processing events."""
         self.token = token or os.getenv("GITHUB_TOKEN")
         self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
@@ -260,7 +266,7 @@ class Action:
             self.delete(f"{url}/{self.eyes_reaction_id}")
             self.eyes_reaction_id = None
 
-    def graphql_request(self, query: str, variables: dict = None) -> dict:
+    def graphql_request(self, query: str, variables: dict | None = None) -> dict:
         """Executes a GraphQL query against the GitHub API."""
         result = self.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables}).json()
         if "data" not in result or result.get("errors"):
@@ -334,7 +340,9 @@ class Action:
         else:
             self.post(f"{GITHUB_API_URL}/repos/{self.repository}/issues/{number}/comments", json={"body": comment})
 
-    def update_content(self, number: int, node_id: str, issue_type: str, title: str = None, body: str = None):
+    def update_content(
+        self, number: int, node_id: str, issue_type: str, title: str | None = None, body: str | None = None
+    ):
         """Updates the title and/or body of an issue, pull request, or discussion."""
         if issue_type == "discussion":
             variables = {"discussionId": node_id}
