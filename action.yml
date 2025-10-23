@@ -176,17 +176,7 @@ runs:
     - name: Run Prettier
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
-        # Build validated plugin list
-        plugins=("prettier@3.6.2" "prettier-plugin-sh")
-        if [ -f ".prettierrc" ]; then
-          for plugin in $(grep -oE '"(@[^/]+/)?prettier-plugin-[^"]*"' .prettierrc | tr -d '"' || true); do
-            # Validate plugin name contains only safe characters
-            if [[ "$plugin" =~ ^[@a-zA-Z0-9/_-]+$ ]]; then
-              plugins+=("$plugin")
-            fi
-          done
-        fi
-        npm install --global "${plugins[@]}"
+        npm install --global prettier@3.6.2 prettier-plugin-sh
         ultralytics-actions-update-markdown-code-blocks
         npx prettier --write --list-different "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json'
         # Bash file format
