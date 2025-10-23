@@ -104,7 +104,7 @@ norecursedirs = [".git", "dist", "build"]
 
 [tool.ruff]
 line-length = 120
-target-version = "py39"
+target-version = "py38"
 
 [tool.ruff.lint]
 # Match action.yml --extend-select and --ignore
