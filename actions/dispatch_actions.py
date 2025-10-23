@@ -36,7 +36,7 @@ def get_pr_branch(event) -> tuple[str, str | None]:
             raise ValueError("GITHUB_TOKEN environment variable is not set")
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            repo_dir = f"{tmp_dir}/repo"
+            repo_dir = os.path.join(tmp_dir, "repo")
             base_url = f"https://x-access-token:{token}@github.com/{base_repo}.git"
             fork_url = f"https://github.com/{fork_repo}.git"
 
@@ -57,13 +57,11 @@ def get_pr_branch(event) -> tuple[str, str | None]:
 
                 # Push temp branch to base repo
                 subprocess.run(["git", "push", "origin", temp_branch], cwd=repo_dir, check=True, capture_output=True)
-            except subprocess.CalledProcessError as exc:
+            except subprocess.CalledProcessError as e:
                 # Sanitize error output to prevent token leakage
-                stderr = exc.stderr.decode() if exc.stderr else "No stderr output"
+                stderr = e.stderr.decode() if e.stderr else "No stderr output"
                 stderr = stderr.replace(token, "***TOKEN***")
-                raise RuntimeError(
-                    f"Failed to create temp branch for fork PR (exit code {exc.returncode}): {stderr}"
-                ) from exc
+                raise RuntimeError(f"Failed to create tmp branch from fork (exit code {e.returncode}): {stderr}") from e
 
         return temp_branch, temp_branch
 
