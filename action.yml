@@ -177,6 +177,10 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         npm install --global prettier@3.6.2 prettier-plugin-sh
+        # Install Tailwind plugin if config exists
+        if find . -maxdepth 2 -name "tailwind.config.*" -type f | grep -q .; then
+          npm install --global prettier-plugin-tailwindcss
+        fi
         ultralytics-actions-update-markdown-code-blocks
         npx prettier --write --list-different "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json'
         # Bash file format
