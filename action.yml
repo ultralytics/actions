@@ -179,7 +179,7 @@ runs:
         # Build validated plugin list
         plugins=("prettier@3.6.2" "prettier-plugin-sh")
         if [ -f ".prettierrc" ]; then
-          for plugin in $(grep -o '"prettier-plugin-[^"]*"' .prettierrc | tr -d '"' || true); do
+          for plugin in $(grep -oE '"(@[^/]+/)?prettier-plugin-[^"]*"' .prettierrc | tr -d '"' || true); do
             # Validate plugin name contains only safe characters
             if [[ "$plugin" =~ ^[@a-zA-Z0-9/_-]+$ ]]; then
               plugins+=("$plugin")
