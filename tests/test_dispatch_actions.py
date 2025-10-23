@@ -78,9 +78,8 @@ def test_trigger_and_get_workflow_info():
     mock_event.get.side_effect = get_side_effect
 
     # Use patch to skip time.sleep and limit to one workflow
-    with patch("time.sleep"):
-        with patch("actions.dispatch_actions.WORKFLOW_FILES", ["ci.yml"]):
-            results = trigger_and_get_workflow_info(mock_event, "feature-branch")
+    with patch("time.sleep"), patch("actions.dispatch_actions.WORKFLOW_FILES", ["ci.yml"]):
+        results = trigger_and_get_workflow_info(mock_event, "feature-branch")
 
     # Check results
     assert len(results) == 1

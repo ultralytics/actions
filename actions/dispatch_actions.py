@@ -13,11 +13,7 @@ WORKFLOW_FILES = ["ci.yml", "docker.yml"]
 
 
 def get_pr_branch(event) -> tuple[str, str | None]:
-    """
-    Gets the PR branch name, creating temp branch for forks.
-
-    Returns (branch, temp_branch_to_delete).
-    """
+    """Gets the PR branch name, creating temp branch for forks, returning (branch, temp_branch_to_delete)."""
     pr_number = event.event_data["issue"]["number"]
     pr_data = event.get_repo_data(f"pulls/{pr_number}")
     head = pr_data.get("head", {})
@@ -39,11 +35,7 @@ def get_pr_branch(event) -> tuple[str, str | None]:
 
 
 def trigger_and_get_workflow_info(event, branch: str, temp_branch: str | None = None) -> list[dict]:
-    """
-    Triggers workflows and returns their information.
-
-    Deletes temp_branch if provided.
-    """
+    """Triggers workflows and returns their information, deleting temp branch if provided."""
     repo = event.repository
     results = []
 
@@ -70,10 +62,9 @@ def trigger_and_get_workflow_info(event, branch: str, temp_branch: str | None = 
             f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/runs?branch={branch}&event=workflow_dispatch&per_page=1"
         )
 
-        if runs_response.status_code == 200:
-            if runs := runs_response.json().get("workflow_runs", []):
-                run_url = runs[0].get("html_url", run_url)
-                run_number = runs[0].get("run_number")
+        if runs_response.status_code == 200 and (runs := runs_response.json().get("workflow_runs", [])):
+            run_url = runs[0].get("html_url", run_url)
+            run_number = runs[0].get("run_number")
 
         results.append({"name": name, "file": file, "url": run_url, "run_number": run_number})
 
