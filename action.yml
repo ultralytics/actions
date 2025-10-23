@@ -179,7 +179,7 @@ runs:
         # Build plugin list
         plugins="prettier@3.6.2 prettier-plugin-sh"
         if [ -f ".prettierrc" ]; then
-          additional=$(grep -o '"prettier-plugin-[^"]*"' .prettierrc | tr -d '"' | tr '\n' ' ')
+          additional=$(grep -o '"prettier-plugin-[^"]*"' .prettierrc | tr -d '"' | tr '\n' ' ' || true)
           [ -n "$additional" ] && plugins="$plugins $additional"
         fi
         npm install --global $plugins
