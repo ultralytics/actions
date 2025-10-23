@@ -26,8 +26,9 @@ def get_pr_branch(event) -> tuple[str, str | None]:
     is_fork = head.get("repo") and head["repo"]["id"] != pr_data["base"]["repo"]["id"]
 
     if is_fork:
-        # Create temp branch in base repo for fork PRs
-        temp_branch = f"temp-ci-{pr_number}-{int(time.time())}"
+        # Create temp branch in base repo for fork PRs using comment ID for uniqueness
+        comment_id = event.event_data["comment"]["id"]
+        temp_branch = f"temp-ci-{pr_number}-{comment_id}"
         repo = event.repository
         event.post(
             f"{GITHUB_API_URL}/repos/{repo}/git/refs", json={"ref": f"refs/heads/{temp_branch}", "sha": head["sha"]}
