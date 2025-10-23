@@ -55,8 +55,13 @@ def get_pr_branch(event) -> tuple[str, str | None]:
 
                 # Push temp branch to base repo
                 subprocess.run(["git", "push", "origin", temp_branch], cwd=repo_dir, check=True, capture_output=True)
-            except subprocess.CalledProcessError:
-                raise RuntimeError("Failed to create temp branch for fork PR")
+            except subprocess.CalledProcessError as exc:
+                # Sanitize error output to prevent token leakage
+                stderr = exc.stderr.decode() if exc.stderr else "No stderr output"
+                stderr = stderr.replace(token, "***TOKEN***")
+                raise RuntimeError(
+                    f"Failed to create temp branch for fork PR (exit code {exc.returncode}): {stderr}"
+                ) from exc
 
         return temp_branch, temp_branch
 
