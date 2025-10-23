@@ -22,9 +22,8 @@ def get_pr_branch(event) -> tuple[str, str | None]:
     is_fork = head.get("repo") and head["repo"]["id"] != pr_data["base"]["repo"]["id"]
 
     if is_fork:
-        # Create temp branch in base repo for fork PRs using comment ID for uniqueness
-        comment_id = event.event_data["comment"]["id"]
-        temp_branch = f"temp-ci-{pr_number}-{comment_id}"
+        # Create temp branch in base repo for fork PRs
+        temp_branch = f"temp-ci-{pr_number}-{int(time.time() * 1000)}"
         repo = event.repository
         event.post(
             f"{GITHUB_API_URL}/repos/{repo}/git/refs", json={"ref": f"refs/heads/{temp_branch}", "sha": head["sha"]}
@@ -39,38 +38,39 @@ def trigger_and_get_workflow_info(event, branch: str, temp_branch: str | None = 
     repo = event.repository
     results = []
 
-    # Trigger all workflows
-    for file in WORKFLOW_FILES:
-        event.post(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch})
+    try:
+        # Trigger all workflows
+        for file in WORKFLOW_FILES:
+            event.post(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch})
 
-    # Wait for workflows to be created and start
-    time.sleep(60)
+        # Wait for workflows to be created and start
+        time.sleep(60)
 
-    # Collect information about all workflows
-    for file in WORKFLOW_FILES:
-        # Get workflow name
-        response = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}")
-        name = file.replace(".yml", "").title()
-        if response.status_code == 200:
-            name = response.json().get("name", name)
+        # Collect information about all workflows
+        for file in WORKFLOW_FILES:
+            # Get workflow name
+            response = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}")
+            name = file.replace(".yml", "").title()
+            if response.status_code == 200:
+                name = response.json().get("name", name)
 
-        # Get run information
-        run_url = f"https://github.com/{repo}/actions/workflows/{file}"
-        run_number = None
+            # Get run information
+            run_url = f"https://github.com/{repo}/actions/workflows/{file}"
+            run_number = None
 
-        runs_response = event.get(
-            f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/runs?branch={branch}&event=workflow_dispatch&per_page=1"
-        )
+            runs_response = event.get(
+                f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/runs?branch={branch}&event=workflow_dispatch&per_page=1"
+            )
 
-        if runs_response.status_code == 200 and (runs := runs_response.json().get("workflow_runs", [])):
-            run_url = runs[0].get("html_url", run_url)
-            run_number = runs[0].get("run_number")
+            if runs_response.status_code == 200 and (runs := runs_response.json().get("workflow_runs", [])):
+                run_url = runs[0].get("html_url", run_url)
+                run_number = runs[0].get("run_number")
 
-        results.append({"name": name, "file": file, "url": run_url, "run_number": run_number})
-
-    # Delete temp branch after workflows have started
-    if temp_branch:
-        event.delete(f"{GITHUB_API_URL}/repos/{repo}/git/refs/heads/{temp_branch}")
+            results.append({"name": name, "file": file, "url": run_url, "run_number": run_number})
+    finally:
+        # Always delete temp branch even if workflow collection fails
+        if temp_branch:
+            event.delete(f"{GITHUB_API_URL}/repos/{repo}/git/refs/heads/{temp_branch}")
 
     return results
 

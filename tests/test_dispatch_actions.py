@@ -31,20 +31,21 @@ def test_get_pr_branch():
 def test_get_pr_branch_fork():
     """Test getting PR branch name for fork PRs."""
     mock_event = MagicMock()
-    mock_event.event_data = {"issue": {"number": 456}, "comment": {"id": 789}}
+    mock_event.event_data = {"issue": {"number": 456}}
     mock_event.repository = "base/repo"
     mock_event.get_repo_data.return_value = {
         "head": {"ref": "fork-branch", "sha": "abc123", "repo": {"id": 2}},
         "base": {"repo": {"id": 1}},
     }
 
-    branch, temp_branch = get_pr_branch(mock_event)
+    with patch("time.time", return_value=1234567.890):
+        branch, temp_branch = get_pr_branch(mock_event)
 
-    assert branch == "temp-ci-456-789"
-    assert temp_branch == "temp-ci-456-789"
+    assert branch == "temp-ci-456-1234567890"
+    assert temp_branch == "temp-ci-456-1234567890"
     mock_event.post.assert_called_once_with(
         "https://api.github.com/repos/base/repo/git/refs",
-        json={"ref": "refs/heads/temp-ci-456-789", "sha": "abc123"},
+        json={"ref": "refs/heads/temp-ci-456-1234567890", "sha": "abc123"},
     )
 
 
