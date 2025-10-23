@@ -122,8 +122,8 @@ class Action:
         self._pr_summary_cache = None
         self._username_cache = None
         self._default_status = {
-            "get": [200],
-            "post": [200, 201],
+            "get": [200, 204],
+            "post": [200, 201, 204],
             "put": [200, 201, 204],
             "patch": [200],
             "delete": [200, 204],
