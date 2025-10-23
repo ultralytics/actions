@@ -305,10 +305,9 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
         # Build comment with optional start_line for multi-line context
         review_comment = {"path": file_path, "line": line, "body": comment_body, "side": side}
-        if start_line := comment.get("start_line"):
-            if start_line < line:
-                review_comment["start_line"] = start_line
-                review_comment["start_side"] = side
+        if (start_line := comment.get("start_line")) and start_line < line:
+            review_comment["start_line"] = start_line
+            review_comment["start_side"] = side
 
         review_comments.append(review_comment)
 
