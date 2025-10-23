@@ -47,10 +47,9 @@ def trigger_and_get_workflow_info(event, branch: str) -> list[dict]:
             f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/runs?branch={branch}&event=workflow_dispatch&per_page=1"
         )
 
-        if runs_response.status_code == 200:
-            if runs := runs_response.json().get("workflow_runs", []):
-                run_url = runs[0].get("html_url", run_url)
-                run_number = runs[0].get("run_number")
+        if runs_response.status_code == 200 and (runs := runs_response.json().get("workflow_runs", [])):
+            run_url = runs[0].get("html_url", run_url)
+            run_number = runs[0].get("run_number")
 
         results.append({"name": name, "file": file, "url": run_url, "run_number": run_number})
 

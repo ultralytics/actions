@@ -148,8 +148,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     ]
 
     # Debug output
-    # print(f"\nSystem prompt (first 2000 chars):\n{messages[0]['content'][:2000]}...\n")
-    # print(f"\nUser prompt (first 2000 chars):\n{messages[1]['content'][:2000]}...\n")
+    # print(f"\nSystem prompt (first 3000 chars):\n{messages[0]['content'][:3000]}...\n")
+    # print(f"\nUser prompt (first 3000 chars):\n{messages[1]['content'][:3000]}...\n")
 
     try:
         response = get_completion(messages, reasoning_effort="low", model="gpt-5-codex")
@@ -271,7 +271,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     body = (
         f"{review_title}\n\n"
         f"{ACTIONS_CREDIT}\n\n"
-        f"{review_data.get('summary', 'Review completed')[:1000]}\n\n"  # Clip summary length
+        f"{review_data.get('summary', 'Review completed')[:3000]}\n\n"  # Clip summary length
     )
 
     if comments:
@@ -292,10 +292,10 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
         severity = comment.get("severity") or "SUGGESTION"
         side = comment.get("side", "RIGHT")
-        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {(comment.get('message') or '')[:1000]}"
+        comment_body = f"{EMOJI_MAP.get(severity, '💭')} **{severity}**: {(comment.get('message') or '')[:3000]}"
 
         if suggestion := comment.get("suggestion"):
-            suggestion = suggestion[:1000]  # Clip suggestion length
+            suggestion = suggestion[:3000]  # Clip suggestion length
             if "```" not in suggestion:
                 # Extract original line indentation and apply to suggestion
                 if original_line := review_data.get("diff_files", {}).get(file_path, {}).get(side, {}).get(line):
@@ -305,10 +305,9 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
         # Build comment with optional start_line for multi-line context
         review_comment = {"path": file_path, "line": line, "body": comment_body, "side": side}
-        if start_line := comment.get("start_line"):
-            if start_line < line:
-                review_comment["start_line"] = start_line
-                review_comment["start_side"] = side
+        if (start_line := comment.get("start_line")) and start_line < line:
+            review_comment["start_line"] = start_line
+            review_comment["start_side"] = side
 
         review_comments.append(review_comment)
 

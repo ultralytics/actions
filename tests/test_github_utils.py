@@ -28,15 +28,14 @@ def test_check_pypi_version():
 
 def test_action_init():
     """Test Action class initialization with default values."""
-    with patch.dict("os.environ", {"GITHUB_TOKEN": "test-token", "GITHUB_EVENT_NAME": "push"}):
-        with patch(
-            "actions.utils.github_utils.Action._load_event_data",
-            return_value={"repository": {"full_name": "test/repo"}},
-        ):
-            action = Action()
-            assert action.token == "test-token"
-            assert action.event_name == "push"
-            assert action.repository == "test/repo"
+    with patch.dict("os.environ", {"GITHUB_TOKEN": "test-token", "GITHUB_EVENT_NAME": "push"}), patch(
+        "actions.utils.github_utils.Action._load_event_data",
+        return_value={"repository": {"full_name": "test/repo"}},
+    ):
+        action = Action()
+        assert action.token == "test-token"
+        assert action.event_name == "push"
+        assert action.repository == "test/repo"
 
 
 def test_action_request_methods():
