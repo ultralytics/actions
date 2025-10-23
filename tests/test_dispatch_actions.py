@@ -34,19 +34,19 @@ def test_get_pr_branch_fork():
     mock_event.event_data = {"issue": {"number": 456}}
     mock_event.repository = "base/repo"
     mock_event.get_repo_data.return_value = {
-        "head": {"ref": "fork-branch", "sha": "abc123", "repo": {"id": 2}},
+        "head": {"ref": "fork-branch", "sha": "abc123", "repo": {"id": 2, "full_name": "fork/repo"}},
         "base": {"repo": {"id": 1}},
     }
 
     with patch("time.time", return_value=1234567.890):
-        branch, temp_branch = get_pr_branch(mock_event)
+        with patch("subprocess.run") as mock_run:
+            with patch("os.environ.get", return_value="test-token"):
+                branch, temp_branch = get_pr_branch(mock_event)
 
     assert branch == "temp-ci-456-1234567890"
     assert temp_branch == "temp-ci-456-1234567890"
-    mock_event.post.assert_called_once_with(
-        "https://api.github.com/repos/base/repo/git/refs",
-        json={"ref": "refs/heads/temp-ci-456-1234567890", "sha": "abc123"},
-    )
+    # Verify git commands were called
+    assert mock_run.call_count == 4  # clone, remote add, fetch, push
 
 
 def test_trigger_and_get_workflow_info():

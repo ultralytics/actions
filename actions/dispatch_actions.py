@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from datetime import datetime
 
@@ -14,6 +15,9 @@ WORKFLOW_FILES = ["ci.yml", "docker.yml"]
 
 def get_pr_branch(event) -> tuple[str, str | None]:
     """Gets the PR branch name, creating temp branch for forks, returning (branch, temp_branch_to_delete)."""
+    import subprocess
+    import tempfile
+
     pr_number = event.event_data["issue"]["number"]
     pr_data = event.get_repo_data(f"pulls/{pr_number}")
     head = pr_data.get("head", {})
@@ -22,12 +26,43 @@ def get_pr_branch(event) -> tuple[str, str | None]:
     is_fork = head.get("repo") and head["repo"]["id"] != pr_data["base"]["repo"]["id"]
 
     if is_fork:
-        # Create temp branch in base repo for fork PRs
+        # Create temp branch in base repo by pushing fork code
         temp_branch = f"temp-ci-{pr_number}-{int(time.time() * 1000)}"
-        repo = event.repository
-        event.post(
-            f"{GITHUB_API_URL}/repos/{repo}/git/refs", json={"ref": f"refs/heads/{temp_branch}", "sha": head["sha"]}
-        )
+        fork_repo = head["repo"]["full_name"]
+        fork_branch = head["ref"]
+        base_repo = event.repository
+        token = os.environ.get("GITHUB_TOKEN")
+        if not token:
+            raise ValueError("GITHUB_TOKEN environment variable is not set")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = os.path.join(tmp_dir, "repo")
+            base_url = f"https://x-access-token:{token}@github.com/{base_repo}.git"
+            fork_url = f"https://github.com/{fork_repo}.git"
+
+            try:
+                # Clone base repo (minimal)
+                subprocess.run(["git", "clone", "--depth", "1", base_url, repo_dir], check=True, capture_output=True)
+
+                # Add fork as remote and fetch the PR branch
+                subprocess.run(
+                    ["git", "remote", "add", "fork", fork_url], cwd=repo_dir, check=True, capture_output=True
+                )
+                subprocess.run(
+                    ["git", "fetch", "fork", f"{fork_branch}:{temp_branch}"],
+                    cwd=repo_dir,
+                    check=True,
+                    capture_output=True,
+                )
+
+                # Push temp branch to base repo
+                subprocess.run(["git", "push", "origin", temp_branch], cwd=repo_dir, check=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                # Sanitize error output to prevent token leakage
+                stderr = e.stderr.decode() if e.stderr else "No stderr output"
+                stderr = stderr.replace(token, "***TOKEN***")
+                raise RuntimeError(f"Failed to create tmp branch from fork (exit code {e.returncode}): {stderr}") from e
+
         return temp_branch, temp_branch
 
     return head.get("ref", "main"), None
@@ -81,12 +116,15 @@ def update_comment(event, comment_body: str, triggered_actions: list[dict], bran
         return
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-    summary = (
-        f"\n\n## ⚡ Actions Trigger\n\n"
-        f"<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>\n\n"
-        f"GitHub Actions below triggered via workflow dispatch on this "
-        f"PR branch `{branch}` at {timestamp} with `{RUN_CI_KEYWORD}` command:\n\n"
-    )
+    summary = f"""
+
+## ⚡ Actions Trigger
+
+<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>
+
+GitHub Actions below triggered via workflow dispatch for this PR at {timestamp} with `{RUN_CI_KEYWORD}` command:
+
+"""
 
     for action in triggered_actions:
         run_info = f" run {action['run_number']}" if action["run_number"] else ""
