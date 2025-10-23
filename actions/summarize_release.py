@@ -195,8 +195,8 @@ def main(*args, **kwargs):
     # Generate release summary
     try:
         summary = generate_release_summary(event, diff, prs, CURRENT_TAG, previous_tag)
-    except Exception:
-        print(f"Failed to generate summary: {s}")
+    except Exception as e:
+        print(f"Failed to generate summary: {e}")
         summary = "Failed to generate summary."
 
     # Get the latest commit message
