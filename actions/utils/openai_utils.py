@@ -134,6 +134,13 @@ def get_completion(
             elapsed = r.elapsed.total_seconds()
             success = r.status_code == 200
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
+            
+            # Retry server errors
+            if attempt < 2 and r.status_code >= 500:
+                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/3)...")
+                time.sleep(2**attempt)
+                continue
+            
             r.raise_for_status()
 
             # Parse response
@@ -178,16 +185,9 @@ def get_completion(
 
             return content
 
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, requests.exceptions.HTTPError) as e:
             if attempt < 2:
-                print(f"Connection error, retrying in {2**attempt}s")
-                time.sleep(2**attempt)
-                continue
-            raise
-        except requests.exceptions.HTTPError as e:
-            status_code = getattr(e.response, "status_code", 0) if e.response else 0
-            if attempt < 2 and status_code >= 500:
-                print(f"Server error {status_code}, retrying in {2**attempt}s")
+                print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/3)...")
                 time.sleep(2**attempt)
                 continue
             raise
