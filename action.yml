@@ -154,7 +154,7 @@ runs:
         ruff check \
         --fix \
         --unsafe-fixes \
-        --extend-select I,D,UP \
+        --extend-select F,I,D,UP \
         --target-version py39 \
         --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413 \
         . || true
@@ -233,10 +233,11 @@ runs:
         GITHUB_USERNAME: ${{ inputs.github_username }}
         GITHUB_EMAIL: ${{ inputs.github_email }}
       run: |
+        COMMIT_MSG="Auto-format by https://ultralytics.com/actions"
         # Check if last commit was by the bot to prevent recursive loops
-        LAST_AUTHOR=$(git log -1 --pretty=format:'%an')
-        if [ "$LAST_AUTHOR" = "$GITHUB_USERNAME" ]; then
-          echo "Last commit was by $GITHUB_USERNAME, skipping to prevent recursive loop"
+        LAST_MESSAGE=$(git log -1 --pretty=format:'%s')
+        if [ "$LAST_MESSAGE" = "$COMMIT_MSG" ]; then
+          echo "Skipping commit: last commit was auto-format"
           exit 0
         fi
         git config --global user.name "$GITHUB_USERNAME"
@@ -244,7 +245,7 @@ runs:
         git add .
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
         if ! git diff --staged --quiet; then
-          git commit -m "Auto-format by https://ultralytics.com/actions"
+          git commit -m "$COMMIT_MSG"
           git push
         else
           echo "No changes to commit"
