@@ -13,29 +13,36 @@ WORKFLOW_FILES = ["ci.yml", "docker.yml"]
 
 
 def get_pr_branch(event) -> tuple[str, str | None]:
-    """Gets the PR branch name, creating temp branch for forks. Returns (branch, temp_branch_to_delete)."""
+    """
+    Gets the PR branch name, creating temp branch for forks.
+
+    Returns (branch, temp_branch_to_delete).
+    """
     pr_number = event.event_data["issue"]["number"]
     pr_data = event.get_repo_data(f"pulls/{pr_number}")
     head = pr_data.get("head", {})
-    
+
     # Check if PR is from a fork
     is_fork = head.get("repo") and head["repo"]["id"] != pr_data["base"]["repo"]["id"]
-    
+
     if is_fork:
         # Create temp branch in base repo for fork PRs
         temp_branch = f"temp-ci-{pr_number}-{int(time.time())}"
         repo = event.repository
         event.post(
-            f"{GITHUB_API_URL}/repos/{repo}/git/refs",
-            json={"ref": f"refs/heads/{temp_branch}", "sha": head["sha"]}
+            f"{GITHUB_API_URL}/repos/{repo}/git/refs", json={"ref": f"refs/heads/{temp_branch}", "sha": head["sha"]}
         )
         return temp_branch, temp_branch
-    
+
     return head.get("ref", "main"), None
 
 
 def trigger_and_get_workflow_info(event, branch: str, temp_branch: str | None = None) -> list[dict]:
-    """Triggers workflows and returns their information. Deletes temp_branch if provided."""
+    """
+    Triggers workflows and returns their information.
+
+    Deletes temp_branch if provided.
+    """
     repo = event.repository
     results = []
 
