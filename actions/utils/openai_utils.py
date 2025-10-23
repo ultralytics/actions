@@ -185,7 +185,7 @@ def get_completion(
 
             return content
 
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:  # 5xx errors
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
             if attempt < 2:
                 print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/3)...")
                 time.sleep(2**attempt)
