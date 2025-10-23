@@ -12,15 +12,30 @@ RUN_CI_KEYWORD = "@ultralytics/run-ci"  # and then to merge "@ultralytics/run-ci
 WORKFLOW_FILES = ["ci.yml", "docker.yml"]
 
 
-def get_pr_branch(event) -> str:
-    """Gets the PR branch name."""
+def get_pr_branch(event) -> tuple[str, str | None]:
+    """Gets the PR branch name, creating temp branch for forks. Returns (branch, temp_branch_to_delete)."""
     pr_number = event.event_data["issue"]["number"]
     pr_data = event.get_repo_data(f"pulls/{pr_number}")
-    return pr_data.get("head", {}).get("ref", "main")
+    head = pr_data.get("head", {})
+    
+    # Check if PR is from a fork
+    is_fork = head.get("repo") and head["repo"]["id"] != pr_data["base"]["repo"]["id"]
+    
+    if is_fork:
+        # Create temp branch in base repo for fork PRs
+        temp_branch = f"temp-ci-{pr_number}-{int(time.time())}"
+        repo = event.repository
+        event.post(
+            f"{GITHUB_API_URL}/repos/{repo}/git/refs",
+            json={"ref": f"refs/heads/{temp_branch}", "sha": head["sha"]}
+        )
+        return temp_branch, temp_branch
+    
+    return head.get("ref", "main"), None
 
 
-def trigger_and_get_workflow_info(event, branch: str) -> list[dict]:
-    """Triggers workflows and returns their information."""
+def trigger_and_get_workflow_info(event, branch: str, temp_branch: str | None = None) -> list[dict]:
+    """Triggers workflows and returns their information. Deletes temp_branch if provided."""
     repo = event.repository
     results = []
 
@@ -28,8 +43,8 @@ def trigger_and_get_workflow_info(event, branch: str) -> list[dict]:
     for file in WORKFLOW_FILES:
         event.post(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch})
 
-    # Wait for workflows to be created
-    time.sleep(10)
+    # Wait for workflows to be created and start
+    time.sleep(60)
 
     # Collect information about all workflows
     for file in WORKFLOW_FILES:
@@ -53,6 +68,10 @@ def trigger_and_get_workflow_info(event, branch: str) -> list[dict]:
                 run_number = runs[0].get("run_number")
 
         results.append({"name": name, "file": file, "url": run_url, "run_number": run_number})
+
+    # Delete temp branch after workflows have started
+    if temp_branch:
+        event.delete(f"{GITHUB_API_URL}/repos/{repo}/git/refs/heads/{temp_branch}")
 
     return results
 
@@ -104,10 +123,10 @@ def main(*args, **kwargs):
 
     # Get branch, trigger workflows, and update comment
     event.toggle_eyes_reaction(True)
-    branch = get_pr_branch(event)
-    print(f"Triggering workflows on branch: {branch}")
+    branch, temp_branch = get_pr_branch(event)
+    print(f"Triggering workflows on branch: {branch}" + (" (temp)" if temp_branch else ""))
 
-    triggered_actions = trigger_and_get_workflow_info(event, branch)
+    triggered_actions = trigger_and_get_workflow_info(event, branch, temp_branch)
     update_comment(event, comment_body, triggered_actions, branch)
     event.toggle_eyes_reaction(False)
 
