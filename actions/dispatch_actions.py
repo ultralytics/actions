@@ -32,6 +32,8 @@ def get_pr_branch(event) -> tuple[str, str | None]:
         fork_branch = head["ref"]
         base_repo = event.repository
         token = os.environ.get("GITHUB_TOKEN")
+        if not token:
+            raise ValueError("GITHUB_TOKEN environment variable is not set")
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             base_url = f"https://x-access-token:{token}@github.com/{base_repo}.git"
