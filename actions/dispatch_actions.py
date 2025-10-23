@@ -38,21 +38,22 @@ def get_pr_branch(event) -> tuple[str, str | None]:
         with tempfile.TemporaryDirectory() as tmp_dir:
             base_url = f"https://x-access-token:{token}@github.com/{base_repo}.git"
             fork_url = f"https://github.com/{fork_repo}.git"
+            repo_dir = f"{tmp_dir}/repo"
 
             # Clone base repo (minimal)
-            subprocess.run(["git", "clone", "--depth", "1", base_url, tmp_dir], check=True, capture_output=True)
+            subprocess.run(["git", "clone", "--depth", "1", base_url, repo_dir], check=True, capture_output=True)
 
             # Add fork as remote and fetch the PR branch
-            subprocess.run(["git", "remote", "add", "fork", fork_url], cwd=tmp_dir, check=True, capture_output=True)
+            subprocess.run(["git", "remote", "add", "fork", fork_url], cwd=repo_dir, check=True, capture_output=True)
             subprocess.run(
                 ["git", "fetch", "fork", f"{fork_branch}:{temp_branch}"],
-                cwd=tmp_dir,
+                cwd=repo_dir,
                 check=True,
                 capture_output=True,
             )
 
             # Push temp branch to base repo
-            subprocess.run(["git", "push", "origin", temp_branch], cwd=tmp_dir, check=True, capture_output=True)
+            subprocess.run(["git", "push", "origin", temp_branch], cwd=repo_dir, check=True, capture_output=True)
 
         return temp_branch, temp_branch
 
