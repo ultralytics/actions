@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import time
 
@@ -170,8 +171,6 @@ def get_completion(
                 print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)")
 
             if response_format and response_format.get("type") == "json_object":
-                import json
-
                 return json.loads(content)
 
             content = remove_outer_codeblocks(content)
@@ -185,7 +184,7 @@ def get_completion(
 
             return content
 
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError) as e:
             if attempt < 2:
                 print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/3)...")
                 time.sleep(2**attempt)
