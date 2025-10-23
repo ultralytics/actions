@@ -104,6 +104,23 @@ norecursedirs = [".git", "dist", "build"]
 
 [tool.ruff]
 line-length = 120
+target-version = "py39"
+
+[tool.ruff.lint]
+# Match action.yml --extend-select and --ignore
+extend-select = ["F", "I", "D", "UP", "RUF"]
+ignore = [
+    "D100",
+    "D104",
+    "D203",
+    "D205",
+    "D212",
+    "D213",
+    "D401",
+    "D406",
+    "D407",
+    "D413",
+]
 
 [tool.ruff.format]
 docstring-code-format = true
