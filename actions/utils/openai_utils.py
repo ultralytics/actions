@@ -134,13 +134,13 @@ def get_completion(
             elapsed = r.elapsed.total_seconds()
             success = r.status_code == 200
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
-            
+
             # Retry server errors
             if attempt < 2 and r.status_code >= 500:
                 print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/3)...")
                 time.sleep(2**attempt)
                 continue
-            
+
             r.raise_for_status()
 
             # Parse response
