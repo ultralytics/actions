@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from datetime import datetime
 
@@ -14,6 +15,9 @@ WORKFLOW_FILES = ["ci.yml", "docker.yml"]
 
 def get_pr_branch(event) -> tuple[str, str | None]:
     """Gets the PR branch name, creating temp branch for forks, returning (branch, temp_branch_to_delete)."""
+    import subprocess
+    import tempfile
+
     pr_number = event.event_data["issue"]["number"]
     pr_data = event.get_repo_data(f"pulls/{pr_number}")
     head = pr_data.get("head", {})
@@ -22,12 +26,32 @@ def get_pr_branch(event) -> tuple[str, str | None]:
     is_fork = head.get("repo") and head["repo"]["id"] != pr_data["base"]["repo"]["id"]
 
     if is_fork:
-        # Create temp branch in base repo for fork PRs
+        # Create temp branch in base repo by pushing fork code
         temp_branch = f"temp-ci-{pr_number}-{int(time.time() * 1000)}"
-        repo = event.repository
-        event.post(
-            f"{GITHUB_API_URL}/repos/{repo}/git/refs", json={"ref": f"refs/heads/{temp_branch}", "sha": head["sha"]}
-        )
+        fork_repo = head["repo"]["full_name"]
+        fork_branch = head["ref"]
+        base_repo = event.repository
+        token = os.environ.get("GITHUB_TOKEN")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            base_url = f"https://x-access-token:{token}@github.com/{base_repo}.git"
+            fork_url = f"https://github.com/{fork_repo}.git"
+
+            # Clone base repo (minimal)
+            subprocess.run(["git", "clone", "--depth", "1", base_url, tmp_dir], check=True, capture_output=True)
+
+            # Add fork as remote and fetch the PR branch
+            subprocess.run(["git", "remote", "add", "fork", fork_url], cwd=tmp_dir, check=True, capture_output=True)
+            subprocess.run(
+                ["git", "fetch", "fork", f"{fork_branch}:{temp_branch}"],
+                cwd=tmp_dir,
+                check=True,
+                capture_output=True,
+            )
+
+            # Push temp branch to base repo
+            subprocess.run(["git", "push", "origin", temp_branch], cwd=tmp_dir, check=True, capture_output=True)
+
         return temp_branch, temp_branch
 
     return head.get("ref", "main"), None
