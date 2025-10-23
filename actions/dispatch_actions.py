@@ -45,7 +45,9 @@ def get_pr_branch(event) -> tuple[str, str | None]:
                 subprocess.run(["git", "clone", "--depth", "1", base_url, repo_dir], check=True, capture_output=True)
 
                 # Add fork as remote and fetch the PR branch
-                subprocess.run(["git", "remote", "add", "fork", fork_url], cwd=repo_dir, check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "remote", "add", "fork", fork_url], cwd=repo_dir, check=True, capture_output=True
+                )
                 subprocess.run(
                     ["git", "fetch", "fork", f"{fork_branch}:{temp_branch}"],
                     cwd=repo_dir,
