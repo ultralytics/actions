@@ -110,7 +110,7 @@ def update_comment(event, comment_body: str, triggered_actions: list[dict], bran
     summary = (
         f"\n\n## ⚡ Actions Trigger\n\n"
         f"<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>\n\n"
-        f"GitHub Actions below triggered via workflow dispatch on this "
+        f"GitHub Actions below triggered via workflow dispatch on "
         f"PR branch `{branch}` at {timestamp} with `{RUN_CI_KEYWORD}` command:\n\n"
     )
 
