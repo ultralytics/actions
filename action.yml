@@ -236,7 +236,7 @@ runs:
         COMMIT_MSG="Auto-format by https://ultralytics.com/actions"
         # Check if last two commits were both auto-format to prevent recursive loops
         LAST_TWO=$(git log -2 --pretty=format:'%s' 2>/dev/null || echo "")
-        MATCH_COUNT=$(echo "$LAST_TWO" | grep -c "^${COMMIT_MSG}$" || echo "0")
+        MATCH_COUNT=$(printf '%s\n' "$LAST_TWO" | grep -Fxc "$COMMIT_MSG" || echo "0")
         if [ "$MATCH_COUNT" -ge 2 ]; then
           echo "Skipping commit: last two commits were auto-format"
           exit 0
