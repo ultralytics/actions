@@ -234,10 +234,11 @@ runs:
         GITHUB_EMAIL: ${{ inputs.github_email }}
       run: |
         COMMIT_MSG="Auto-format by https://ultralytics.com/actions"
-        # Check if last commit was by the bot to prevent recursive loops
-        LAST_MESSAGE=$(git log -1 --pretty=format:'%s')
-        if [ "$LAST_MESSAGE" = "$COMMIT_MSG" ]; then
-          echo "Skipping commit: last commit was auto-format"
+        # Check if last two commits were both auto-format to prevent recursive loops
+        LAST_TWO=$(git log -2 --pretty=format:'%s' 2>/dev/null || echo "")
+        MATCH_COUNT=$(echo "$LAST_TWO" | grep -c "^${COMMIT_MSG}$" || echo "0")
+        if [ "$MATCH_COUNT" -ge 2 ]; then
+          echo "Skipping commit: last two commits were auto-format"
           exit 0
         fi
         git config --global user.name "$GITHUB_USERNAME"
