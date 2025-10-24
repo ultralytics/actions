@@ -124,7 +124,7 @@ runs:
         repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
         token: ${{ inputs.token }}
         ref: ${{ github.head_ref || github.ref }}
-        fetch-depth: 1
+        fetch-depth: 2
 
     # File header ------------------------------------------------------------------------------------------------------
     - name: File Header
