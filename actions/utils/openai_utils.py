@@ -94,9 +94,9 @@ def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
     return prompt, len(diff_text) > MAX_PROMPT_CHARS
 
 
-def get_pr_first_comment_template(repository: str) -> str:
+def get_pr_first_comment_template(repository: str, username: str) -> str:
     """Returns the PR first comment template with checklist (used only by unified PR open)."""
-    return f"""👋 Hello @username, thank you for submitting an `{repository}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
+    return f"""👋 Hello @{username}, thank you for submitting an `{repository}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
 
 - ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{repository}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
 - ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{repository}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
@@ -196,7 +196,7 @@ def get_completion(
     return content
 
 
-def get_pr_open_response(repository: str, diff_text: str, title: str, body: str, available_labels: dict) -> dict:
+def get_pr_open_response(repository: str, diff_text: str, title: str, username: str, available_labels: dict) -> dict:
     """Generates unified PR response with summary, labels, and first comment in a single API call."""
     is_large = len(diff_text) > MAX_PROMPT_CHARS
 
@@ -227,7 +227,7 @@ Customized welcome message adapting the template below:
 - No spaces between bullet points
 
 Example comment template (adapt as needed, keep all links):
-{get_pr_first_comment_template(repository)}
+{get_pr_first_comment_template(repository, username)}
 
 Return ONLY valid JSON in this exact format:
 {{"summary": "...", "labels": [...], "first_comment": "..."}}"""
