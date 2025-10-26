@@ -205,7 +205,7 @@ def get_pr_open_response(repository: str, diff_text: str, title: str, username: 
 
     prompt = f"""You are processing a new GitHub PR by @{username} for the {repository} repository.
 
-Generate 3 outputs in a single JSON response for the PR titled {title} with the following diff:
+Generate 3 outputs in a single JSON response for the PR titled '{title}' with the following diff:
 {diff_text[:MAX_PROMPT_CHARS]}
 
 
