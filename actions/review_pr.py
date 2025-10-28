@@ -161,11 +161,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                     "type": "web_search",
                     "filters": {
                         "allowed_domains": [
-                            "docs.ultralytics.com",
+                            "ultralytics.com",
                             "github.com",
                             "stackoverflow.com",
-                            "openai.com",
-                            "anthropic.com",
                         ]
                     },
                 }
