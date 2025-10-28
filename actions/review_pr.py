@@ -152,7 +152,25 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     # print(f"\nUser prompt (first 3000 chars):\n{messages[1]['content'][:3000]}...\n")
 
     try:
-        response = get_completion(messages, reasoning_effort="low", model="gpt-5-codex")
+        response = get_completion(
+            messages,
+            reasoning_effort="low",
+            model="gpt-5-codex",
+            tools=[
+                {
+                    "type": "web_search",
+                    "filters": {
+                        "allowed_domains": [
+                            "docs.ultralytics.com",
+                            "github.com",
+                            "stackoverflow.com",
+                            "openai.com",
+                            "anthropic.com",
+                        ]
+                    },
+                }
+            ],
+        )
 
         json_str = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
         review_data = json.loads(json_str.group(1) if json_str else response)
