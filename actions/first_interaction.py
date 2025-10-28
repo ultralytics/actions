@@ -188,9 +188,9 @@ def main(*args, **kwargs):
         if event.should_skip_pr_author():
             return
 
-        print("Processing PR open with unified API call...")
+        print(f"Processing PR open by @{username} with unified API call...")
         diff = event.get_pr_diff()
-        response = get_pr_open_response(event.repository, diff, title, body, label_descriptions)
+        response = get_pr_open_response(event.repository, diff, title, username, label_descriptions)
 
         if summary := response.get("summary"):
             print("Updating PR description with summary...")
