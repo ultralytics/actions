@@ -122,7 +122,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- Extract the number after R or L prefix to get the exact line number\n"
         "- Use 'side': 'RIGHT' for R-prefixed lines, 'side': 'LEFT' for L-prefixed lines\n"
         "- Suggestions only work on RIGHT lines, never on LEFT lines\n"
-        "- CRITICAL: Only use line numbers that you see explicitly prefixed in the diff\n\n"
+        "- CRITICAL: Only use line numbers that you see explicitly prefixed in the diff\n"
+        "- For better context, provide 'start_line' (3-5 lines before 'line') so reviewers can see surrounding code\n"
+        "- Example: line=85, start_line=82 shows lines 82-85 for context\n\n"
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "side": "RIGHT", "severity": "HIGH", "message": "..."}], "summary": "..."}\n\n'
         "Rules:\n"
@@ -319,9 +321,16 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
                     suggestion = " " * indent + suggestion.strip()
                 comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
-        # Build comment with optional start_line for multi-line context
+        # Build comment with context - add start_line if not provided by AI
+        start_line = comment.get("start_line")
+        if not start_line and side == "RIGHT":  # Auto-add context for RIGHT side comments
+            # Find available lines before target line for context
+            available_lines = sorted([l for l in review_data.get("diff_files", {}).get(file_path, {}).get(side, {}) if l < line])
+            if available_lines:
+                start_line = available_lines[-min(3, len(available_lines))]  # Show up to 3 lines before
+
         review_comment = {"path": file_path, "line": line, "body": comment_body, "side": side}
-        if (start_line := comment.get("start_line")) and start_line < line:
+        if start_line and start_line < line:
             review_comment["start_line"] = start_line
             review_comment["start_side"] = side
 
