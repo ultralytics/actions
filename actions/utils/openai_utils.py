@@ -117,6 +117,7 @@ def get_completion(
     reasoning_effort: str | None = None,
     response_format: dict | None = None,
     model: str = OPENAI_MODEL,
+    tools: list[dict] | None = None,
 ) -> str | dict:
     """Generates a completion using OpenAI's Responses API with retry logic."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
@@ -129,6 +130,8 @@ def get_completion(
         data = {"model": model, "input": messages, "store": False, "temperature": temperature}
         if "gpt-5" in model:
             data["reasoning"] = {"effort": reasoning_effort or "low"}
+        if tools:
+            data["tools"] = tools
 
         try:
             r = requests.post(url, json=data, headers=headers, timeout=(30, 900))
