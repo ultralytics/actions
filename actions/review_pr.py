@@ -319,14 +319,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
                 comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
         # Build comment with context - add start_line if not provided by AI
-        start_line = comment.get("start_line")
-        if not start_line and side == "RIGHT":  # Auto-add context for RIGHT side comments
-            # Find available lines before target line for context
-            available_lines = sorted(
-                [l for l in review_data.get("diff_files", {}).get(file_path, {}).get(side, {}) if l < line]
-            )
-            if available_lines:
-                start_line = available_lines[-min(3, len(available_lines))]  # Show up to 3 lines before
+        start_line = comment.get("start_line") or (line - 3 if side == "RIGHT" else None)
 
         review_comment = {"path": file_path, "line": line, "body": comment_body, "side": side}
         if start_line and start_line < line:
