@@ -111,7 +111,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- Provide 'suggestion' field with ready-to-merge code when you can confidently fix the issue\n"
         "- Suggestions must be complete, working code with NO comments, placeholders, or explanations\n"
         "- For single-line fixes: provide 'suggestion' without 'start_line' to replace the line at 'line'\n"
-        "- Do not provide multi-line fixes: suggestions should only be single line\n"
+        "- For multi-line fixes: provide 'suggestion' with 'start_line' to replace lines start_line through line\n"
         "- Match the exact indentation of the original code\n"
         "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n\n"
         "LINE NUMBERS:\n"
@@ -201,12 +201,9 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 print(f"Dropping suggestion for {file_path}:{line_num} - LEFT side doesn't support suggestions")
                 c.pop("suggestion", None)
 
-            # Validate start_line if provided - drop start_line for suggestions (single-line only)
+            # Validate start_line if provided
             if start_line:
-                if c.get("suggestion"):
-                    print(f"Dropping start_line for {file_path}:{line_num} - suggestions must be single-line only")
-                    c.pop("start_line", None)
-                elif start_line >= line_num:
+                if start_line >= line_num:
                     print(f"Invalid start_line {start_line} >= line {line_num} for {file_path}, dropping start_line")
                     c.pop("start_line", None)
                 elif start_line not in diff_files[file_path].get(side, {}):
