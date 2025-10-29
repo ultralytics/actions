@@ -101,7 +101,13 @@ mutation($labelableId: ID!, $labelIds: [ID!]!) {
 class Action:
     """Handles GitHub Actions API interactions and event processing."""
 
-    def __init__(self, token: str = None, event_name: str = None, event_data: dict = None, verbose: bool = True):
+    def __init__(
+        self,
+        token: str | None = None,
+        event_name: str | None = None,
+        event_data: dict | None = None,
+        verbose: bool = True,
+    ):
         """Initializes a GitHub Actions API handler with token and event data for processing events."""
         self.token = token or os.getenv("GITHUB_TOKEN")
         self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
@@ -116,8 +122,8 @@ class Action:
         self._pr_summary_cache = None
         self._username_cache = None
         self._default_status = {
-            "get": [200],
-            "post": [200, 201],
+            "get": [200, 204],
+            "post": [200, 201, 204],
             "put": [200, 201, 204],
             "patch": [200],
             "delete": [200, 204],
@@ -134,9 +140,12 @@ class Action:
             print(f"{'✓' if success else '✗'} {method.upper()} {url} → {r.status_code} ({elapsed:.1f}s)", flush=True)
             if not success:
                 try:
-                    print(f"  ❌ Error: {r.json().get('message', 'Unknown error')}")
+                    error_data = r.json()
+                    print(f"  ❌ Error: {error_data.get('message', 'Unknown error')}")
+                    if errors := error_data.get("errors"):
+                        print(f"  Details: {errors}")
                 except Exception:
-                    print(f"  ❌ Error: {r.text[:200]}")
+                    print(f"  ❌ Error: {r.text[:1000]}")
 
         if not success and hard:
             r.raise_for_status()
@@ -257,7 +266,7 @@ class Action:
             self.delete(f"{url}/{self.eyes_reaction_id}")
             self.eyes_reaction_id = None
 
-    def graphql_request(self, query: str, variables: dict = None) -> dict:
+    def graphql_request(self, query: str, variables: dict | None = None) -> dict:
         """Executes a GraphQL query against the GitHub API."""
         result = self.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables}).json()
         if "data" not in result or result.get("errors"):
@@ -331,7 +340,9 @@ class Action:
         else:
             self.post(f"{GITHUB_API_URL}/repos/{self.repository}/issues/{number}/comments", json={"body": comment})
 
-    def update_content(self, number: int, node_id: str, issue_type: str, title: str = None, body: str = None):
+    def update_content(
+        self, number: int, node_id: str, issue_type: str, title: str | None = None, body: str | None = None
+    ):
         """Updates the title and/or body of an issue, pull request, or discussion."""
         if issue_type == "discussion":
             variables = {"discussionId": node_id}
@@ -373,7 +384,7 @@ class Action:
     def handle_alert(self, number: int, node_id: str, issue_type: str, username: str, block: bool = False):
         """Handles content flagged as alert: updates content, locks, optionally closes and blocks user."""
         new_title = "Content Under Review"
-        new_body = """This post has been flagged for review by [Ultralytics Actions](https://ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
+        new_body = """This post has been flagged for review by [Ultralytics Actions](https://www.ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
 
 - [Code of Conduct](https://docs.ultralytics.com/help/code-of-conduct/)
 - [Security Policy](https://docs.ultralytics.com/help/security/)

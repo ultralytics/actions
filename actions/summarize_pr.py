@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-from .utils import GITHUB_API_URL, Action, get_completion, get_pr_summary_prompt
+from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action, get_completion, get_pr_summary_prompt
 
-SUMMARY_START = (
-    "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
-)
+SUMMARY_MARKER = "## 🛠️ PR Summary"
 
 
 def generate_merge_message(pr_summary, pr_credit, pr_url):
@@ -73,7 +71,8 @@ def generate_pr_summary(repository, diff_text):
     reply = get_completion(messages, temperature=1.0)
     if is_large:
         reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
-    return SUMMARY_START + reply
+
+    return f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{reply}"
 
 
 def label_fixed_issues(event, pr_summary):

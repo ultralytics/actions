@@ -100,7 +100,8 @@ runs:
           echo "Installing from git branch: $GITHUB_REF"
           packages="git+https://github.com/ultralytics/actions@${GITHUB_REF#refs/heads/}"
         else
-          packages="ultralytics-actions"
+          # packages="ultralytics-actions"
+          packages="git+https://github.com/ultralytics/actions@main"
         fi
 
         if [ "$INPUTS_SPELLING" = "true" ]; then
@@ -123,7 +124,7 @@ runs:
         repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
         token: ${{ inputs.token }}
         ref: ${{ github.head_ref || github.ref }}
-        fetch-depth: 1
+        fetch-depth: 2
 
     # File header ------------------------------------------------------------------------------------------------------
     - name: File Header
@@ -153,9 +154,9 @@ runs:
         ruff check \
         --fix \
         --unsafe-fixes \
-        --extend-select I,D,UP \
+        --extend-select F,I,D,UP,RUF,FA \
         --target-version py39 \
-        --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413 \
+        --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413,RUF001,RUF002,RUF012 \
         . || true
         ruff format \
         --line-length 120 \
@@ -218,10 +219,11 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.spelling == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         codespell \
+          --builtin clear,rare,informal,en-GB_to_en-US \
           --write-changes \
           --uri-ignore-words-list * \
-          --ignore-words-list "finalY,RepResNet,Idenfy,WIT,Smoot,EHR,ROUGE,ALS,iTerm,Carmel,FPR,Hach,Calle,ore,COO,MOT,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall,skelton,goin" \
-          --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,*lock*,__pycache__*,*.ico,*.jpg,*.png,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml"
+          --ignore-words-list "grey,writeable,finalY,RepResNet,Idenfy,WIT,Smoot,EHR,ROUGE,ALS,iTerm,Carmel,FPR,Hach,Calle,ore,COO,MOT,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall,skelton,goin" \
+          --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,*lock*,__pycache__*,*.ico,*.jpg,*.png,*.webp,*.avif,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml"
       shell: bash
       continue-on-error: true
 
@@ -232,10 +234,12 @@ runs:
         GITHUB_USERNAME: ${{ inputs.github_username }}
         GITHUB_EMAIL: ${{ inputs.github_email }}
       run: |
-        # Check if last commit was by the bot to prevent recursive loops
-        LAST_AUTHOR=$(git log -1 --pretty=format:'%an')
-        if [ "$LAST_AUTHOR" = "$GITHUB_USERNAME" ]; then
-          echo "Last commit was by $GITHUB_USERNAME, skipping to prevent recursive loop"
+        COMMIT_MSG="Auto-format by https://ultralytics.com/actions"
+        # Check if last two commits were both auto-format to prevent recursive loops
+        LAST_TWO=$(git log -2 --pretty=format:'%s' 2>/dev/null || echo "")
+        MATCH_COUNT=$(printf '%s\n' "$LAST_TWO" | grep -Fxc "$COMMIT_MSG" || true)
+        if [ "$MATCH_COUNT" -ge 2 ]; then
+          echo "Skipping commit: last two commits were auto-format"
           exit 0
         fi
         git config --global user.name "$GITHUB_USERNAME"
@@ -243,7 +247,7 @@ runs:
         git add .
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
         if ! git diff --staged --quiet; then
-          git commit -m "Auto-format by https://ultralytics.com/actions"
+          git commit -m "$COMMIT_MSG"
           git push
         else
           echo "No changes to commit"

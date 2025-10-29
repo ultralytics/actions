@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 import time
 
@@ -12,6 +13,12 @@ from actions.utils.common_utils import check_links_in_string
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-2025-08-07")
 MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% of 128k context)
+MODEL_COSTS = {
+    "gpt-5-codex": (1.25, 10.00),
+    "gpt-5-2025-08-07": (1.25, 10.00),
+    "gpt-5-nano-2025-08-07": (0.05, 0.40),
+    "gpt-5-mini-2025-08-07": (0.25, 2.00),
+}
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
   - Avoid Equations: Do not include equations or mathematical notations.
@@ -34,7 +41,7 @@ def remove_outer_codeblocks(string):
     return string
 
 
-def filter_labels(available_labels: dict, current_labels: list = None, is_pr: bool = False) -> dict:
+def filter_labels(available_labels: dict, current_labels: list | None = None, is_pr: bool = False) -> dict:
     """Filters labels by removing manually-assigned and mutually exclusive labels."""
     current_labels = current_labels or []
     filtered = available_labels.copy()
@@ -87,9 +94,9 @@ def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
     return prompt, len(diff_text) > MAX_PROMPT_CHARS
 
 
-def get_pr_first_comment_template(repository: str) -> str:
+def get_pr_first_comment_template(repository: str, username: str) -> str:
     """Returns the PR first comment template with checklist (used only by unified PR open)."""
-    return f"""👋 Hello @username, thank you for submitting an `{repository}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
+    return f"""👋 Hello @{username}, thank you for submitting a `{repository}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
 
 - ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{repository}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
 - ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{repository}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
@@ -107,9 +114,10 @@ def get_completion(
     check_links: bool = True,
     remove: list[str] = (" @giscus[bot]",),
     temperature: float = 1.0,
-    reasoning_effort: str = None,
-    response_format: dict = None,
+    reasoning_effort: str | None = None,
+    response_format: dict | None = None,
     model: str = OPENAI_MODEL,
+    tools: list[dict] | None = None,
 ) -> str | dict:
     """Generates a completion using OpenAI's Responses API with retry logic."""
     assert OPENAI_API_KEY, "OpenAI API key is required."
@@ -122,25 +130,50 @@ def get_completion(
         data = {"model": model, "input": messages, "store": False, "temperature": temperature}
         if "gpt-5" in model:
             data["reasoning"] = {"effort": reasoning_effort or "low"}
+        if tools:
+            data["tools"] = tools
 
         try:
-            r = requests.post(url, json=data, headers=headers, timeout=600)
+            r = requests.post(url, json=data, headers=headers, timeout=(30, 900))
+            elapsed = r.elapsed.total_seconds()
             success = r.status_code == 200
-            print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({r.elapsed.total_seconds():.1f}s)")
+            print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
+
+            # Retry server errors
+            if attempt < 2 and r.status_code >= 500:
+                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/3)...")
+                time.sleep(2**attempt)
+                continue
+
             r.raise_for_status()
 
             # Parse response
+            response_json = r.json()
             content = ""
-            for item in r.json().get("output", []):
+            for item in response_json.get("output", []):
                 if item.get("type") == "message":
                     for c in item.get("content", []):
                         if c.get("type") == "output_text":
                             content += c.get("text") or ""
             content = content.strip()
 
-            if response_format and response_format.get("type") == "json_object":
-                import json
+            # Extract and print token usage
+            if usage := response_json.get("usage"):
+                input_tokens = usage.get("input_tokens", 0)
+                output_tokens = usage.get("output_tokens", 0)
+                thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
 
+                # Calculate cost
+                costs = MODEL_COSTS.get(model, (0.0, 0.0))
+                cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
+
+                # Format summary
+                token_str = f"{input_tokens}→{output_tokens - thinking_tokens}"
+                if thinking_tokens:
+                    token_str += f" (+{thinking_tokens} thinking)"
+                print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)")
+
+            if response_format and response_format.get("type") == "json_object":
                 return json.loads(content)
 
             content = remove_outer_codeblocks(content)
@@ -154,33 +187,28 @@ def get_completion(
 
             return content
 
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError) as e:
             if attempt < 2:
-                print(f"Connection error, retrying in {2**attempt}s")
+                print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/3)...")
                 time.sleep(2**attempt)
                 continue
             raise
-        except requests.exceptions.HTTPError as e:
-            status_code = getattr(e.response, "status_code", 0) if e.response else 0
-            if attempt < 2 and status_code >= 500:
-                print(f"Server error {status_code}, retrying in {2**attempt}s")
-                time.sleep(2**attempt)
-                continue
+        except requests.exceptions.HTTPError:  # 4xx errors
             raise
 
     return content
 
 
-def get_pr_open_response(repository: str, diff_text: str, title: str, body: str, available_labels: dict) -> dict:
+def get_pr_open_response(repository: str, diff_text: str, title: str, username: str, available_labels: dict) -> dict:
     """Generates unified PR response with summary, labels, and first comment in a single API call."""
     is_large = len(diff_text) > MAX_PROMPT_CHARS
 
     filtered_labels = filter_labels(available_labels, is_pr=True)
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
 
-    prompt = f"""You are processing a new GitHub pull request for the {repository} repository.
+    prompt = f"""You are processing a new GitHub PR by @{username} for the {repository} repository.
 
-Generate 3 outputs in a single JSON response for the PR titled {title} with the following diff:
+Generate 3 outputs in a single JSON response for the PR titled '{title}' with the following diff:
 {diff_text[:MAX_PROMPT_CHARS]}
 
 
@@ -202,7 +230,7 @@ Customized welcome message adapting the template below:
 - No spaces between bullet points
 
 Example comment template (adapt as needed, keep all links):
-{get_pr_first_comment_template(repository)}
+{get_pr_first_comment_template(repository, username)}
 
 Return ONLY valid JSON in this exact format:
 {{"summary": "...", "labels": [...], "first_comment": "..."}}"""

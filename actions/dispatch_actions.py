@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import time
 from datetime import datetime
 
@@ -12,47 +13,99 @@ RUN_CI_KEYWORD = "@ultralytics/run-ci"  # and then to merge "@ultralytics/run-ci
 WORKFLOW_FILES = ["ci.yml", "docker.yml"]
 
 
-def get_pr_branch(event) -> str:
-    """Gets the PR branch name."""
+def get_pr_branch(event) -> tuple[str, str | None]:
+    """Gets the PR branch name, creating temp branch for forks, returning (branch, temp_branch_to_delete)."""
+    import subprocess
+    import tempfile
+
     pr_number = event.event_data["issue"]["number"]
     pr_data = event.get_repo_data(f"pulls/{pr_number}")
-    return pr_data.get("head", {}).get("ref", "main")
+    head = pr_data.get("head", {})
+
+    # Check if PR is from a fork
+    is_fork = head.get("repo") and head["repo"]["id"] != pr_data["base"]["repo"]["id"]
+
+    if is_fork:
+        # Create temp branch in base repo by pushing fork code
+        temp_branch = f"temp-ci-{pr_number}-{int(time.time() * 1000)}"
+        fork_repo = head["repo"]["full_name"]
+        fork_branch = head["ref"]
+        base_repo = event.repository
+        token = os.environ.get("GITHUB_TOKEN")
+        if not token:
+            raise ValueError("GITHUB_TOKEN environment variable is not set")
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            repo_dir = os.path.join(tmp_dir, "repo")
+            base_url = f"https://x-access-token:{token}@github.com/{base_repo}.git"
+            fork_url = f"https://github.com/{fork_repo}.git"
+
+            try:
+                # Clone base repo (minimal)
+                subprocess.run(["git", "clone", "--depth", "1", base_url, repo_dir], check=True, capture_output=True)
+
+                # Add fork as remote and fetch the PR branch
+                subprocess.run(
+                    ["git", "remote", "add", "fork", fork_url], cwd=repo_dir, check=True, capture_output=True
+                )
+                subprocess.run(
+                    ["git", "fetch", "fork", f"{fork_branch}:{temp_branch}"],
+                    cwd=repo_dir,
+                    check=True,
+                    capture_output=True,
+                )
+
+                # Push temp branch to base repo
+                subprocess.run(["git", "push", "origin", temp_branch], cwd=repo_dir, check=True, capture_output=True)
+            except subprocess.CalledProcessError as e:
+                # Sanitize error output to prevent token leakage
+                stderr = e.stderr.decode() if e.stderr else "No stderr output"
+                stderr = stderr.replace(token, "***TOKEN***")
+                raise RuntimeError(f"Failed to create tmp branch from fork (exit code {e.returncode}): {stderr}") from e
+
+        return temp_branch, temp_branch
+
+    return head.get("ref", "main"), None
 
 
-def trigger_and_get_workflow_info(event, branch: str) -> list[dict]:
-    """Triggers workflows and returns their information."""
+def trigger_and_get_workflow_info(event, branch: str, temp_branch: str | None = None) -> list[dict]:
+    """Triggers workflows and returns their information, deleting temp branch if provided."""
     repo = event.repository
     results = []
 
-    # Trigger all workflows
-    for file in WORKFLOW_FILES:
-        event.post(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch})
+    try:
+        # Trigger all workflows
+        for file in WORKFLOW_FILES:
+            event.post(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch})
 
-    # Wait for workflows to be created
-    time.sleep(10)
+        # Wait for workflows to be created and start
+        time.sleep(60)
 
-    # Collect information about all workflows
-    for file in WORKFLOW_FILES:
-        # Get workflow name
-        response = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}")
-        name = file.replace(".yml", "").title()
-        if response.status_code == 200:
-            name = response.json().get("name", name)
+        # Collect information about all workflows
+        for file in WORKFLOW_FILES:
+            # Get workflow name
+            response = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}")
+            name = file.replace(".yml", "").title()
+            if response.status_code == 200:
+                name = response.json().get("name", name)
 
-        # Get run information
-        run_url = f"https://github.com/{repo}/actions/workflows/{file}"
-        run_number = None
+            # Get run information
+            run_url = f"https://github.com/{repo}/actions/workflows/{file}"
+            run_number = None
 
-        runs_response = event.get(
-            f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/runs?branch={branch}&event=workflow_dispatch&per_page=1"
-        )
+            runs_response = event.get(
+                f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/runs?branch={branch}&event=workflow_dispatch&per_page=1"
+            )
 
-        if runs_response.status_code == 200:
-            if runs := runs_response.json().get("workflow_runs", []):
+            if runs_response.status_code == 200 and (runs := runs_response.json().get("workflow_runs", [])):
                 run_url = runs[0].get("html_url", run_url)
                 run_number = runs[0].get("run_number")
 
-        results.append({"name": name, "file": file, "url": run_url, "run_number": run_number})
+            results.append({"name": name, "file": file, "url": run_url, "run_number": run_number})
+    finally:
+        # Always delete temp branch even if workflow collection fails
+        if temp_branch:
+            event.delete(f"{GITHUB_API_URL}/repos/{repo}/git/refs/heads/{temp_branch}")
 
     return results
 
@@ -63,12 +116,15 @@ def update_comment(event, comment_body: str, triggered_actions: list[dict], bran
         return
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-    summary = (
-        f"\n\n## ⚡ Actions Trigger\n\n"
-        f"<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>\n\n"
-        f"GitHub Actions below triggered via workflow dispatch on this "
-        f"PR branch `{branch}` at {timestamp} with `{RUN_CI_KEYWORD}` command:\n\n"
-    )
+    summary = f"""
+
+## ⚡ Actions Trigger
+
+<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>
+
+GitHub Actions below triggered via workflow dispatch for this PR at {timestamp} with `{RUN_CI_KEYWORD}` command:
+
+"""
 
     for action in triggered_actions:
         run_info = f" run {action['run_number']}" if action["run_number"] else ""
@@ -104,10 +160,10 @@ def main(*args, **kwargs):
 
     # Get branch, trigger workflows, and update comment
     event.toggle_eyes_reaction(True)
-    branch = get_pr_branch(event)
-    print(f"Triggering workflows on branch: {branch}")
+    branch, temp_branch = get_pr_branch(event)
+    print(f"Triggering workflows on branch: {branch}" + (" (temp)" if temp_branch else ""))
 
-    triggered_actions = trigger_and_get_workflow_info(event, branch)
+    triggered_actions = trigger_and_get_workflow_info(event, branch, temp_branch)
     update_comment(event, comment_body, triggered_actions, branch)
     event.toggle_eyes_reaction(False)
 

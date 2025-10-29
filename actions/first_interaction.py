@@ -6,11 +6,9 @@ import os
 import time
 
 from . import review_pr
-from .utils import Action, filter_labels, get_completion, get_pr_open_response, remove_html_comments
+from .summarize_pr import SUMMARY_MARKER
+from .utils import ACTIONS_CREDIT, Action, filter_labels, get_completion, get_pr_open_response, remove_html_comments
 
-SUMMARY_START = (
-    "## 🛠️ PR Summary\n\n<sub>Made with ❤️ by [Ultralytics Actions](https://github.com/ultralytics/actions)<sub>\n\n"
-)
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 AUTO_PR_REVIEW = os.getenv("REVIEW", "true").lower() == "true"
 
@@ -190,13 +188,13 @@ def main(*args, **kwargs):
         if event.should_skip_pr_author():
             return
 
-        print("Processing PR open with unified API call...")
+        print(f"Processing PR open by @{username} with unified API call...")
         diff = event.get_pr_diff()
-        response = get_pr_open_response(event.repository, diff, title, body, label_descriptions)
+        response = get_pr_open_response(event.repository, diff, title, username, label_descriptions)
 
         if summary := response.get("summary"):
             print("Updating PR description with summary...")
-            event.update_pr_description(number, SUMMARY_START + summary)
+            event.update_pr_description(number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}")
         else:
             summary = body
 
