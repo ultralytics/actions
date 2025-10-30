@@ -23,7 +23,7 @@ def test_remove_outer_codeblocks():
 
 
 @patch("requests.post")
-def test_get_completion(mock_post):
+def test_get_response(mock_post):
     """Test OpenAI Responses API completion function with mocked response."""
     # Setup mock response with Responses API structure
     mock_response = MagicMock()
@@ -53,8 +53,8 @@ def test_get_completion(mock_post):
 
 @patch("requests.post")
 @patch("actions.utils.openai_utils.check_links_in_string")
-def test_get_completion_with_link_check(mock_check_links, mock_post):
-    """Test get_completion with link checking."""
+def test_get_response_with_link_check(mock_check_links, mock_post):
+    """Test get_response with link checking."""
     # Setup mocks with Responses API structure
     mock_response = MagicMock()
     mock_response.status_code = 200

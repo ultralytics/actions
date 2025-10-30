@@ -59,10 +59,10 @@ def test_get_event_content_pr():
     assert action == "opened"
 
 
-@patch("actions.first_interaction.get_completion")
-def test_get_relevant_labels(mock_get_completion):
+@patch("actions.first_interaction.get_response")
+def test_get_relevant_labels(mock_get_response):
     """Test getting relevant labels for an issue."""
-    mock_get_completion.return_value = "bug, enhancement"
+    mock_get_response.return_value = "bug, enhancement"
 
     available_labels = {
         "bug": "A bug in the software",
@@ -79,13 +79,13 @@ def test_get_relevant_labels(mock_get_completion):
     )
 
     assert labels == ["bug", "enhancement"]
-    mock_get_completion.assert_called_once()
+    mock_get_response.assert_called_once()
 
 
-@patch("actions.first_interaction.get_completion")
-def test_get_first_interaction_response(mock_get_completion):
+@patch("actions.first_interaction.get_response")
+def test_get_first_interaction_response(mock_get_response):
     """Test generating first interaction response."""
-    mock_get_completion.return_value = "Thank you for your issue"
+    mock_get_response.return_value = "Thank you for your issue"
 
     mock_event = MagicMock()
     mock_event.repository = "test/repo"
@@ -95,4 +95,4 @@ def test_get_first_interaction_response(mock_get_completion):
     )
 
     assert response == "Thank you for your issue"
-    mock_get_completion.assert_called_once()
+    mock_get_response.assert_called_once()
