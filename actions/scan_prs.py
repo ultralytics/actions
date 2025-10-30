@@ -26,7 +26,8 @@ def get_phase_emoji(age_days):
 
 def run():
     """List open PRs across organization and auto-merge eligible Dependabot PRs."""
-    # Get and validate visibility settings
+    # Get and validate settings
+    org = os.getenv("ORG", "ultralytics")
     visibility = os.getenv("VISIBILITY", "public").lower()
     repo_visibility = os.getenv("REPO_VISIBILITY", "public").lower()
     valid_visibilities = {"public", "private", "internal", "all"}
@@ -40,10 +41,10 @@ def run():
         print(f"⚠️  Security: Public repo cannot scan {visibility} repos. Restricting to public only.")
         visibility = "public"
 
-    print(f"🔍 Scanning {visibility} repositories...")
+    print(f"🔍 Scanning {visibility} repositories in {org} organization...")
 
     # Get active repos with specified visibility
-    cmd = ["gh", "repo", "list", "ultralytics", "--limit", "1000", "--json", "name,url,isArchived"]
+    cmd = ["gh", "repo", "list", org, "--limit", "1000", "--json", "name,url,isArchived"]
     if visibility != "all":
         cmd.extend(["--visibility", visibility])
 
@@ -61,7 +62,7 @@ def run():
             "search",
             "prs",
             "--owner",
-            "ultralytics",
+            org,
             "--state",
             "open",
             "--limit",
@@ -93,7 +94,7 @@ def run():
 
     repo_count = len({pr["repository"]["name"] for pr in all_prs if pr["repository"]["name"] in repos})
     summary = [
-        "# 🔍 Open Pull Requests - Ultralytics Organization\n",
+        f"# 🔍 Open Pull Requests - {org.title()} Organization\n",
         f"**Total:** {len(all_prs)} open PRs across {repo_count} repos",
         f"**By Phase:** 🆕 {phase_counts['new']} New | 🟢 {phase_counts['green']} Green (≤7d) | 🟡 {phase_counts['yellow']} Yellow (≤30d) | 🔴 {phase_counts['red']} Red (>30d)\n",
     ]
@@ -127,7 +128,7 @@ def run():
                 "pr",
                 "list",
                 "--repo",
-                f"ultralytics/{repo_name}",
+                f"{org}/{repo_name}",
                 "--author",
                 "app/dependabot",
                 "--state",
@@ -147,7 +148,7 @@ def run():
                 continue
 
             total_found += 1
-            pr_ref = f"ultralytics/{repo_name}#{pr['number']}"
+            pr_ref = f"{org}/{repo_name}#{pr['number']}"
             print(f"  Found: {pr_ref} - {pr['title']}")
 
             if merged >= 1:
@@ -172,7 +173,7 @@ def run():
 
             print("    ✅ All checks passed, merging...")
             result = subprocess.run(
-                ["gh", "pr", "merge", str(pr["number"]), "--repo", f"ultralytics/{repo_name}", "--squash", "--admin"],
+                ["gh", "pr", "merge", str(pr["number"]), "--repo", f"{org}/{repo_name}", "--squash", "--admin"],
                 capture_output=True,
                 text=True,
             )
@@ -188,9 +189,10 @@ def run():
     summary.append(f"\n**Summary:** Found {total_found} | Merged {total_merged} | Skipped {total_skipped}")
     print(f"\n📊 Dependabot Summary: Found {total_found} | Merged {total_merged} | Skipped {total_skipped}")
 
-    # Write to GitHub step summary
-    with open(os.environ["GITHUB_STEP_SUMMARY"], "a") as f:
-        f.write("\n".join(summary))
+    # Write to GitHub step summary if available
+    if summary_file := os.getenv("GITHUB_STEP_SUMMARY"):
+        with open(summary_file, "a") as f:
+            f.write("\n".join(summary))
 
 
 if __name__ == "__main__":
