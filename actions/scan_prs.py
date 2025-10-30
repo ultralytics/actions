@@ -1,5 +1,4 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
-
 """List and auto-merge open PRs across GitHub organization."""
 
 import json
@@ -31,26 +30,26 @@ def run():
     visibility = os.getenv("VISIBILITY", "public").lower()
     repo_visibility = os.getenv("REPO_VISIBILITY", "public").lower()
     valid_visibilities = {"public", "private", "internal", "all"}
-    
+
     if visibility not in valid_visibilities:
         print(f"⚠️  Invalid visibility '{visibility}', defaulting to 'public'")
         visibility = "public"
-    
+
     # Security: if calling repo is public, restrict to public repos only
     if repo_visibility == "public" and visibility != "public":
         print(f"⚠️  Security: Public repo cannot scan {visibility} repos. Restricting to public only.")
         visibility = "public"
-    
+
     print(f"🔍 Scanning {visibility} repositories...")
-    
+
     # Get active repos with specified visibility
     cmd = ["gh", "repo", "list", "ultralytics", "--limit", "1000", "--json", "name,url,isArchived"]
     if visibility != "all":
         cmd.extend(["--visibility", visibility])
-    
+
     result = subprocess.run(cmd, capture_output=True, text=True, check=True)
     repos = {r["name"]: r["url"] for r in json.loads(result.stdout) if not r["isArchived"]}
-    
+
     if not repos:
         print("⚠️  No repositories found")
         return
@@ -58,15 +57,28 @@ def run():
     # Get all open PRs
     result = subprocess.run(
         [
-            "gh", "search", "prs", "--owner", "ultralytics", "--state", "open", "--limit", "1000",
-            "--json", "repository,number,title,url,createdAt", "--sort", "created", "--order", "desc",
+            "gh",
+            "search",
+            "prs",
+            "--owner",
+            "ultralytics",
+            "--state",
+            "open",
+            "--limit",
+            "1000",
+            "--json",
+            "repository,number,title,url,createdAt",
+            "--sort",
+            "created",
+            "--order",
+            "desc",
         ],
         capture_output=True,
         text=True,
         check=True,
     )
     all_prs = json.loads(result.stdout)
-    
+
     if not all_prs:
         print("✅ No open PRs found")
         return
@@ -75,7 +87,9 @@ def run():
     phase_counts = {"new": 0, "green": 0, "yellow": 0, "red": 0}
     for pr in all_prs:
         age_days = get_age_days(pr["createdAt"])
-        phase_counts["new" if age_days == 0 else "green" if age_days <= 7 else "yellow" if age_days <= 30 else "red"] += 1
+        phase_counts[
+            "new" if age_days == 0 else "green" if age_days <= 7 else "yellow" if age_days <= 30 else "red"
+        ] += 1
 
     repo_count = len({pr["repository"]["name"] for pr in all_prs if pr["repository"]["name"] in repos})
     summary = [
@@ -89,7 +103,9 @@ def run():
             continue
 
         repo_prs = [pr for pr in all_prs if pr["repository"]["name"] == repo_name]
-        summary.append(f"## 📦 [{repo_name}]({repos[repo_name]}) - {len(repo_prs)} open PR{'s' if len(repo_prs) > 1 else ''}")
+        summary.append(
+            f"## 📦 [{repo_name}]({repos[repo_name]}) - {len(repo_prs)} open PR{'s' if len(repo_prs) > 1 else ''}"
+        )
 
         for pr in repo_prs[:30]:
             emoji, age_str = get_phase_emoji(get_age_days(pr["createdAt"]))
@@ -107,8 +123,17 @@ def run():
     for repo_name in repos:
         result = subprocess.run(
             [
-                "gh", "pr", "list", "--repo", f"ultralytics/{repo_name}", "--author", "app/dependabot",
-                "--state", "open", "--json", "number,title,files,mergeable,statusCheckRollup",
+                "gh",
+                "pr",
+                "list",
+                "--repo",
+                f"ultralytics/{repo_name}",
+                "--author",
+                "app/dependabot",
+                "--state",
+                "open",
+                "--json",
+                "number,title,files,mergeable,statusCheckRollup",
             ],
             capture_output=True,
             text=True,
@@ -138,14 +163,14 @@ def run():
             # Check if all status checks passed (empty list or None = no checks = pass)
             checks = pr.get("statusCheckRollup") or []
             failed_checks = [c for c in checks if c.get("conclusion") not in ["SUCCESS", "SKIPPED", "NEUTRAL", None]]
-            
+
             if failed_checks:
                 for check in failed_checks:
                     print(f"    ❌ Failing check: {check.get('name', 'unknown')} = {check.get('conclusion')}")
                 total_skipped += 1
                 continue
 
-            print(f"    ✅ All checks passed, merging...")
+            print("    ✅ All checks passed, merging...")
             result = subprocess.run(
                 ["gh", "pr", "merge", str(pr["number"]), "--repo", f"ultralytics/{repo_name}", "--squash", "--admin"],
                 capture_output=True,
