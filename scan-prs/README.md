@@ -28,6 +28,8 @@ jobs:
       - uses: ultralytics/actions/scan-prs@main
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          org: ultralytics # Optional: defaults to ultralytics
+          visibility: public # Optional: public, private, internal, or all
 ```
 
 ## Inputs

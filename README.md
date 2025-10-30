@@ -127,7 +127,8 @@ List open PRs across an organization and auto-merge eligible Dependabot PRs.
 - uses: ultralytics/actions/scan-prs@main
   with:
     token: ${{ secrets.GITHUB_TOKEN }}
-    visibility: public # public, private, internal, or all
+    org: ultralytics # Optional: defaults to ultralytics
+    visibility: public # Optional: public, private, internal, or all
 ```
 
 [**📖 Full Documentation →**](scan-prs/README.md)

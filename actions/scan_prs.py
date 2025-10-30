@@ -162,7 +162,7 @@ def run():
                 continue
 
             # Check if all status checks passed (empty list or None = no checks = pass)
-            checks = pr.get("statusCheckRollup") or []
+            checks = (pr.get("statusCheckRollup") or {}).get("contexts", [])
             failed_checks = [c for c in checks if c.get("conclusion") not in ["SUCCESS", "SKIPPED", "NEUTRAL", None]]
 
             if failed_checks:
