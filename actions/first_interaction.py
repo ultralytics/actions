@@ -7,7 +7,7 @@ import time
 
 from . import review_pr
 from .summarize_pr import SUMMARY_MARKER
-from .utils import ACTIONS_CREDIT, Action, filter_labels, get_response, get_pr_open_response, remove_html_comments
+from .utils import ACTIONS_CREDIT, Action, filter_labels, get_pr_open_response, get_response, remove_html_comments
 
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 AUTO_PR_REVIEW = os.getenv("REVIEW", "true").lower() == "true"

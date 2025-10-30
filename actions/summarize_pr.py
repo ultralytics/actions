@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action, get_response, get_pr_summary_prompt
+from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action, get_pr_summary_prompt, get_response
 
 SUMMARY_MARKER = "## 🛠️ PR Summary"
 
