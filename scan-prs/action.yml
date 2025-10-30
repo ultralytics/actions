@@ -1,0 +1,56 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+name: "Scan PRs"
+author: "Ultralytics"
+description: "List open PRs and auto-merge eligible Dependabot PRs across organization"
+branding:
+  icon: "git-pull-request"
+  color: "blue"
+inputs:
+  token:
+    description: "GitHub token with admin permissions for merging"
+    required: true
+  org:
+    description: "GitHub organization name"
+    required: false
+    default: "ultralytics"
+  visibility:
+    description: "Repository visibility to scan: public, private, internal, or all"
+    required: false
+    default: "public"
+runs:
+  using: "composite"
+  steps:
+    - uses: astral-sh/setup-uv@v7
+      with:
+        ignore-empty-workdir: true
+        enable-cache: false
+        version: "0.9.4"
+
+    - name: Install ultralytics-actions
+      env:
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_SHA: ${{ github.sha }}
+      run: |
+        # Install from git commit if testing in ultralytics/actions repo, otherwise from main
+        if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
+          echo "Installing from commit: $GITHUB_SHA"
+          packages="git+https://github.com/ultralytics/actions@${GITHUB_SHA}"
+        else
+          packages="git+https://github.com/ultralytics/actions@main"
+        fi
+        if [ "$(uname)" = "Darwin" ]; then
+          uv pip install --system --break-system-packages $packages
+        else
+          sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
+        fi
+      shell: bash
+
+    - name: Scan PRs
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ORG: ${{ inputs.org }}
+        VISIBILITY: ${{ inputs.visibility }}
+        REPO_VISIBILITY: ${{ github.event.repository.visibility }}
+      run: python -m actions.scan_prs
+      shell: bash
