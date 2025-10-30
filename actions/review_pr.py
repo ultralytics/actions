@@ -209,12 +209,7 @@ def generate_pr_review(
             messages,
             reasoning_effort="low",
             model="gpt-5-codex",
-            text_format={
-                "format": {
-                    "type": "json_schema",
-                    "json_schema": {"name": "pr_review", "strict": True, "schema": schema},
-                }
-            },
+            text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
             tools=[
                 {
                     "type": "web_search",
