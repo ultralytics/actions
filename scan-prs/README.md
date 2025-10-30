@@ -29,18 +29,18 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           org: ultralytics # Optional: defaults to ultralytics
-          visibility: public # Optional: public, private, internal, or all
+          visibility: private,internal # Optional: public, private, internal, all, or comma-separated
 ```
 
 ## Inputs
 
-| Input        | Description                                                              | Required | Default       |
-| ------------ | ------------------------------------------------------------------------ | -------- | ------------- |
-| `token`      | GitHub token with admin permissions for merging                          | Yes      | -             |
-| `org`        | GitHub organization name                                                 | No       | `ultralytics` |
-| `visibility` | Repository visibility to scan: `public`, `private`, `internal`, or `all` | No       | `public`      |
+| Input        | Description                                                                                      | Required | Default       |
+| ------------ | ------------------------------------------------------------------------------------------------ | -------- | ------------- |
+| `token`      | GitHub token with admin permissions for merging                                                  | Yes      | -             |
+| `org`        | GitHub organization name                                                                         | No       | `ultralytics` |
+| `visibility` | Repository visibility to scan: `public`, `private`, `internal`, `all`, or comma-separated list (e.g., `private,internal`) | No       | `public`      |
 
-**Security Note:** If the calling repository is public, scanning is automatically restricted to public repos only, even if a different visibility is specified.
+**Security Note:** If the calling repository is public, scanning is automatically restricted to public repos only, even if non-public visibilities are specified.
 
 ## Auto-merge Criteria
 
