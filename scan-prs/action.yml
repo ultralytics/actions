@@ -30,12 +30,12 @@ runs:
     - name: Install ultralytics-actions
       env:
         GITHUB_REPOSITORY: ${{ github.repository }}
-        GITHUB_REF: ${{ github.ref }}
+        GITHUB_SHA: ${{ github.sha }}
       run: |
-        # Install from git branch if testing in ultralytics/actions repo, otherwise from main
+        # Install from git commit if testing in ultralytics/actions repo, otherwise from main
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
-          echo "Installing from git branch: $GITHUB_REF"
-          packages="git+https://github.com/ultralytics/actions@${GITHUB_REF#refs/heads/}"
+          echo "Installing from commit: $GITHUB_SHA"
+          packages="git+https://github.com/ultralytics/actions@${GITHUB_SHA}"
         else
           packages="git+https://github.com/ultralytics/actions@main"
         fi

@@ -169,7 +169,7 @@ def run():
                 checks = rollup.get("contexts", [])
             else:
                 checks = []
-            failed_checks = [c for c in checks if c.get("conclusion") not in ["SUCCESS", "SKIPPED", "NEUTRAL", None]]
+            failed_checks = [c for c in checks if c.get("conclusion") not in ["SUCCESS", "SKIPPED", "NEUTRAL"]]
 
             if failed_checks:
                 for check in failed_checks:
