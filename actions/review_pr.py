@@ -224,16 +224,15 @@ def generate_pr_review(
             ],
         )
 
-        review_data = response  # Already parsed as dict from json_schema
-        print(json.dumps(review_data, indent=2))
+        print(json.dumps(response, indent=2))
 
         # Count comments BEFORE filtering (for COMMENT vs APPROVE decision)
-        comments_before_filtering = len(review_data.get("comments", []))
+        comments_before_filtering = len(response.get("comments", []))
         print(f"AI generated {comments_before_filtering} comments")
 
         # Validate, filter, and deduplicate comments
         unique_comments = {}
-        for c in review_data.get("comments", []):
+        for c in response.get("comments", []):
             file_path, line_num = c.get("file"), c.get("line", 0)
             start_line = c.get("start_line")
             side = (c.get("side") or "RIGHT").upper()  # Default to RIGHT (added lines)
@@ -271,7 +270,7 @@ def generate_pr_review(
             else:
                 print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {(c.get('message') or '')[:60]}...")
 
-        review_data.update(
+        response.update(
             {
                 "comments": list(unique_comments.values()),
                 "comments_before_filtering": comments_before_filtering,
@@ -280,8 +279,8 @@ def generate_pr_review(
                 "skipped_files": skipped_count,
             }
         )
-        print(f"Valid comments after filtering: {len(review_data['comments'])}")
-        return review_data
+        print(f"Valid comments after filtering: {len(response['comments'])}")
+        return response
 
     except Exception as e:
         import traceback
