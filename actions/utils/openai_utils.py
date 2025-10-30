@@ -147,6 +147,10 @@ def get_completion(
                 time.sleep(2**attempt)
                 continue
 
+            if r.status_code >= 400:
+                error_body = r.text
+                print(f"API Error {r.status_code}: {error_body}")
+
             r.raise_for_status()
 
             # Parse response
@@ -250,7 +254,14 @@ Example comment template (adapt as needed, keep all links):
         {"role": "user", "content": prompt},
     ]
     result = get_completion(
-        messages, temperature=1.0, text_format={"format": {"type": "json_schema", "strict": True, "schema": schema}}
+        messages,
+        temperature=1.0,
+        text_format={
+            "format": {
+                "type": "json_schema",
+                "json_schema": {"name": "pr_open_response", "strict": True, "schema": schema},
+            }
+        },
     )
     if is_large and "summary" in result:
         result["summary"] = (
