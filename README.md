@@ -23,8 +23,6 @@ This repository provides three main components:
 2. **[Standalone Actions](#standalone-actions)** - Reusable composite actions for common CI/CD tasks
 3. **[Python Package](#python-package)** - `ultralytics-actions` package for programmatic use
 
----
-
 ## Ultralytics Actions (Main Action)
 
 AI-powered formatting, labeling, and PR summaries for Python, Swift, and Markdown files.
@@ -93,8 +91,6 @@ jobs:
           brave_api_key: ${{ secrets.BRAVE_API_KEY }} # Used for broken link resolution
 ```
 
----
-
 ## Standalone Actions
 
 Reusable composite actions for common CI/CD tasks. Each can be used independently in your workflows.
@@ -136,8 +132,6 @@ List open PRs across an organization and auto-merge eligible Dependabot PRs.
 
 [**📖 Full Documentation →**](scan-prs/README.md)
 
----
-
 ## Python Package
 
 Install `ultralytics-actions` for programmatic access to action utilities.
@@ -157,8 +151,6 @@ pip install ultralytics-actions
 - `actions.scan_prs` - Scan and manage organization PRs
 - `actions.first_interaction` - Welcome message for new contributors
 - And more in `actions/` directory
-
----
 
 ## 💡 Contribute
 
