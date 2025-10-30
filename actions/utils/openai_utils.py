@@ -109,7 +109,7 @@ def get_pr_first_comment_template(repository: str, username: str) -> str:
 For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing/). Don't hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀"""
 
 
-def get_completion(
+def get_response(
     messages: list[dict[str, str]],
     check_links: bool = True,
     remove: list[str] = (" @giscus[bot]",),
@@ -254,7 +254,7 @@ Example comment template (adapt as needed, keep all links):
         {"role": "system", "content": "You are an Ultralytics AI assistant processing GitHub PRs."},
         {"role": "user", "content": prompt},
     ]
-    result = get_completion(
+    result = get_response(
         messages,
         temperature=1.0,
         text_format={"format": {"type": "json_schema", "name": "pr_open_response", "strict": True, "schema": schema}},
@@ -271,5 +271,5 @@ if __name__ == "__main__":
         {"role": "system", "content": "You are a helpful AI assistant."},
         {"role": "user", "content": "Explain how to export a YOLO11 model to CoreML."},
     ]
-    response = get_completion(messages)
+    response = get_response(messages)
     print(response)

@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-from .utils import ACTIONS_CREDIT, GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
+from .utils import ACTIONS_CREDIT, GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_response, remove_html_comments
 
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
@@ -205,7 +205,7 @@ def generate_pr_review(
             "additionalProperties": False,
         }
 
-        response = get_completion(
+        response = get_response(
             messages,
             reasoning_effort="low",
             model="gpt-5-codex",

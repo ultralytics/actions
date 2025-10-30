@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from actions.utils.openai_utils import get_completion, remove_outer_codeblocks
+from actions.utils.openai_utils import get_response, remove_outer_codeblocks
 
 
 def test_remove_outer_codeblocks():
@@ -45,7 +45,7 @@ def test_get_completion(mock_post):
     # Use a context manager for the environment variable
     with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=False):
         with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
-            result = get_completion(messages, check_links=False)
+            result = get_response(messages, check_links=False)
 
     assert result == "Test response from OpenAI"
     mock_post.assert_called_once()
@@ -75,7 +75,7 @@ def test_get_completion_with_link_check(mock_check_links, mock_post):
     # Use a context manager for the environment variable
     with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=False):
         with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
-            result = get_completion(messages)
+            result = get_response(messages)
 
     assert result == "Response with https://example.com link"
     mock_check_links.assert_called_once()

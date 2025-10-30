@@ -13,7 +13,7 @@ from .github_utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, ultralytic
 from .openai_utils import (
     MAX_PROMPT_CHARS,
     filter_labels,
-    get_completion,
+    get_response,
     get_pr_open_response,
     get_pr_summary_guidelines,
     get_pr_summary_prompt,
@@ -34,7 +34,7 @@ __all__ = (
     "check_pubdev_version",
     "check_pypi_version",
     "filter_labels",
-    "get_completion",
+    "get_response",
     "get_pr_open_response",
     "get_pr_summary_guidelines",
     "get_pr_summary_prompt",
