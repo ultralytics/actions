@@ -34,10 +34,10 @@ jobs:
 
 ## Inputs
 
-| Input        | Description                                                                                      | Required | Default       |
-| ------------ | ------------------------------------------------------------------------------------------------ | -------- | ------------- |
-| `token`      | GitHub token with admin permissions for merging                                                  | Yes      | -             |
-| `org`        | GitHub organization name                                                                         | No       | `ultralytics` |
+| Input        | Description                                                                                                               | Required | Default       |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------- | -------- | ------------- |
+| `token`      | GitHub token with admin permissions for merging                                                                           | Yes      | -             |
+| `org`        | GitHub organization name                                                                                                  | No       | `ultralytics` |
 | `visibility` | Repository visibility to scan: `public`, `private`, `internal`, `all`, or comma-separated list (e.g., `private,internal`) | No       | `public`      |
 
 **Security Note:** If the calling repository is public, scanning is automatically restricted to public repos only, even if non-public visibilities are specified.

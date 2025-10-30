@@ -28,21 +28,21 @@ def parse_visibility(visibility_input, repo_visibility):
     """Parse and validate visibility settings with security checks."""
     valid = {"public", "private", "internal", "all"}
     stripped = [v.strip() for v in visibility_input.lower().split(",") if v.strip()]
-    
+
     # Warn about invalid values
     if invalid := [v for v in stripped if v not in valid]:
         print(f"⚠️  Invalid visibility values: {', '.join(invalid)} - ignoring")
-    
+
     visibility_list = [v for v in stripped if v in valid]
     if not visibility_list:
         print("⚠️  No valid visibility values, defaulting to 'public'")
         return ["public"]
-    
+
     # Security: public repos can only scan public repos
     if repo_visibility == "public" and visibility_list != ["public"]:
         print("⚠️  Security: Public repo cannot scan non-public repos. Restricting to public only.")
         return ["public"]
-    
+
     return visibility_list
 
 
@@ -50,9 +50,13 @@ def get_repo_filter(visibility_list):
     """Return filtering strategy for repo visibility."""
     if len(visibility_list) == 1 and visibility_list[0] != "all":
         return {"flag": ["--visibility", visibility_list[0]], "filter": None, "str": visibility_list[0]}
-    
+
     filter_set = {"public", "private", "internal"} if "all" in visibility_list else set(visibility_list)
-    return {"flag": [], "filter": filter_set, "str": "all" if "all" in visibility_list else ", ".join(sorted(visibility_list))}
+    return {
+        "flag": [],
+        "filter": filter_set,
+        "str": "all" if "all" in visibility_list else ", ".join(sorted(visibility_list)),
+    }
 
 
 def get_status_checks(rollup):
@@ -66,16 +70,23 @@ def run():
     org = os.getenv("ORG", "ultralytics")
     visibility_list = parse_visibility(os.getenv("VISIBILITY", "public"), os.getenv("REPO_VISIBILITY", "public"))
     filter_config = get_repo_filter(visibility_list)
-    
+
     print(f"🔍 Scanning {filter_config['str']} repositories in {org} organization...")
 
     # Get active repos
     result = subprocess.run(
-        ["gh", "repo", "list", org, "--limit", "1000", "--json", "name,url,isArchived,visibility"] + filter_config["flag"],
-        capture_output=True, text=True, check=True
+        ["gh", "repo", "list", org, "--limit", "1000", "--json", "name,url,isArchived,visibility"]
+        + filter_config["flag"],
+        capture_output=True,
+        text=True,
+        check=True,
     )
     all_repos = [r for r in json.loads(result.stdout) if not r["isArchived"]]
-    repos = {r["name"]: r["url"] for r in all_repos if not filter_config["filter"] or r["visibility"].lower() in filter_config["filter"]}
+    repos = {
+        r["name"]: r["url"]
+        for r in all_repos
+        if not filter_config["filter"] or r["visibility"].lower() in filter_config["filter"]
+    }
 
     if not repos:
         print("⚠️  No repositories found")
@@ -83,9 +94,26 @@ def run():
 
     # Get all open PRs
     result = subprocess.run(
-        ["gh", "search", "prs", "--owner", org, "--state", "open", "--limit", "1000",
-         "--json", "repository,number,title,url,createdAt", "--sort", "created", "--order", "desc"],
-        capture_output=True, text=True, check=True
+        [
+            "gh",
+            "search",
+            "prs",
+            "--owner",
+            org,
+            "--state",
+            "open",
+            "--limit",
+            "1000",
+            "--json",
+            "repository,number,title,url,createdAt",
+            "--sort",
+            "created",
+            "--order",
+            "desc",
+        ],
+        capture_output=True,
+        text=True,
+        check=True,
     )
     all_prs = json.loads(result.stdout)
 
@@ -108,12 +136,14 @@ def run():
 
     for repo_name in sorted({pr["repository"]["name"] for pr in all_prs if pr["repository"]["name"] in repos}):
         repo_prs = [pr for pr in all_prs if pr["repository"]["name"] == repo_name]
-        summary.append(f"## 📦 [{repo_name}]({repos[repo_name]}) - {len(repo_prs)} open PR{'s' if len(repo_prs) > 1 else ''}")
-        
+        summary.append(
+            f"## 📦 [{repo_name}]({repos[repo_name]}) - {len(repo_prs)} open PR{'s' if len(repo_prs) > 1 else ''}"
+        )
+
         for pr in repo_prs[:30]:
             emoji, age_str = get_phase_emoji(get_age_days(pr["createdAt"]))
             summary.append(f"- [#{pr['number']}]({pr['url']}) {pr['title']} {emoji} {age_str}")
-        
+
         if len(repo_prs) > 30:
             summary.append(f"- ... {len(repo_prs) - 30} more PRs")
         summary.append("")
@@ -125,9 +155,21 @@ def run():
 
     for repo_name in repos:
         result = subprocess.run(
-            ["gh", "pr", "list", "--repo", f"{org}/{repo_name}", "--author", "app/dependabot",
-             "--state", "open", "--json", "number,title,files,mergeable,statusCheckRollup"],
-            capture_output=True, text=True
+            [
+                "gh",
+                "pr",
+                "list",
+                "--repo",
+                f"{org}/{repo_name}",
+                "--author",
+                "app/dependabot",
+                "--state",
+                "open",
+                "--json",
+                "number,title,files,mergeable,statusCheckRollup",
+            ],
+            capture_output=True,
+            text=True,
         )
         if result.returncode != 0:
             continue
@@ -160,7 +202,8 @@ def run():
             print("    ✅ All checks passed, merging...")
             result = subprocess.run(
                 ["gh", "pr", "merge", str(pr["number"]), "--repo", f"{org}/{repo_name}", "--squash", "--admin"],
-                capture_output=True, text=True
+                capture_output=True,
+                text=True,
             )
             if result.returncode == 0:
                 print(f"    ✅ Successfully merged {pr_ref}")
