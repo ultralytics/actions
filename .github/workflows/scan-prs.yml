@@ -19,4 +19,4 @@ jobs:
     steps:
       - uses: ultralytics/actions/scan-prs@main
         with:
-          token: ${{ secrets._GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
