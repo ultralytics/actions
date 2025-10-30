@@ -28,6 +28,7 @@ def parse_visibility(visibility_input, repo_visibility):
     """Parse and validate visibility settings with security checks."""
     valid = {"public", "private", "internal", "all"}
     stripped = [v.strip() for v in visibility_input.lower().split(",") if v.strip()]
+    repo_visibility = (repo_visibility or "").lower()
 
     # Warn about invalid values
     if invalid := [v for v in stripped if v not in valid]:
