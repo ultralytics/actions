@@ -122,20 +122,26 @@ def run():
         print("✅ No open PRs found")
         return
 
+    # Filter PRs to only include those from scanned repos
+    all_prs = [pr for pr in all_prs if pr["repository"]["name"] in repos]
+
+    if not all_prs:
+        print("✅ No open PRs found in scanned repositories")
+        return
+
     # Count PRs by phase
     phase_counts = {"new": 0, "green": 0, "yellow": 0, "red": 0}
     for pr in all_prs:
         age = get_age_days(pr["createdAt"])
         phase_counts["new" if age == 0 else "green" if age <= 7 else "yellow" if age <= 30 else "red"] += 1
 
-    repo_count = len({pr["repository"]["name"] for pr in all_prs if pr["repository"]["name"] in repos})
     summary = [
         f"# 🔍 Open Pull Requests - {org.title()} Organization\n",
-        f"**Total:** {len(all_prs)} open PRs across {repo_count}/{len(repos)} repos",
+        f"**Total:** {len(all_prs)} open PRs across {len({pr['repository']['name'] for pr in all_prs})}/{len(repos)} {filter_config['str']} repos",
         f"**By Phase:** 🆕 {phase_counts['new']} New | 🟢 {phase_counts['green']} ≤7d | 🟡 {phase_counts['yellow']} ≤30d | 🔴 {phase_counts['red']} >30d\n",
     ]
 
-    for repo_name in sorted({pr["repository"]["name"] for pr in all_prs if pr["repository"]["name"] in repos}):
+    for repo_name in sorted({pr["repository"]["name"] for pr in all_prs}):
         repo_prs = [pr for pr in all_prs if pr["repository"]["name"] == repo_name]
         summary.append(
             f"## 📦 [{repo_name}]({repos[repo_name]}) - {len(repo_prs)} open PR{'s' if len(repo_prs) > 1 else ''}"
