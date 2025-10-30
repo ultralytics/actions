@@ -118,7 +118,7 @@ runs:
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
     - name: Checkout Repository
-      if: github.event.action == 'opened' || github.event.action == 'synchronize'
+      if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.action == 'review_requested'
       uses: actions/checkout@v5
       with:
         repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
