@@ -70,7 +70,9 @@ def parse_diff_files(diff_text: str) -> tuple[dict, str]:
     return files, "\n".join(augmented_lines)
 
 
-def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_description: str, event: Action = None) -> dict:
+def generate_pr_review(
+    repository: str, diff_text: str, pr_title: str, pr_description: str, event: Action = None
+) -> dict:
     """Generate comprehensive PR review with line-specific comments and overall assessment."""
     if not diff_text:
         return {"comments": [], "summary": "No changes detected in diff"}
