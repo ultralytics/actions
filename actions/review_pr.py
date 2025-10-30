@@ -99,7 +99,7 @@ def generate_pr_review(
 
     # Fetch full file contents for better context if within token budget
     full_files_section = ""
-    if event and len(file_list) <= 20:  # Reasonable file count limit
+    if event and len(file_list) <= 10:  # Reasonable file count limit
         file_contents = []
         total_chars = len(augmented_diff)
         for file_path in file_list:
@@ -109,11 +109,11 @@ def generate_pr_review(
                     continue
                 content = local_path.read_text(encoding="utf-8")
                 # Only include if within budget
-                if total_chars + len(content) + 1000 < MAX_PROMPT_CHARS:  # 100 char buffer for formatting
+                if total_chars + len(content) + 1000 < MAX_PROMPT_CHARS:  # 1000 char buffer for formatting
                     file_contents.append(f"### {file_path}\n```\n{content}\n```")
                     total_chars += len(content) + 1000
                 else:
-                    break
+                    break  # Stop when we hit budget limit
             except Exception:
                 pass  # Skip files that can't be read
         if file_contents:
