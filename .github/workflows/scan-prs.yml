@@ -1,0 +1,22 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+# List Open PRs across Ultralytics repositories and auto-merge eligible Dependabot PRs
+
+name: Scan PRs
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *" # daily at 06:00 UTC
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  scan-prs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ultralytics/actions/scan-prs@main
+        with:
+          token: ${{ secrets._GITHUB_TOKEN }}
