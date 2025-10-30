@@ -115,7 +115,7 @@ def generate_pr_review(
                 else:
                     break  # Stop when we hit budget limit
             except Exception:
-                pass  # Skip files that can't be read
+                    continue
         if file_contents:
             full_files_section = f"FULL FILE CONTENTS:\n{chr(10).join(file_contents)}\n\n"
 
