@@ -95,8 +95,8 @@ def run():
     repo_count = len({pr["repository"]["name"] for pr in all_prs if pr["repository"]["name"] in repos})
     summary = [
         f"# 🔍 Open Pull Requests - {org.title()} Organization\n",
-        f"**Total:** {len(all_prs)} open PRs across {repo_count} repos",
-        f"**By Phase:** 🆕 {phase_counts['new']} New | 🟢 {phase_counts['green']} Green (≤7d) | 🟡 {phase_counts['yellow']} Yellow (≤30d) | 🔴 {phase_counts['red']} Red (>30d)\n",
+        f"**Total:** {len(all_prs)} open PRs across {repo_count}/{len(repos)} repos",
+        f"**By Phase:** 🆕 {phase_counts['new']} New | 🟢 {phase_counts['green']} ≤7d | 🟡 {phase_counts['yellow']} ≤30d | 🔴 {phase_counts['red']} >30d\n",
     ]
 
     for repo_name in sorted({pr["repository"]["name"] for pr in all_prs}):
@@ -110,7 +110,7 @@ def run():
 
         for pr in repo_prs[:30]:
             emoji, age_str = get_phase_emoji(get_age_days(pr["createdAt"]))
-            summary.append(f"- 🔀 [#{pr['number']}]({pr['url']}) {pr['title']} {emoji} {age_str}")
+            summary.append(f"- [#{pr['number']}]({pr['url']}) {pr['title']} {emoji} {age_str}")
 
         if len(repo_prs) > 30:
             summary.append(f"- ... {len(repo_prs) - 30} more PRs")
