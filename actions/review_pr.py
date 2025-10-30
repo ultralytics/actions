@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
 from .utils import ACTIONS_CREDIT, GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
 
@@ -69,7 +70,9 @@ def parse_diff_files(diff_text: str) -> tuple[dict, str]:
     return files, "\n".join(augmented_lines)
 
 
-def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_description: str) -> dict:
+def generate_pr_review(
+    repository: str, diff_text: str, pr_title: str, pr_description: str, event: Action = None
+) -> dict:
     """Generate comprehensive PR review with line-specific comments and overall assessment."""
     if not diff_text:
         return {"comments": [], "summary": "No changes detected in diff"}
@@ -94,6 +97,28 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     diff_truncated = len(augmented_diff) > MAX_PROMPT_CHARS
     lines_changed = sum(len(sides["RIGHT"]) + len(sides["LEFT"]) for sides in diff_files.values())
 
+    # Fetch full file contents for better context if within token budget
+    full_files_section = ""
+    if event and len(file_list) <= 10:  # Reasonable file count limit
+        file_contents = []
+        total_chars = len(augmented_diff)
+        for file_path in file_list:
+            try:
+                local_path = Path(file_path)
+                if not local_path.exists():
+                    continue
+                content = local_path.read_text(encoding="utf-8")
+                # Only include if within budget
+                if total_chars + len(content) + 1000 < MAX_PROMPT_CHARS:  # 1000 char buffer for formatting
+                    file_contents.append(f"### {file_path}\n```\n{content}\n```")
+                    total_chars += len(content) + 1000
+                else:
+                    break  # Stop when we hit budget limit
+            except Exception:
+                continue
+        if file_contents:
+            full_files_section = f"FULL FILE CONTENTS:\n{chr(10).join(file_contents)}\n\n"
+
     content = (
         "You are an expert code reviewer for Ultralytics. Review the code changes and provide inline comments where you identify issues or opportunities for improvement.\n\n"
         "Focus on: bugs, security vulnerabilities, performance issues, best practices, edge cases, error handling, and code clarity.\n\n"
@@ -113,6 +138,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- For single-line fixes: provide 'suggestion' without 'start_line' to replace the line at 'line'\n"
         "- Do not provide multi-line fixes: suggestions should only be single line\n"
         "- Match the exact indentation of the original code\n"
+        "- Web search is available to consult docs, dependencies, or technical details\n"
         "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n\n"
         "LINE NUMBERS:\n"
         "- Each line in the diff is prefixed with its line number for clarity:\n"
@@ -141,6 +167,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 f"Review this PR in https://github.com/{repository}:\n\n"
                 f"TITLE:\n{pr_title}\n\n"
                 f"BODY:\n{remove_html_comments(pr_description or '')[:1000]}\n\n"
+                f"{full_files_section}"
                 f"DIFF:\n{augmented_diff[:MAX_PROMPT_CHARS]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),
@@ -360,7 +387,7 @@ def main(*args, **kwargs):
     review_number = dismiss_previous_reviews(event)
 
     diff = event.get_pr_diff()
-    review = generate_pr_review(event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "")
+    review = generate_pr_review(event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "", event)
 
     post_review_summary(event, review, review_number)
     print("PR review completed")

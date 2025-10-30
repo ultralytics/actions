@@ -24,32 +24,70 @@ def get_phase_emoji(age_days):
         return "🔴", f"{age_days} days"
 
 
+def parse_visibility(visibility_input, repo_visibility):
+    """Parse and validate visibility settings with security checks."""
+    valid = {"public", "private", "internal", "all"}
+    stripped = [v.strip() for v in visibility_input.lower().split(",") if v.strip()]
+    repo_visibility = (repo_visibility or "").lower()
+
+    # Warn about invalid values
+    if invalid := [v for v in stripped if v not in valid]:
+        print(f"⚠️  Invalid visibility values: {', '.join(invalid)} - ignoring")
+
+    visibility_list = [v for v in stripped if v in valid]
+    if not visibility_list:
+        print("⚠️  No valid visibility values, defaulting to 'public'")
+        return ["public"]
+
+    # Security: public repos can only scan public repos
+    if repo_visibility == "public" and visibility_list != ["public"]:
+        print("⚠️  Security: Public repo cannot scan non-public repos. Restricting to public only.")
+        return ["public"]
+
+    return visibility_list
+
+
+def get_repo_filter(visibility_list):
+    """Return filtering strategy for repo visibility."""
+    if len(visibility_list) == 1 and visibility_list[0] != "all":
+        return {"flag": ["--visibility", visibility_list[0]], "filter": None, "str": visibility_list[0]}
+
+    filter_set = {"public", "private", "internal"} if "all" in visibility_list else set(visibility_list)
+    return {
+        "flag": [],
+        "filter": filter_set,
+        "str": "all" if "all" in visibility_list else ", ".join(sorted(visibility_list)),
+    }
+
+
+def get_status_checks(rollup):
+    """Extract and validate status checks from rollup, return failed checks."""
+    checks = rollup if isinstance(rollup, list) else rollup.get("contexts", []) if isinstance(rollup, dict) else []
+    return [c for c in checks if c.get("conclusion") not in ["SUCCESS", "SKIPPED", "NEUTRAL"]]
+
+
 def run():
     """List open PRs across organization and auto-merge eligible Dependabot PRs."""
-    # Get and validate settings
     org = os.getenv("ORG", "ultralytics")
-    visibility = os.getenv("VISIBILITY", "public").lower()
-    repo_visibility = os.getenv("REPO_VISIBILITY", "public").lower()
-    valid_visibilities = {"public", "private", "internal", "all"}
+    visibility_list = parse_visibility(os.getenv("VISIBILITY", "public"), os.getenv("REPO_VISIBILITY", "public"))
+    filter_config = get_repo_filter(visibility_list)
 
-    if visibility not in valid_visibilities:
-        print(f"⚠️  Invalid visibility '{visibility}', defaulting to 'public'")
-        visibility = "public"
+    print(f"🔍 Scanning {filter_config['str']} repositories in {org} organization...")
 
-    # Security: if calling repo is public, restrict to public repos only
-    if repo_visibility == "public" and visibility != "public":
-        print(f"⚠️  Security: Public repo cannot scan {visibility} repos. Restricting to public only.")
-        visibility = "public"
-
-    print(f"🔍 Scanning {visibility} repositories in {org} organization...")
-
-    # Get active repos with specified visibility
-    cmd = ["gh", "repo", "list", org, "--limit", "1000", "--json", "name,url,isArchived"]
-    if visibility != "all":
-        cmd.extend(["--visibility", visibility])
-
-    result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-    repos = {r["name"]: r["url"] for r in json.loads(result.stdout) if not r["isArchived"]}
+    # Get active repos
+    result = subprocess.run(
+        ["gh", "repo", "list", org, "--limit", "1000", "--json", "name,url,isArchived,visibility"]
+        + filter_config["flag"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    all_repos = [r for r in json.loads(result.stdout) if not r["isArchived"]]
+    repos = {
+        r["name"]: r["url"]
+        for r in all_repos
+        if not filter_config["filter"] or r["visibility"].lower() in filter_config["filter"]
+    }
 
     if not repos:
         print("⚠️  No repositories found")
@@ -84,25 +122,26 @@ def run():
         print("✅ No open PRs found")
         return
 
+    # Filter PRs to only include those from scanned repos
+    all_prs = [pr for pr in all_prs if pr["repository"]["name"] in repos]
+
+    if not all_prs:
+        print("✅ No open PRs found in scanned repositories")
+        return
+
     # Count PRs by phase
     phase_counts = {"new": 0, "green": 0, "yellow": 0, "red": 0}
     for pr in all_prs:
-        age_days = get_age_days(pr["createdAt"])
-        phase_counts[
-            "new" if age_days == 0 else "green" if age_days <= 7 else "yellow" if age_days <= 30 else "red"
-        ] += 1
+        age = get_age_days(pr["createdAt"])
+        phase_counts["new" if age == 0 else "green" if age <= 7 else "yellow" if age <= 30 else "red"] += 1
 
-    repo_count = len({pr["repository"]["name"] for pr in all_prs if pr["repository"]["name"] in repos})
     summary = [
         f"# 🔍 Open Pull Requests - {org.title()} Organization\n",
-        f"**Total:** {len(all_prs)} open PRs across {repo_count} repos",
-        f"**By Phase:** 🆕 {phase_counts['new']} New | 🟢 {phase_counts['green']} Green (≤7d) | 🟡 {phase_counts['yellow']} Yellow (≤30d) | 🔴 {phase_counts['red']} Red (>30d)\n",
+        f"**Total:** {len(all_prs)} open PRs across {len({pr['repository']['name'] for pr in all_prs})}/{len(repos)} {filter_config['str']} repos",
+        f"**By Phase:** 🆕 {phase_counts['new']} New | 🟢 {phase_counts['green']} ≤7d | 🟡 {phase_counts['yellow']} ≤30d | 🔴 {phase_counts['red']} >30d\n",
     ]
 
     for repo_name in sorted({pr["repository"]["name"] for pr in all_prs}):
-        if repo_name not in repos:
-            continue
-
         repo_prs = [pr for pr in all_prs if pr["repository"]["name"] == repo_name]
         summary.append(
             f"## 📦 [{repo_name}]({repos[repo_name]}) - {len(repo_prs)} open PR{'s' if len(repo_prs) > 1 else ''}"
@@ -110,7 +149,7 @@ def run():
 
         for pr in repo_prs[:30]:
             emoji, age_str = get_phase_emoji(get_age_days(pr["createdAt"]))
-            summary.append(f"- 🔀 [#{pr['number']}]({pr['url']}) {pr['title']} {emoji} {age_str}")
+            summary.append(f"- [#{pr['number']}]({pr['url']}) {pr['title']} {emoji} {age_str}")
 
         if len(repo_prs) > 30:
             summary.append(f"- ... {len(repo_prs) - 30} more PRs")
@@ -161,18 +200,8 @@ def run():
                 total_skipped += 1
                 continue
 
-            # Check if all status checks passed (normalize rollup structure)
-            rollup = pr.get("statusCheckRollup")
-            if isinstance(rollup, list):
-                checks = rollup
-            elif isinstance(rollup, dict):
-                checks = rollup.get("contexts", [])
-            else:
-                checks = []
-            failed_checks = [c for c in checks if c.get("conclusion") not in ["SUCCESS", "SKIPPED", "NEUTRAL"]]
-
-            if failed_checks:
-                for check in failed_checks:
+            if failed := get_status_checks(pr.get("statusCheckRollup")):
+                for check in failed:
                     print(f"    ❌ Failing check: {check.get('name', 'unknown')} = {check.get('conclusion')}")
                 total_skipped += 1
                 continue
@@ -195,7 +224,6 @@ def run():
     summary.append(f"\n**Summary:** Found {total_found} | Merged {total_merged} | Skipped {total_skipped}")
     print(f"\n📊 Dependabot Summary: Found {total_found} | Merged {total_merged} | Skipped {total_skipped}")
 
-    # Write to GitHub step summary if available
     if summary_file := os.getenv("GITHUB_STEP_SUMMARY"):
         with open(summary_file, "a") as f:
             f.write("\n".join(summary))
