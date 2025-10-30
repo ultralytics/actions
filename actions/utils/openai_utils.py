@@ -150,6 +150,7 @@ def get_completion(
             if r.status_code >= 400:
                 error_body = r.text
                 print(f"API Error {r.status_code}: {error_body}")
+                r.reason = f"{r.reason}\n{error_body}"  # Add error body to exception message
 
             r.raise_for_status()
 
