@@ -179,10 +179,37 @@ def generate_pr_review(
     # print(f"\nUser prompt (first 3000 chars):\n{messages[1]['content'][:3000]}...\n")
 
     try:
+        schema = {
+            "type": "object",
+            "properties": {
+                "comments": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string"},
+                            "line": {"type": "integer"},
+                            "side": {"type": "string", "enum": ["LEFT", "RIGHT"]},
+                            "severity": {"type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "SUGGESTION"]},
+                            "message": {"type": "string"},
+                            "start_line": {"type": ["integer", "null"]},
+                            "suggestion": {"type": ["string", "null"]},
+                        },
+                        "required": ["file", "line", "side", "severity", "message", "start_line", "suggestion"],
+                        "additionalProperties": False,
+                    },
+                },
+                "summary": {"type": "string"},
+            },
+            "required": ["comments", "summary"],
+            "additionalProperties": False,
+        }
+
         response = get_completion(
             messages,
             reasoning_effort="low",
             model="gpt-5-codex",
+            text_format={"format": {"type": "json_schema", "strict": True, "schema": schema}},
             tools=[
                 {
                     "type": "web_search",
