@@ -49,6 +49,7 @@ runs:
     - name: Scan PRs
       env:
         GH_TOKEN: ${{ inputs.token }}
+        ORG: ${{ inputs.org }}
         VISIBILITY: ${{ inputs.visibility }}
         REPO_VISIBILITY: ${{ github.event.repository.visibility }}
       run: python -m actions.scan_prs
