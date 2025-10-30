@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-from .utils import ACTIONS_CREDIT, GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
+from .utils import ACTIONS_CREDIT, GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_response, remove_html_comments
 
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
@@ -179,10 +179,37 @@ def generate_pr_review(
     # print(f"\nUser prompt (first 3000 chars):\n{messages[1]['content'][:3000]}...\n")
 
     try:
-        response = get_completion(
+        schema = {
+            "type": "object",
+            "properties": {
+                "comments": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string"},
+                            "line": {"type": "integer"},
+                            "side": {"type": "string", "enum": ["LEFT", "RIGHT"]},
+                            "severity": {"type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "SUGGESTION"]},
+                            "message": {"type": "string"},
+                            "start_line": {"type": ["integer", "null"]},
+                            "suggestion": {"type": ["string", "null"]},
+                        },
+                        "required": ["file", "line", "side", "severity", "message", "start_line", "suggestion"],
+                        "additionalProperties": False,
+                    },
+                },
+                "summary": {"type": "string"},
+            },
+            "required": ["comments", "summary"],
+            "additionalProperties": False,
+        }
+
+        response = get_response(
             messages,
             reasoning_effort="low",
             model="gpt-5-codex",
+            text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
             tools=[
                 {
                     "type": "web_search",
@@ -197,17 +224,15 @@ def generate_pr_review(
             ],
         )
 
-        json_str = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
-        review_data = json.loads(json_str.group(1) if json_str else response)
-        print(json.dumps(review_data, indent=2))
+        print(json.dumps(response, indent=2))
 
         # Count comments BEFORE filtering (for COMMENT vs APPROVE decision)
-        comments_before_filtering = len(review_data.get("comments", []))
+        comments_before_filtering = len(response.get("comments", []))
         print(f"AI generated {comments_before_filtering} comments")
 
         # Validate, filter, and deduplicate comments
         unique_comments = {}
-        for c in review_data.get("comments", []):
+        for c in response.get("comments", []):
             file_path, line_num = c.get("file"), c.get("line", 0)
             start_line = c.get("start_line")
             side = (c.get("side") or "RIGHT").upper()  # Default to RIGHT (added lines)
@@ -245,7 +270,7 @@ def generate_pr_review(
             else:
                 print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {(c.get('message') or '')[:60]}...")
 
-        review_data.update(
+        response.update(
             {
                 "comments": list(unique_comments.values()),
                 "comments_before_filtering": comments_before_filtering,
@@ -254,8 +279,8 @@ def generate_pr_review(
                 "skipped_files": skipped_count,
             }
         )
-        print(f"Valid comments after filtering: {len(review_data['comments'])}")
-        return review_data
+        print(f"Valid comments after filtering: {len(response['comments'])}")
+        return response
 
     except Exception as e:
         import traceback

@@ -7,7 +7,7 @@ import time
 
 from . import review_pr
 from .summarize_pr import SUMMARY_MARKER
-from .utils import ACTIONS_CREDIT, Action, filter_labels, get_completion, get_pr_open_response, remove_html_comments
+from .utils import ACTIONS_CREDIT, Action, filter_labels, get_pr_open_response, get_response, remove_html_comments
 
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 AUTO_PR_REVIEW = os.getenv("REVIEW", "true").lower() == "true"
@@ -91,7 +91,7 @@ YOUR RESPONSE (label names only):
         },
         {"role": "user", "content": prompt},
     ]
-    suggested_labels = get_completion(messages, temperature=1.0)
+    suggested_labels = get_response(messages, temperature=1.0)
     if "none" in suggested_labels.lower():
         return []
 
@@ -170,7 +170,7 @@ YOUR {issue_type.upper()} RESPONSE:
         },
         {"role": "user", "content": prompt},
     ]
-    return get_completion(messages)
+    return get_response(messages)
 
 
 def main(*args, **kwargs):

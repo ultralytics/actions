@@ -109,13 +109,13 @@ def get_pr_first_comment_template(repository: str, username: str) -> str:
 For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing/). Don't hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀"""
 
 
-def get_completion(
+def get_response(
     messages: list[dict[str, str]],
     check_links: bool = True,
     remove: list[str] = (" @giscus[bot]",),
     temperature: float = 1.0,
     reasoning_effort: str | None = None,
-    response_format: dict | None = None,
+    text_format: dict | None = None,
     model: str = OPENAI_MODEL,
     tools: list[dict] | None = None,
 ) -> str | dict:
@@ -130,6 +130,8 @@ def get_completion(
         data = {"model": model, "input": messages, "store": False, "temperature": temperature}
         if "gpt-5" in model:
             data["reasoning"] = {"effort": reasoning_effort or "low"}
+        if text_format:
+            data["text"] = text_format
         if tools:
             data["tools"] = tools
 
@@ -144,6 +146,11 @@ def get_completion(
                 print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/3)...")
                 time.sleep(2**attempt)
                 continue
+
+            if r.status_code >= 400:
+                error_body = r.text
+                print(f"API Error {r.status_code}: {error_body}")
+                r.reason = f"{r.reason}\n{error_body}"  # Add error body to exception message
 
             r.raise_for_status()
 
@@ -173,7 +180,7 @@ def get_completion(
                     token_str += f" (+{thinking_tokens} thinking)"
                 print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)")
 
-            if response_format and response_format.get("type") == "json_object":
+            if text_format and text_format.get("format", {}).get("type") in ["json_object", "json_schema"]:
                 return json.loads(content)
 
             content = remove_outer_codeblocks(content)
@@ -230,16 +237,28 @@ Customized welcome message adapting the template below:
 - No spaces between bullet points
 
 Example comment template (adapt as needed, keep all links):
-{get_pr_first_comment_template(repository, username)}
+{get_pr_first_comment_template(repository, username)}"""
 
-Return ONLY valid JSON in this exact format:
-{{"summary": "...", "labels": [...], "first_comment": "..."}}"""
+    schema = {
+        "type": "object",
+        "properties": {
+            "summary": {"type": "string", "description": "PR summary with emoji sections"},
+            "labels": {"type": "array", "items": {"type": "string"}, "description": "Array of label names"},
+            "first_comment": {"type": "string", "description": "Welcome comment with checklist"},
+        },
+        "required": ["summary", "labels", "first_comment"],
+        "additionalProperties": False,
+    }
 
     messages = [
         {"role": "system", "content": "You are an Ultralytics AI assistant processing GitHub PRs."},
         {"role": "user", "content": prompt},
     ]
-    result = get_completion(messages, temperature=1.0, response_format={"type": "json_object"})
+    result = get_response(
+        messages,
+        temperature=1.0,
+        text_format={"format": {"type": "json_schema", "name": "pr_open_response", "strict": True, "schema": schema}},
+    )
     if is_large and "summary" in result:
         result["summary"] = (
             "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + result["summary"]
@@ -252,5 +271,5 @@ if __name__ == "__main__":
         {"role": "system", "content": "You are a helpful AI assistant."},
         {"role": "user", "content": "Explain how to export a YOLO11 model to CoreML."},
     ]
-    response = get_completion(messages)
+    response = get_response(messages)
     print(response)

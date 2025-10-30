@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action, get_completion, get_pr_summary_prompt
+from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action, get_pr_summary_prompt, get_response
 
 SUMMARY_MARKER = "## 🛠️ PR Summary"
 
@@ -24,7 +24,7 @@ def generate_merge_message(pr_summary, pr_credit, pr_url):
             ),
         },
     ]
-    return get_completion(messages)
+    return get_response(messages)
 
 
 def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
@@ -54,7 +54,7 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
             f"5. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
         },
     ]
-    return get_completion(messages)
+    return get_response(messages)
 
 
 def generate_pr_summary(repository, diff_text):
@@ -68,7 +68,7 @@ def generate_pr_summary(repository, diff_text):
         },
         {"role": "user", "content": prompt},
     ]
-    reply = get_completion(messages, temperature=1.0)
+    reply = get_response(messages, temperature=1.0)
     if is_large:
         reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
 
