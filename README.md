@@ -1,109 +1,157 @@
 <a href="https://www.ultralytics.com/"><img src="https://raw.githubusercontent.com/ultralytics/assets/main/logo/Ultralytics_Logotype_Original.svg" width="320" alt="Ultralytics logo"></a>
 
-# 🚀 Ultralytics Actions: AI-powered formatting, labeling & PR summaries for Python and Markdown
+# 🚀 Ultralytics Actions
 
-Welcome to the [Ultralytics Actions](https://github.com/ultralytics/actions) repository, your go-to solution for maintaining consistent code quality across Ultralytics Python and Swift projects. This GitHub Action is designed to automate the formatting of Python, Markdown, and Swift files, ensuring adherence to our coding standards and enhancing project maintainability.
+Welcome to [Ultralytics Actions](https://github.com/ultralytics/actions) - a collection of GitHub Actions and Python tools for automating code quality, PR management, and CI/CD workflows across Ultralytics projects.
 
 [![GitHub Actions Marketplace](https://img.shields.io/badge/Marketplace-Ultralytics_Actions-blue?style=flat&logo=github)](https://github.com/marketplace/actions/ultralytics-actions)
 
 [![Actions CI](https://github.com/ultralytics/actions/actions/workflows/ci.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/ci.yml)
 [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
-[![List Open PRs](https://github.com/ultralytics/actions/actions/workflows/open-prs.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/open-prs.yml)
+[![Scan PRs](https://github.com/ultralytics/actions/actions/workflows/scan-prs.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/scan-prs.yml)
 [![codecov](https://codecov.io/github/ultralytics/actions/graph/badge.svg?token=DoizJ1WS6j)](https://codecov.io/github/ultralytics/actions)
 
 [![Ultralytics Discord](https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue)](https://discord.com/invite/ultralytics)
 [![Ultralytics Forums](https://img.shields.io/discourse/users?server=https%3A%2F%2Fcommunity.ultralytics.com&logo=discourse&label=Forums&color=blue)](https://community.ultralytics.com/)
 [![Ultralytics Reddit](https://img.shields.io/reddit/subreddit-subscribers/ultralytics?style=flat&logo=reddit&logoColor=white&label=Reddit&color=blue)](https://reddit.com/r/ultralytics)
 
-## 📄 Actions Description
+## 📦 Repository Contents
 
-Ultralytics Actions automatically applies formats, updates, and enhancements using a suite of powerful tools:
+This repository provides three main components:
 
-- **Python Code:** Formatted using [Ruff](https://github.com/astral-sh/ruff), an extremely fast Python linter and formatter.
-- **Markdown Files:** Styled with [Prettier](https://github.com/prettier/prettier) to ensure consistent documentation appearance.
-- **Docstrings:** Cleaned and standardized using [docformatter](https://github.com/PyCQA/docformatter).
-- **Swift Code:** Formatted with [`swift-format`](https://github.com/swiftlang/swift-format) to maintain a uniform coding style across Swift projects. _(Note: Requires the `macos-latest` runner.)_
-- **Spell Check:** Common misspellings are caught using [codespell](https://github.com/codespell-project/codespell).
-- **Broken Links Check:** Broken links in documentation and Markdown files are identified using [Lychee](https://github.com/lycheeverse/lychee).
-- **PR Summary:** Concise Pull Request summaries are generated using [OpenAI](https://openai.com/) GPT-5, improving clarity and review efficiency.
-- **PR Review:** AI-powered code reviews identify critical bugs, security issues, and code quality concerns with suggested fixes.
-- **Auto-labeling:** Applies relevant labels to issues and PRs via [OpenAI](https://openai.com/) GPT-5 for intelligent categorization.
+1. **[Ultralytics Actions](#ultralytics-actions-main-action)** - Main GitHub Action for AI-powered code formatting, PR summaries, and auto-labeling
+2. **[Standalone Actions](#standalone-actions)** - Reusable composite actions for common CI/CD tasks
+3. **[Python Package](#python-package)** - `ultralytics-actions` package for programmatic use
 
-## 🛠️ How It Works
+## Ultralytics Actions (Main Action)
 
-Ultralytics Actions triggers on various GitHub events to streamline workflows:
+AI-powered formatting, labeling, and PR summaries for Python, Swift, and Markdown files.
 
-- **Push Events:** Automatically formats code when changes are pushed to the `main` branch.
-- **Pull Requests:**
-  - Ensures contributions meet formatting standards before merging.
-  - Generates a concise summary of changes using GPT-5.
-  - Provides AI-powered inline code reviews with suggested fixes for critical issues.
-  - Applies relevant labels using GPT-5 for intelligent categorization.
-- **Issues:** Automatically applies relevant labels using GPT-5 when new issues are created.
+### 📄 Features
 
-These automated actions help maintain high code quality, improve documentation clarity, and streamline the review process by providing consistent formatting, informative summaries, and appropriate categorization.
+- **Python Code:** Formatted using [Ruff](https://github.com/astral-sh/ruff), an extremely fast Python linter and formatter
+- **Markdown Files:** Styled with [Prettier](https://github.com/prettier/prettier) to ensure consistent documentation appearance
+- **Docstrings:** Cleaned and standardized using [docformatter](https://github.com/PyCQA/docformatter)
+- **Swift Code:** Formatted with [`swift-format`](https://github.com/swiftlang/swift-format) _(requires `macos-latest` runner)_
+- **Spell Check:** Common misspellings caught using [codespell](https://github.com/codespell-project/codespell)
+- **Broken Links Check:** Broken links identified using [Lychee](https://github.com/lycheeverse/lychee)
+- **PR Summary:** Concise Pull Request summaries generated using [OpenAI](https://openai.com/) GPT-5
+- **PR Review:** AI-powered code reviews identify critical bugs, security issues, and quality concerns with suggested fixes
+- **Auto-labeling:** Applies relevant labels to issues and PRs via [OpenAI](https://openai.com/) GPT-5
 
-## 🔧 Setting Up the Action
+### 🛠️ How It Works
 
-To integrate this action into your Ultralytics repository:
+Triggers on GitHub events to streamline workflows:
 
-1.  **Create a Workflow File:** In your repository, create a YAML file under `.github/workflows/`, for example, `ultralytics-actions.yml`.
+- **Push Events:** Automatically formats code when changes are pushed to `main`
+- **Pull Requests:** Ensures formatting standards, generates summaries, provides AI reviews, and applies labels
+- **Issues:** Automatically applies relevant labels using GPT-5
 
-2.  **Add the Action:** Configure the Ultralytics Actions in your workflow file as shown below:
+### 🔧 Setup
 
-    ```yaml
-    # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+Create `.github/workflows/ultralytics-actions.yml`:
 
-    # Ultralytics Actions https://github.com/ultralytics/actions
-    # This workflow formats code and documentation in PRs to Ultralytics standards
+```yaml
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-    name: Ultralytics Actions
+# Ultralytics Actions https://github.com/ultralytics/actions
+# This workflow formats code and documentation in PRs to Ultralytics standards
 
-    on:
-      issues:
-        types: [opened]
-      pull_request:
-        branches: [main]
-        types: [opened, closed, synchronize, review_requested]
+name: Ultralytics Actions
 
-    permissions:
-      contents: write # Modify code in PRs
-      pull-requests: write # Add comments and labels to PRs
-      issues: write # Add comments and labels to issues
+on:
+  issues:
+    types: [opened]
+  pull_request:
+    branches: [main]
+    types: [opened, closed, synchronize, review_requested]
 
-    jobs:
-      actions:
-        runs-on: ubuntu-latest
-        steps:
-          - name: Run Ultralytics Actions
-            uses: ultralytics/actions@main
-            with:
-              token: ${{ secrets.GITHUB_TOKEN }} # Auto-generated token
-              labels: true # Auto-label issues/PRs using AI
-              python: true # Format Python with Ruff and docformatter
-              prettier: true # Format YAML, JSON, Markdown, CSS
-              swift: false # Format Swift (requires macos-latest)
-              dart: false # Format Dart/Flutter
-              spelling: true # Check spelling with codespell
-              links: true # Check broken links with Lychee
-              summary: true # Generate AI-powered PR summaries
-              openai_api_key: ${{ secrets.OPENAI_API_KEY }} # Powers PR summaries, labels and comments
-              brave_api_key: ${{ secrets.BRAVE_API_KEY }} # Used for broken link resolution
-    ```
+permissions:
+  contents: write # Modify code in PRs
+  pull-requests: write # Add comments and labels to PRs
+  issues: write # Add comments and labels to issues
 
-3.  **Customize:** Adjust the `runs-on` runner and the boolean flags (`labels`, `python`, `prettier`, `swift`, `spelling`, `links`, `summary`) based on your project's needs. Remember to add your `OPENAI_API_KEY` as a secret in your repository settings if you enable `labels` or `summary`.
+jobs:
+  actions:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run Ultralytics Actions
+        uses: ultralytics/actions@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }} # Auto-generated token
+          labels: true # Auto-label issues/PRs using AI
+          python: true # Format Python with Ruff and docformatter
+          prettier: true # Format YAML, JSON, Markdown, CSS
+          swift: false # Format Swift (requires macos-latest)
+          dart: false # Format Dart/Flutter
+          spelling: true # Check spelling with codespell
+          links: true # Check broken links with Lychee
+          summary: true # Generate AI-powered PR summaries
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }} # Powers PR summaries, labels and reviews
+          brave_api_key: ${{ secrets.BRAVE_API_KEY }} # Used for broken link resolution
+```
+
+## Standalone Actions
+
+Reusable composite actions for common CI/CD tasks. Each can be used independently in your workflows.
+
+### 1. Retry Action
+
+Retry failed commands with exponential backoff.
+
+```yaml
+- uses: ultralytics/actions/retry@main
+  with:
+    command: npm install
+    max_attempts: 3
+    timeout_minutes: 5
+```
+
+[**📖 Full Documentation →**](retry/README.md)
+
+### 2. Cleanup Disk Action
+
+Free up disk space on GitHub runners by removing unnecessary packages and files.
+
+```yaml
+- uses: ultralytics/actions/cleanup-disk@main
+```
+
+[**📖 Full Documentation →**](cleanup-disk/README.md)
+
+### 3. Scan PRs Action
+
+List open PRs across an organization and auto-merge eligible Dependabot PRs.
+
+```yaml
+- uses: ultralytics/actions/scan-prs@main
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
+    org: ultralytics # Optional: defaults to ultralytics
+    visibility: public # Optional: public, private, internal, or all
+```
+
+[**📖 Full Documentation →**](scan-prs/README.md)
 
 ## Python Package
 
-Install the `ultralytics-actions` Python package directly with Pip:
+Install `ultralytics-actions` for programmatic access to action utilities.
 
 [![PyPI - Version](https://img.shields.io/pypi/v/ultralytics-actions?logo=pypi&logoColor=white)](https://pypi.org/project/ultralytics-actions/)
 [![Ultralytics Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://clickpy.clickhouse.com/dashboard/ultralytics-actions)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ultralytics-actions?logo=python&logoColor=gold)](https://pypi.org/project/ultralytics-actions/)
 
-```sh
+```bash
 pip install ultralytics-actions
 ```
+
+**Available Modules:**
+
+- `actions.review_pr` - AI-powered PR review
+- `actions.summarize_pr` - Generate PR summaries
+- `actions.scan_prs` - Scan and manage organization PRs
+- `actions.first_interaction` - Welcome message for new contributors
+- And more in `actions/` directory
 
 ## 💡 Contribute
 
