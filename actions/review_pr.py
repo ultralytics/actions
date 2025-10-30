@@ -224,8 +224,7 @@ def generate_pr_review(
             ],
         )
 
-        json_str = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
-        review_data = json.loads(json_str.group(1) if json_str else response)
+        review_data = response  # Already parsed as dict from json_schema
         print(json.dumps(review_data, indent=2))
 
         # Count comments BEFORE filtering (for COMMENT vs APPROVE decision)
