@@ -161,8 +161,14 @@ def run():
                 total_skipped += 1
                 continue
 
-            # Check if all status checks passed (empty list or None = no checks = pass)
-            checks = (pr.get("statusCheckRollup") or {}).get("contexts", [])
+            # Check if all status checks passed (normalize rollup structure)
+            rollup = pr.get("statusCheckRollup")
+            if isinstance(rollup, list):
+                checks = rollup
+            elif isinstance(rollup, dict):
+                checks = rollup.get("contexts", [])
+            else:
+                checks = []
             failed_checks = [c for c in checks if c.get("conclusion") not in ["SUCCESS", "SKIPPED", "NEUTRAL", None]]
 
             if failed_checks:
