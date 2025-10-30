@@ -12,10 +12,13 @@
 # │   │   ├── github_utils.py
 # │   │   ├── openai_utils.py
 # │   │   └── common_utils.py
+# │   ├── dispatch_actions.py
 # │   ├── first_interaction.py
 # │   ├── review_pr.py
+# │   ├── scan_prs.py
 # │   ├── summarize_pr.py
 # │   ├── summarize_release.py
+# │   ├── update_file_headers.py
 # │   └── update_markdown_code_blocks.py
 # └── tests/
 #     ├── __init__.py
