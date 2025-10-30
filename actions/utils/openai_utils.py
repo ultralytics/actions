@@ -257,9 +257,7 @@ Example comment template (adapt as needed, keep all links):
     result = get_completion(
         messages,
         temperature=1.0,
-        text_format={
-            "format": {"type": "json_schema", "name": "pr_open_response", "strict": True, "schema": schema}
-        },
+        text_format={"format": {"type": "json_schema", "name": "pr_open_response", "strict": True, "schema": schema}},
     )
     if is_large and "summary" in result:
         result["summary"] = (
