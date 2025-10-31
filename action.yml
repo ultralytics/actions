@@ -18,6 +18,10 @@ inputs:
     description: "Run Python formatting"
     required: false
     default: "false"
+  python_docstrings:
+    description: "Run Python docstring formatting"
+    required: false
+    default: "false"
   markdown:
     description: "Run Markdown formatting (deprecated in favor of prettier)"
     required: false
@@ -161,7 +165,9 @@ runs:
         ruff format \
         --line-length 120 \
         . || true
-        ultralytics-actions-format-python-docstrings . || true
+        if [ "${{ inputs.python_docstrings }}" = "true" ]; then
+          ultralytics-actions-format-python-docstrings . || true
+        fi
       shell: bash
       continue-on-error: true
 
