@@ -33,8 +33,8 @@ def wrap_text(text: str, width: int, indent: int) -> list[str]:
 def is_param_line(line: str) -> bool:
     """Check if line starts a parameter definition."""
     stripped = line.strip()
-    # Match: "param (type): desc" or "param: desc" or "(type): desc" (for Returns)
-    return bool(re.match(r'^(\w+\s*)?(\([^)]+\))?\s*:', stripped))
+    # Match: "param (type): desc" or "param: desc" or "(type): desc"
+    return bool(re.match(r'^[\w\*]*\s*(\([^)]+\))?\s*:', stripped))
 
 
 def format_args_section(lines: list[str], base_indent: int, line_width: int) -> list[str]:
@@ -77,7 +77,7 @@ def format_args_section(lines: list[str], base_indent: int, line_width: int) -> 
                 if len(" " * base_indent + one_line) <= line_width:
                     formatted.append(" " * base_indent + one_line)
                 else:
-                    # Need to wrap - put param part, then wrap description
+                    # Need to wrap - put param part, then wrap description at base_indent + 4
                     formatted.append(" " * base_indent + param_part + ":")
                     if full_desc:
                         wrapped = wrap_text(full_desc, line_width, base_indent + 4)
@@ -88,8 +88,8 @@ def format_args_section(lines: list[str], base_indent: int, line_width: int) -> 
                 formatted.extend(wrap_text(stripped, line_width, base_indent))
                 i += 1
         else:
-            # Shouldn't happen but handle it
-            formatted.extend(wrap_text(line.strip(), line_width, base_indent + 4))
+            # Content without colon - format at base indent (not continuation)
+            formatted.extend(wrap_text(line.strip(), line_width, base_indent))
             i += 1
 
     return formatted
@@ -129,7 +129,7 @@ def parse_google_sections(content: str) -> dict[str, list[str]]:
             i += 1
             continue
 
-        # Check for section headers (exact match, not in middle of content)
+        # Check for section headers
         if stripped.endswith(":") and stripped[:-1] in sections:
             current = stripped[:-1]
             i += 1
@@ -152,7 +152,7 @@ def format_google_docstring(content: str, indent: int, line_width: int) -> str:
         if summary:
             lines.extend(wrap_text(summary, line_width, indent))
 
-    # Description (preserve paragraph structure)
+    # Description (preserve paragraph structure, remove trailing blanks)
     if sections["description"]:
         desc_lines = sections["description"]
         if any(line.strip() for line in desc_lines):
@@ -170,6 +170,10 @@ def format_google_docstring(content: str, indent: int, line_width: int) -> str:
             if paragraph:
                 text = " ".join(paragraph)
                 lines.extend(wrap_text(text, line_width, indent))
+            
+            # Remove trailing blank lines from description
+            while lines and lines[-1] == "":
+                lines.pop()
 
     # Args/Attributes/Returns/Yields/Raises sections
     for section_name in ["Args", "Attributes", "Returns", "Yields", "Raises"]:
