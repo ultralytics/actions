@@ -34,7 +34,7 @@ def is_param_line(line: str) -> bool:
     """Check if line starts a parameter definition."""
     stripped = line.strip()
     # Match: "param (type): desc" or "param: desc" or "(type): desc"
-    return bool(re.match(r'^[\w\*]*\s*(\([^)]+\))?\s*:', stripped))
+    return bool(re.match(r"^[\w\*]*\s*(\([^)]+\))?\s*:", stripped))
 
 
 def format_args_section(lines: list[str], base_indent: int, line_width: int) -> list[str]:
@@ -62,8 +62,8 @@ def format_args_section(lines: list[str], base_indent: int, line_width: int) -> 
                 j += 1
 
             # Split at colon
-            if ':' in stripped:
-                parts = stripped.split(':', 1)
+            if ":" in stripped:
+                parts = stripped.split(":", 1)
                 param_part = parts[0].strip()
                 desc_part = parts[1].strip() if len(parts) > 1 else ""
 
@@ -170,7 +170,7 @@ def format_google_docstring(content: str, indent: int, line_width: int) -> str:
             if paragraph:
                 text = " ".join(paragraph)
                 lines.extend(wrap_text(text, line_width, indent))
-            
+
             # Remove trailing blank lines from description
             while lines and lines[-1] == "":
                 lines.pop()
