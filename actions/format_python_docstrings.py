@@ -230,7 +230,7 @@ def iter_items(lines: list[str]) -> list[list[str]]:
 
 
 def format_structured_block(lines: list[str], width: int, base: int) -> list[str]:
-    """Format Args/Returns/etc.; continuation at base+4, lists at base+8."""
+    """Format Args/Returns/etc.; continuation at base+4, lists at base+8. Preserve missing colons."""
     out: list[str] = []
     cont, lst = base + 4, base + 8
     for item in iter_items(lines):
@@ -239,7 +239,6 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
         name, desc = name.strip(), desc.strip()
         had_colon = ":" in first
 
-        # Free text item (not 'name: desc')
         if not name or (" " in name and "(" not in name and ")" not in name):
             out.extend(emit_paragraphs(item, width, cont, lst, orphan_min=2))
             continue
@@ -247,7 +246,6 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
         head = " " * cont + (f"{name}: " if (desc or had_colon) else name)
         out.extend(wrap_hanging(head, desc, width, cont + 4))
 
-        # Continuation (paragraphs + lists) with orphan control
         tail = item[1:]
         if tail:
             body = emit_paragraphs(tail, width, cont + 4, lst, orphan_min=2)
@@ -256,8 +254,8 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
     return out
 
 
-def detect_opener(original_literal: str) -> tuple[str, str]:
-    """Return (prefix, quotes) from the original string token safely."""
+def detect_opener(original_literal: str) -> tuple[str, str, bool]:
+    """Return (prefix, quotes, inline_hint) from the original string token safely."""
     s = original_literal.lstrip()
     i = 0
     while i < len(s) and s[i] in "rRuUbBfF":
@@ -265,20 +263,29 @@ def detect_opener(original_literal: str) -> tuple[str, str]:
     quotes = '"""'
     if i + 3 <= len(s) and s[i : i + 3] in ('"""', "'''"):
         quotes = s[i : i + 3]
-    keep = "".join(ch for ch in s[:i] if ch in "rRuU")  # preserve only r/R/u/U
-    return keep, quotes
+    keep = "".join(ch for ch in s[:i] if ch in "rRuU")
+    j = i + len(quotes)
+    inline_hint = j < len(s) and s[j : j + 1] not in {"", "\n", "\r"}
+    return keep, quotes, inline_hint
 
 
-def format_google(text: str, indent: int, width: int, quotes: str, prefix: str) -> str:
+def format_google(text: str, indent: int, width: int, quotes: str, prefix: str, inline_first_line: bool) -> str:
     """Format multi-line Google-style docstring with given quotes/prefix."""
     p = parse_sections(text)
     opener = prefix + quotes
     out = [opener]
     if p["summary"]:
-        out.extend(emit_paragraphs(p["summary"], width, indent, orphan_min=1))
+        lines = emit_paragraphs(p["summary"], width, indent, list_indent=indent, orphan_min=1)
+        if inline_first_line and lines:
+            pad = " " * indent
+            first = lines[0][len(pad) :] if lines[0].startswith(pad) else lines[0].lstrip()
+            out[0] = opener + first
+            out.extend(lines[1:])
+        else:
+            out.extend(lines)
     if any(x.strip() for x in p["description"]):
         out.append("")
-        out.extend(emit_paragraphs(p["description"], width, indent, orphan_min=1))
+        out.extend(emit_paragraphs(p["description"], width, indent, list_indent=indent, orphan_min=1))
     for sec in ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises"):
         if any(x.strip() for x in p[sec]):
             add_header(out, indent, sec, opener)
@@ -294,12 +301,20 @@ def format_google(text: str, indent: int, width: int, quotes: str, prefix: str) 
     return "\n".join(out)
 
 
-def format_docstring(content: str, indent: int, width: int, quotes: str, prefix: str) -> str:
+def format_docstring(
+    content: str,
+    indent: int,
+    width: int,
+    quotes: str,
+    prefix: str,
+    inline_hint: bool,
+    preserve_inline: bool = True,
+) -> str:
     """Single-line if short/sectionless/no-lists; else Google-style. Preserve quotes/prefix."""
     if not content or not content.strip():
         return f"{prefix}{quotes}{quotes}"
     text = content.strip()
-    has_section = any(f"{s}:" in text for s in (*SECTIONS, "Examples"))
+    has_section = any(f"{s}:" in text for s in SECTIONS + ("Examples",))
     has_list = any(is_list_item(l) for l in text.splitlines())
     single_ok = (
         ("\n" not in text)
@@ -315,15 +330,15 @@ def format_docstring(content: str, indent: int, width: int, quotes: str, prefix:
         if out and out[-1] not in ".!?":
             out += "."
         return f"{prefix}{quotes}{out}{quotes}"
-    return format_google(text, indent, width, quotes, prefix)
+    return format_google(text, indent, width, quotes, prefix, inline_first_line=(preserve_inline and inline_hint))
 
 
 class Visitor(ast.NodeVisitor):
     """Collect docstring replacements for classes and functions."""
 
-    def __init__(self, src: list[str], width: int = 120):
-        """Init with source lines and target width."""
-        self.src, self.width, self.repl = src, width, []
+    def __init__(self, src: list[str], width: int = 120, preserve_inline: bool = True):
+        """Init with source lines, target width, and inline preservation flag."""
+        self.src, self.width, self.repl, self.preserve_inline = src, width, [], preserve_inline
 
     def visit_Module(self, node):
         """Skip module docstring; visit children."""
@@ -357,17 +372,17 @@ class Visitor(ast.NodeVisitor):
             original = (
                 self.src[sl][sc:ec]
                 if sl == el
-                else "\n".join([self.src[sl][sc:], *self.src[sl + 1 : el], self.src[el][:ec]])
+                else "\n".join([self.src[sl][sc:]] + self.src[sl + 1 : el] + [self.src[el][:ec]])
             )
-            prefix, quotes = detect_opener(original)
-            formatted = format_docstring(doc, sc, self.width, quotes, prefix)
+            prefix, quotes, inline_hint = detect_opener(original)
+            formatted = format_docstring(doc, sc, self.width, quotes, prefix, inline_hint, self.preserve_inline)
             if formatted.strip() != original.strip():
                 self.repl.append((sl, el, sc, ec, formatted))
         except Exception:
             return
 
 
-def format_python_file(text: str, width: int = 120) -> str:
+def format_python_file(text: str, width: int = 120, preserve_inline: bool = True) -> str:
     """Return source with reformatted docstrings; on failure, return original."""
     if not text.strip():
         return text
@@ -376,7 +391,7 @@ def format_python_file(text: str, width: int = 120) -> str:
     except SyntaxError:
         return text
     src = text.splitlines()
-    v = Visitor(src, width)
+    v = Visitor(src, width, preserve_inline=preserve_inline)
     try:
         v.visit(tree)
     except Exception:
@@ -418,13 +433,13 @@ def iter_py_files(paths: list[Path]) -> list[Path]:
     return uniq
 
 
-def process_file(path: Path, width: int = 120, check: bool = False) -> bool:
+def process_file(path: Path, width: int = 120, check: bool = False, preserve_inline: bool = True) -> bool:
     """Process one file; True if unchanged/success, False if changed."""
     if path.suffix != ".py":
         return True
     try:
         orig = path.read_text(encoding="utf-8")
-        fmt = preserve_trailing_newlines(orig, format_python_file(orig, width))
+        fmt = preserve_trailing_newlines(orig, format_python_file(orig, width, preserve_inline=preserve_inline))
         if check:
             if orig != fmt:
                 print(f"  {path}")
@@ -440,12 +455,14 @@ def process_file(path: Path, width: int = 120, check: bool = False) -> bool:
         return True
 
 
-def parse_cli(argv: list[str]) -> tuple[list[Path], int, bool]:
-    """Minimal argv parser: (paths, width, check)."""
-    width, check, paths = 120, False, []
+def parse_cli(argv: list[str]) -> tuple[list[Path], int, bool, bool]:
+    """Minimal argv parser: (paths, width, check, preserve_inline)."""
+    width, check, paths, preserve_inline = 120, False, [], True
     for a in argv:
         if a == "--check":
             check = True
+        elif a == "--no-preserve-inline":
+            preserve_inline = False
         elif a.startswith("--line-width="):
             try:
                 width = int(a.split("=", 1)[1])
@@ -453,16 +470,18 @@ def parse_cli(argv: list[str]) -> tuple[list[Path], int, bool]:
                 pass
         else:
             paths.append(Path(a))
-    return paths, width, check
+    return paths, width, check, preserve_inline
 
 
 def main() -> None:
     """CLI entry point."""
     args = sys.argv[1:]
     if not args:
-        print("Usage: format_python_docstrings.py [--check] [--line-width=120] <files_or_dirs...>")
+        print(
+            "Usage: format_python_docstrings.py [--check] [--no-preserve-inline] [--line-width=120] <files_or_dirs...>"
+        )
         return
-    paths, width, check = parse_cli(args)
+    paths, width, check, preserve_inline = parse_cli(args)
     files = iter_py_files(paths)
     if not files:
         print("No Python files found")
@@ -470,7 +489,7 @@ def main() -> None:
 
     t0 = time.time()
     print(f"{'Checking' if check else 'Formatting'} {len(files)} file{'s' if len(files) != 1 else ''}")
-    changed = sum(not process_file(f, width, check) for f in files)
+    changed = sum(not process_file(f, width, check, preserve_inline=preserve_inline) for f in files)
 
     dur = time.time() - t0
     if changed:
