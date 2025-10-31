@@ -32,12 +32,11 @@ SKIP_PATTERNS = [
 
 
 def _sanitize_ai_text(s: str) -> str:
-    """Strip internal UI citation tokens like '' and collapse excess whitespace."""
+    """Strip private-use citation tokens like '' and normalize whitespace."""
     if not s:
         return s
-    # Remove any segment that starts with the private-use opener ''
-    s = re.sub(r"[^]*", "", s)
-    return re.sub(r"[ \t]{2,}", " ", s).strip()
+    s = re.sub(r"]*", "", s)  # remove entire private-use span
+    return re.sub(r"\s{2,}", " ", s).strip()
 
 
 def parse_diff_files(diff_text: str) -> tuple[dict, str]:
