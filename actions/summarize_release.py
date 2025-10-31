@@ -8,7 +8,7 @@ import subprocess
 import time
 from datetime import datetime
 
-from .utils import GITHUB_API_URL, Action, get_completion, remove_html_comments
+from .utils import GITHUB_API_URL, Action, get_response, remove_html_comments
 
 # Environment variables
 CURRENT_TAG = os.getenv("CURRENT_TAG")
@@ -150,7 +150,7 @@ def generate_release_summary(
         },
     ]
     # print(messages[-1]["content"])  # for debug
-    return get_completion(messages, temperature=1.0) + release_suffix
+    return get_response(messages, temperature=1.0) + release_suffix
 
 
 def create_github_release(event, tag_name: str, name: str, body: str):

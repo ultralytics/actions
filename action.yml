@@ -18,6 +18,10 @@ inputs:
     description: "Run Python formatting"
     required: false
     default: "false"
+  python_docstrings:
+    description: "Run Python docstring formatting"
+    required: false
+    default: "false"
   markdown:
     description: "Run Markdown formatting (deprecated in favor of prettier)"
     required: false
@@ -118,7 +122,7 @@ runs:
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
     - name: Checkout Repository
-      if: github.event.action == 'opened' || github.event.action == 'synchronize'
+      if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.action == 'review_requested'
       uses: actions/checkout@v5
       with:
         repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
@@ -161,14 +165,9 @@ runs:
         ruff format \
         --line-length 120 \
         . || true
-        docformatter \
-        --wrap-summaries 120 \
-        --wrap-descriptions 120 \
-        --pre-summary-newline \
-        --close-quotes-on-newline \
-        --in-place \
-        --recursive \
-        .
+        if [ "${{ inputs.python_docstrings }}" = "true" ]; then
+          ultralytics-actions-format-python-docstrings . || true
+        fi
       shell: bash
       continue-on-error: true
 

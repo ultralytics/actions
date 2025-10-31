@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 
-from .utils import ACTIONS_CREDIT, GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_completion, remove_html_comments
+from .utils import ACTIONS_CREDIT, GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_response, remove_html_comments
 
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
@@ -69,7 +70,9 @@ def parse_diff_files(diff_text: str) -> tuple[dict, str]:
     return files, "\n".join(augmented_lines)
 
 
-def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_description: str) -> dict:
+def generate_pr_review(
+    repository: str, diff_text: str, pr_title: str, pr_description: str, event: Action = None
+) -> dict:
     """Generate comprehensive PR review with line-specific comments and overall assessment."""
     if not diff_text:
         return {"comments": [], "summary": "No changes detected in diff"}
@@ -94,6 +97,28 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     diff_truncated = len(augmented_diff) > MAX_PROMPT_CHARS
     lines_changed = sum(len(sides["RIGHT"]) + len(sides["LEFT"]) for sides in diff_files.values())
 
+    # Fetch full file contents for better context if within token budget
+    full_files_section = ""
+    if event and len(file_list) <= 10:  # Reasonable file count limit
+        file_contents = []
+        total_chars = len(augmented_diff)
+        for file_path in file_list:
+            try:
+                local_path = Path(file_path)
+                if not local_path.exists():
+                    continue
+                content = local_path.read_text(encoding="utf-8")
+                # Only include if within budget
+                if total_chars + len(content) + 1000 < MAX_PROMPT_CHARS:  # 1000 char buffer for formatting
+                    file_contents.append(f"### {file_path}\n```\n{content}\n```")
+                    total_chars += len(content) + 1000
+                else:
+                    break  # Stop when we hit budget limit
+            except Exception:
+                continue
+        if file_contents:
+            full_files_section = f"FULL FILE CONTENTS:\n{chr(10).join(file_contents)}\n\n"
+
     content = (
         "You are an expert code reviewer for Ultralytics. Review the code changes and provide inline comments where you identify issues or opportunities for improvement.\n\n"
         "Focus on: bugs, security vulnerabilities, performance issues, best practices, edge cases, error handling, and code clarity.\n\n"
@@ -113,6 +138,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
         "- For single-line fixes: provide 'suggestion' without 'start_line' to replace the line at 'line'\n"
         "- Do not provide multi-line fixes: suggestions should only be single line\n"
         "- Match the exact indentation of the original code\n"
+        "- Web search is available to consult docs, dependencies, or technical details\n"
         "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n\n"
         "LINE NUMBERS:\n"
         "- Each line in the diff is prefixed with its line number for clarity:\n"
@@ -141,6 +167,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 f"Review this PR in https://github.com/{repository}:\n\n"
                 f"TITLE:\n{pr_title}\n\n"
                 f"BODY:\n{remove_html_comments(pr_description or '')[:1000]}\n\n"
+                f"{full_files_section}"
                 f"DIFF:\n{augmented_diff[:MAX_PROMPT_CHARS]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),
@@ -152,10 +179,37 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
     # print(f"\nUser prompt (first 3000 chars):\n{messages[1]['content'][:3000]}...\n")
 
     try:
-        response = get_completion(
+        schema = {
+            "type": "object",
+            "properties": {
+                "comments": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "file": {"type": "string"},
+                            "line": {"type": "integer"},
+                            "side": {"type": "string", "enum": ["LEFT", "RIGHT"]},
+                            "severity": {"type": "string", "enum": ["CRITICAL", "HIGH", "MEDIUM", "LOW", "SUGGESTION"]},
+                            "message": {"type": "string"},
+                            "start_line": {"type": ["integer", "null"]},
+                            "suggestion": {"type": ["string", "null"]},
+                        },
+                        "required": ["file", "line", "side", "severity", "message", "start_line", "suggestion"],
+                        "additionalProperties": False,
+                    },
+                },
+                "summary": {"type": "string"},
+            },
+            "required": ["comments", "summary"],
+            "additionalProperties": False,
+        }
+
+        response = get_response(
             messages,
             reasoning_effort="low",
             model="gpt-5-codex",
+            text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
             tools=[
                 {
                     "type": "web_search",
@@ -170,17 +224,15 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
             ],
         )
 
-        json_str = re.search(r"```(?:json)?\s*(\{.*?\})\s*```", response, re.DOTALL)
-        review_data = json.loads(json_str.group(1) if json_str else response)
-        print(json.dumps(review_data, indent=2))
+        print(json.dumps(response, indent=2))
 
         # Count comments BEFORE filtering (for COMMENT vs APPROVE decision)
-        comments_before_filtering = len(review_data.get("comments", []))
+        comments_before_filtering = len(response.get("comments", []))
         print(f"AI generated {comments_before_filtering} comments")
 
         # Validate, filter, and deduplicate comments
         unique_comments = {}
-        for c in review_data.get("comments", []):
+        for c in response.get("comments", []):
             file_path, line_num = c.get("file"), c.get("line", 0)
             start_line = c.get("start_line")
             side = (c.get("side") or "RIGHT").upper()  # Default to RIGHT (added lines)
@@ -218,7 +270,7 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
             else:
                 print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {(c.get('message') or '')[:60]}...")
 
-        review_data.update(
+        response.update(
             {
                 "comments": list(unique_comments.values()),
                 "comments_before_filtering": comments_before_filtering,
@@ -227,8 +279,8 @@ def generate_pr_review(repository: str, diff_text: str, pr_title: str, pr_descri
                 "skipped_files": skipped_count,
             }
         )
-        print(f"Valid comments after filtering: {len(review_data['comments'])}")
-        return review_data
+        print(f"Valid comments after filtering: {len(response['comments'])}")
+        return response
 
     except Exception as e:
         import traceback
@@ -360,7 +412,7 @@ def main(*args, **kwargs):
     review_number = dismiss_previous_reviews(event)
 
     diff = event.get_pr_diff()
-    review = generate_pr_review(event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "")
+    review = generate_pr_review(event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "", event)
 
     post_review_summary(event, review, review_number)
     print("PR review completed")

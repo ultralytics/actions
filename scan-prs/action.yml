@@ -15,7 +15,7 @@ inputs:
     required: false
     default: "ultralytics"
   visibility:
-    description: "Repository visibility to scan: public, private, internal, or all"
+    description: "Repository visibility to scan: public, private, internal, all, or comma-separated (e.g., 'private,internal')"
     required: false
     default: "public"
 runs:
