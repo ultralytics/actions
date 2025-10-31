@@ -34,76 +34,78 @@ def is_param_line(line: str) -> bool:
     """Check if line starts a parameter definition (has colon after param name/type)."""
     stripped = line.strip()
     # Match patterns like: "param_name (type): description" or "param_name: description"
-    return bool(re.match(r'^[\w\*]+\s*(\([^)]+\))?\s*:', stripped))
+    return bool(re.match(r"^[\w\*]+\s*(\([^)]+\))?\s*:", stripped))
 
 
 def format_args_section(lines: list[str], base_indent: int, line_width: int) -> list[str]:
     """
     Format Args/Attributes/Returns section with proper Google-style indentation.
-    
+
     Structure:
         param_name (type): Description that may wrap
             to continuation lines with extra indent.
     """
     formatted = []
     i = 0
-    
+
     while i < len(lines):
         line = lines[i]
-        
+
         # Skip empty lines
         if not line.strip():
             formatted.append("")
             i += 1
             continue
-        
+
         # Check if this is a parameter definition line
         if is_param_line(line):
             # Parameter line - indent at base_indent
             stripped = line.strip()
-            
+
             # Collect all continuation lines for this parameter
             continuation = []
             j = i + 1
             while j < len(lines) and lines[j].strip() and not is_param_line(lines[j]):
                 continuation.append(lines[j].strip())
                 j += 1
-            
+
             # Split parameter line at colon
-            if ':' in stripped:
-                param_part, desc_part = stripped.split(':', 1)
+            if ":" in stripped:
+                param_part, desc_part = stripped.split(":", 1)
                 param_part = param_part.strip()
                 desc_part = desc_part.strip()
-                
+
                 # Combine description with continuation lines
                 full_desc = desc_part
                 if continuation:
                     full_desc += " " + " ".join(continuation)
-                
+
                 # Format: try to fit on one line first
                 one_line = f"{param_part}: {full_desc}"
                 if len(" " * base_indent + one_line) <= line_width:
                     formatted.append(" " * base_indent + one_line)
                 else:
                     # Wrap description across multiple lines
-                    formatted.append(" " * base_indent + param_part + ": " + desc_part.split()[0] if desc_part.split() else "")
-                    
+                    formatted.append(
+                        " " * base_indent + param_part + ": " + desc_part.split()[0] if desc_part.split() else ""
+                    )
+
                     # Wrap remaining description at continuation indent
                     remaining_words = desc_part.split()[1:] if desc_part.split() else []
                     if continuation:
                         remaining_words.extend(" ".join(continuation).split())
-                    
+
                     if remaining_words:
                         desc_text = " ".join(remaining_words)
                         wrapped = wrap_text(desc_text, line_width, base_indent + 4)
-                        
+
                         # Merge first wrapped line with param line if it fits
                         if wrapped and len(formatted[-1] + " " + wrapped[0].strip()) <= line_width:
                             formatted[-1] = formatted[-1] + " " + wrapped[0].strip()
                             formatted.extend(wrapped[1:])
                         else:
                             formatted.extend(wrapped)
-                
+
                 i = j
             else:
                 # No colon found, just add the line
@@ -113,7 +115,7 @@ def format_args_section(lines: list[str], base_indent: int, line_width: int) -> 
             # Continuation line without a parameter definition (shouldn't happen but handle it)
             formatted.extend(wrap_text(line.strip(), line_width, base_indent + 4))
             i += 1
-    
+
     return formatted
 
 
