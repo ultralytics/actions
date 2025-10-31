@@ -38,7 +38,7 @@ def add_indentation(code_block, num_spaces):
 
 
 def format_code_with_ruff(temp_dir):
-    """Formats Python code files in the specified directory using ruff linter and docformatter tools."""
+    """Formats Python code files in the specified directory using ruff and Python docstring formatter."""
     if not next(Path(temp_dir).rglob("*.py"), None):
         return
 
@@ -81,23 +81,18 @@ def format_code_with_ruff(temp_dir):
         print(f"ERROR running ruff check ❌ {e}")
 
     try:
-        # Run docformatter
+        # Run Ultralytics Python docstring formatter
         subprocess.run(
             [
-                "docformatter",
-                "--wrap-summaries=120",
-                "--wrap-descriptions=120",
-                "--pre-summary-newline",
-                "--close-quotes-on-newline",
-                "--in-place",
-                "--recursive",
+                "ultralytics-actions-format-python-docstrings",
                 str(temp_dir),
+                "-r",
             ],
             check=True,
         )
-        print("Completed docformatter ✅")
+        print("Completed Python docstring formatting ✅")
     except Exception as e:
-        print(f"ERROR running docformatter ❌ {e}")
+        print(f"ERROR running Python docstring formatter ❌ {e}")
 
 
 def format_bash_with_prettier(temp_dir):
