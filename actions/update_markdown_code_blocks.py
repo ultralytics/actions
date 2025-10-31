@@ -86,7 +86,6 @@ def format_code_with_ruff(temp_dir):
             [
                 "ultralytics-actions-format-python-docstrings",
                 str(temp_dir),
-                "-r",
             ],
             check=True,
         )

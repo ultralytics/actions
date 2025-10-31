@@ -480,19 +480,20 @@ def process_file(path: Path, line_width: int = 120, check: bool = False) -> bool
 def main(*args, **kwargs):
     """CLI entry point for formatting Python docstrings."""
     parser = argparse.ArgumentParser(description="Format Python docstrings to Google-style")
-    parser.add_argument("paths", nargs="+", type=Path, help="Files or directories to format")
+    parser.add_argument("paths", nargs="+", type=Path, help="Files or directories to recursively format")
     parser.add_argument("--line-width", type=int, default=120, help="Maximum line width (default: 120)")
     parser.add_argument("--check", action="store_true", help="Check without writing changes")
-    parser.add_argument("-r", "--recursive", action="store_true", help="Recurse into directories")
     args = parser.parse_args()
 
-    # Collect files
+    # Collect files (automatically recurse into directories)
     files = []
     for path in args.paths:
-        if path.is_dir() and args.recursive:
+        if path.is_dir():
             files.extend(path.rglob("*.py"))
         elif path.is_file():
             files.append(path)
+        else:
+            print(f"Warning: {path} not found")
 
     # Process files
     all_ok = all(process_file(f, args.line_width, args.check) for f in files)

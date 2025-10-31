@@ -161,7 +161,7 @@ runs:
         ruff format \
         --line-length 120 \
         . || true
-        ultralytics-actions-format-python-docstrings . -r || true
+        ultralytics-actions-format-python-docstrings . || true
       shell: bash
       continue-on-error: true
 
