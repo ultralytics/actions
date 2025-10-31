@@ -353,11 +353,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     has_issues = any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments)
     event_type = "COMMENT" if (has_error or has_inline_comments or has_issues) else "APPROVE"
 
-    body = (
-        f"{review_title}\n\n"
-        f"{ACTIONS_CREDIT}\n\n"
-        f"{summary[:3000]}\n\n"
-    )
+    body = f"{review_title}\n\n{ACTIONS_CREDIT}\n\n{summary[:3000]}\n\n"
 
     if comments:
         shown = min(len(comments), 10)
