@@ -53,14 +53,10 @@ def is_param_line(line: str) -> bool:
     # Try to find balanced parentheses for type annotation
     if '(' in stripped:
         paren_start = stripped.index('(')
-        # Check if there's content before the paren (param name)
-        before_paren = stripped[:paren_start].strip()
-        
         # Find balanced closing paren
         closing_pos = count_balanced_parens(stripped[paren_start:])
         if closing_pos == -1:
             return False
-        
         # After closing paren, should have colon
         after_paren = stripped[paren_start + closing_pos + 1:].strip()
         return after_paren.startswith(':')
@@ -124,9 +120,35 @@ def format_args_section(lines: list[str], base_indent: int, line_width: int) -> 
                 if len(" " * base_indent + one_line) <= line_width:
                     formatted.append(" " * base_indent + one_line)
                 else:
-                    # Need to wrap
-                    formatted.append(" " * base_indent + param_part + ":")
-                    if full_desc:
+                    # Need to wrap - try to fit as much as possible on first line
+                    first_line = " " * base_indent + param_part + ": "
+                    remaining_space = line_width - len(first_line)
+                    
+                    # Split description into words and fit as many as possible on first line
+                    words = full_desc.split()
+                    first_line_words = []
+                    remaining_words = []
+                    
+                    current_len = 0
+                    for word in words:
+                        word_len = len(word) + (1 if first_line_words else 0)
+                        if current_len + word_len <= remaining_space:
+                            first_line_words.append(word)
+                            current_len += word_len
+                        else:
+                            remaining_words.append(word)
+                    
+                    # Build the formatted output
+                    if first_line_words:
+                        formatted.append(first_line + " ".join(first_line_words))
+                        if remaining_words:
+                            # Wrap remaining words at continuation indent
+                            remaining_text = " ".join(remaining_words)
+                            wrapped = wrap_text(remaining_text, line_width, base_indent + 4)
+                            formatted.extend(wrapped)
+                    else:
+                        # Couldn't fit any words on first line (very long first word)
+                        formatted.append(first_line.rstrip())
                         wrapped = wrap_text(full_desc, line_width, base_indent + 4)
                         formatted.extend(wrapped)
 
@@ -152,6 +174,7 @@ def parse_google_sections(content: str) -> dict[str, list[str]]:
             "description",
             "Args",
             "Attributes",
+            "Methods",
             "Returns",
             "Yields",
             "Raises",
@@ -226,8 +249,8 @@ def format_google_docstring(content: str, indent: int, line_width: int) -> str:
             while lines and lines[-1] == "":
                 lines.pop()
 
-    # Args/Attributes/Returns/Yields/Raises sections
-    for section_name in ["Args", "Attributes", "Returns", "Yields", "Raises"]:
+    # Structured sections (Args, Attributes, Methods, Returns, Yields, Raises)
+    for section_name in ["Args", "Attributes", "Methods", "Returns", "Yields", "Raises"]:
         if sections[section_name] and any(line.strip() for line in sections[section_name]):
             lines.append("")
             lines.append(" " * indent + f"{section_name}:")
@@ -269,6 +292,7 @@ def format_docstring(content: str, indent: int, line_width: int) -> str:
         for s in [
             "Args:",
             "Attributes:",
+            "Methods:",
             "Returns:",
             "Yields:",
             "Raises:",
