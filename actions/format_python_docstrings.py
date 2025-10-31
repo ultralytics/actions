@@ -33,7 +33,7 @@ def count_balanced_parens(s: str) -> int:
     """Find position of closing paren that balances opening paren at start."""
     if not s.startswith("("):
         return -1
-    depth, i = 0, 0
+    depth = 0
     for i, char in enumerate(s):
         if char == "(":
             depth += 1
@@ -50,19 +50,30 @@ def is_param_line(line: str) -> bool:
     if not stripped or ":" not in stripped:
         return False
 
+    # Handle edge case of just ":" with no param name
+    if stripped == ":":
+        return False
+
     # Try to find balanced parentheses for type annotation
     if "(" in stripped:
-        paren_start = stripped.index("(")
-        # Find balanced closing paren
-        closing_pos = count_balanced_parens(stripped[paren_start:])
-        if closing_pos == -1:
+        try:
+            paren_start = stripped.index("(")
+            # Find balanced closing paren
+            closing_pos = count_balanced_parens(stripped[paren_start:])
+            if closing_pos == -1:
+                return False
+            # After closing paren, should have colon
+            after_paren = stripped[paren_start + closing_pos + 1 :].strip()
+            return after_paren.startswith(":")
+        except (ValueError, IndexError):
             return False
-        # After closing paren, should have colon
-        after_paren = stripped[paren_start + closing_pos + 1 :].strip()
-        return after_paren.startswith(":")
     else:
-        # No parens - just check for "name:" or ":"
-        return ":" in stripped
+        # No parens - check for valid param pattern
+        # Must have something before colon (param name or type in parens)
+        colon_pos = stripped.find(":")
+        if colon_pos == 0:
+            return False
+        return True
 
 
 def format_args_section(lines: list[str], base_indent: int, line_width: int) -> list[str]:
@@ -106,55 +117,70 @@ def format_args_section(lines: list[str], base_indent: int, line_width: int) -> 
 
             # Split at first colon only (description may contain colons)
             if ":" in stripped:
-                colon_pos = stripped.index(":")
-                param_part = stripped[:colon_pos].strip()
-                desc_part = stripped[colon_pos + 1 :].strip()
+                try:
+                    colon_pos = stripped.index(":")
+                    param_part = stripped[:colon_pos].strip()
+                    desc_part = stripped[colon_pos + 1 :].strip()
 
-                # Combine description with continuations
-                full_desc = desc_part
-                if continuation:
-                    full_desc += " " + " ".join(c for c in continuation if c)
+                    # Handle edge case where param_part is empty
+                    if not param_part:
+                        formatted.extend(wrap_text(stripped, line_width, base_indent))
+                        i = j
+                        continue
 
-                # Try to fit on one line
-                one_line = f"{param_part}: {full_desc}"
-                if len(" " * base_indent + one_line) <= line_width:
-                    formatted.append(" " * base_indent + one_line)
-                else:
-                    # Need to wrap - try to fit as much as possible on first line
-                    first_line = " " * base_indent + param_part + ": "
-                    remaining_space = line_width - len(first_line)
+                    # Combine description with continuations
+                    full_desc = desc_part
+                    if continuation:
+                        full_desc += " " + " ".join(c for c in continuation if c)
 
-                    # Split description into words and fit as many as possible on first line
-                    words = full_desc.split()
-                    first_line_words = []
-                    remaining_words = []
-
-                    current_len = 0
-                    for word in words:
-                        word_len = len(word) + (1 if first_line_words else 0)
-                        if current_len + word_len <= remaining_space:
-                            first_line_words.append(word)
-                            current_len += word_len
-                        else:
-                            remaining_words.append(word)
-
-                    # Build the formatted output
-                    if first_line_words:
-                        formatted.append(first_line + " ".join(first_line_words))
-                        if remaining_words:
-                            # Wrap remaining words at continuation indent
-                            remaining_text = " ".join(remaining_words)
-                            wrapped = wrap_text(remaining_text, line_width, base_indent + 4)
-                            formatted.extend(wrapped)
+                    # Try to fit on one line
+                    one_line = f"{param_part}: {full_desc}" if full_desc else f"{param_part}:"
+                    if len(" " * base_indent + one_line) <= line_width:
+                        formatted.append(" " * base_indent + one_line)
                     else:
-                        # Couldn't fit any words on first line (very long first word)
-                        formatted.append(first_line.rstrip())
-                        wrapped = wrap_text(full_desc, line_width, base_indent + 4)
-                        formatted.extend(wrapped)
+                        # Need to wrap - try to fit as much as possible on first line
+                        first_line = " " * base_indent + param_part + ": "
+                        remaining_space = line_width - len(first_line)
 
-                i = j
+                        if not full_desc:
+                            # No description, just param
+                            formatted.append(first_line.rstrip())
+                        else:
+                            # Split description into words and fit as many as possible on first line
+                            words = full_desc.split()
+                            first_line_words = []
+                            remaining_words = []
+
+                            current_len = 0
+                            for word in words:
+                                word_len = len(word) + (1 if first_line_words else 0)
+                                if current_len + word_len <= remaining_space:
+                                    first_line_words.append(word)
+                                    current_len += word_len
+                                else:
+                                    remaining_words.append(word)
+
+                            # Build the formatted output
+                            if first_line_words:
+                                formatted.append(first_line + " ".join(first_line_words))
+                                if remaining_words:
+                                    # Wrap remaining words at continuation indent
+                                    remaining_text = " ".join(remaining_words)
+                                    wrapped = wrap_text(remaining_text, line_width, base_indent + 4)
+                                    formatted.extend(wrapped)
+                            else:
+                                # Couldn't fit any words on first line (very long first word)
+                                formatted.append(first_line.rstrip())
+                                wrapped = wrap_text(full_desc, line_width, base_indent + 4)
+                                formatted.extend(wrapped)
+
+                    i = j
+                except (ValueError, IndexError):
+                    # Error handling - just format as-is
+                    formatted.extend(wrap_text(stripped, line_width, base_indent))
+                    i += 1
             else:
-                # No colon found (shouldn't happen)
+                # No colon found (shouldn't happen but handle it)
                 formatted.extend(wrap_text(stripped, line_width, base_indent))
                 i += 1
         else:
@@ -260,7 +286,8 @@ def format_google_docstring(content: str, indent: int, line_width: int) -> str:
             else:
                 # Remove the section header if no content
                 lines.pop()
-                lines.pop()
+                if lines and lines[-1] == "":
+                    lines.pop()
 
     # Examples/Notes/References (preserve formatting)
     for section_name in ["Examples", "Notes", "References"]:
@@ -304,6 +331,7 @@ def format_docstring(content: str, indent: int, line_width: int) -> str:
     is_single = total_len <= line_width and "\n" not in content and not has_sections
 
     if is_single:
+        # Ensure proper capitalization and punctuation
         if content and not content[0].isupper():
             content = content[0].upper() + content[1:]
         if content and not content.endswith("."):
@@ -324,8 +352,8 @@ class DocstringFormatter(ast.NodeVisitor):
         self.replacements = []
 
     def visit_Module(self, node):
-        """Visit module node."""
-        self._process_docstring(node)
+        """Visit module node - skip module-level docstrings."""
+        # Don't process module docstring, but visit children
         self.generic_visit(node)
 
     def visit_ClassDef(self, node):
@@ -345,25 +373,30 @@ class DocstringFormatter(ast.NodeVisitor):
 
     def _process_docstring(self, node):
         """Process docstring for a node."""
-        docstring = ast.get_docstring(node, clean=False)
-        if not docstring:
-            return
-
-        # Find the string node
-        if not node.body or not isinstance(node.body[0], ast.Expr):
-            return
-        string_node = node.body[0]
-        if not isinstance(string_node.value, ast.Constant) or not isinstance(string_node.value.value, str):
-            return
-
-        # Get position
-        start_line = string_node.lineno - 1
-        end_line = string_node.end_lineno - 1
-        start_col = string_node.col_offset
-        end_col = string_node.end_col_offset
-
-        # Extract original
         try:
+            docstring = ast.get_docstring(node, clean=False)
+            if not docstring:
+                return
+
+            # Find the string node - must be first statement
+            if not node.body or not isinstance(node.body[0], ast.Expr):
+                return
+
+            string_node = node.body[0]
+            if not isinstance(string_node.value, ast.Constant) or not isinstance(string_node.value.value, str):
+                return
+
+            # Get position
+            start_line = string_node.lineno - 1
+            end_line = string_node.end_lineno - 1
+            start_col = string_node.col_offset
+            end_col = string_node.end_col_offset
+
+            # Validate indices
+            if start_line < 0 or end_line >= len(self.source_lines):
+                return
+
+            # Extract original
             if start_line == end_line:
                 original = self.source_lines[start_line][start_col:end_col]
             else:
@@ -371,15 +404,17 @@ class DocstringFormatter(ast.NodeVisitor):
                 lines.extend(self.source_lines[start_line + 1 : end_line])
                 lines.append(self.source_lines[end_line][:end_col])
                 original = "\n".join(lines)
-        except IndexError:
+
+            # Format
+            formatted = format_docstring(docstring, start_col, self.line_width)
+
+            # Record if changed
+            if formatted.strip() != original.strip():
+                self.replacements.append((start_line, end_line, start_col, end_col, formatted))
+
+        except (IndexError, ValueError, AttributeError):
+            # Skip any problematic docstrings
             return
-
-        # Format
-        formatted = format_docstring(docstring, start_col, self.line_width)
-
-        # Record if changed
-        if formatted.strip() != original.strip():
-            self.replacements.append((start_line, end_line, start_col, end_col, formatted))
 
 
 def format_python_file(content: str, line_width: int = 120) -> str:
@@ -394,9 +429,14 @@ def format_python_file(content: str, line_width: int = 120) -> str:
 
     source_lines = content.split("\n")
     formatter = DocstringFormatter(source_lines, line_width)
-    formatter.visit(tree)
 
-    # Apply replacements in reverse
+    try:
+        formatter.visit(tree)
+    except Exception:
+        # If visiting fails, return original content
+        return content
+
+    # Apply replacements in reverse order to maintain line numbers
     for start_line, end_line, start_col, end_col, formatted in reversed(formatter.replacements):
         try:
             if start_line == end_line:
@@ -454,11 +494,8 @@ def main(*args, **kwargs):
         elif path.is_file():
             files.append(path)
 
-    # Process files (do not short-circuit on first change)
-    all_ok = True
-    for file_path in files:
-        ok = process_file(file_path, args.line_width, args.check)
-        all_ok = all_ok and ok
+    # Process files
+    all_ok = all(process_file(f, args.line_width, args.check) for f in files)
 
     if args.check and not all_ok:
         exit(1)
