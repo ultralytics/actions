@@ -480,7 +480,7 @@ def process_file(path: Path, line_width: int = 120, check: bool = False) -> bool
 def main(*args, **kwargs):
     """CLI entry point for formatting Python docstrings."""
     parser = argparse.ArgumentParser(description="Format Python docstrings to Google-style")
-    parser.add_argument("paths", nargs="+", type=Path, help="Files or directories to recursively format")
+    parser.add_argument("paths", nargs="+", type=Path, help="Files or directories to format")
     parser.add_argument("--line-width", type=int, default=120, help="Maximum line width (default: 120)")
     parser.add_argument("--check", action="store_true", help="Check without writing changes")
     args = parser.parse_args()
@@ -489,16 +489,30 @@ def main(*args, **kwargs):
     files = []
     for path in args.paths:
         if path.is_dir():
-            files.extend(path.rglob("*.py"))
+            files.extend(sorted(path.rglob("*.py")))  # Sort for consistent order
         elif path.is_file():
             files.append(path)
         else:
             print(f"Warning: {path} not found")
 
-    # Process files
-    all_ok = all(process_file(f, args.line_width, args.check) for f in files)
+    if not files:
+        print("No Python files found")
+        return
 
-    if args.check and not all_ok:
+    # Process files
+    changed_count = 0
+    for f in files:
+        if not process_file(f, args.line_width, args.check):
+            changed_count += 1
+
+    # Print summary
+    if changed_count:
+        action = "Would format" if args.check else "Formatted"
+        print(f"\n{action} {changed_count} file{'s' if changed_count != 1 else ''}")
+    else:
+        print(f"\nAll {len(files)} file{'s' if len(files) != 1 else ''} already formatted")
+
+    if args.check and changed_count:
         exit(1)
 
 
