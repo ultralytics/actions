@@ -8,7 +8,6 @@ import sys
 import time
 from pathlib import Path
 
-
 SECTIONS = ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises", "Example", "Notes", "References")
 LIST_RX = re.compile(r"""^(\s*)(?:[-*•]\s+|(?:\d+|[A-Za-z]+)[\.\)]\s+)""")
 TABLE_RX = re.compile(r"^\s*\|.*\|\s*$")
@@ -72,14 +71,15 @@ def wrap_hanging(head: str, desc: str, width: int, cont_indent: int) -> list[str
     for w in words:
         need = len(w) + (1 if take else 0)
         if used + need <= room:
-            take.append(w); used += need
+            take.append(w)
+            used += need
         else:
             break
 
     out: list[str] = []
     if take:
         out.append(head + " ".join(take))
-        rest = words[len(take):]
+        rest = words[len(take) :]
     else:
         out.append(head.rstrip())
         rest = words
@@ -183,13 +183,14 @@ def emit_paragraphs(
 
 def parse_sections(text: str) -> dict[str, list[str]]:
     """Parse Google-style docstring into sections."""
-    parts = {k: [] for k in ("summary", "description") + SECTIONS}
+    parts = {k: [] for k in ("summary", "description", *SECTIONS)}
     cur = "summary"
     for raw in text.splitlines():
         line = raw.rstrip("\n")
         h = header_name(line)
         if h:
-            cur = h; continue
+            cur = h
+            continue
         if not line.strip():
             if cur == "summary" and parts["summary"]:
                 cur = "description"
@@ -216,12 +217,14 @@ def iter_items(lines: list[str]) -> list[list[str]]:
             i += 1
         if i >= n:
             break
-        item = [lines[i]]; i += 1
+        item = [lines[i]]
+        i += 1
         while i < n:
             st = lines[i].strip()
             if st and looks_like_param(st):
                 break
-            item.append(lines[i]); i += 1
+            item.append(lines[i])
+            i += 1
         items.append(item)
     return items
 
@@ -232,7 +235,7 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
     cont, lst = base + 4, base + 8
     for item in iter_items(lines):
         first = item[0].strip()
-        name, desc = (first.split(":", 1) + [""])[:2]
+        name, desc = ([*first.split(":", 1), ""])[:2]
         name, desc = name.strip(), desc.strip()
 
         # Free text item (not 'name: desc')
@@ -259,8 +262,8 @@ def detect_opener(original_literal: str) -> tuple[str, str]:
     while i < len(s) and s[i] in "rRuUbBfF":
         i += 1
     quotes = '"""'
-    if i + 3 <= len(s) and s[i:i + 3] in ('"""', "'''"):
-        quotes = s[i:i + 3]
+    if i + 3 <= len(s) and s[i : i + 3] in ('"""', "'''"):
+        quotes = s[i : i + 3]
     keep = "".join(ch for ch in s[:i] if ch in "rRuU")  # preserve only r/R/u/U
     return keep, quotes
 
@@ -296,10 +299,13 @@ def format_docstring(content: str, indent: int, width: int, quotes: str, prefix:
     if not content or not content.strip():
         return f"{prefix}{quotes}{quotes}"
     text = content.strip()
-    has_section = any(f"{s}:" in text for s in SECTIONS + ("Examples",))
+    has_section = any(f"{s}:" in text for s in (*SECTIONS, "Examples"))
     has_list = any(is_list_item(l) for l in text.splitlines())
-    single_ok = ("\n" not in text) and not has_section and not has_list and (
-        indent + len(prefix) + len(quotes) * 2 + len(text) <= width
+    single_ok = (
+        ("\n" not in text)
+        and not has_section
+        and not has_list
+        and (indent + len(prefix) + len(quotes) * 2 + len(text) <= width)
     )
     if single_ok:
         words = text.split()
@@ -319,18 +325,21 @@ class Visitor(ast.NodeVisitor):
         """Init with source lines and target width."""
         self.src, self.width, self.repl = src, width, []
 
-    def visit_Module(self, node):  # noqa: N802
+    def visit_Module(self, node):
         """Skip module docstring; visit children."""
         self.generic_visit(node)
 
-    def visit_ClassDef(self, node):  # noqa: N802
-        self._handle(node); self.generic_visit(node)
+    def visit_ClassDef(self, node):
+        self._handle(node)
+        self.generic_visit(node)
 
-    def visit_FunctionDef(self, node):  # noqa: N802
-        self._handle(node); self.generic_visit(node)
+    def visit_FunctionDef(self, node):
+        self._handle(node)
+        self.generic_visit(node)
 
-    def visit_AsyncFunctionDef(self, node):  # noqa: N802
-        self._handle(node); self.generic_visit(node)
+    def visit_AsyncFunctionDef(self, node):
+        self._handle(node)
+        self.generic_visit(node)
 
     def _handle(self, node):
         """If first stmt is a string expr, schedule replacement."""
@@ -348,7 +357,7 @@ class Visitor(ast.NodeVisitor):
             original = (
                 self.src[sl][sc:ec]
                 if sl == el
-                else "\n".join([self.src[sl][sc:]] + self.src[sl + 1 : el] + [self.src[el][:ec]])
+                else "\n".join([self.src[sl][sc:], *self.src[sl + 1 : el], self.src[el][:ec]])
             )
             prefix, quotes = detect_opener(original)
             formatted = format_docstring(doc, sc, self.width, quotes, prefix)
@@ -404,7 +413,8 @@ def iter_py_files(paths: list[Path]) -> list[Path]:
     seen, uniq = set(), []
     for f in out:
         if f not in seen:
-            seen.add(f); uniq.append(f)
+            seen.add(f)
+            uniq.append(f)
     return uniq
 
 
@@ -417,11 +427,13 @@ def process_file(path: Path, width: int = 120, check: bool = False) -> bool:
         fmt = preserve_trailing_newlines(orig, format_python_file(orig, width))
         if check:
             if orig != fmt:
-                print(f"  {path}"); return False
+                print(f"  {path}")
+                return False
             return True
         if orig != fmt:
             path.write_text(fmt, encoding="utf-8")
-            print(f"  {path}"); return False
+            print(f"  {path}")
+            return False
         return True
     except Exception as e:
         print(f"  Error: {path}: {e}")
@@ -453,7 +465,8 @@ def main() -> None:
     paths, width, check = parse_cli(args)
     files = iter_py_files(paths)
     if not files:
-        print("No Python files found"); return
+        print("No Python files found")
+        return
 
     t0 = time.time()
     print(f"{'Checking' if check else 'Formatting'} {len(files)} file{'s' if len(files) != 1 else ''}")
@@ -464,8 +477,10 @@ def main() -> None:
         verb = "would be reformatted" if check else "reformatted"
         unchanged = len(files) - changed
         parts = []
-        if changed: parts.append(f"{changed} file{'s' if changed != 1 else ''} {verb}")
-        if unchanged: parts.append(f"{unchanged} file{'s' if unchanged != 1 else ''} left unchanged")
+        if changed:
+            parts.append(f"{changed} file{'s' if changed != 1 else ''} {verb}")
+        if unchanged:
+            parts.append(f"{unchanged} file{'s' if unchanged != 1 else ''} left unchanged")
         print(f"{', '.join(parts)} ({dur:.1f}s)")
         if check:
             sys.exit(1)
