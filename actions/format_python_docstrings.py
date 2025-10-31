@@ -11,6 +11,9 @@ from pathlib import Path
 
 SECTIONS = ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises", "Example", "Notes", "References")
 LIST_RX = re.compile(r"""^(\s*)(?:[-*•]\s+|(?:\d+|[A-Za-z]+)[\.\)]\s+)""")
+TABLE_RX = re.compile(r"^\s*\|.*\|\s*$")
+TABLE_RULE_RX = re.compile(r"^\s*[:\-\|\s]{3,}$")
+TREE_CHARS = ("└", "├", "│", "─")
 
 
 def wrap_words(words: list[str], width: int, indent: int, min_words_per_line: int = 1) -> list[str]:
@@ -90,6 +93,24 @@ def is_list_item(s: str) -> bool:
     return bool(LIST_RX.match(s.lstrip()))
 
 
+def is_fence_line(s: str) -> bool:
+    t = s.lstrip()
+    return t.startswith("```")
+
+
+def is_table_like(s: str) -> bool:
+    return bool(TABLE_RX.match(s)) or bool(TABLE_RULE_RX.match(s))
+
+
+def is_tree_like(s: str) -> bool:
+    return any(ch in s for ch in TREE_CHARS)
+
+
+def is_indented_block_line(s: str) -> bool:
+    # Treat lines with >=8 leading spaces or any tab as preformatted
+    return bool(s.startswith("        ")) or s.startswith("\t")
+
+
 def header_name(line: str) -> str | None:
     """Return canonical section header or None."""
     s = line.strip()
@@ -115,13 +136,10 @@ def add_header(lines: list[str], indent: int, title: str, opener_line: str) -> N
 def emit_paragraphs(
     src: list[str], width: int, indent: int, list_indent: int | None = None, orphan_min: int = 1
 ) -> list[str]:
-    """Emit paragraphs from src: wrap normal text, preserve list items; keep internal blank lines.
-
-    orphan_min controls the minimum words per continuation line; use 1 for plain paragraphs,
-    and 2 for Args/Returns continuation bodies to avoid orphans like a single word line.
-    """
+    """Wrap normal text; preserve lists, fenced code, tables, ASCII trees, and deeply-indented blocks."""
     out: list[str] = []
     buf: list[str] = []
+    in_fence = False
 
     def flush():
         nonlocal buf
@@ -130,15 +148,33 @@ def emit_paragraphs(
             buf = []
 
     for raw in src:
-        s = raw.rstrip()
-        if not s.strip():
+        s = raw.rstrip("\n")
+        stripped = s.strip()
+
+        # blank line
+        if not stripped:
             flush()
             out.append("")
-        elif is_list_item(s):
+            continue
+
+        # fence start/stop
+        if is_fence_line(s):
             flush()
-            out.append((" " * list_indent + s.strip()) if list_indent is not None else s)
-        else:
-            buf.append(s)
+            out.append(s.rstrip())
+            in_fence = not in_fence
+            continue
+
+        if in_fence or is_table_like(s) or is_tree_like(s) or is_indented_block_line(s):
+            flush()
+            out.append(s.rstrip())
+            continue
+
+        if is_list_item(s):
+            flush()
+            out.append((" " * list_indent + stripped) if list_indent is not None else s.rstrip())
+            continue
+
+        buf.append(s)
     flush()
     while out and out[-1] == "":
         out.pop()
@@ -247,6 +283,7 @@ def format_google(text: str, indent: int, width: int, quotes: str, prefix: str) 
         if any(x.strip() for x in p[sec]):
             title = "Examples" if sec == "Example" else sec
             add_header(out, indent, title, opener)
+            # These sections are already authored; preserve as-is (no wrapping)
             out.extend(x.rstrip() for x in p[sec])
     while out and out[-1] == "":
         out.pop()
