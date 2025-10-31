@@ -151,7 +151,7 @@ def format_python_file(content: str) -> str:
         if not (token.string.startswith('"""') or token.string.startswith("'''")):
             continue
 
-        formatted = format_docstring(token.string, token.start[1])
+        formatted = format_docstring(token.string, 0)  # indent=0 since line position handles indentation
         if formatted.strip() != token.string.strip():
             replacements.append((token.start, token.end, formatted))
 
