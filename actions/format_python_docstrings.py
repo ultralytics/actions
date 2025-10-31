@@ -30,7 +30,21 @@ def wrap_text(text: str, width: int, indent: int) -> list[str]:
 
 def parse_sections(content: str) -> dict[str, list[tuple[str, int]]]:
     """Parse docstring into sections with text and relative indentation."""
-    sections = {k: [] for k in ["summary", "description", "Args", "Attributes", "Returns", "Yields", "Raises", "Examples", "Notes", "References"]}
+    sections = {
+        k: []
+        for k in [
+            "summary",
+            "description",
+            "Args",
+            "Attributes",
+            "Returns",
+            "Yields",
+            "Raises",
+            "Examples",
+            "Notes",
+            "References",
+        ]
+    }
     current, base_indent = "summary", 0
 
     for line in content.split("\n"):
@@ -51,7 +65,9 @@ def parse_sections(content: str) -> dict[str, list[tuple[str, int]]]:
     return sections
 
 
-def build_section(lines: list[str], section_name: str, content: list[tuple[str, int]], indent: int, preserve: bool = False) -> None:
+def build_section(
+    lines: list[str], section_name: str, content: list[tuple[str, int]], indent: int, preserve: bool = False
+) -> None:
     """Build a docstring section with proper indentation."""
     if not content:
         return
@@ -100,7 +116,9 @@ def format_docstring(docstring: str, indent: int) -> str:
     content = docstring.strip().strip('"""').strip("'''").strip()
 
     # Single-line docstrings
-    is_simple = len(content) < 100 and "\n" not in content and not any(s in content for s in ["Args:", "Returns:", "Examples:"])
+    is_simple = (
+        len(content) < 100 and "\n" not in content and not any(s in content for s in ["Args:", "Returns:", "Examples:"])
+    )
     if is_simple:
         if content and not content[0].isupper():
             content = content[0].upper() + content[1:]
@@ -122,7 +140,9 @@ def format_python_file(content: str) -> str:
     # Find docstrings and format them
     replacements = []
     for i, token in enumerate(tokens):
-        if token.type != tokenize.STRING or i > 0 and tokens[i - 1].type not in (tokenize.INDENT, tokenize.NEWLINE, tokenize.NL):
+        if token.type != tokenize.STRING or (
+            i > 0 and tokens[i - 1].type not in (tokenize.INDENT, tokenize.NEWLINE, tokenize.NL)
+        ):
             continue
         # Skip raw/f-string/byte-string prefixes
         if any(token.string.startswith(p) for p in ('r"""', "r'''", 'f"""', "f'''", 'b"""', "b'''")):
