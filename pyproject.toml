@@ -67,7 +67,6 @@ classifiers = [
 dependencies = [
     "requests>=2.28.1",
     "ruff>=0.9.1",
-    "docformatter>=1.7.5",
 ]
 
 [project.optional-dependencies]
@@ -107,10 +106,3 @@ line-length = 120
 
 [tool.ruff.format]
 docstring-code-format = true
-
-[tool.docformatter]
-wrap-summaries = 120
-wrap-descriptions = 120
-pre-summary-newline = true
-close-quotes-on-newline = true
-in-place = true

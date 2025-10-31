@@ -161,14 +161,7 @@ runs:
         ruff format \
         --line-length 120 \
         . || true
-        docformatter \
-        --wrap-summaries 120 \
-        --wrap-descriptions 120 \
-        --pre-summary-newline \
-        --close-quotes-on-newline \
-        --in-place \
-        --recursive \
-        .
+        # DOCSTRING FORMATTING PLACEHOLDER HERE
       shell: bash
       continue-on-error: true
 
