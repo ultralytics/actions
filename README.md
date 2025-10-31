@@ -30,8 +30,8 @@ AI-powered formatting, labeling, and PR summaries for Python, Swift, and Markdow
 ### 📄 Features
 
 - **Python Code:** Formatted using [Ruff](https://github.com/astral-sh/ruff), an extremely fast Python linter and formatter
+- **Python Docstrings:** Google-style formatting enforced with Ultralytics Python docstring formatter (optional)
 - **Markdown Files:** Styled with [Prettier](https://github.com/prettier/prettier) to ensure consistent documentation appearance
-- **Docstrings:** Google-style formatting enforced with Ultralytics Python docstring formatter
 - **Swift Code:** Formatted with [`swift-format`](https://github.com/swiftlang/swift-format) _(requires `macos-latest` runner)_
 - **Spell Check:** Common misspellings caught using [codespell](https://github.com/codespell-project/codespell)
 - **Broken Links Check:** Broken links identified using [Lychee](https://github.com/lycheeverse/lychee)
@@ -80,7 +80,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }} # Auto-generated token
           labels: true # Auto-label issues/PRs using AI
-          python: true # Format Python with Ruff and Ultralytics Python docstring formatter
+          python: true # Format Python with Ruff
+          python_docstrings: false # Format Python docstrings (default: false)
           prettier: true # Format YAML, JSON, Markdown, CSS
           swift: false # Format Swift (requires macos-latest)
           dart: false # Format Dart/Flutter
