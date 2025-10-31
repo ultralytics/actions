@@ -8,7 +8,6 @@ import sys
 import time
 from pathlib import Path
 
-
 SECTIONS = ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises", "Example", "Notes", "References")
 LIST_RX = re.compile(r"""^(\s*)(?:[-*•]\s+|(?:\d+|[A-Za-z]+)[\.\)]\s+)""")
 
@@ -76,7 +75,7 @@ def wrap_hanging(head: str, desc: str, width: int, cont_indent: int) -> list[str
     out: list[str] = []
     if take:
         out.append(head + " ".join(take))
-        rest = words[len(take):]
+        rest = words[len(take) :]
     else:
         out.append(head.rstrip())
         rest = words
@@ -141,7 +140,7 @@ def emit_paragraphs(src: list[str], width: int, indent: int, list_indent: int | 
 
 def parse_sections(text: str) -> dict[str, list[str]]:
     """Parse Google-style docstring into sections."""
-    parts = {k: [] for k in ("summary", "description") + SECTIONS}
+    parts = {k: [] for k in ("summary", "description", *SECTIONS)}
     cur = "summary"
     for raw in text.splitlines():
         line = raw.rstrip("\n")
@@ -193,7 +192,7 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
     cont, lst = base + 4, base + 8
     for item in iter_items(lines):
         first = item[0].strip()
-        name, desc = (first.split(":", 1) + [""])[:2]
+        name, desc = ([*first.split(":", 1), ""])[:2]
         name, desc = name.strip(), desc.strip()
 
         # Free text item (not 'name: desc')
@@ -220,8 +219,8 @@ def detect_opener(original_literal: str) -> tuple[str, str]:
     while i < len(s) and s[i] in "rRuUbBfF":
         i += 1
     quotes = '"""'
-    if i + 3 <= len(s) and s[i:i + 3] in ('"""', "'''"):
-        quotes = s[i:i + 3]
+    if i + 3 <= len(s) and s[i : i + 3] in ('"""', "'''"):
+        quotes = s[i : i + 3]
     keep = "".join(ch for ch in s[:i] if ch in "rRuU")  # preserve only r/R/u/U
     return keep, quotes
 
@@ -256,10 +255,13 @@ def format_docstring(content: str, indent: int, width: int, quotes: str, prefix:
     if not content or not content.strip():
         return f"{prefix}{quotes}{quotes}"
     text = content.strip()
-    has_section = any(f"{s}:" in text for s in SECTIONS + ("Examples",))
+    has_section = any(f"{s}:" in text for s in (*SECTIONS, "Examples"))
     has_list = any(is_list_item(l) for l in text.splitlines())
-    single_ok = ("\n" not in text) and not has_section and not has_list and (
-        indent + len(prefix) + len(quotes) * 2 + len(text) <= width
+    single_ok = (
+        ("\n" not in text)
+        and not has_section
+        and not has_list
+        and (indent + len(prefix) + len(quotes) * 2 + len(text) <= width)
     )
     if single_ok:
         words = text.split()
@@ -279,19 +281,19 @@ class Visitor(ast.NodeVisitor):
         """Init with source lines and target width."""
         self.src, self.width, self.repl = src, width, []
 
-    def visit_Module(self, node):  # noqa: N802
+    def visit_Module(self, node):
         """Skip module docstring; visit children."""
         self.generic_visit(node)
 
-    def visit_ClassDef(self, node):  # noqa: N802
+    def visit_ClassDef(self, node):
         self._handle(node)
         self.generic_visit(node)
 
-    def visit_FunctionDef(self, node):  # noqa: N802
+    def visit_FunctionDef(self, node):
         self._handle(node)
         self.generic_visit(node)
 
-    def visit_AsyncFunctionDef(self, node):  # noqa: N802
+    def visit_AsyncFunctionDef(self, node):
         self._handle(node)
         self.generic_visit(node)
 
@@ -311,7 +313,7 @@ class Visitor(ast.NodeVisitor):
             original = (
                 self.src[sl][sc:ec]
                 if sl == el
-                else "\n".join([self.src[sl][sc:]] + self.src[sl + 1 : el] + [self.src[el][:ec]])
+                else "\n".join([self.src[sl][sc:], *self.src[sl + 1 : el], self.src[el][:ec]])
             )
             prefix, quotes = detect_opener(original)
             formatted = format_docstring(doc, sc, self.width, quotes, prefix)
