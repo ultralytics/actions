@@ -235,16 +235,16 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
     cont, lst = base + 4, base + 8
     for item in iter_items(lines):
         first = item[0].strip()
-        name, desc = ([*first.split(":", 1), ""])[:2]
+        name, desc = (first.split(":", 1) + [""])[:2]
         name, desc = name.strip(), desc.strip()
+        had_colon = ":" in first
 
         # Free text item (not 'name: desc')
         if not name or (" " in name and "(" not in name and ")" not in name):
             out.extend(emit_paragraphs(item, width, cont, lst, orphan_min=2))
             continue
 
-        # Build head respecting whether a colon originally existed
-        head = " " * cont + (f"{name}: " if (desc or ":" in first) else name)
+        head = " " * cont + (f"{name}: " if (desc or had_colon) else name)
         out.extend(wrap_hanging(head, desc, width, cont + 4))
 
         # Continuation (paragraphs + lists) with orphan control
