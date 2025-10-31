@@ -43,9 +43,11 @@ def header_name(line: str) -> str | None:
     s = line.strip()
     if not s.endswith(":") or len(s) <= 1:
         return None
-    name = s[:-1]
+    name = s[:-1].strip()
     if name == "Examples":
         name = "Example"
+    if name == "Note":  # normalize singular to plural
+        name = "Notes"
     return name if name in SECTIONS else None
 
 
@@ -73,10 +75,7 @@ def emit_paragraphs(src: list[str], width: int, indent: int, list_indent: int | 
             flush(); out.append("")
         elif is_list_item(s):
             flush()
-            if list_indent is None:
-                out.append(s)
-            else:
-                out.append(" " * list_indent + s.strip())
+            out.append((" " * list_indent + s.strip()) if list_indent is not None else s)
         else:
             buf.append(s)
         i += 1
