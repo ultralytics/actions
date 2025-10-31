@@ -2,555 +2,378 @@
 
 from __future__ import annotations
 
-import argparse
 import ast
+import re
+import sys
 import time
 from pathlib import Path
 
 
-def wrap_text(text: str, width: int, indent: int) -> list[str]:
-    """Wrap text at width with indentation."""
-    if not text.strip():
+SECTIONS = ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises", "Example", "Notes", "References")
+LIST_RX = re.compile(r"""^(\s*)(?:[-*•]\s+|(?:\d+|[A-Za-z]+)[\.\)]\s+)""")
+
+
+def wrap(text: str, width: int, indent: int) -> list[str]:
+    """Wrap text at width with indent spaces."""
+    text = text.strip()
+    if not text:
         return []
-    if len(" " * indent + text) <= width:
-        return [" " * indent + text]
-
-    words, lines, current, current_len = text.split(), [], [], indent
-    for word in words:
-        word_len = len(word) + (1 if current else 0)
-        if current_len + word_len > width and current:
-            lines.append(" " * indent + " ".join(current))
-            current, current_len = [word], indent + len(word)
+    pad = " " * indent
+    if len(pad) + len(text) <= width:
+        return [pad + text]
+    out, line, cur = [], [], indent
+    for w in text.split():
+        need = len(w) + (1 if line else 0)
+        if cur + need <= width:
+            line.append(w); cur += need
         else:
-            current.append(word)
-            current_len += word_len
-
-    if current:
-        lines.append(" " * indent + " ".join(current))
-    return lines
+            out.append(pad + " ".join(line)); line, cur = [w], indent + len(w)
+    if line:
+        out.append(pad + " ".join(line))
+    return out
 
 
-def count_balanced_parens(s: str) -> int:
-    """Find position of closing paren that balances opening paren at start."""
-    if not s.startswith("("):
-        return -1
-    depth = 0
-    for i, char in enumerate(s):
-        if char == "(":
-            depth += 1
-        elif char == ")":
-            depth -= 1
-            if depth == 0:
-                return i
-    return -1
+def is_list_item(s: str) -> bool:
+    """True if s looks like a bullet/numbered list item."""
+    return bool(LIST_RX.match(s.lstrip()))
 
 
-def is_param_line(line: str) -> bool:
-    """Check if line starts a parameter definition with proper bracket handling."""
-    stripped = line.strip()
-    if not stripped or ":" not in stripped:
-        return False
-
-    # Handle edge case of just ":" with no param name
-    if stripped == ":":
-        return False
-
-    # Must have something before colon
-    colon_pos = stripped.find(":")
-    if colon_pos == 0:
-        return False
-    
-    before_colon = stripped[:colon_pos].strip()
-    if not before_colon:
-        return False
-    
-    # Try to find balanced parentheses for type annotation
-    if "(" in before_colon:
-        try:
-            paren_start = before_colon.index("(")
-            # Find balanced closing paren
-            closing_pos = count_balanced_parens(before_colon[paren_start:])
-            if closing_pos == -1:
-                return False
-            # Should have param name before paren
-            param_name = before_colon[:paren_start].strip()
-            return bool(param_name and param_name.replace("_", "").isalnum())
-        except (ValueError, IndexError):
-            return False
-    else:
-        # No type annotation - param name should be valid identifier
-        return before_colon.replace("_", "").isalnum()
+def header_name(line: str) -> str | None:
+    """Return canonical section header or None."""
+    s = line.strip()
+    if not s.endswith(":") or len(s) <= 1:
+        return None
+    name = s[:-1]
+    if name == "Examples":
+        name = "Example"
+    return name if name in SECTIONS else None
 
 
-def format_args_section(lines: list[str], base_indent: int, line_width: int) -> list[str]:
-    """Format Args/Returns/Yields section with proper Google-style indentation."""
-    formatted = []
-    i = 0
-
-    while i < len(lines):
-        line = lines[i]
-
-        # Skip empty lines
-        if not line.strip():
-            i += 1
-            continue
-
-        # Check if this is a parameter definition line
-        if is_param_line(line):
-            stripped = line.strip()
-
-            # Collect continuation lines (including blank lines within param)
-            continuation = []
-            j = i + 1
-            while j < len(lines):
-                next_line = lines[j]
-                if not next_line.strip():
-                    # Blank line - could be end or within param
-                    if j + 1 < len(lines) and lines[j + 1].strip() and not is_param_line(lines[j + 1]):
-                        # Blank line within param description
-                        continuation.append("")
-                        j += 1
-                    else:
-                        # End of this param
-                        break
-                elif is_param_line(next_line):
-                    # Next param
-                    break
-                else:
-                    # Continuation line
-                    continuation.append(next_line.strip())
-                    j += 1
-
-            # Split at first colon only (description may contain colons)
-            if ":" in stripped:
-                try:
-                    colon_pos = stripped.index(":")
-                    param_part = stripped[:colon_pos].strip()
-                    desc_part = stripped[colon_pos + 1 :].strip()
-
-                    # Handle edge case where param_part is empty
-                    if not param_part:
-                        formatted.extend(wrap_text(stripped, line_width, base_indent))
-                        i = j
-                        continue
-
-                    # Combine description with continuations
-                    full_desc = desc_part
-                    if continuation:
-                        full_desc += " " + " ".join(c for c in continuation if c)
-
-                    # Try to fit on one line
-                    one_line = f"{param_part}: {full_desc}" if full_desc else f"{param_part}:"
-                    if len(" " * base_indent + one_line) <= line_width:
-                        formatted.append(" " * base_indent + one_line)
-                    else:
-                        # Need to wrap - try to fit as much as possible on first line
-                        first_line = " " * base_indent + param_part + ": "
-                        remaining_space = line_width - len(first_line)
-
-                        if not full_desc:
-                            # No description, just param
-                            formatted.append(first_line.rstrip())
-                        else:
-                            # Split description into words and fit as many as possible on first line
-                            words = full_desc.split()
-                            first_line_words = []
-                            remaining_words = []
-
-                            current_len = 0
-                            for word in words:
-                                word_len = len(word) + (1 if first_line_words else 0)
-                                if current_len + word_len <= remaining_space:
-                                    first_line_words.append(word)
-                                    current_len += word_len
-                                else:
-                                    remaining_words.append(word)
-
-                            # Build the formatted output
-                            if first_line_words:
-                                formatted.append(first_line + " ".join(first_line_words))
-                                if remaining_words:
-                                    # Wrap remaining words at continuation indent
-                                    remaining_text = " ".join(remaining_words)
-                                    wrapped = wrap_text(remaining_text, line_width, base_indent + 4)
-                                    formatted.extend(wrapped)
-                            else:
-                                # Couldn't fit any words on first line (very long first word)
-                                formatted.append(first_line.rstrip())
-                                wrapped = wrap_text(full_desc, line_width, base_indent + 4)
-                                formatted.extend(wrapped)
-
-                    i = j
-                except (ValueError, IndexError):
-                    # Error handling - just format as-is
-                    formatted.extend(wrap_text(stripped, line_width, base_indent))
-                    i += 1
-            else:
-                # No colon found (shouldn't happen but handle it)
-                formatted.extend(wrap_text(stripped, line_width, base_indent))
-                i += 1
-        else:
-            # Content without colon pattern
-            formatted.extend(wrap_text(line.strip(), line_width, base_indent))
-            i += 1
-
-    return formatted
-
-
-def parse_google_sections(content: str) -> dict[str, list[str]]:
-    """Parse Google-style docstring into sections."""
-    sections = {
-        k: []
-        for k in [
-            "summary",
-            "description",
-            "Args",
-            "Attributes",
-            "Methods",
-            "Returns",
-            "Yields",
-            "Raises",
-            "Example",
-            "Notes",
-            "References",
-        ]
-    }
-    # Map Examples to Example for consistency
-    section_map = {"Examples": "Example"}
-    current = "summary"
-    lines = content.split("\n")
-    i = 0
-
-    while i < len(lines):
-        line = lines[i]
-        stripped = line.strip()
-
-        # Empty line handling
-        if not stripped:
-            if current == "summary" and sections["summary"]:
-                current = "description"
-            elif sections[current]:
-                sections[current].append("")
-            i += 1
-            continue
-
-        # Check for section headers (must be exact match, alone on line)
-        if stripped.endswith(":") and len(stripped) > 1:
-            potential_section = stripped[:-1]
-            # Map Examples to Example
-            if potential_section in section_map:
-                potential_section = section_map[potential_section]
-            # Only treat as section if it's a known section AND line has no other content
-            if potential_section in sections and stripped in (potential_section + ":", potential_section + "s:"):
-                current = potential_section
-                i += 1
-                continue
-
-        sections[current].append(line)
-        i += 1
-
-    return sections
-
-
-def format_google_docstring(content: str, indent: int, line_width: int) -> str:
-    """Format multi-line Google-style docstring with proper indentation."""
-    sections = parse_google_sections(content)
-    lines = ['"""']
-
-    # Summary (single paragraph, wrapped)
-    if sections["summary"]:
-        summary = " ".join(line.strip() for line in sections["summary"] if line.strip())
-        if summary:
-            lines.extend(wrap_text(summary, line_width, indent))
-
-    # Description (preserve paragraph structure)
-    if sections["description"]:
-        desc_lines = sections["description"]
-        if any(line.strip() for line in desc_lines):
-            lines.append("")
-            paragraph = []
-            for line in desc_lines:
-                if not line.strip():
-                    if paragraph:
-                        text = " ".join(paragraph)
-                        lines.extend(wrap_text(text, line_width, indent))
-                        paragraph = []
-                        lines.append("")
-                else:
-                    paragraph.append(line.strip())
-            if paragraph:
-                text = " ".join(paragraph)
-                lines.extend(wrap_text(text, line_width, indent))
-
-            # Remove trailing blank lines from description
-            while lines and lines[-1] == "":
-                lines.pop()
-
-    # Structured sections (Args, Attributes, Methods, Returns, Yields, Raises)
-    for section_name in ["Args", "Attributes", "Methods", "Returns", "Yields", "Raises"]:
-        if sections[section_name] and any(line.strip() for line in sections[section_name]):
-            lines.append("")
-            lines.append(" " * indent + f"{section_name}:")
-            formatted = format_args_section(sections[section_name], indent + 4, line_width)
-            if formatted:  # Only add if there's actual content
-                lines.extend(formatted)
-            else:
-                # Remove the section header if no content
-                lines.pop()
-                if lines and lines[-1] == "":
-                    lines.pop()
-
-    # Example/Notes/References (preserve formatting)
-    for section_name in ["Example", "Notes", "References"]:
-        display_name = "Examples" if section_name == "Example" else section_name
-        if sections[section_name] and any(line.strip() for line in sections[section_name]):
-            lines.append("")
-            lines.append(" " * indent + f"{display_name}:")
-            for line in sections[section_name]:
-                lines.append(line.rstrip())
-
-    # Remove trailing empty lines
+def add_header(lines: list[str], indent: int, title: str) -> None:
+    """Append a section header with exactly one preceding blank line."""
     while lines and lines[-1] == "":
         lines.pop()
-
-    lines.append(" " * indent + '"""')
-    return "\n".join(lines)
-
-
-def format_docstring(content: str, indent: int, line_width: int) -> str:
-    """Format docstring to single-line or Google-style."""
-    if not content or not content.strip():
-        return '""""""'  # Empty docstring
-
-    content = content.strip()
-
-    # Check if should be single-line
-    total_len = indent + 6 + len(content)
-    has_sections = any(
-        s in content
-        for s in [
-            "Args:",
-            "Attributes:",
-            "Methods:",
-            "Returns:",
-            "Yields:",
-            "Raises:",
-            "Example:",
-            "Examples:",
-            "Notes:",
-            "References:",
-        ]
-    )
-    is_single = total_len <= line_width and "\n" not in content and not has_sections
-
-    if is_single:
-        # Ensure proper capitalization and punctuation
-        words = content.split()
-        if words:
-            first_word = words[0]
-            # Don't capitalize if starts with https, http, etc.
-            if not first_word.startswith(("http://", "https://")) and not first_word[0].isupper():
-                words[0] = first_word[0].upper() + first_word[1:]
-            content = " ".join(words)
-        if content and content[-1] not in ".!?":
-            content += "."
-        return f'"""{content}"""'
-
-    # Multi-line Google-style
-    return format_google_docstring(content, indent, line_width)
+    if lines and lines[-1] != "":
+        lines.append("")
+    lines.append(" " * indent + f"{title}:")
 
 
-class DocstringFormatter(ast.NodeVisitor):
-    """AST visitor to find and format docstrings."""
-
-    def __init__(self, source_lines: list[str], line_width: int = 120):
-        """Initialize formatter with source lines and line width."""
-        self.source_lines = source_lines
-        self.line_width = line_width
-        self.replacements = []
-
-    def visit_Module(self, node):
-        """Visit module node - skip module-level docstrings."""
-        # Don't process module docstring, but visit children
-        self.generic_visit(node)
-
-    def visit_ClassDef(self, node):
-        """Visit class definition node."""
-        self._process_docstring(node)
-        self.generic_visit(node)
-
-    def visit_FunctionDef(self, node):
-        """Visit function definition node."""
-        self._process_docstring(node)
-        self.generic_visit(node)
-
-    def visit_AsyncFunctionDef(self, node):
-        """Visit async function definition node."""
-        self._process_docstring(node)
-        self.generic_visit(node)
-
-    def _process_docstring(self, node):
-        """Process docstring for a node."""
-        try:
-            docstring = ast.get_docstring(node, clean=False)
-            if not docstring:
-                return
-
-            # Find the string node - must be first statement
-            if not node.body or not isinstance(node.body[0], ast.Expr):
-                return
-
-            string_node = node.body[0]
-            if not isinstance(string_node.value, ast.Constant) or not isinstance(string_node.value.value, str):
-                return
-
-            # Get position
-            start_line = string_node.lineno - 1
-            end_line = string_node.end_lineno - 1
-            start_col = string_node.col_offset
-            end_col = string_node.end_col_offset
-
-            # Validate indices
-            if start_line < 0 or end_line >= len(self.source_lines):
-                return
-
-            # Extract original
-            if start_line == end_line:
-                original = self.source_lines[start_line][start_col:end_col]
+def emit_paragraphs(src: list[str], width: int, indent: int, list_indent: int | None = None) -> list[str]:
+    """Emit paragraphs from src: wrap normal text, preserve list items; keep internal blank lines."""
+    out, buf = [], []
+    def flush():
+        nonlocal buf
+        if buf:
+            out.extend(wrap(" ".join(x.strip() for x in buf), width, indent))
+            buf = []
+    i, n = 0, len(src)
+    while i < n:
+        s = src[i].rstrip()
+        if not s.strip():
+            flush(); out.append("")
+        elif is_list_item(s):
+            flush()
+            if list_indent is None:
+                out.append(s)
             else:
-                lines = [self.source_lines[start_line][start_col:]]
-                lines.extend(self.source_lines[start_line + 1 : end_line])
-                lines.append(self.source_lines[end_line][:end_col])
-                original = "\n".join(lines)
+                out.append(" " * list_indent + s.strip())
+        else:
+            buf.append(s)
+        i += 1
+    flush()
+    while out and out[-1] == "":
+        out.pop()
+    return out
 
-            # Format
-            formatted = format_docstring(docstring, start_col, self.line_width)
 
-            # Record if changed
+def parse_sections(text: str) -> dict[str, list[str]]:
+    """Parse Google-style docstring into sections."""
+    parts = {k: [] for k in ("summary", "description") + SECTIONS}
+    cur = "summary"
+    for raw in text.splitlines():
+        line = raw.rstrip("\n")
+        h = header_name(line)
+        if h:
+            cur = h; continue
+        if not line.strip():
+            if cur == "summary" and parts["summary"]:
+                cur = "description"
+            if parts[cur]:
+                parts[cur].append("")
+            continue
+        parts[cur].append(line)
+    return parts
+
+
+def looks_like_param(s: str) -> bool:
+    """Heuristic: 'name:' without being a list item."""
+    if is_list_item(s) or ":" not in s:
+        return False
+    head = s.split(":", 1)[0].strip()
+    return bool(head)
+
+
+def iter_items(lines: list[str]) -> list[list[str]]:
+    """Group lines into logical items separated by next param."""
+    items, i, n = [], 0, len(lines)
+    while i < n:
+        while i < n and not lines[i].strip():
+            i += 1
+        if i >= n:
+            break
+        item = [lines[i]]; i += 1
+        while i < n:
+            st = lines[i].strip()
+            if st and looks_like_param(st):
+                break
+            item.append(lines[i]); i += 1
+        items.append(item)
+    return items
+
+
+def format_structured_block(lines: list[str], width: int, base: int) -> list[str]:
+    """Format Args/Returns/etc. blocks; continuation at base+4, lists at base+8."""
+    out = []
+    cont, lst = base + 4, base + 8
+    for item in iter_items(lines):
+        first = item[0].strip()
+        name, desc = (first.split(":", 1) + [""])[:2]
+        name, desc = name.strip(), desc.strip()
+        # Free text item (not 'name: desc')
+        if not name or (" " in name and "(" not in name and ")" not in name):
+            out.extend(emit_paragraphs(item, width, cont, lst))
+            continue
+        # Head line
+        head = " " * cont + f"{name}: "
+        if not desc:
+            out.append(head.rstrip())
+        else:
+            room = width - len(head)
+            words, take, used = desc.split(), [], 0
+            for w in words:
+                need = len(w) + (1 if take else 0)
+                if used + need <= room:
+                    take.append(w); used += need
+                else:
+                    break
+            if take:
+                out.append(head + " ".join(take))
+                rem = " ".join(words[len(take) :]).strip()
+                if rem:
+                    out.extend(wrap(rem, width, cont + 4))
+            else:
+                out.append(head.rstrip())
+                out.extend(wrap(desc, width, cont + 4))
+        # Continuation (paragraphs + lists)
+        tail = item[1:]
+        if tail:
+            body = emit_paragraphs(tail, width, cont + 4, lst)
+            if body:
+                out.extend(body)
+    return out
+
+
+def format_google(text: str, indent: int, width: int) -> str:
+    """Format multi-line Google-style docstring."""
+    p = parse_sections(text)
+    out = ['"""']
+    if p["summary"]:
+        out.extend(wrap(" ".join(x.strip() for x in p["summary"] if x.strip()), width, indent))
+    if any(x.strip() for x in p["description"]):
+        out.append("")
+        out.extend(emit_paragraphs(p["description"], width, indent))
+    for sec in ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises"):
+        if any(x.strip() for x in p[sec]):
+            add_header(out, indent, sec)
+            out.extend(format_structured_block(p[sec], width, indent))
+    for sec in ("Example", "Notes", "References"):
+        if any(x.strip() for x in p[sec]):
+            title = "Examples" if sec == "Example" else sec
+            add_header(out, indent, title)
+            out.extend(x.rstrip() for x in p[sec])
+    while out and out[-1] == "":
+        out.pop()
+    out.append(" " * indent + '"""')
+    return "\n".join(out)
+
+
+def format_docstring(content: str, indent: int, width: int) -> str:
+    """Return single-line docstring if short/sectionless/no-lists; else Google-style."""
+    if not content or not content.strip():
+        return '""""""'
+    text = content.strip()
+    has_section = any(f"{s}:" in text for s in SECTIONS + ("Examples",))
+    has_list = any(is_list_item(l) for l in text.splitlines())
+    single_ok = ("\n" not in text) and not has_section and not has_list and (indent + 6 + len(text) <= width)
+    if single_ok:
+        words = text.split()
+        if words and not (words[0].startswith(("http://", "https://")) or words[0][0].isupper()):
+            words[0] = words[0][0].upper() + words[0][1:]
+        out = " ".join(words)
+        if out and out[-1] not in ".!?":
+            out += "."
+        return f'"""{out}"""'
+    return format_google(text, indent, width)
+
+
+class Visitor(ast.NodeVisitor):
+    """Collect docstring replacements for classes and functions."""
+
+    def __init__(self, src: list[str], width: int = 120):
+        """Init with source lines and target width."""
+        self.src, self.width, self.repl = src, width, []
+
+    def visit_Module(self, node):  # noqa: N802
+        """Skip module docstring; visit children."""
+        self.generic_visit(node)
+
+    def visit_ClassDef(self, node):  # noqa: N802
+        self._handle(node); self.generic_visit(node)
+
+    def visit_FunctionDef(self, node):  # noqa: N802
+        self._handle(node); self.generic_visit(node)
+
+    def visit_AsyncFunctionDef(self, node):  # noqa: N802
+        self._handle(node); self.generic_visit(node)
+
+    def _handle(self, node):
+        """If first stmt is a string expr, schedule replacement."""
+        try:
+            doc = ast.get_docstring(node, clean=False)
+            if not doc or not node.body or not isinstance(node.body[0], ast.Expr):
+                return
+            s = node.body[0].value
+            if not (isinstance(s, ast.Constant) and isinstance(s.value, str)):
+                return
+            sl, el = node.body[0].lineno - 1, node.body[0].end_lineno - 1
+            sc, ec = node.body[0].col_offset, node.body[0].end_col_offset
+            if sl < 0 or el >= len(self.src):
+                return
+            original = (
+                self.src[sl][sc:ec]
+                if sl == el
+                else "\n".join([self.src[sl][sc:]] + self.src[sl + 1 : el] + [self.src[el][:ec]])
+            )
+            formatted = format_docstring(doc, sc, self.width)
             if formatted.strip() != original.strip():
-                self.replacements.append((start_line, end_line, start_col, end_col, formatted))
-
-        except (IndexError, ValueError, AttributeError):
-            # Skip any problematic docstrings
+                self.repl.append((sl, el, sc, ec, formatted))
+        except Exception:
             return
 
 
-def format_python_file(content: str, line_width: int = 120) -> str:
-    """Format all docstrings in Python file using AST."""
-    if not content.strip():
-        return content
-
+def format_python_file(text: str, width: int = 120) -> str:
+    """Return source with reformatted docstrings; on failure, return original."""
+    if not text.strip():
+        return text
     try:
-        tree = ast.parse(content)
+        tree = ast.parse(text)
     except SyntaxError:
-        return content
-
-    source_lines = content.split("\n")
-    formatter = DocstringFormatter(source_lines, line_width)
-
+        return text
+    src = text.splitlines()
+    v = Visitor(src, width)
     try:
-        formatter.visit(tree)
+        v.visit(tree)
     except Exception:
-        # If visiting fails, return original content
-        return content
-
-    # Apply replacements in reverse order to maintain line numbers
-    for start_line, end_line, start_col, end_col, formatted in reversed(formatter.replacements):
+        return text
+    for sl, el, sc, ec, rep in reversed(v.repl):
         try:
-            if start_line == end_line:
-                source_lines[start_line] = (
-                    source_lines[start_line][:start_col] + formatted + source_lines[start_line][end_col:]
-                )
+            if sl == el:
+                src[sl] = src[sl][:sc] + rep + src[sl][ec:]
             else:
-                new_lines = formatted.split("\n")
-                new_lines[0] = source_lines[start_line][:start_col] + new_lines[0]
-                new_lines[-1] += source_lines[end_line][end_col:]
-                source_lines[start_line : end_line + 1] = new_lines
-        except IndexError:
+                nl = rep.splitlines()
+                nl[0] = src[sl][:sc] + nl[0]
+                nl[-1] += src[el][ec:]
+                src[sl : el + 1] = nl
+        except Exception:
             continue
+    return "\n".join(src)
 
-    return "\n".join(source_lines)
+
+def preserve_trailing_newlines(original: str, formatted: str) -> str:
+    """Preserve the original trailing newline count."""
+    o = len(original) - len(original.rstrip("\n"))
+    f = len(formatted) - len(formatted.rstrip("\n"))
+    return formatted if o == f else formatted.rstrip("\n") + ("\n" * o)
 
 
-def process_file(path: Path, line_width: int = 120, check: bool = False) -> bool:
-    """Process file, return True if no changes needed."""
+def iter_py_files(paths: list[Path]) -> list[Path]:
+    """Expand input paths to sorted unique *.py files."""
+    out: list[Path] = []
+    for p in paths:
+        if p.is_dir():
+            out.extend(sorted(p.rglob("*.py")))
+        elif p.is_file() and p.suffix == ".py":
+            out.append(p)
+    seen, uniq = set(), []
+    for f in out:
+        if f not in seen:
+            seen.add(f); uniq.append(f)
+    return uniq
+
+
+def process_file(path: Path, width: int = 120, check: bool = False) -> bool:
+    """Process one file; True if unchanged/success, False if changed."""
     if path.suffix != ".py":
         return True
-
     try:
-        original = path.read_text(encoding="utf-8")
-        formatted = format_python_file(original, line_width)
-
+        orig = path.read_text(encoding="utf-8")
+        fmt = preserve_trailing_newlines(orig, format_python_file(orig, width))
         if check:
-            if original != formatted:
-                print(f"  {path}")
-                return False
+            if orig != fmt:
+                print(f"  {path}"); return False
             return True
-
-        if original != formatted:
-            path.write_text(formatted, encoding="utf-8")
-            print(f"  {path}")
-            return False
-
+        if orig != fmt:
+            path.write_text(fmt, encoding="utf-8")
+            print(f"  {path}"); return False
         return True
     except Exception as e:
         print(f"  Error: {path}: {e}")
         return True
 
 
-def main(*args, **kwargs):
-    """CLI entry point for formatting Python docstrings."""
-    parser = argparse.ArgumentParser(description="Format Python docstrings to Google-style")
-    parser.add_argument("paths", nargs="+", type=Path, help="Files or directories to format")
-    parser.add_argument("--line-width", type=int, default=120, help="Maximum line width (default: 120)")
-    parser.add_argument("--check", action="store_true", help="Check without writing changes")
-    args = parser.parse_args()
-
-    # Collect files (automatically recurse into directories)
-    files = []
-    for path in args.paths:
-        if path.is_dir():
-            files.extend(sorted(path.rglob("*.py")))
-        elif path.is_file():
-            files.append(path)
+def parse_cli(argv: list[str]) -> tuple[list[Path], int, bool]:
+    """Minimal argv parser: (paths, width, check)."""
+    width, check, paths = 120, False, []
+    for a in argv:
+        if a == "--check":
+            check = True
+        elif a.startswith("--line-width="):
+            try:
+                width = int(a.split("=", 1)[1])
+            except ValueError:
+                pass
         else:
-            print(f"Warning: {path} not found")
+            paths.append(Path(a))
+    return paths, width, check
 
-    if not files:
-        print("No Python files found")
+
+def main() -> None:
+    """CLI entry point."""
+    args = sys.argv[1:]
+    if not args:
+        print("Usage: format_python_docstrings.py [--check] [--line-width=120] <files_or_dirs...>")
         return
+    paths, width, check = parse_cli(args)
+    files = iter_py_files(paths)
+    if not files:
+        print("No Python files found"); return
 
-    # Start timing
-    start_time = time.time()
+    t0 = time.time()
+    print(f"{'Checking' if check else 'Formatting'} {len(files)} file{'s' if len(files) != 1 else ''}")
+    changed = sum(not process_file(f, width, check) for f in files)
 
-    # Print header
-    action = "Checking" if args.check else "Formatting"
-    print(f"{action} {len(files)} file{'s' if len(files) != 1 else ''}")
-
-    # Process files
-    changed_count = 0
-    for f in files:
-        if not process_file(f, args.line_width, args.check):
-            changed_count += 1
-
-    # Calculate elapsed time
-    elapsed = time.time() - start_time
-
-    # Print summary
-    if changed_count:
-        action = "would be reformatted" if args.check else "reformatted"
-        unchanged = len(files) - changed_count
+    dur = time.time() - t0
+    if changed:
+        verb = "would be reformatted" if check else "reformatted"
+        unchanged = len(files) - changed
         parts = []
-        if changed_count:
-            parts.append(f"{changed_count} file{'s' if changed_count != 1 else ''} {action}")
-        if unchanged:
-            parts.append(f"{unchanged} file{'s' if unchanged != 1 else ''} left unchanged")
-        print(f"{', '.join(parts)} ({elapsed:.1f}s)")
+        if changed: parts.append(f"{changed} file{'s' if changed != 1 else ''} {verb}")
+        if unchanged: parts.append(f"{unchanged} file{'s' if unchanged != 1 else ''} left unchanged")
+        print(f"{', '.join(parts)} ({dur:.1f}s)")
+        if check:
+            sys.exit(1)
     else:
-        print(f"{len(files)} file{'s' if len(files) != 1 else ''} left unchanged ({elapsed:.1f}s)")
-
-    if args.check and changed_count:
-        exit(1)
+        print(f"{len(files)} file{'s' if len(files) != 1 else ''} left unchanged ({dur:.1f}s)")
 
 
 if __name__ == "__main__":
