@@ -8,7 +8,6 @@ import sys
 import time
 from pathlib import Path
 
-
 SECTIONS = ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises", "Example", "Notes", "References")
 LIST_RX = re.compile(r"""^(\s*)(?:[-*•]\s+|(?:\d+|[A-Za-z]+)[\.\)]\s+)""")
 
@@ -25,9 +24,11 @@ def wrap(text: str, width: int, indent: int) -> list[str]:
     for w in text.split():
         need = len(w) + (1 if line else 0)
         if cur + need <= width:
-            line.append(w); cur += need
+            line.append(w)
+            cur += need
         else:
-            out.append(pad + " ".join(line)); line, cur = [w], indent + len(w)
+            out.append(pad + " ".join(line))
+            line, cur = [w], indent + len(w)
     if line:
         out.append(pad + " ".join(line))
     return out
@@ -63,16 +64,19 @@ def add_header(lines: list[str], indent: int, title: str) -> None:
 def emit_paragraphs(src: list[str], width: int, indent: int, list_indent: int | None = None) -> list[str]:
     """Emit paragraphs from src: wrap normal text, preserve list items; keep internal blank lines."""
     out, buf = [], []
+
     def flush():
         nonlocal buf
         if buf:
             out.extend(wrap(" ".join(x.strip() for x in buf), width, indent))
             buf = []
+
     i, n = 0, len(src)
     while i < n:
         s = src[i].rstrip()
         if not s.strip():
-            flush(); out.append("")
+            flush()
+            out.append("")
         elif is_list_item(s):
             flush()
             out.append((" " * list_indent + s.strip()) if list_indent is not None else s)
@@ -87,13 +91,14 @@ def emit_paragraphs(src: list[str], width: int, indent: int, list_indent: int | 
 
 def parse_sections(text: str) -> dict[str, list[str]]:
     """Parse Google-style docstring into sections."""
-    parts = {k: [] for k in ("summary", "description") + SECTIONS}
+    parts = {k: [] for k in ("summary", "description", *SECTIONS)}
     cur = "summary"
     for raw in text.splitlines():
         line = raw.rstrip("\n")
         h = header_name(line)
         if h:
-            cur = h; continue
+            cur = h
+            continue
         if not line.strip():
             if cur == "summary" and parts["summary"]:
                 cur = "description"
@@ -120,12 +125,14 @@ def iter_items(lines: list[str]) -> list[list[str]]:
             i += 1
         if i >= n:
             break
-        item = [lines[i]]; i += 1
+        item = [lines[i]]
+        i += 1
         while i < n:
             st = lines[i].strip()
             if st and looks_like_param(st):
                 break
-            item.append(lines[i]); i += 1
+            item.append(lines[i])
+            i += 1
         items.append(item)
     return items
 
@@ -136,7 +143,7 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
     cont, lst = base + 4, base + 8
     for item in iter_items(lines):
         first = item[0].strip()
-        name, desc = (first.split(":", 1) + [""])[:2]
+        name, desc = ([*first.split(":", 1), ""])[:2]
         name, desc = name.strip(), desc.strip()
         # Free text item (not 'name: desc')
         if not name or (" " in name and "(" not in name and ")" not in name):
@@ -152,7 +159,8 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
             for w in words:
                 need = len(w) + (1 if take else 0)
                 if used + need <= room:
-                    take.append(w); used += need
+                    take.append(w)
+                    used += need
                 else:
                     break
             if take:
@@ -201,7 +209,7 @@ def format_docstring(content: str, indent: int, width: int) -> str:
     if not content or not content.strip():
         return '""""""'
     text = content.strip()
-    has_section = any(f"{s}:" in text for s in SECTIONS + ("Examples",))
+    has_section = any(f"{s}:" in text for s in (*SECTIONS, "Examples"))
     has_list = any(is_list_item(l) for l in text.splitlines())
     single_ok = ("\n" not in text) and not has_section and not has_list and (indent + 6 + len(text) <= width)
     if single_ok:
@@ -222,18 +230,21 @@ class Visitor(ast.NodeVisitor):
         """Init with source lines and target width."""
         self.src, self.width, self.repl = src, width, []
 
-    def visit_Module(self, node):  # noqa: N802
+    def visit_Module(self, node):
         """Skip module docstring; visit children."""
         self.generic_visit(node)
 
-    def visit_ClassDef(self, node):  # noqa: N802
-        self._handle(node); self.generic_visit(node)
+    def visit_ClassDef(self, node):
+        self._handle(node)
+        self.generic_visit(node)
 
-    def visit_FunctionDef(self, node):  # noqa: N802
-        self._handle(node); self.generic_visit(node)
+    def visit_FunctionDef(self, node):
+        self._handle(node)
+        self.generic_visit(node)
 
-    def visit_AsyncFunctionDef(self, node):  # noqa: N802
-        self._handle(node); self.generic_visit(node)
+    def visit_AsyncFunctionDef(self, node):
+        self._handle(node)
+        self.generic_visit(node)
 
     def _handle(self, node):
         """If first stmt is a string expr, schedule replacement."""
@@ -251,7 +262,7 @@ class Visitor(ast.NodeVisitor):
             original = (
                 self.src[sl][sc:ec]
                 if sl == el
-                else "\n".join([self.src[sl][sc:]] + self.src[sl + 1 : el] + [self.src[el][:ec]])
+                else "\n".join([self.src[sl][sc:], *self.src[sl + 1 : el], self.src[el][:ec]])
             )
             formatted = format_docstring(doc, sc, self.width)
             if formatted.strip() != original.strip():
@@ -306,7 +317,8 @@ def iter_py_files(paths: list[Path]) -> list[Path]:
     seen, uniq = set(), []
     for f in out:
         if f not in seen:
-            seen.add(f); uniq.append(f)
+            seen.add(f)
+            uniq.append(f)
     return uniq
 
 
@@ -319,11 +331,13 @@ def process_file(path: Path, width: int = 120, check: bool = False) -> bool:
         fmt = preserve_trailing_newlines(orig, format_python_file(orig, width))
         if check:
             if orig != fmt:
-                print(f"  {path}"); return False
+                print(f"  {path}")
+                return False
             return True
         if orig != fmt:
             path.write_text(fmt, encoding="utf-8")
-            print(f"  {path}"); return False
+            print(f"  {path}")
+            return False
         return True
     except Exception as e:
         print(f"  Error: {path}: {e}")
@@ -355,7 +369,8 @@ def main() -> None:
     paths, width, check = parse_cli(args)
     files = iter_py_files(paths)
     if not files:
-        print("No Python files found"); return
+        print("No Python files found")
+        return
 
     t0 = time.time()
     print(f"{'Checking' if check else 'Formatting'} {len(files)} file{'s' if len(files) != 1 else ''}")
@@ -366,8 +381,10 @@ def main() -> None:
         verb = "would be reformatted" if check else "reformatted"
         unchanged = len(files) - changed
         parts = []
-        if changed: parts.append(f"{changed} file{'s' if changed != 1 else ''} {verb}")
-        if unchanged: parts.append(f"{unchanged} file{'s' if unchanged != 1 else ''} left unchanged")
+        if changed:
+            parts.append(f"{changed} file{'s' if changed != 1 else ''} {verb}")
+        if unchanged:
+            parts.append(f"{unchanged} file{'s' if unchanged != 1 else ''} left unchanged")
         print(f"{', '.join(parts)} ({dur:.1f}s)")
         if check:
             sys.exit(1)
