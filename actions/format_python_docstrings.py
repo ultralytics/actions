@@ -127,6 +127,9 @@ def format_python_file(content: str) -> str:
         # Skip raw/f-string/byte-string prefixes
         if any(token.string.startswith(p) for p in ('r"""', "r'''", 'f"""', "f'''", 'b"""', "b'''")):
             continue
+        # Only process triple-quoted strings (actual docstrings)
+        if not (token.string.startswith('"""') or token.string.startswith("'''")):
+            continue
 
         formatted = format_docstring(token.string, token.start[1])
         if formatted.strip() != token.string.strip():
