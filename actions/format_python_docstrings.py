@@ -55,26 +55,31 @@ def is_param_line(line: str) -> bool:
     if stripped == ":":
         return False
 
+    # Must have something before colon
+    colon_pos = stripped.find(":")
+    if colon_pos == 0:
+        return False
+    
+    before_colon = stripped[:colon_pos].strip()
+    if not before_colon:
+        return False
+    
     # Try to find balanced parentheses for type annotation
-    if "(" in stripped:
+    if "(" in before_colon:
         try:
-            paren_start = stripped.index("(")
+            paren_start = before_colon.index("(")
             # Find balanced closing paren
-            closing_pos = count_balanced_parens(stripped[paren_start:])
+            closing_pos = count_balanced_parens(before_colon[paren_start:])
             if closing_pos == -1:
                 return False
-            # After closing paren, should have colon
-            after_paren = stripped[paren_start + closing_pos + 1 :].strip()
-            return after_paren.startswith(":")
+            # Should have param name before paren
+            param_name = before_colon[:paren_start].strip()
+            return bool(param_name and param_name.replace("_", "").isalnum())
         except (ValueError, IndexError):
             return False
     else:
-        # No parens - check for valid param pattern
-        # Must have something before colon (param name or type in parens)
-        colon_pos = stripped.find(":")
-        if colon_pos == 0:
-            return False
-        return True
+        # No type annotation - param name should be valid identifier
+        return before_colon.replace("_", "").isalnum()
 
 
 def format_args_section(lines: list[str], base_indent: int, line_width: int) -> list[str]:
@@ -205,11 +210,13 @@ def parse_google_sections(content: str) -> dict[str, list[str]]:
             "Returns",
             "Yields",
             "Raises",
-            "Examples",
+            "Example",
             "Notes",
             "References",
         ]
     }
+    # Map Examples to Example for consistency
+    section_map = {"Examples": "Example"}
     current = "summary"
     lines = content.split("\n")
     i = 0
@@ -230,8 +237,11 @@ def parse_google_sections(content: str) -> dict[str, list[str]]:
         # Check for section headers (must be exact match, alone on line)
         if stripped.endswith(":") and len(stripped) > 1:
             potential_section = stripped[:-1]
+            # Map Examples to Example
+            if potential_section in section_map:
+                potential_section = section_map[potential_section]
             # Only treat as section if it's a known section AND line has no other content
-            if potential_section in sections and stripped == potential_section + ":":
+            if potential_section in sections and stripped in (potential_section + ":", potential_section + "s:"):
                 current = potential_section
                 i += 1
                 continue
@@ -290,11 +300,12 @@ def format_google_docstring(content: str, indent: int, line_width: int) -> str:
                 if lines and lines[-1] == "":
                     lines.pop()
 
-    # Examples/Notes/References (preserve formatting)
-    for section_name in ["Examples", "Notes", "References"]:
+    # Example/Notes/References (preserve formatting)
+    for section_name in ["Example", "Notes", "References"]:
+        display_name = "Examples" if section_name == "Example" else section_name
         if sections[section_name] and any(line.strip() for line in sections[section_name]):
             lines.append("")
-            lines.append(" " * indent + f"{section_name}:")
+            lines.append(" " * indent + f"{display_name}:")
             for line in sections[section_name]:
                 lines.append(line.rstrip())
 
@@ -324,6 +335,7 @@ def format_docstring(content: str, indent: int, line_width: int) -> str:
             "Returns:",
             "Yields:",
             "Raises:",
+            "Example:",
             "Examples:",
             "Notes:",
             "References:",
@@ -333,9 +345,14 @@ def format_docstring(content: str, indent: int, line_width: int) -> str:
 
     if is_single:
         # Ensure proper capitalization and punctuation
-        if content and not content[0].isupper():
-            content = content[0].upper() + content[1:]
-        if content and not content.endswith("."):
+        words = content.split()
+        if words:
+            first_word = words[0]
+            # Don't capitalize if starts with https, http, etc.
+            if not first_word.startswith(("http://", "https://")) and not first_word[0].isupper():
+                words[0] = first_word[0].upper() + first_word[1:]
+            content = " ".join(words)
+        if content and content[-1] not in ".!?":
             content += "."
         return f'"""{content}"""'
 
