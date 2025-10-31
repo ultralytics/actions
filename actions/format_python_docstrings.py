@@ -4,11 +4,14 @@ from __future__ import annotations
 
 import argparse
 import ast
+import re
 from pathlib import Path
 
 
 def wrap_text(text: str, width: int, indent: int) -> list[str]:
     """Wrap text at width with indentation."""
+    if not text.strip():
+        return []
     if len(" " * indent + text) <= width:
         return [" " * indent + text]
 
@@ -27,181 +30,329 @@ def wrap_text(text: str, width: int, indent: int) -> list[str]:
     return lines
 
 
-def parse_google_sections(content: str) -> dict[str, list[str]]:
-    """Parse Google-style docstring sections."""
-    sections = {k: [] for k in ["summary", "description", "Args", "Attributes", "Returns", "Yields", "Raises", "Examples", "Notes", "References"]}
-    current = "summary"
+def is_param_line(line: str) -> bool:
+    """Check if line starts a parameter definition (has colon after param name/type)."""
+    stripped = line.strip()
+    # Match patterns like: "param_name (type): description" or "param_name: description"
+    return bool(re.match(r'^[\w\*]+\s*(\([^)]+\))?\s*:', stripped))
+
+
+def format_args_section(lines: list[str], base_indent: int, line_width: int) -> list[str]:
+    """
+    Format Args/Attributes/Returns section with proper Google-style indentation.
     
-    for line in content.split("\n"):
+    Structure:
+        param_name (type): Description that may wrap
+            to continuation lines with extra indent.
+    """
+    formatted = []
+    i = 0
+    
+    while i < len(lines):
+        line = lines[i]
+        
+        # Skip empty lines
+        if not line.strip():
+            formatted.append("")
+            i += 1
+            continue
+        
+        # Check if this is a parameter definition line
+        if is_param_line(line):
+            # Parameter line - indent at base_indent
+            stripped = line.strip()
+            
+            # Collect all continuation lines for this parameter
+            continuation = []
+            j = i + 1
+            while j < len(lines) and lines[j].strip() and not is_param_line(lines[j]):
+                continuation.append(lines[j].strip())
+                j += 1
+            
+            # Split parameter line at colon
+            if ':' in stripped:
+                param_part, desc_part = stripped.split(':', 1)
+                param_part = param_part.strip()
+                desc_part = desc_part.strip()
+                
+                # Combine description with continuation lines
+                full_desc = desc_part
+                if continuation:
+                    full_desc += " " + " ".join(continuation)
+                
+                # Format: try to fit on one line first
+                one_line = f"{param_part}: {full_desc}"
+                if len(" " * base_indent + one_line) <= line_width:
+                    formatted.append(" " * base_indent + one_line)
+                else:
+                    # Wrap description across multiple lines
+                    formatted.append(" " * base_indent + param_part + ": " + desc_part.split()[0] if desc_part.split() else "")
+                    
+                    # Wrap remaining description at continuation indent
+                    remaining_words = desc_part.split()[1:] if desc_part.split() else []
+                    if continuation:
+                        remaining_words.extend(" ".join(continuation).split())
+                    
+                    if remaining_words:
+                        desc_text = " ".join(remaining_words)
+                        wrapped = wrap_text(desc_text, line_width, base_indent + 4)
+                        
+                        # Merge first wrapped line with param line if it fits
+                        if wrapped and len(formatted[-1] + " " + wrapped[0].strip()) <= line_width:
+                            formatted[-1] = formatted[-1] + " " + wrapped[0].strip()
+                            formatted.extend(wrapped[1:])
+                        else:
+                            formatted.extend(wrapped)
+                
+                i = j
+            else:
+                # No colon found, just add the line
+                formatted.extend(wrap_text(stripped, line_width, base_indent))
+                i += 1
+        else:
+            # Continuation line without a parameter definition (shouldn't happen but handle it)
+            formatted.extend(wrap_text(line.strip(), line_width, base_indent + 4))
+            i += 1
+    
+    return formatted
+
+
+def parse_google_sections(content: str) -> dict[str, list[str]]:
+    """Parse Google-style docstring into sections."""
+    sections = {
+        k: []
+        for k in [
+            "summary",
+            "description",
+            "Args",
+            "Attributes",
+            "Returns",
+            "Yields",
+            "Raises",
+            "Examples",
+            "Notes",
+            "References",
+        ]
+    }
+    current = "summary"
+    lines = content.split("\n")
+    i = 0
+
+    while i < len(lines):
+        line = lines[i]
         stripped = line.strip()
+
+        # Empty line handling
         if not stripped:
             if current == "summary" and sections["summary"]:
                 current = "description"
+            elif sections[current]:
+                sections[current].append("")
+            i += 1
             continue
-        
+
         # Check for section headers
         if stripped.endswith(":") and stripped[:-1] in sections:
             current = stripped[:-1]
+            i += 1
             continue
-        
+
         sections[current].append(line)
-    
+        i += 1
+
     return sections
 
 
 def format_google_docstring(content: str, indent: int, line_width: int) -> str:
-    """Format multi-line Google-style docstring."""
+    """Format multi-line Google-style docstring with proper indentation."""
     sections = parse_google_sections(content)
     lines = ['"""']
-    
-    # Summary
+
+    # Summary (single paragraph, wrapped)
     if sections["summary"]:
-        summary = " ".join(line.strip() for line in sections["summary"])
-        lines.extend(wrap_text(summary, line_width, indent))
-    
-    # Description
+        summary = " ".join(line.strip() for line in sections["summary"] if line.strip())
+        if summary:
+            lines.extend(wrap_text(summary, line_width, indent))
+
+    # Description (preserve paragraph structure)
     if sections["description"]:
-        lines.append("")
-        for line in sections["description"]:
-            if line.strip():
-                lines.extend(wrap_text(line.strip(), line_width, indent))
-    
-    # Structured sections
+        desc_lines = sections["description"]
+        if any(line.strip() for line in desc_lines):
+            lines.append("")
+            paragraph = []
+            for line in desc_lines:
+                if not line.strip():
+                    if paragraph:
+                        text = " ".join(paragraph)
+                        lines.extend(wrap_text(text, line_width, indent))
+                        paragraph = []
+                        lines.append("")
+                else:
+                    paragraph.append(line.strip())
+            if paragraph:
+                text = " ".join(paragraph)
+                lines.extend(wrap_text(text, line_width, indent))
+
+    # Args/Attributes/Returns/Yields/Raises sections with parameter formatting
     for section_name in ["Args", "Attributes", "Returns", "Yields", "Raises"]:
-        if sections[section_name]:
+        if sections[section_name] and any(line.strip() for line in sections[section_name]):
             lines.extend(["", " " * indent + f"{section_name}:"])
-            for line in sections[section_name]:
-                # Preserve relative indentation for section content
-                original_indent = len(line) - len(line.lstrip())
-                if line.strip():
-                    lines.extend(wrap_text(line.strip(), line_width, indent + 4 + max(0, original_indent - 4)))
-    
-    # Examples and Notes (preserve formatting)
-    for section_name in ["Examples", "Notes"]:
-        if sections[section_name]:
+            formatted = format_args_section(sections[section_name], indent + 4, line_width)
+            lines.extend(formatted)
+
+    # Examples/Notes/References (preserve formatting)
+    for section_name in ["Examples", "Notes", "References"]:
+        if sections[section_name] and any(line.strip() for line in sections[section_name]):
             lines.extend(["", " " * indent + f"{section_name}:"])
             for line in sections[section_name]:
                 lines.append(line.rstrip())
-    
-    # References
-    if sections["References"]:
-        lines.extend(["", " " * indent + "References:"])
-        for line in sections["References"]:
-            lines.append(line.rstrip())
-    
+
+    # Remove trailing empty lines
+    while lines and lines[-1] == "":
+        lines.pop()
+
     lines.append(" " * indent + '"""')
     return "\n".join(lines)
 
 
 def format_docstring(content: str, indent: int, line_width: int) -> str:
     """Format docstring to single-line or Google-style."""
+    if not content or not content.strip():
+        return '"""."""'
+
     content = content.strip()
-    
+
     # Check if should be single-line
     total_len = indent + 6 + len(content)
-    is_single = (
-        total_len <= line_width 
-        and "\n" not in content 
-        and not any(s in content for s in ["Args:", "Attributes:", "Returns:", "Yields:", "Raises:", "Examples:", "Notes:", "References:"])
+    has_sections = any(
+        s in content
+        for s in [
+            "Args:",
+            "Attributes:",
+            "Returns:",
+            "Yields:",
+            "Raises:",
+            "Examples:",
+            "Notes:",
+            "References:",
+        ]
     )
-    
+    is_single = total_len <= line_width and "\n" not in content and not has_sections
+
     if is_single:
         if content and not content[0].isupper():
             content = content[0].upper() + content[1:]
         if content and not content.endswith("."):
             content += "."
         return f'"""{content}"""'
-    
+
     # Multi-line Google-style
     return format_google_docstring(content, indent, line_width)
 
 
 class DocstringFormatter(ast.NodeVisitor):
     """AST visitor to find and format docstrings."""
-    
+
     def __init__(self, source_lines: list[str], line_width: int = 120):
         """Initialize formatter with source lines and line width."""
         self.source_lines = source_lines
         self.line_width = line_width
         self.replacements = []
-    
+
     def visit_Module(self, node):
         """Visit module node."""
         self._process_docstring(node)
         self.generic_visit(node)
-    
+
     def visit_ClassDef(self, node):
         """Visit class definition node."""
         self._process_docstring(node)
         self.generic_visit(node)
-    
+
     def visit_FunctionDef(self, node):
         """Visit function definition node."""
         self._process_docstring(node)
         self.generic_visit(node)
-    
+
     def visit_AsyncFunctionDef(self, node):
         """Visit async function definition node."""
         self._process_docstring(node)
         self.generic_visit(node)
-    
+
     def _process_docstring(self, node):
         """Process docstring for a node."""
         docstring = ast.get_docstring(node, clean=False)
         if not docstring:
             return
-        
-        # Find the actual string node
-        if not (isinstance(node, ast.Module) or (node.body and isinstance(node.body[0], ast.Expr))):
+
+        # Find the string node
+        if isinstance(node, ast.Module):
+            if not node.body or not isinstance(node.body[0], ast.Expr):
+                return
+            string_node = node.body[0]
+        else:
+            if not node.body or not isinstance(node.body[0], ast.Expr):
+                return
+            string_node = node.body[0]
+
+        if not isinstance(string_node.value, ast.Constant) or not isinstance(string_node.value.value, str):
             return
-        
-        string_node = node.body[0] if isinstance(node, ast.Module) else node.body[0]
-        if not isinstance(string_node, ast.Expr) or not isinstance(string_node.value, ast.Constant):
-            return
-        
-        # Get position info
+
+        # Get position
         start_line = string_node.lineno - 1
         end_line = string_node.end_lineno - 1
         start_col = string_node.col_offset
-        
-        # Extract original docstring from source
-        if start_line == end_line:
-            original = self.source_lines[start_line][start_col:string_node.end_col_offset]
-        else:
-            lines = [self.source_lines[start_line][start_col:]]
-            lines.extend(self.source_lines[start_line + 1:end_line])
-            lines.append(self.source_lines[end_line][:string_node.end_col_offset])
-            original = "\n".join(lines)
-        
-        # Format the docstring
+        end_col = string_node.end_col_offset
+
+        # Extract original
+        try:
+            if start_line == end_line:
+                original = self.source_lines[start_line][start_col:end_col]
+            else:
+                lines = [self.source_lines[start_line][start_col:]]
+                lines.extend(self.source_lines[start_line + 1 : end_line])
+                lines.append(self.source_lines[end_line][:end_col])
+                original = "\n".join(lines)
+        except IndexError:
+            return
+
+        # Format
         formatted = format_docstring(docstring, start_col, self.line_width)
-        
-        # Only record if changed
+
+        # Record if changed
         if formatted.strip() != original.strip():
-            self.replacements.append((start_line, end_line, start_col, string_node.end_col_offset, formatted))
+            self.replacements.append((start_line, end_line, start_col, end_col, formatted))
 
 
 def format_python_file(content: str, line_width: int = 120) -> str:
     """Format all docstrings in Python file using AST."""
+    if not content.strip():
+        return content
+
     try:
         tree = ast.parse(content)
     except SyntaxError:
         return content
-    
+
     source_lines = content.split("\n")
     formatter = DocstringFormatter(source_lines, line_width)
     formatter.visit(tree)
-    
-    # Apply replacements in reverse order
+
+    # Apply replacements in reverse
     for start_line, end_line, start_col, end_col, formatted in reversed(formatter.replacements):
-        if start_line == end_line:
-            source_lines[start_line] = source_lines[start_line][:start_col] + formatted + source_lines[start_line][end_col:]
-        else:
-            new_lines = formatted.split("\n")
-            new_lines[0] = source_lines[start_line][:start_col] + new_lines[0]
-            new_lines[-1] += source_lines[end_line][end_col:]
-            source_lines[start_line:end_line + 1] = new_lines
-    
+        try:
+            if start_line == end_line:
+                source_lines[start_line] = (
+                    source_lines[start_line][:start_col] + formatted + source_lines[start_line][end_col:]
+                )
+            else:
+                new_lines = formatted.split("\n")
+                new_lines[0] = source_lines[start_line][:start_col] + new_lines[0]
+                new_lines[-1] += source_lines[end_line][end_col:]
+                source_lines[start_line : end_line + 1] = new_lines
+        except IndexError:
+            continue
+
     return "\n".join(source_lines)
 
 
@@ -209,19 +360,19 @@ def process_file(path: Path, line_width: int = 120, check: bool = False) -> bool
     """Process file, return True if no changes needed."""
     if path.suffix != ".py":
         return True
-    
+
     try:
         original = path.read_text()
         formatted = format_python_file(original, line_width)
-        
+
         if check:
             return original == formatted
-        
+
         if original != formatted:
             path.write_text(formatted)
             print(f"Formatted: {path}")
             return False
-        
+
         return True
     except Exception as e:
         print(f"Error: {path}: {e}")
@@ -236,7 +387,7 @@ def main(*args, **kwargs):
     parser.add_argument("--check", action="store_true", help="Check without writing changes")
     parser.add_argument("-r", "--recursive", action="store_true", help="Recurse into directories")
     args = parser.parse_args()
-    
+
     # Collect files
     files = []
     for path in args.paths:
@@ -244,10 +395,10 @@ def main(*args, **kwargs):
             files.extend(path.rglob("*.py"))
         elif path.is_file():
             files.append(path)
-    
+
     # Process files
     all_ok = all(process_file(f, args.line_width, args.check) for f in files)
-    
+
     if args.check and not all_ok:
         exit(1)
 
