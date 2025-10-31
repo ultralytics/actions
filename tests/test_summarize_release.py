@@ -82,10 +82,10 @@ def test_get_prs_between_tags_empty_commits():
         assert get_prs_between_tags(mock_event, "v1.0.0", "v1.1.0") == []
 
 
-@patch("actions.summarize_release.get_completion")
-def test_generate_release_summary(mock_get_completion):
+@patch("actions.summarize_release.get_response")
+def test_generate_release_summary(mock_get_response):
     """Test generating release summary."""
-    mock_get_completion.return_value = "Release summary content"
+    mock_get_response.return_value = "Release summary content"
 
     mock_event = MagicMock()
     mock_event.repository = "test/repo"
@@ -111,7 +111,7 @@ def test_generate_release_summary(mock_get_completion):
     assert "Release summary content" in summary
     assert "What's Changed" in summary
     assert "https://github.com/test/repo/compare/v1.0.0...v1.1.0" in summary
-    mock_get_completion.assert_called_once()
+    mock_get_response.assert_called_once()
 
 
 def test_create_github_release():

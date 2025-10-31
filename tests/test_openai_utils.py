@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from actions.utils.openai_utils import get_completion, remove_outer_codeblocks
+from actions.utils.openai_utils import get_response, remove_outer_codeblocks
 
 
 def test_remove_outer_codeblocks():
@@ -23,7 +23,7 @@ def test_remove_outer_codeblocks():
 
 
 @patch("requests.post")
-def test_get_completion(mock_post):
+def test_get_response(mock_post):
     """Test OpenAI Responses API completion function with mocked response."""
     # Setup mock response with Responses API structure
     mock_response = MagicMock()
@@ -45,7 +45,7 @@ def test_get_completion(mock_post):
     # Use a context manager for the environment variable
     with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=False):
         with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
-            result = get_completion(messages, check_links=False)
+            result = get_response(messages, check_links=False)
 
     assert result == "Test response from OpenAI"
     mock_post.assert_called_once()
@@ -53,8 +53,8 @@ def test_get_completion(mock_post):
 
 @patch("requests.post")
 @patch("actions.utils.openai_utils.check_links_in_string")
-def test_get_completion_with_link_check(mock_check_links, mock_post):
-    """Test get_completion with link checking."""
+def test_get_response_with_link_check(mock_check_links, mock_post):
+    """Test get_response with link checking."""
     # Setup mocks with Responses API structure
     mock_response = MagicMock()
     mock_response.status_code = 200
@@ -75,7 +75,7 @@ def test_get_completion_with_link_check(mock_check_links, mock_post):
     # Use a context manager for the environment variable
     with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=False):
         with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
-            result = get_completion(messages)
+            result = get_response(messages)
 
     assert result == "Response with https://example.com link"
     mock_check_links.assert_called_once()

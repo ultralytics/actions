@@ -12,7 +12,7 @@ from actions.utils import (
     Action,
     allow_redirect,
     check_pypi_version,
-    get_completion,
+    get_response,
     remove_html_comments,
     ultralytics_actions_info,
 )
@@ -38,7 +38,7 @@ def test_util_module_imports():
     # Check function imports
     assert callable(allow_redirect)
     assert callable(check_pypi_version)
-    assert callable(get_completion)
+    assert callable(get_response)
     assert callable(remove_html_comments)
     assert callable(ultralytics_actions_info)
 

@@ -18,6 +18,7 @@
 # │   ├── scan_prs.py
 # │   ├── summarize_pr.py
 # │   ├── summarize_release.py
+# │   ├── format_python_docstrings.py
 # │   ├── update_file_headers.py
 # │   └── update_markdown_code_blocks.py
 # └── tests/
