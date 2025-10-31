@@ -31,13 +31,13 @@ def wrap_text(text: str, width: int, indent: int) -> list[str]:
 
 def count_balanced_parens(s: str) -> int:
     """Find position of closing paren that balances opening paren at start."""
-    if not s.startswith('('):
+    if not s.startswith("("):
         return -1
     depth, i = 0, 0
     for i, char in enumerate(s):
-        if char == '(':
+        if char == "(":
             depth += 1
-        elif char == ')':
+        elif char == ")":
             depth -= 1
             if depth == 0:
                 return i
@@ -47,22 +47,22 @@ def count_balanced_parens(s: str) -> int:
 def is_param_line(line: str) -> bool:
     """Check if line starts a parameter definition with proper bracket handling."""
     stripped = line.strip()
-    if not stripped or ':' not in stripped:
+    if not stripped or ":" not in stripped:
         return False
-    
+
     # Try to find balanced parentheses for type annotation
-    if '(' in stripped:
-        paren_start = stripped.index('(')
+    if "(" in stripped:
+        paren_start = stripped.index("(")
         # Find balanced closing paren
         closing_pos = count_balanced_parens(stripped[paren_start:])
         if closing_pos == -1:
             return False
         # After closing paren, should have colon
-        after_paren = stripped[paren_start + closing_pos + 1:].strip()
-        return after_paren.startswith(':')
+        after_paren = stripped[paren_start + closing_pos + 1 :].strip()
+        return after_paren.startswith(":")
     else:
         # No parens - just check for "name:" or ":"
-        return ':' in stripped
+        return ":" in stripped
 
 
 def format_args_section(lines: list[str], base_indent: int, line_width: int) -> list[str]:
@@ -105,10 +105,10 @@ def format_args_section(lines: list[str], base_indent: int, line_width: int) -> 
                     j += 1
 
             # Split at first colon only (description may contain colons)
-            if ':' in stripped:
-                colon_pos = stripped.index(':')
+            if ":" in stripped:
+                colon_pos = stripped.index(":")
                 param_part = stripped[:colon_pos].strip()
-                desc_part = stripped[colon_pos + 1:].strip()
+                desc_part = stripped[colon_pos + 1 :].strip()
 
                 # Combine description with continuations
                 full_desc = desc_part
@@ -123,12 +123,12 @@ def format_args_section(lines: list[str], base_indent: int, line_width: int) -> 
                     # Need to wrap - try to fit as much as possible on first line
                     first_line = " " * base_indent + param_part + ": "
                     remaining_space = line_width - len(first_line)
-                    
+
                     # Split description into words and fit as many as possible on first line
                     words = full_desc.split()
                     first_line_words = []
                     remaining_words = []
-                    
+
                     current_len = 0
                     for word in words:
                         word_len = len(word) + (1 if first_line_words else 0)
@@ -137,7 +137,7 @@ def format_args_section(lines: list[str], base_indent: int, line_width: int) -> 
                             current_len += word_len
                         else:
                             remaining_words.append(word)
-                    
+
                     # Build the formatted output
                     if first_line_words:
                         formatted.append(first_line + " ".join(first_line_words))
@@ -244,7 +244,7 @@ def format_google_docstring(content: str, indent: int, line_width: int) -> str:
             if paragraph:
                 text = " ".join(paragraph)
                 lines.extend(wrap_text(text, line_width, indent))
-            
+
             # Remove trailing blank lines from description
             while lines and lines[-1] == "":
                 lines.pop()
