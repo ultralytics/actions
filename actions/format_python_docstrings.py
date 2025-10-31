@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import argparse
 import ast
-import re
 from pathlib import Path
 
 
@@ -30,11 +29,44 @@ def wrap_text(text: str, width: int, indent: int) -> list[str]:
     return lines
 
 
+def count_balanced_parens(s: str) -> int:
+    """Find position of closing paren that balances opening paren at start."""
+    if not s.startswith('('):
+        return -1
+    depth, i = 0, 0
+    for i, char in enumerate(s):
+        if char == '(':
+            depth += 1
+        elif char == ')':
+            depth -= 1
+            if depth == 0:
+                return i
+    return -1
+
+
 def is_param_line(line: str) -> bool:
-    """Check if line starts a parameter definition."""
+    """Check if line starts a parameter definition with proper bracket handling."""
     stripped = line.strip()
-    # Match: "param (type): desc" or "param: desc" or "(type): desc"
-    return bool(re.match(r'^[\w\*]*\s*(\([^)]+\))?\s*:', stripped))
+    if not stripped or ':' not in stripped:
+        return False
+    
+    # Try to find balanced parentheses for type annotation
+    if '(' in stripped:
+        paren_start = stripped.index('(')
+        # Check if there's content before the paren (param name)
+        before_paren = stripped[:paren_start].strip()
+        
+        # Find balanced closing paren
+        closing_pos = count_balanced_parens(stripped[paren_start:])
+        if closing_pos == -1:
+            return False
+        
+        # After closing paren, should have colon
+        after_paren = stripped[paren_start + closing_pos + 1:].strip()
+        return after_paren.startswith(':')
+    else:
+        # No parens - just check for "name:" or ":"
+        return ':' in stripped
 
 
 def format_args_section(lines: list[str], base_indent: int, line_width: int) -> list[str]:
@@ -54,30 +86,45 @@ def format_args_section(lines: list[str], base_indent: int, line_width: int) -> 
         if is_param_line(line):
             stripped = line.strip()
 
-            # Collect continuation lines
+            # Collect continuation lines (including blank lines within param)
             continuation = []
             j = i + 1
-            while j < len(lines) and lines[j].strip() and not is_param_line(lines[j]):
-                continuation.append(lines[j].strip())
-                j += 1
+            while j < len(lines):
+                next_line = lines[j]
+                if not next_line.strip():
+                    # Blank line - could be end or within param
+                    if j + 1 < len(lines) and lines[j + 1].strip() and not is_param_line(lines[j + 1]):
+                        # Blank line within param description
+                        continuation.append("")
+                        j += 1
+                    else:
+                        # End of this param
+                        break
+                elif is_param_line(next_line):
+                    # Next param
+                    break
+                else:
+                    # Continuation line
+                    continuation.append(next_line.strip())
+                    j += 1
 
-            # Split at colon
+            # Split at first colon only (description may contain colons)
             if ':' in stripped:
-                parts = stripped.split(':', 1)
-                param_part = parts[0].strip()
-                desc_part = parts[1].strip() if len(parts) > 1 else ""
+                colon_pos = stripped.index(':')
+                param_part = stripped[:colon_pos].strip()
+                desc_part = stripped[colon_pos + 1:].strip()
 
                 # Combine description with continuations
                 full_desc = desc_part
                 if continuation:
-                    full_desc += " " + " ".join(continuation)
+                    full_desc += " " + " ".join(c for c in continuation if c)
 
                 # Try to fit on one line
                 one_line = f"{param_part}: {full_desc}"
                 if len(" " * base_indent + one_line) <= line_width:
                     formatted.append(" " * base_indent + one_line)
                 else:
-                    # Need to wrap - put param part, then wrap description at base_indent + 4
+                    # Need to wrap
                     formatted.append(" " * base_indent + param_part + ":")
                     if full_desc:
                         wrapped = wrap_text(full_desc, line_width, base_indent + 4)
@@ -85,10 +132,11 @@ def format_args_section(lines: list[str], base_indent: int, line_width: int) -> 
 
                 i = j
             else:
+                # No colon found (shouldn't happen)
                 formatted.extend(wrap_text(stripped, line_width, base_indent))
                 i += 1
         else:
-            # Content without colon - format at base indent (not continuation)
+            # Content without colon pattern
             formatted.extend(wrap_text(line.strip(), line_width, base_indent))
             i += 1
 
@@ -129,11 +177,14 @@ def parse_google_sections(content: str) -> dict[str, list[str]]:
             i += 1
             continue
 
-        # Check for section headers
-        if stripped.endswith(":") and stripped[:-1] in sections:
-            current = stripped[:-1]
-            i += 1
-            continue
+        # Check for section headers (must be exact match, alone on line)
+        if stripped.endswith(":") and len(stripped) > 1:
+            potential_section = stripped[:-1]
+            # Only treat as section if it's a known section AND line has no other content
+            if potential_section in sections and stripped == potential_section + ":":
+                current = potential_section
+                i += 1
+                continue
 
         sections[current].append(line)
         i += 1
@@ -152,7 +203,7 @@ def format_google_docstring(content: str, indent: int, line_width: int) -> str:
         if summary:
             lines.extend(wrap_text(summary, line_width, indent))
 
-    # Description (preserve paragraph structure, remove trailing blanks)
+    # Description (preserve paragraph structure)
     if sections["description"]:
         desc_lines = sections["description"]
         if any(line.strip() for line in desc_lines):
@@ -181,7 +232,12 @@ def format_google_docstring(content: str, indent: int, line_width: int) -> str:
             lines.append("")
             lines.append(" " * indent + f"{section_name}:")
             formatted = format_args_section(sections[section_name], indent + 4, line_width)
-            lines.extend(formatted)
+            if formatted:  # Only add if there's actual content
+                lines.extend(formatted)
+            else:
+                # Remove the section header if no content
+                lines.pop()
+                lines.pop()
 
     # Examples/Notes/References (preserve formatting)
     for section_name in ["Examples", "Notes", "References"]:
@@ -202,7 +258,7 @@ def format_google_docstring(content: str, indent: int, line_width: int) -> str:
 def format_docstring(content: str, indent: int, line_width: int) -> str:
     """Format docstring to single-line or Google-style."""
     if not content or not content.strip():
-        return '"""."""'
+        return '""""""'  # Empty docstring
 
     content = content.strip()
 
