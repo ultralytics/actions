@@ -235,7 +235,7 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
     cont, lst = base + 4, base + 8
     for item in iter_items(lines):
         first = item[0].strip()
-        name, desc = (first.split(":", 1) + [""])[:2]
+        name, desc = ([*first.split(":", 1), ""])[:2]
         name, desc = name.strip(), desc.strip()
         had_colon = ":" in first
 
@@ -314,7 +314,7 @@ def format_docstring(
     if not content or not content.strip():
         return f"{prefix}{quotes}{quotes}"
     text = content.strip()
-    has_section = any(f"{s}:" in text for s in SECTIONS + ("Examples",))
+    has_section = any(f"{s}:" in text for s in (*SECTIONS, "Examples"))
     has_list = any(is_list_item(l) for l in text.splitlines())
     single_ok = (
         ("\n" not in text)
@@ -372,7 +372,7 @@ class Visitor(ast.NodeVisitor):
             original = (
                 self.src[sl][sc:ec]
                 if sl == el
-                else "\n".join([self.src[sl][sc:]] + self.src[sl + 1 : el] + [self.src[el][:ec]])
+                else "\n".join([self.src[sl][sc:], *self.src[sl + 1 : el], self.src[el][:ec]])
             )
             prefix, quotes, inline_hint = detect_opener(original)
             formatted = format_docstring(doc, sc, self.width, quotes, prefix, inline_hint, self.preserve_inline)
