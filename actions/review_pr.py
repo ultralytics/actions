@@ -31,6 +31,15 @@ SKIP_PATTERNS = [
 ]
 
 
+def _sanitize_ai_text(s: str) -> str:
+    """Strip internal UI citation tokens like '' and collapse excess whitespace."""
+    if not s:
+        return s
+    # Remove any segment that starts with the private-use opener ''
+    s = re.sub(r"]*", "", s)
+    return re.sub(r"[ \t]{2,}", " ", s).strip()
+
+
 def parse_diff_files(diff_text: str) -> tuple[dict, str]:
     """Parse diff and return file mapping with line numbers AND augmented diff with explicit line numbers."""
     files, current_file, new_line, old_line = {}, None, 0, 0
@@ -224,6 +233,14 @@ def generate_pr_review(
             ],
         )
 
+        # Sanitize leaked tool-citation tokens from model output
+        response["summary"] = _sanitize_ai_text(response.get("summary", ""))
+        for c in response.get("comments", []):
+            if "message" in c:
+                c["message"] = _sanitize_ai_text(c["message"])
+            if c.get("suggestion"):
+                c["suggestion"] = _sanitize_ai_text(c["suggestion"])
+
         print(json.dumps(response, indent=2))
 
         # Count comments BEFORE filtering (for COMMENT vs APPROVE decision)
@@ -339,7 +356,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     body = (
         f"{review_title}\n\n"
         f"{ACTIONS_CREDIT}\n\n"
-        f"{review_data.get('summary', 'Review completed')[:3000]}\n\n"  # Clip summary length
+        f"{summary[:3000]}\n\n"
     )
 
     if comments:
@@ -384,10 +401,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     if review_comments:
         payload["comments"] = review_comments
 
-    event.post(
-        f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews",
-        json=payload,
-    )
+    event.post(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews", json=payload)
 
 
 def main(*args, **kwargs):
