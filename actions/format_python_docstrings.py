@@ -14,7 +14,7 @@ LIST_RX = re.compile(r"""^(\s*)(?:[-*•]\s+|(?:\d+|[A-Za-z]+)[\.\)]\s+)""")
 
 
 def wrap_words(words: list[str], width: int, indent: int, min_words_per_line: int = 1) -> list[str]:
-    """Wrap words to width with indent; rebalance to avoid short orphan lines."""
+    """Wrap words to width with indent; optionally avoid very short orphan lines."""
     pad = " " * indent
     if not words:
         return []
@@ -32,19 +32,20 @@ def wrap_words(words: list[str], width: int, indent: int, min_words_per_line: in
     if cur:
         lines.append(cur)
 
-    # Rebalance: ensure each continuation has at least min_words_per_line words when feasible
-    i = 1
-    while i < len(lines):
-        if len(lines[i]) < min_words_per_line and len(lines[i - 1]) > 1:
-            donor = lines[i - 1][-1]
-            this_len = len(pad) + sum(len(w) for w in lines[i]) + (len(lines[i]) - 1)
-            if this_len + (1 if lines[i] else 0) + len(donor) <= width:
-                lines[i - 1].pop()
-                lines[i].insert(0, donor)
-                if i - 1 > 0 and len(lines[i - 1]) == 1:
-                    i -= 1
-                    continue
-        i += 1
+    # Rebalance to avoid too-short continuation lines when requested
+    if min_words_per_line > 1:
+        i = 1
+        while i < len(lines):
+            if len(lines[i]) < min_words_per_line and len(lines[i - 1]) > 1:
+                donor = lines[i - 1][-1]
+                this_len = len(pad) + sum(len(w) for w in lines[i]) + (len(lines[i]) - 1)
+                if this_len + (1 if lines[i] else 0) + len(donor) <= width:
+                    lines[i - 1].pop()
+                    lines[i].insert(0, donor)
+                    if i - 1 > 0 and len(lines[i - 1]) == 1:
+                        i -= 1
+                        continue
+            i += 1
 
     return [pad + " ".join(line) for line in lines]
 
@@ -68,8 +69,7 @@ def wrap_hanging(head: str, desc: str, width: int, cont_indent: int) -> list[str
     for w in words:
         need = len(w) + (1 if take else 0)
         if used + need <= room:
-            take.append(w)
-            used += need
+            take.append(w); used += need
         else:
             break
 
@@ -112,15 +112,21 @@ def add_header(lines: list[str], indent: int, title: str, opener_line: str) -> N
     lines.append(" " * indent + f"{title}:")
 
 
-def emit_paragraphs(src: list[str], width: int, indent: int, list_indent: int | None = None) -> list[str]:
-    """Emit paragraphs from src: wrap normal text, preserve list items; keep internal blank lines."""
+def emit_paragraphs(
+    src: list[str], width: int, indent: int, list_indent: int | None = None, orphan_min: int = 1
+) -> list[str]:
+    """Emit paragraphs from src: wrap normal text, preserve list items; keep internal blank lines.
+
+    orphan_min controls the minimum words per continuation line; use 1 for plain paragraphs,
+    and 2 for Args/Returns continuation bodies to avoid orphans like a single word line.
+    """
     out: list[str] = []
     buf: list[str] = []
 
     def flush():
         nonlocal buf
         if buf:
-            out.extend(wrap_para(" ".join(x.strip() for x in buf), width, indent, min_words_per_line=2))
+            out.extend(wrap_para(" ".join(x.strip() for x in buf), width, indent, min_words_per_line=orphan_min))
             buf = []
 
     for raw in src:
@@ -147,8 +153,7 @@ def parse_sections(text: str) -> dict[str, list[str]]:
         line = raw.rstrip("\n")
         h = header_name(line)
         if h:
-            cur = h
-            continue
+            cur = h; continue
         if not line.strip():
             if cur == "summary" and parts["summary"]:
                 cur = "description"
@@ -175,14 +180,12 @@ def iter_items(lines: list[str]) -> list[list[str]]:
             i += 1
         if i >= n:
             break
-        item = [lines[i]]
-        i += 1
+        item = [lines[i]]; i += 1
         while i < n:
             st = lines[i].strip()
             if st and looks_like_param(st):
                 break
-            item.append(lines[i])
-            i += 1
+            item.append(lines[i]); i += 1
         items.append(item)
     return items
 
@@ -198,16 +201,16 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
 
         # Free text item (not 'name: desc')
         if not name or (" " in name and "(" not in name and ")" not in name):
-            out.extend(emit_paragraphs(item, width, cont, lst))
+            out.extend(emit_paragraphs(item, width, cont, lst, orphan_min=2))
             continue
 
         head = " " * cont + f"{name}: "
         out.extend(wrap_hanging(head, desc, width, cont + 4))
 
-        # Continuation (paragraphs + lists)
+        # Continuation (paragraphs + lists) with orphan control
         tail = item[1:]
         if tail:
-            body = emit_paragraphs(tail, width, cont + 4, lst)
+            body = emit_paragraphs(tail, width, cont + 4, lst, orphan_min=2)
             if body:
                 out.extend(body)
     return out
@@ -232,10 +235,10 @@ def format_google(text: str, indent: int, width: int, quotes: str, prefix: str) 
     opener = prefix + quotes
     out = [opener]
     if p["summary"]:
-        out.extend(wrap_para(" ".join(x.strip() for x in p["summary"] if x.strip()), width, indent))
+        out.extend(emit_paragraphs(p["summary"], width, indent, orphan_min=1))
     if any(x.strip() for x in p["description"]):
         out.append("")
-        out.extend(emit_paragraphs(p["description"], width, indent))
+        out.extend(emit_paragraphs(p["description"], width, indent, orphan_min=1))
     for sec in ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises"):
         if any(x.strip() for x in p[sec]):
             add_header(out, indent, sec, opener)
@@ -284,16 +287,13 @@ class Visitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_ClassDef(self, node):  # noqa: N802
-        self._handle(node)
-        self.generic_visit(node)
+        self._handle(node); self.generic_visit(node)
 
     def visit_FunctionDef(self, node):  # noqa: N802
-        self._handle(node)
-        self.generic_visit(node)
+        self._handle(node); self.generic_visit(node)
 
     def visit_AsyncFunctionDef(self, node):  # noqa: N802
-        self._handle(node)
-        self.generic_visit(node)
+        self._handle(node); self.generic_visit(node)
 
     def _handle(self, node):
         """If first stmt is a string expr, schedule replacement."""
@@ -367,8 +367,7 @@ def iter_py_files(paths: list[Path]) -> list[Path]:
     seen, uniq = set(), []
     for f in out:
         if f not in seen:
-            seen.add(f)
-            uniq.append(f)
+            seen.add(f); uniq.append(f)
     return uniq
 
 
@@ -381,13 +380,11 @@ def process_file(path: Path, width: int = 120, check: bool = False) -> bool:
         fmt = preserve_trailing_newlines(orig, format_python_file(orig, width))
         if check:
             if orig != fmt:
-                print(f"  {path}")
-                return False
+                print(f"  {path}"); return False
             return True
         if orig != fmt:
             path.write_text(fmt, encoding="utf-8")
-            print(f"  {path}")
-            return False
+            print(f"  {path}"); return False
         return True
     except Exception as e:
         print(f"  Error: {path}: {e}")
@@ -419,8 +416,7 @@ def main() -> None:
     paths, width, check = parse_cli(args)
     files = iter_py_files(paths)
     if not files:
-        print("No Python files found")
-        return
+        print("No Python files found"); return
 
     t0 = time.time()
     print(f"{'Checking' if check else 'Formatting'} {len(files)} file{'s' if len(files) != 1 else ''}")
@@ -431,10 +427,8 @@ def main() -> None:
         verb = "would be reformatted" if check else "reformatted"
         unchanged = len(files) - changed
         parts = []
-        if changed:
-            parts.append(f"{changed} file{'s' if changed != 1 else ''} {verb}")
-        if unchanged:
-            parts.append(f"{unchanged} file{'s' if unchanged != 1 else ''} left unchanged")
+        if changed: parts.append(f"{changed} file{'s' if changed != 1 else ''} {verb}")
+        if unchanged: parts.append(f"{unchanged} file{'s' if unchanged != 1 else ''} left unchanged")
         print(f"{', '.join(parts)} ({dur:.1f}s)")
         if check:
             sys.exit(1)
