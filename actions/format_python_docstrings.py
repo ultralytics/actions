@@ -287,7 +287,6 @@ def format_google(text: str, indent: int, width: int, quotes: str, prefix: str) 
         if any(x.strip() for x in p[sec]):
             title = "Examples" if sec == "Example" else sec
             add_header(out, indent, title, opener)
-            # These sections are already authored; preserve as-is (no wrapping)
             out.extend(x.rstrip() for x in p[sec])
     while out and out[-1] == "":
         out.pop()
