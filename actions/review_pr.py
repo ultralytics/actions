@@ -36,7 +36,7 @@ def _sanitize_ai_text(s: str) -> str:
     if not s:
         return s
     # Remove any segment that starts with the private-use opener ''
-    s = re.sub(r"]*", "", s)
+    s = re.sub(r"[^]*", "", s)
     return re.sub(r"[ \t]{2,}", " ", s).strip()
 
 
