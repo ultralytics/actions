@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import ast
+import time
 from pathlib import Path
 
 
@@ -464,16 +465,19 @@ def process_file(path: Path, line_width: int = 120, check: bool = False) -> bool
         formatted = format_python_file(original, line_width)
 
         if check:
-            return original == formatted
+            if original != formatted:
+                print(f"  {path}")
+                return False
+            return True
 
         if original != formatted:
             path.write_text(formatted, encoding="utf-8")
-            print(f"Formatted: {path}")
+            print(f"  {path}")
             return False
 
         return True
     except Exception as e:
-        print(f"Error: {path}: {e}")
+        print(f"  Error: {path}: {e}")
         return True
 
 
@@ -489,7 +493,7 @@ def main(*args, **kwargs):
     files = []
     for path in args.paths:
         if path.is_dir():
-            files.extend(sorted(path.rglob("*.py")))  # Sort for consistent order
+            files.extend(sorted(path.rglob("*.py")))
         elif path.is_file():
             files.append(path)
         else:
@@ -499,18 +503,34 @@ def main(*args, **kwargs):
         print("No Python files found")
         return
 
+    # Start timing
+    start_time = time.time()
+
+    # Print header
+    action = "Checking" if args.check else "Formatting"
+    print(f"{action} {len(files)} file{'s' if len(files) != 1 else ''}")
+
     # Process files
     changed_count = 0
     for f in files:
         if not process_file(f, args.line_width, args.check):
             changed_count += 1
 
+    # Calculate elapsed time
+    elapsed = time.time() - start_time
+
     # Print summary
     if changed_count:
-        action = "Would format" if args.check else "Formatted"
-        print(f"\n{action} {changed_count} file{'s' if changed_count != 1 else ''}")
+        action = "would be reformatted" if args.check else "reformatted"
+        unchanged = len(files) - changed_count
+        parts = []
+        if changed_count:
+            parts.append(f"{changed_count} file{'s' if changed_count != 1 else ''} {action}")
+        if unchanged:
+            parts.append(f"{unchanged} file{'s' if unchanged != 1 else ''} left unchanged")
+        print(f"{', '.join(parts)} ({elapsed:.1f}s)")
     else:
-        print(f"\nAll {len(files)} file{'s' if len(files) != 1 else ''} already formatted")
+        print(f"{len(files)} file{'s' if len(files) != 1 else ''} left unchanged ({elapsed:.1f}s)")
 
     if args.check and changed_count:
         exit(1)
