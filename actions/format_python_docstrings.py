@@ -59,11 +59,11 @@ def is_param_line(line: str) -> bool:
     colon_pos = stripped.find(":")
     if colon_pos == 0:
         return False
-    
+
     before_colon = stripped[:colon_pos].strip()
     if not before_colon:
         return False
-    
+
     # Try to find balanced parentheses for type annotation
     if "(" in before_colon:
         try:
