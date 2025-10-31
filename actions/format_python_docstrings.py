@@ -240,7 +240,8 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
             out.extend(emit_paragraphs(item, width, cont, lst, orphan_min=2))
             continue
 
-        head = " " * cont + f"{name}: "
+        # Build head respecting whether a colon originally existed
+        head = " " * cont + (f"{name}: " if (desc or ":" in first) else name)
         out.extend(wrap_hanging(head, desc, width, cont + 4))
 
         # Continuation (paragraphs + lists) with orphan control
