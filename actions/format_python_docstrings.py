@@ -8,29 +8,80 @@ import sys
 import time
 from pathlib import Path
 
+
 SECTIONS = ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises", "Example", "Notes", "References")
 LIST_RX = re.compile(r"""^(\s*)(?:[-*•]\s+|(?:\d+|[A-Za-z]+)[\.\)]\s+)""")
 
 
-def wrap(text: str, width: int, indent: int) -> list[str]:
-    """Wrap text at width with indent spaces."""
+def wrap_words(words: list[str], width: int, indent: int, min_words_per_line: int = 1) -> list[str]:
+    """Wrap words to width with indent; rebalance to avoid short orphan lines."""
+    pad = " " * indent
+    if not words:
+        return []
+    lines: list[list[str]] = []
+    cur: list[str] = []
+    cur_len = indent
+    for w in words:
+        need = len(w) + (1 if cur else 0)
+        if cur and cur_len + need > width:
+            lines.append(cur)
+            cur, cur_len = [w], indent + len(w)
+        else:
+            cur.append(w)
+            cur_len += need
+    if cur:
+        lines.append(cur)
+
+    # Rebalance: ensure each continuation has at least min_words_per_line words when feasible
+    i = 1
+    while i < len(lines):
+        if len(lines[i]) < min_words_per_line and len(lines[i - 1]) > 1:
+            donor = lines[i - 1][-1]
+            this_len = len(pad) + sum(len(w) for w in lines[i]) + (len(lines[i]) - 1)
+            if this_len + (1 if lines[i] else 0) + len(donor) <= width:
+                lines[i - 1].pop()
+                lines[i].insert(0, donor)
+                if i - 1 > 0 and len(lines[i - 1]) == 1:
+                    i -= 1
+                    continue
+        i += 1
+
+    return [pad + " ".join(line) for line in lines]
+
+
+def wrap_para(text: str, width: int, indent: int, min_words_per_line: int = 1) -> list[str]:
+    """Wrap a paragraph string; orphan control via min_words_per_line."""
     text = text.strip()
     if not text:
         return []
-    pad = " " * indent
-    if len(pad) + len(text) <= width:
-        return [pad + text]
-    out, line, cur = [], [], indent
-    for w in text.split():
-        need = len(w) + (1 if line else 0)
-        if cur + need <= width:
-            line.append(w)
-            cur += need
+    return wrap_words(text.split(), width, indent, min_words_per_line)
+
+
+def wrap_hanging(head: str, desc: str, width: int, cont_indent: int) -> list[str]:
+    """Wrap 'head + desc' with hanging indent; ensure first continuation has ≥2 words."""
+    room = width - len(head)
+    words = desc.split()
+    if not words:
+        return [head.rstrip()]
+
+    take, used = [], 0
+    for w in words:
+        need = len(w) + (1 if take else 0)
+        if used + need <= room:
+            take.append(w)
+            used += need
         else:
-            out.append(pad + " ".join(line))
-            line, cur = [w], indent + len(w)
-    if line:
-        out.append(pad + " ".join(line))
+            break
+
+    out: list[str] = []
+    if take:
+        out.append(head + " ".join(take))
+        rest = words[len(take):]
+    else:
+        out.append(head.rstrip())
+        rest = words
+
+    out.extend(wrap_words(rest, width, cont_indent, min_words_per_line=2))
     return out
 
 
@@ -47,33 +98,33 @@ def header_name(line: str) -> str | None:
     name = s[:-1].strip()
     if name == "Examples":
         name = "Example"
-    if name == "Note":  # normalize singular to plural
+    if name == "Note":
         name = "Notes"
     return name if name in SECTIONS else None
 
 
-def add_header(lines: list[str], indent: int, title: str) -> None:
-    """Append a section header with exactly one preceding blank line."""
+def add_header(lines: list[str], indent: int, title: str, opener_line: str) -> None:
+    """Append a section header; no blank before first header, exactly one before subsequent ones."""
     while lines and lines[-1] == "":
         lines.pop()
-    if lines and lines[-1] != "":
+    if lines and lines[-1] != opener_line:
         lines.append("")
     lines.append(" " * indent + f"{title}:")
 
 
 def emit_paragraphs(src: list[str], width: int, indent: int, list_indent: int | None = None) -> list[str]:
     """Emit paragraphs from src: wrap normal text, preserve list items; keep internal blank lines."""
-    out, buf = [], []
+    out: list[str] = []
+    buf: list[str] = []
 
     def flush():
         nonlocal buf
         if buf:
-            out.extend(wrap(" ".join(x.strip() for x in buf), width, indent))
+            out.extend(wrap_para(" ".join(x.strip() for x in buf), width, indent, min_words_per_line=2))
             buf = []
 
-    i, n = 0, len(src)
-    while i < n:
-        s = src[i].rstrip()
+    for raw in src:
+        s = raw.rstrip()
         if not s.strip():
             flush()
             out.append("")
@@ -82,7 +133,6 @@ def emit_paragraphs(src: list[str], width: int, indent: int, list_indent: int | 
             out.append((" " * list_indent + s.strip()) if list_indent is not None else s)
         else:
             buf.append(s)
-        i += 1
     flush()
     while out and out[-1] == "":
         out.pop()
@@ -91,7 +141,7 @@ def emit_paragraphs(src: list[str], width: int, indent: int, list_indent: int | 
 
 def parse_sections(text: str) -> dict[str, list[str]]:
     """Parse Google-style docstring into sections."""
-    parts = {k: [] for k in ("summary", "description", *SECTIONS)}
+    parts = {k: [] for k in ("summary", "description") + SECTIONS}
     cur = "summary"
     for raw in text.splitlines():
         line = raw.rstrip("\n")
@@ -138,39 +188,22 @@ def iter_items(lines: list[str]) -> list[list[str]]:
 
 
 def format_structured_block(lines: list[str], width: int, base: int) -> list[str]:
-    """Format Args/Returns/etc. blocks; continuation at base+4, lists at base+8."""
-    out = []
+    """Format Args/Returns/etc.; continuation at base+4, lists at base+8."""
+    out: list[str] = []
     cont, lst = base + 4, base + 8
     for item in iter_items(lines):
         first = item[0].strip()
-        name, desc = ([*first.split(":", 1), ""])[:2]
+        name, desc = (first.split(":", 1) + [""])[:2]
         name, desc = name.strip(), desc.strip()
+
         # Free text item (not 'name: desc')
         if not name or (" " in name and "(" not in name and ")" not in name):
             out.extend(emit_paragraphs(item, width, cont, lst))
             continue
-        # Head line
+
         head = " " * cont + f"{name}: "
-        if not desc:
-            out.append(head.rstrip())
-        else:
-            room = width - len(head)
-            words, take, used = desc.split(), [], 0
-            for w in words:
-                need = len(w) + (1 if take else 0)
-                if used + need <= room:
-                    take.append(w)
-                    used += need
-                else:
-                    break
-            if take:
-                out.append(head + " ".join(take))
-                rem = " ".join(words[len(take) :]).strip()
-                if rem:
-                    out.extend(wrap(rem, width, cont + 4))
-            else:
-                out.append(head.rstrip())
-                out.extend(wrap(desc, width, cont + 4))
+        out.extend(wrap_hanging(head, desc, width, cont + 4))
+
         # Continuation (paragraphs + lists)
         tail = item[1:]
         if tail:
@@ -180,38 +213,54 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
     return out
 
 
-def format_google(text: str, indent: int, width: int) -> str:
-    """Format multi-line Google-style docstring."""
+def detect_opener(original_literal: str) -> tuple[str, str]:
+    """Return (prefix, quotes) from the original string token safely."""
+    s = original_literal.lstrip()
+    i = 0
+    while i < len(s) and s[i] in "rRuUbBfF":
+        i += 1
+    quotes = '"""'
+    if i + 3 <= len(s) and s[i:i + 3] in ('"""', "'''"):
+        quotes = s[i:i + 3]
+    keep = "".join(ch for ch in s[:i] if ch in "rRuU")  # preserve only r/R/u/U
+    return keep, quotes
+
+
+def format_google(text: str, indent: int, width: int, quotes: str, prefix: str) -> str:
+    """Format multi-line Google-style docstring with given quotes/prefix."""
     p = parse_sections(text)
-    out = ['"""']
+    opener = prefix + quotes
+    out = [opener]
     if p["summary"]:
-        out.extend(wrap(" ".join(x.strip() for x in p["summary"] if x.strip()), width, indent))
+        out.extend(wrap_para(" ".join(x.strip() for x in p["summary"] if x.strip()), width, indent))
     if any(x.strip() for x in p["description"]):
         out.append("")
         out.extend(emit_paragraphs(p["description"], width, indent))
     for sec in ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises"):
         if any(x.strip() for x in p[sec]):
-            add_header(out, indent, sec)
+            add_header(out, indent, sec, opener)
             out.extend(format_structured_block(p[sec], width, indent))
     for sec in ("Example", "Notes", "References"):
         if any(x.strip() for x in p[sec]):
             title = "Examples" if sec == "Example" else sec
-            add_header(out, indent, title)
+            add_header(out, indent, title, opener)
             out.extend(x.rstrip() for x in p[sec])
     while out and out[-1] == "":
         out.pop()
-    out.append(" " * indent + '"""')
+    out.append(" " * indent + quotes)
     return "\n".join(out)
 
 
-def format_docstring(content: str, indent: int, width: int) -> str:
-    """Return single-line docstring if short/sectionless/no-lists; else Google-style."""
+def format_docstring(content: str, indent: int, width: int, quotes: str, prefix: str) -> str:
+    """Single-line if short/sectionless/no-lists; else Google-style. Preserve quotes/prefix."""
     if not content or not content.strip():
-        return '""""""'
+        return f"{prefix}{quotes}{quotes}"
     text = content.strip()
-    has_section = any(f"{s}:" in text for s in (*SECTIONS, "Examples"))
+    has_section = any(f"{s}:" in text for s in SECTIONS + ("Examples",))
     has_list = any(is_list_item(l) for l in text.splitlines())
-    single_ok = ("\n" not in text) and not has_section and not has_list and (indent + 6 + len(text) <= width)
+    single_ok = ("\n" not in text) and not has_section and not has_list and (
+        indent + len(prefix) + len(quotes) * 2 + len(text) <= width
+    )
     if single_ok:
         words = text.split()
         if words and not (words[0].startswith(("http://", "https://")) or words[0][0].isupper()):
@@ -219,8 +268,8 @@ def format_docstring(content: str, indent: int, width: int) -> str:
         out = " ".join(words)
         if out and out[-1] not in ".!?":
             out += "."
-        return f'"""{out}"""'
-    return format_google(text, indent, width)
+        return f"{prefix}{quotes}{out}{quotes}"
+    return format_google(text, indent, width, quotes, prefix)
 
 
 class Visitor(ast.NodeVisitor):
@@ -230,19 +279,19 @@ class Visitor(ast.NodeVisitor):
         """Init with source lines and target width."""
         self.src, self.width, self.repl = src, width, []
 
-    def visit_Module(self, node):
+    def visit_Module(self, node):  # noqa: N802
         """Skip module docstring; visit children."""
         self.generic_visit(node)
 
-    def visit_ClassDef(self, node):
+    def visit_ClassDef(self, node):  # noqa: N802
         self._handle(node)
         self.generic_visit(node)
 
-    def visit_FunctionDef(self, node):
+    def visit_FunctionDef(self, node):  # noqa: N802
         self._handle(node)
         self.generic_visit(node)
 
-    def visit_AsyncFunctionDef(self, node):
+    def visit_AsyncFunctionDef(self, node):  # noqa: N802
         self._handle(node)
         self.generic_visit(node)
 
@@ -262,9 +311,10 @@ class Visitor(ast.NodeVisitor):
             original = (
                 self.src[sl][sc:ec]
                 if sl == el
-                else "\n".join([self.src[sl][sc:], *self.src[sl + 1 : el], self.src[el][:ec]])
+                else "\n".join([self.src[sl][sc:]] + self.src[sl + 1 : el] + [self.src[el][:ec]])
             )
-            formatted = format_docstring(doc, sc, self.width)
+            prefix, quotes = detect_opener(original)
+            formatted = format_docstring(doc, sc, self.width, quotes, prefix)
             if formatted.strip() != original.strip():
                 self.repl.append((sl, el, sc, ec, formatted))
         except Exception:
