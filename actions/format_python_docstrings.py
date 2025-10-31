@@ -66,7 +66,12 @@ def parse_sections(content: str) -> dict[str, list[tuple[str, int]]]:
 
 
 def build_section(
-    lines: list[str], section_name: str, content: list[tuple[str, int]], indent: int, line_width: int, preserve: bool = False
+    lines: list[str],
+    section_name: str,
+    content: list[tuple[str, int]],
+    indent: int,
+    line_width: int,
+    preserve: bool = False,
 ) -> None:
     """Build a docstring section with proper indentation."""
     if not content:
@@ -118,9 +123,11 @@ def format_docstring(docstring: str, indent: int, line_width: int) -> str:
     # Check if should remain single-line (considering full line length with indentation)
     total_len = indent + 6 + len(content)  # indent + """content"""
     is_simple = (
-        total_len <= line_width and "\n" not in content and not any(s in content for s in ["Args:", "Returns:", "Examples:"])
+        total_len <= line_width
+        and "\n" not in content
+        and not any(s in content for s in ["Args:", "Returns:", "Examples:"])
     )
-    
+
     if is_simple:
         if content and not content[0].isupper():
             content = content[0].upper() + content[1:]
