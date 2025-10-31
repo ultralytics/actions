@@ -234,8 +234,6 @@ def generate_pr_review(
         for c in response.get("comments", []):
             if "message" in c:
                 c["message"] = _sanitize_ai_text(c["message"])
-            if c.get("suggestion"):
-                c["suggestion"] = _sanitize_ai_text(c["suggestion"])
 
         print(json.dumps(response, indent=2))
 
