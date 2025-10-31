@@ -350,15 +350,9 @@ class DocstringFormatter(ast.NodeVisitor):
             return
 
         # Find the string node
-        if isinstance(node, ast.Module):
-            if not node.body or not isinstance(node.body[0], ast.Expr):
-                return
-            string_node = node.body[0]
-        else:
-            if not node.body or not isinstance(node.body[0], ast.Expr):
-                return
-            string_node = node.body[0]
-
+        if not node.body or not isinstance(node.body[0], ast.Expr):
+            return
+        string_node = node.body[0]
         if not isinstance(string_node.value, ast.Constant) or not isinstance(string_node.value.value, str):
             return
 
@@ -426,14 +420,14 @@ def process_file(path: Path, line_width: int = 120, check: bool = False) -> bool
         return True
 
     try:
-        original = path.read_text()
+        original = path.read_text(encoding="utf-8")
         formatted = format_python_file(original, line_width)
 
         if check:
             return original == formatted
 
         if original != formatted:
-            path.write_text(formatted)
+            path.write_text(formatted, encoding="utf-8")
             print(f"Formatted: {path}")
             return False
 
@@ -460,8 +454,11 @@ def main(*args, **kwargs):
         elif path.is_file():
             files.append(path)
 
-    # Process files
-    all_ok = all(process_file(f, args.line_width, args.check) for f in files)
+    # Process files (do not short-circuit on first change)
+    all_ok = True
+    for file_path in files:
+        ok = process_file(file_path, args.line_width, args.check)
+        all_ok = all_ok and ok
 
     if args.check and not all_ok:
         exit(1)
