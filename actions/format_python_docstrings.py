@@ -87,7 +87,7 @@ def build_section(
 
 def build_docstring(sections: dict[str, list[tuple[str, int]]], indent: int, line_width: int) -> str:
     """Build formatted docstring from sections."""
-    lines = [" " * indent + '"""']
+    lines = ['"""']  # First line has no indent (replacement handles it)
 
     # Summary (always single paragraph)
     if sections["summary"]:
