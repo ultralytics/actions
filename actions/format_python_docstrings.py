@@ -66,7 +66,7 @@ def parse_sections(content: str) -> dict[str, list[tuple[str, int]]]:
 
 
 def build_section(
-    lines: list[str], section_name: str, content: list[tuple[str, int]], indent: int, preserve: bool = False
+    lines: list[str], section_name: str, content: list[tuple[str, int]], indent: int, line_width: int, preserve: bool = False
 ) -> None:
     """Build a docstring section with proper indentation."""
     if not content:
@@ -77,29 +77,29 @@ def build_section(
         if preserve:
             lines.append(" " * (sec_indent + rel_indent) + text)
         else:
-            lines.extend(wrap_text(text, 120, sec_indent + rel_indent))
+            lines.extend(wrap_text(text, line_width, sec_indent + rel_indent))
 
 
-def build_docstring(sections: dict[str, list[tuple[str, int]]], indent: int) -> str:
+def build_docstring(sections: dict[str, list[tuple[str, int]]], indent: int, line_width: int) -> str:
     """Build formatted docstring from sections."""
     lines = [" " * indent + '"""']
 
     # Summary (always single paragraph)
     if sections["summary"]:
-        lines.extend(wrap_text(" ".join(s for s, _ in sections["summary"]), 120, indent))
+        lines.extend(wrap_text(" ".join(s for s, _ in sections["summary"]), line_width, indent))
 
     # Description
     if sections["description"]:
         lines.append("")
         for text, _ in sections["description"]:
-            lines.extend(wrap_text(text, 120, indent))
+            lines.extend(wrap_text(text, line_width, indent))
 
     # Structured sections with wrapping
     for section_name in ["Args", "Attributes", "Returns", "Yields", "Raises", "Notes"]:
-        build_section(lines, section_name, sections[section_name], indent)
+        build_section(lines, section_name, sections[section_name], indent, line_width)
 
     # Examples (preserve formatting)
-    build_section(lines, "Examples", sections["Examples"], indent, preserve=True)
+    build_section(lines, "Examples", sections["Examples"], indent, line_width, preserve=True)
 
     # References (preserve formatting)
     if sections["References"]:
@@ -111,26 +111,28 @@ def build_docstring(sections: dict[str, list[tuple[str, int]]], indent: int) -> 
     return "\n".join(lines)
 
 
-def format_docstring(docstring: str, indent: int) -> str:
-    """Format docstring to Google-style with 120 char width."""
+def format_docstring(docstring: str, indent: int, line_width: int) -> str:
+    """Format docstring to Google-style with specified line width."""
     content = docstring.strip().strip('"""').strip("'''").strip()
 
-    # Single-line docstrings
+    # Check if should remain single-line (considering full line length with indentation)
+    total_len = indent + 6 + len(content)  # indent + """content"""
     is_simple = (
-        len(content) < 100 and "\n" not in content and not any(s in content for s in ["Args:", "Returns:", "Examples:"])
+        total_len <= line_width and "\n" not in content and not any(s in content for s in ["Args:", "Returns:", "Examples:"])
     )
+    
     if is_simple:
         if content and not content[0].isupper():
             content = content[0].upper() + content[1:]
         if content and not content.endswith("."):
             content += "."
-        return " " * indent + f'"""{content}"""'
+        return f'"""{content}"""'  # No leading indent for single-line
 
-    # Multi-line docstrings
-    return build_docstring(parse_sections(content), indent)
+    # Multi-line docstrings need full indentation
+    return build_docstring(parse_sections(content), indent, line_width)
 
 
-def format_python_file(content: str) -> str:
+def format_python_file(content: str, line_width: int = 120) -> str:
     """Format all docstrings in Python file."""
     try:
         tokens = list(tokenize.tokenize(BytesIO(content.encode()).readline))
@@ -151,7 +153,7 @@ def format_python_file(content: str) -> str:
         if not (token.string.startswith('"""') or token.string.startswith("'''")):
             continue
 
-        formatted = format_docstring(token.string, 0)  # indent=0 since line position handles indentation
+        formatted = format_docstring(token.string, token.start[1], line_width)
         if formatted.strip() != token.string.strip():
             replacements.append((token.start, token.end, formatted))
 
@@ -172,14 +174,14 @@ def format_python_file(content: str) -> str:
     return "\n".join(lines)
 
 
-def process_file(path: Path, check: bool = False) -> bool:
+def process_file(path: Path, line_width: int = 120, check: bool = False) -> bool:
     """Process file, return True if no changes needed."""
     if path.suffix != ".py":
         return True
 
     try:
         original = path.read_text()
-        formatted = format_python_file(original)
+        formatted = format_python_file(original, line_width)
 
         if check:
             return original == formatted
@@ -197,8 +199,9 @@ def process_file(path: Path, check: bool = False) -> bool:
 
 def main(*args, **kwargs):
     """CLI entry point for formatting Python docstrings."""
-    parser = argparse.ArgumentParser(description="Format Python docstrings to Google-style with 120 char width")
+    parser = argparse.ArgumentParser(description="Format Python docstrings to Google-style")
     parser.add_argument("paths", nargs="+", type=Path, help="Files or directories to format")
+    parser.add_argument("--line-width", type=int, default=120, help="Maximum line width (default: 120)")
     parser.add_argument("--check", action="store_true", help="Check without writing changes")
     parser.add_argument("-r", "--recursive", action="store_true", help="Recurse into directories")
     args = parser.parse_args()
@@ -212,7 +215,7 @@ def main(*args, **kwargs):
             files.append(path)
 
     # Process files
-    all_ok = all(process_file(f, args.check) for f in files)
+    all_ok = all(process_file(f, args.line_width, args.check) for f in files)
 
     if args.check and not all_ok:
         exit(1)
