@@ -27,13 +27,23 @@ NON_GOOGLE = {"numpy", "rest", "epydoc"}
 
 # Default directories to skip when discovering Python files
 EXCLUDED_DIR_NAMES = {
-    "venv", ".venv", "env", ".env",
-    "build", "dist",
-    "__pycache__", ".mypy_cache", ".pytest_cache",
-    ".tox", ".nox",
-    ".git", "site-packages",
-    ".eggs", "eggs",
-    ".idea", ".vscode",
+    "venv",
+    ".venv",
+    "env",
+    ".env",
+    "build",
+    "dist",
+    "__pycache__",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".tox",
+    ".nox",
+    ".git",
+    "site-packages",
+    ".eggs",
+    "eggs",
+    ".idea",
+    ".vscode",
 }
 
 
@@ -409,8 +419,10 @@ class Visitor(ast.NodeVisitor):
             sc, ec = node.body[0].col_offset, node.body[0].end_col_offset
             if sl < 0 or el >= len(self.src):
                 return
-            original = self.src[sl][sc:ec] if sl == el else "\n".join(
-                [self.src[sl][sc:], *self.src[sl + 1 : el], self.src[el][:ec]]
+            original = (
+                self.src[sl][sc:ec]
+                if sl == el
+                else "\n".join([self.src[sl][sc:], *self.src[sl + 1 : el], self.src[el][:ec]])
             )
             prefix, quotes, inline_hint = detect_opener(original)
             formatted = format_docstring(doc, sc, self.width, quotes, prefix, inline_hint, self.preserve_inline)
@@ -425,7 +437,7 @@ def format_python_file(text: str, width: int = 120, preserve_inline: bool = True
     s = text
     if not s.strip():
         return s
-    if (('"""' not in s and "'''" not in s) or ("def " not in s and "class " not in s and "async def " not in s)):
+    if ('"""' not in s and "'''" not in s) or ("def " not in s and "class " not in s and "async def " not in s):
         return s
     try:
         tree = ast.parse(s)
@@ -549,7 +561,9 @@ def main() -> None:
     """CLI entry point."""
     args = sys.argv[1:]
     if not args:
-        print("Usage: format_python_docstrings.py [--check] [--no-preserve-inline] [--line-width=120] <files_or_dirs...>")
+        print(
+            "Usage: format_python_docstrings.py [--check] [--no-preserve-inline] [--line-width=120] <files_or_dirs...>"
+        )
         return
     paths, width, check, preserve_inline = parse_cli(args)
     files = iter_py_files(paths)
@@ -557,10 +571,12 @@ def main() -> None:
         print("No Python files found")
         return
     workers = min(8, len(files), os.cpu_count() or 1)
-    root = (paths[0].resolve() if paths else Path.cwd().resolve())
+    root = paths[0].resolve() if paths else Path.cwd().resolve()
     t0 = time.time()
     action = "Checking" if check else "Formatting"
-    print(f"{action} {len(files)} file{'s' if len(files) != 1 else ''} in {root} with {workers} worker{'s' if workers != 1 else ''}")
+    print(
+        f"{action} {len(files)} file{'s' if len(files) != 1 else ''} in {root} with {workers} worker{'s' if workers != 1 else ''}"
+    )
     changed, nerr = run(files, width, check, preserve_inline, workers)
     dur = time.time() - t0
     if changed:
@@ -577,8 +593,10 @@ def main() -> None:
         if check:
             sys.exit(1)
     else:
-        print(f"{len(files) - nerr} file{'s' if (len(files) - nerr) != 1 else ''} left unchanged"
-              f"{'' if not nerr else f', {nerr} error' + ('s' if nerr != 1 else '')} ({dur:.1f}s)")
+        print(
+            f"{len(files) - nerr} file{'s' if (len(files) - nerr) != 1 else ''} left unchanged"
+            f"{'' if not nerr else f', {nerr} error' + ('s' if nerr != 1 else '')} ({dur:.1f}s)"
+        )
 
 
 if __name__ == "__main__":
