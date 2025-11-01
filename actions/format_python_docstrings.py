@@ -27,23 +27,13 @@ NON_GOOGLE = {"numpy", "rest", "epydoc"}
 
 # Default directories to skip when discovering Python files
 EXCLUDED_DIR_NAMES = {
-    "venv",
-    ".venv",
-    "env",
-    ".env",
-    "build",
-    "dist",
-    "__pycache__",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".tox",
-    ".nox",
-    ".git",
-    "site-packages",
-    ".eggs",
-    "eggs",
-    ".idea",
-    ".vscode",
+    "venv", ".venv", "env", ".env",
+    "build", "dist",
+    "__pycache__", ".mypy_cache", ".pytest_cache",
+    ".tox", ".nox",
+    ".git", "site-packages",
+    ".eggs", "eggs",
+    ".idea", ".vscode",
 }
 
 
@@ -290,31 +280,38 @@ def detect_opener(original_literal: str) -> tuple[str, str, bool]:
 
 
 def format_google(text: str, indent: int, width: int, quotes: str, prefix: str, inline_first_line: bool) -> str:
-    """Format multi-line Google-style docstring with given quotes/prefix."""
+    """Format multi-line Google-style docstring with proper wrapping for opener inline case."""
     p = parse_sections(text)
     opener = prefix + quotes
-    out = [opener]
+    out: list[str] = []
+
     if p["summary"]:
-        lines = emit_paragraphs(p["summary"], width, indent, list_indent=indent, orphan_min=1)
-        if inline_first_line and lines:
-            pad = " " * indent
-            first = lines[0][len(pad) :] if lines[0].startswith(pad) else lines[0].lstrip()
-            out[0] = opener + first
-            out.extend(lines[1:])
+        summary_text = " ".join(x.strip() for x in p["summary"]).strip()
+        if inline_first_line:
+            # IMPORTANT: account for indentation added during splice
+            eff_width = max(1, width - indent)
+            out.extend(wrap_hanging(opener, summary_text, eff_width, indent))
         else:
-            out.extend(lines)
+            out.append(opener)
+            out.extend(emit_paragraphs(p["summary"], width, indent, list_indent=indent, orphan_min=1))
+    else:
+        out.append(opener)
+
     if any(x.strip() for x in p["description"]):
         out.append("")
         out.extend(emit_paragraphs(p["description"], width, indent, list_indent=indent, orphan_min=1))
+
     for sec in ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises"):
         if any(x.strip() for x in p[sec]):
-            add_header(out, indent, sec, opener)
+            add_header(out, indent, sec, out[0])
             out.extend(format_structured_block(p[sec], width, indent))
+
     for sec in ("Example", "Notes", "References"):
         if any(x.strip() for x in p[sec]):
             title = "Examples" if sec == "Example" else sec
-            add_header(out, indent, title, opener)
+            add_header(out, indent, title, out[0])
             out.extend(x.rstrip() for x in p[sec])
+
     while out and out[-1] == "":
         out.pop()
     out.append(" " * indent + quotes)
@@ -412,10 +409,8 @@ class Visitor(ast.NodeVisitor):
             sc, ec = node.body[0].col_offset, node.body[0].end_col_offset
             if sl < 0 or el >= len(self.src):
                 return
-            original = (
-                self.src[sl][sc:ec]
-                if sl == el
-                else "\n".join([self.src[sl][sc:], *self.src[sl + 1 : el], self.src[el][:ec]])
+            original = self.src[sl][sc:ec] if sl == el else "\n".join(
+                [self.src[sl][sc:], *self.src[sl + 1 : el], self.src[el][:ec]]
             )
             prefix, quotes, inline_hint = detect_opener(original)
             formatted = format_docstring(doc, sc, self.width, quotes, prefix, inline_hint, self.preserve_inline)
@@ -430,7 +425,7 @@ def format_python_file(text: str, width: int = 120, preserve_inline: bool = True
     s = text
     if not s.strip():
         return s
-    if ('"""' not in s and "'''" not in s) or ("def " not in s and "class " not in s and "async def " not in s):
+    if (('"""' not in s and "'''" not in s) or ("def " not in s and "class " not in s and "async def " not in s)):
         return s
     try:
         tree = ast.parse(s)
@@ -474,8 +469,6 @@ def iter_py_files(paths: list[Path]) -> list[Path]:
             out.append(p)
         elif p.is_dir():
             stack.append(p)
-
-    # DFS with pruning
     while stack:
         d = stack.pop()
         try:
@@ -489,7 +482,6 @@ def iter_py_files(paths: list[Path]) -> list[Path]:
                     out.append(child)
         except Exception:
             continue
-
     return list(dict.fromkeys(sorted(out)))
 
 
@@ -521,7 +513,6 @@ def run(files: list[Path], width: int, check: bool, preserve_inline: bool, worke
                 print(f"  Error: {p}: {msg}")
                 errors += 1
         return changed, errors
-
     changed = errors = 0
     with ProcessPoolExecutor(max_workers=workers) as ex:
         futs = {ex.submit(_process_file_worker, f, width, check, preserve_inline): f for f in files}
@@ -558,28 +549,20 @@ def main() -> None:
     """CLI entry point."""
     args = sys.argv[1:]
     if not args:
-        print(
-            "Usage: format_python_docstrings.py [--check] [--no-preserve-inline] [--line-width=120] <files_or_dirs...>"
-        )
+        print("Usage: format_python_docstrings.py [--check] [--no-preserve-inline] [--line-width=120] <files_or_dirs...>")
         return
-
     paths, width, check, preserve_inline = parse_cli(args)
     files = iter_py_files(paths)
     if not files:
         print("No Python files found")
         return
-
     workers = min(8, len(files), os.cpu_count() or 1)
-    root = paths[0].resolve() if paths else Path.cwd().resolve()
-
+    root = (paths[0].resolve() if paths else Path.cwd().resolve())
     t0 = time.time()
     action = "Checking" if check else "Formatting"
-    print(
-        f"{action} {len(files)} file{'s' if len(files) != 1 else ''} in {root} with {workers} worker{'s' if workers != 1 else ''}"
-    )
+    print(f"{action} {len(files)} file{'s' if len(files) != 1 else ''} in {root} with {workers} worker{'s' if workers != 1 else ''}")
     changed, nerr = run(files, width, check, preserve_inline, workers)
     dur = time.time() - t0
-
     if changed:
         verb = "would be reformatted" if check else "reformatted"
         unchanged = len(files) - changed - nerr
@@ -594,10 +577,8 @@ def main() -> None:
         if check:
             sys.exit(1)
     else:
-        print(
-            f"{len(files) - nerr} file{'s' if (len(files) - nerr) != 1 else ''} left unchanged"
-            f"{'' if not nerr else f', {nerr} error' + ('s' if nerr != 1 else '')} ({dur:.1f}s)"
-        )
+        print(f"{len(files) - nerr} file{'s' if (len(files) - nerr) != 1 else ''} left unchanged"
+              f"{'' if not nerr else f', {nerr} error' + ('s' if nerr != 1 else '')} ({dur:.1f}s)")
 
 
 if __name__ == "__main__":
