@@ -265,6 +265,7 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
             out.extend(emit_paragraphs(item, width, cont, lst, orphan_min=2))
             continue
         # Join continuation lines that aren't new paragraphs into desc
+        desc = desc or ""
         tail, i = [], 1
         while i < len(item):
             line = item[i].strip()
