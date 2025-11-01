@@ -264,9 +264,20 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
         if not name or (" " in name and "(" not in name and ")" not in name):
             out.extend(emit_paragraphs(item, width, cont, lst, orphan_min=2))
             continue
+        # Join continuation lines that aren't new paragraphs into desc
+        desc = desc or ""
+        tail, i = [], 1
+        while i < len(item):
+            line = item[i].strip()
+            if not line or is_list_item(item[i]) or is_fence_line(item[i]) or is_table_like(item[i]):
+                tail = item[i:]
+                break
+            desc = f"{desc} {line}"
+            i += 1
+        else:
+            tail = []
         head = " " * cont + (f"{name}: " if (desc or had_colon) else name)
         out.extend(wrap_hanging(head, desc, width, cont + 4))
-        tail = item[1:]
         if tail:
             body = emit_paragraphs(tail, width, cont + 4, lst, orphan_min=2)
             if body:
