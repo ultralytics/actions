@@ -31,6 +31,8 @@ SKIP_PATTERNS = [
 ]
 
 
+
+
 def _sanitize_ai_text(s: str) -> str:
     """Strip private-use citation tokens like '' and normalize whitespace."""
     return re.sub(r"cite(turn\d+search\d+|[\w\d]+)", "", s or "")
