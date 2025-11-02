@@ -314,11 +314,13 @@ class ExampleClass:
         """
         return f"Property: {self.name}"
 
-
     @property
     def computed_property_two(self):
-        """This function uses advanced algorithms for optimal performance, See https://docs.example.com/algorithms for implementation details."""
+        """This function uses advanced algorithms for optimal performance, See https://docs.example.com/algorithms for
+        implementation details.
+        """
         return f"Property: {self.name}"
+
 
 if __name__ == "__main__":
     import os
