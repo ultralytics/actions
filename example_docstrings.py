@@ -307,7 +307,11 @@ class ExampleClass:
 
     @property
     def computed_property(self):
-        """This function uses advanced algorithms for optimal performance. See https://docs.example.com/algorithms for implementation details."""
+        """This function uses advanced algorithms for optimal performance.
+
+        See https://docs.example.com/algorithms for
+        implementation details.
+        """
         return f"Property: {self.name}"
 
 
