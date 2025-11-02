@@ -315,7 +315,7 @@ def format_google(text: str, indent: int, width: int, quotes: str, prefix: str, 
         if start_newline:
             # Force newline: opener, blank line, then summary
             out.append(opener)
-            #out.append("")
+            # out.append("")
             out.extend(emit_paragraphs([summary_text], width, indent, list_indent=indent, orphan_min=1))
         else:
             # Force inline: summary on same line as opener

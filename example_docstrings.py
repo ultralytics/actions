@@ -1,3 +1,4 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 """Test file for docstring formatter edge cases."""
 
 
@@ -52,7 +53,8 @@ def long_description(config):
     """Test long description wrapping.
 
     Args:
-        config (dict): Configuration dictionary containing model settings. See https://docs.ultralytics.com/modes/train for more details on available configuration options and parameters.
+        config (dict): Configuration dictionary containing model settings. See https://docs.ultralytics.com/modes/train
+            for more details on available configuration options and parameters.
     """
     pass
 
@@ -61,7 +63,8 @@ def mixed_content(params):
     """Test mixed inline code and URLs.
 
     Args:
-        params (dict): Pass `params={'conf': 0.5}` to adjust confidence or see https://docs.ultralytics.com for full options.
+        params (dict): Pass `params={'conf': 0.5}` to adjust confidence or see https://docs.ultralytics.com for full
+            options.
     """
     pass
 
@@ -70,13 +73,16 @@ def multiline_continuation(model, data, epochs, optimizer, scheduler):
     """Test multiline parameter descriptions.
 
     Args:
-        model (nn.Module): PyTorch model instance that will be trained using the provided data and configuration settings for optimal performance.
+        model (nn.Module): PyTorch model instance that will be trained using the provided data and configuration
+            settings for optimal performance.
         data (str): Path to dataset YAML file containing train/val splits and class names for training.
-        epochs (int): Number of training epochs to run, with checkpoints saved at regular intervals throughout the entire training process to ensure model recovery.
-        optimizer (torch.optim.Optimizer): Optimizer instance for gradient descent.
-            Common choices include Adam, SGD, or AdamW with appropriate learning rates and weight decay parameters.
-            Second set of common choices include Adam, SGD, or AdamW with appropriate learning rates and weight decay parameters.
-        scheduler (torch.optim.lr_scheduler._LRScheduler | None): Learning rate scheduler for adaptive learning rate adjustment during training, or None to use constant learning rate.
+        epochs (int): Number of training epochs to run, with checkpoints saved at regular intervals throughout the
+            entire training process to ensure model recovery.
+        optimizer (torch.optim.Optimizer): Optimizer instance for gradient descent. Common choices include Adam, SGD, or
+            AdamW with appropriate learning rates and weight decay parameters. Second set of common choices include
+            Adam, SGD, or AdamW with appropriate learning rates and weight decay parameters.
+        scheduler (torch.optim.lr_scheduler._LRScheduler | None): Learning rate scheduler for adaptive learning rate
+            adjustment during training, or None to use constant learning rate.
     """
     pass
 
@@ -110,8 +116,7 @@ def generator_function(n):
         >>> for i in generator_function(5):
         >>>     print(i)
     """
-    for i in range(n):
-        yield i
+    yield from range(n)
 
 
 def function_with_raises(x):
@@ -153,7 +158,8 @@ def function_with_notes(data):
 def comprehensive_docstring(x, y=None, *args, **kwargs):
     """Test function with all common sections.
 
-    This function demonstrates a comprehensive docstring with all major sections including detailed descriptions and multiple examples.
+    This function demonstrates a comprehensive docstring with all major sections including detailed descriptions and
+    multiple examples.
 
     Args:
         x (int | float): Primary input value for computation.
