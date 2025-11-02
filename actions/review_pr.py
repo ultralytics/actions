@@ -37,30 +37,37 @@ def _sanitize_ai_text(s: str) -> str:
 
 
 def parse_diff_files(diff_text: str) -> tuple[dict, str]:
-    """Parse diff and return file mapping with line numbers AND augmented diff with explicit line numbers."""
+    """Parse diff and return file mapping with line numbers AND augmented diff with explicit line numbers.
+
+    Structure: files[file]["RIGHT"][line] -> str (added line text) files[file]["LEFT"][line] -> str (removed line text)
+    files[file]["_HUNK"]["RIGHT"][line] -> int (hunk id) files[file]["_HUNK"]["LEFT"][line] -> int (hunk id)
+    """
     files, current_file, new_line, old_line = {}, None, 0, 0
-    augmented_lines = []
+    augmented_lines, hunk_id = [], -1
 
     for line in diff_text.split("\n"):
         if line.startswith("diff --git"):
             match = re.search(r" b/(.+)$", line)
             current_file = match.group(1) if match else None
-            new_line, old_line = 0, 0
+            new_line, old_line, hunk_id = 0, 0, -1
             if current_file:
-                files[current_file] = {"RIGHT": {}, "LEFT": {}}
+                files[current_file] = {"RIGHT": {}, "LEFT": {}, "_HUNK": {"RIGHT": {}, "LEFT": {}}}
             augmented_lines.append(line)
         elif line.startswith("@@") and current_file:
             match = re.search(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)?", line)
             if match:
                 old_line, new_line = int(match.group(1)), int(match.group(2))
+                hunk_id += 1
             augmented_lines.append(line)
         elif current_file and (new_line > 0 or old_line > 0):
             if line.startswith("+") and not line.startswith("+++"):
                 files[current_file]["RIGHT"][new_line] = line[1:]
+                files[current_file]["_HUNK"]["RIGHT"][new_line] = hunk_id
                 augmented_lines.append(f"R{new_line:>5} {line}")  # Prefix with RIGHT line number
                 new_line += 1
             elif line.startswith("-") and not line.startswith("---"):
                 files[current_file]["LEFT"][old_line] = line[1:]
+                files[current_file]["_HUNK"]["LEFT"][old_line] = hunk_id
                 augmented_lines.append(f"L{old_line:>5} {line}")  # Prefix with LEFT line number
                 old_line += 1
             elif not line.startswith("\\"):
@@ -87,11 +94,7 @@ def generate_pr_review(
         return {"comments": [], "summary": "No files with changes detected in diff"}
 
     # Filter out generated/vendored files
-    filtered_files = {
-        path: sides
-        for path, sides in diff_files.items()
-        if not any(re.search(pattern, path) for pattern in SKIP_PATTERNS)
-    }
+    filtered_files = {p: s for p, s in diff_files.items() if not any(re.search(x, p) for x in SKIP_PATTERNS)}
     skipped_count = len(diff_files) - len(filtered_files)
     diff_files = filtered_files
 
@@ -105,14 +108,13 @@ def generate_pr_review(
     # Fetch full file contents for better context if within token budget
     full_files_section = ""
     if event and len(file_list) <= 10:  # Reasonable file count limit
-        file_contents = []
-        total_chars = len(augmented_diff)
+        file_contents, total_chars = [], len(augmented_diff)
         for file_path in file_list:
             try:
-                local_path = Path(file_path)
-                if not local_path.exists():
+                p = Path(file_path)
+                if not p.exists():
                     continue
-                content = local_path.read_text(encoding="utf-8")
+                content = p.read_text(encoding="utf-8")
                 # Only include if within budget
                 if total_chars + len(content) + 1000 < MAX_PROMPT_CHARS:  # 1000 char buffer for formatting
                     file_contents.append(f"### {file_path}\n```\n{content}\n```")
@@ -252,7 +254,11 @@ def generate_pr_review(
             if file_path not in diff_files:
                 print(f"Filtered out {file_path}:{line_num} (file not in diff)")
                 continue
-            if line_num not in diff_files[file_path].get(side, {}):
+
+            side_map = diff_files[file_path].get(side, {})
+            hunk_map = diff_files[file_path].get("_HUNK", {}).get(side, {})
+
+            if line_num not in side_map:
                 available = {s: list(diff_files[file_path][s].keys())[:10] for s in ["RIGHT", "LEFT"]}
                 print(f"Filtered out {file_path}:{line_num} (side={side}, available: {available})")
                 continue
@@ -262,7 +268,7 @@ def generate_pr_review(
                 print(f"Dropping suggestion for {file_path}:{line_num} - LEFT side doesn't support suggestions")
                 c.pop("suggestion", None)
 
-            # Validate start_line if provided - drop start_line for suggestions (single-line only)
+            # Enforce same-hunk multi-line selection; otherwise drop start_line
             if start_line:
                 if c.get("suggestion"):
                     print(f"Dropping start_line for {file_path}:{line_num} - suggestions must be single-line only")
@@ -270,9 +276,15 @@ def generate_pr_review(
                 elif start_line >= line_num:
                     print(f"Invalid start_line {start_line} >= line {line_num} for {file_path}, dropping start_line")
                     c.pop("start_line", None)
-                elif start_line not in diff_files[file_path].get(side, {}):
+                elif start_line not in side_map:
                     print(f"start_line {start_line} not in diff for {file_path}, dropping start_line")
                     c.pop("start_line", None)
+                else:
+                    if hunk_map.get(start_line) != hunk_map.get(line_num):
+                        print(
+                            f"start_line {start_line} not in same hunk as line {line_num} for {file_path}, dropping start_line"
+                        )
+                        c.pop("start_line", None)
 
             # Deduplicate by line number and side
             key = f"{file_path}:{side}:{line_num}"
