@@ -28,9 +28,11 @@ SECTION_ALIASES = {
     "Usage": "Examples",
     "Usage Example": "Examples",
     "Usage Examples": "Examples",
+    "Example Usage": "Examples",
     "Example": "Examples",
     "Return": "Returns",
     "Note": "Notes",
+    "Reference": "References",
 }
 LIST_RX = re.compile(r"""^(\s*)(?:[-*•]\s+|(?:\d+|[A-Za-z]+)[\.\)]\s+)""")
 TABLE_RX = re.compile(r"^\s*\|.*\|\s*$")
