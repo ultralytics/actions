@@ -33,8 +33,8 @@ def optional_type(x, y):
     """Test optional type syntax.
 
     Args:
-        x (int, optional): First parameter with comma in type annotation. y (str, optional): Second parameter, also
-            optional with default None value.
+        x (int, optional): First parameter with comma in type annotation.
+        y (str, optional): Second parameter, also optional with default None value.
     """
     pass
 
@@ -43,8 +43,8 @@ def complex_types(data, transform):
     """Test complex type annotations.
 
     Args:
-        data (dict[str, list[tuple[int, float]]]): Nested generic type that uses bracket syntax heavily. transform
-            (Callable[[torch.Tensor], torch.Tensor] | None): Optional transform function or None.
+        data (dict[str, list[tuple[int, float]]]): Nested generic type that uses bracket syntax heavily.
+        transform (Callable[[torch.Tensor], torch.Tensor] | None): Optional transform function or None.
     """
     pass
 
@@ -53,8 +53,7 @@ def long_description(config):
     """Test long description wrapping.
 
     Args:
-        config (dict): Configuration dictionary containing model settings. See https://docs.ultralytics.com/modes/train
-            for more details on available configuration options and parameters.
+        config (dict): Configuration dictionary containing model settings. See https://docs.ultralytics.com/modes/train for more details on available configuration options and parameters.
     """
     pass
 
@@ -63,8 +62,7 @@ def mixed_content(params):
     """Test mixed inline code and URLs.
 
     Args:
-        params (dict): Pass `params={'conf': 0.5}` to adjust confidence or see https://docs.ultralytics.com for full
-            options.
+        params (dict): Pass `params={'conf': 0.5}` to adjust confidence or see https://docs.ultralytics.com for full options.
     """
     pass
 
@@ -77,11 +75,10 @@ def multiline_continuation(model, data, epochs, optimizer, scheduler):
             settings for optimal performance.
         data (str): Path to dataset YAML file containing train/val splits and class names for training.
         epochs (int): Number of training epochs to run, with checkpoints saved at regular intervals throughout the
-            entire training process to ensure model recovery. optimizer (torch.optim.Optimizer): Optimizer instance for
-            gradient descent. Common choices include Adam, SGD, or AdamW with appropriate learning rates and weight
+        entire training process to ensure model recovery. optimizer (torch.optim.Optimizer): Optimizer instance for gradient descent. Common choices include Adam, SGD, or AdamW with appropriate learning rates and weight
             decay parameters. Second set of common choices include Adam, SGD, or AdamW with appropriate learning rates
-            and weight decay parameters. scheduler (torch.optim.lr_scheduler._LRScheduler | None): Learning rate
-            scheduler for adaptive learning rate adjustment during training, or None to use constant learning rate.
+        and weight decay parameters. scheduler (torch.optim.lr_scheduler._LRScheduler | None): Learning rate scheduler
+            for adaptive learning rate adjustment during training, or None to use constant learning rate.
     """
     pass
 
@@ -96,7 +93,8 @@ def args_kwargs_function(*args, **kwargs):
 
     Args:
         *args (Any): Variable positional arguments passed to the function for flexible parameter handling.
-        **kwargs (Any): Variable keyword arguments for additional named parameters and configuration options.
+        **kwargs (Any): Variable keyword arguments
+            for additional named parameters and configuration options.
     """
     pass
 
