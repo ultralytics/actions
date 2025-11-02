@@ -328,9 +328,14 @@ def format_google(text: str, indent: int, width: int, quotes: str, prefix: str, 
         out.append("")
         out.extend(emit_paragraphs(p["description"], width, indent, list_indent=indent, orphan_min=1))
 
+    has_content = bool(p["summary"]) or any(x.strip() for x in p["description"])
     for sec in ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises"):
         if any(x.strip() for x in p[sec]):
-            add_header(out, indent, sec)
+            if has_content:
+                add_header(out, indent, sec)
+            else:
+                out.append(" " * indent + f"{sec}:")
+                has_content = True
             out.extend(format_structured_block(p[sec], width, indent))
 
     for sec in ("Example", "Notes", "References"):
