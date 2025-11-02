@@ -21,7 +21,7 @@ inputs:
   python_docstrings:
     description: "Run Python docstring formatting"
     required: false
-    default: "false"
+    default: "true"
   markdown:
     description: "Run Markdown formatting (deprecated in favor of prettier)"
     required: false
