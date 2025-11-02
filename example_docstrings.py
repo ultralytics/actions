@@ -33,8 +33,8 @@ def optional_type(x, y):
     """Test optional type syntax.
 
     Args:
-        x (int, optional): First parameter with comma in type annotation.
-        y (str, optional): Second parameter, also optional with default None value.
+        x (int, optional): First parameter with comma in type annotation. y (str, optional): Second parameter, also
+            optional with default None value.
     """
     pass
 
@@ -43,8 +43,8 @@ def complex_types(data, transform):
     """Test complex type annotations.
 
     Args:
-        data (dict[str, list[tuple[int, float]]]): Nested generic type that uses bracket syntax heavily.
-        transform (Callable[[torch.Tensor], torch.Tensor] | None): Optional transform function or None.
+        data (dict[str, list[tuple[int, float]]]): Nested generic type that uses bracket syntax heavily. transform
+            (Callable[[torch.Tensor], torch.Tensor] | None): Optional transform function or None.
     """
     pass
 
@@ -77,12 +77,11 @@ def multiline_continuation(model, data, epochs, optimizer, scheduler):
             settings for optimal performance.
         data (str): Path to dataset YAML file containing train/val splits and class names for training.
         epochs (int): Number of training epochs to run, with checkpoints saved at regular intervals throughout the
-            entire training process to ensure model recovery.
-        optimizer (torch.optim.Optimizer): Optimizer instance for gradient descent. Common choices include Adam, SGD, or
-            AdamW with appropriate learning rates and weight decay parameters. Second set of common choices include
-            Adam, SGD, or AdamW with appropriate learning rates and weight decay parameters.
-        scheduler (torch.optim.lr_scheduler._LRScheduler | None): Learning rate scheduler for adaptive learning rate
-            adjustment during training, or None to use constant learning rate.
+            entire training process to ensure model recovery. optimizer (torch.optim.Optimizer): Optimizer instance for
+            gradient descent. Common choices include Adam, SGD, or AdamW with appropriate learning rates and weight
+            decay parameters. Second set of common choices include Adam, SGD, or AdamW with appropriate learning rates
+            and weight decay parameters. scheduler (torch.optim.lr_scheduler._LRScheduler | None): Learning rate
+            scheduler for adaptive learning rate adjustment during training, or None to use constant learning rate.
     """
     pass
 
@@ -162,8 +161,7 @@ def comprehensive_docstring(x, y=None, *args, **kwargs):
     multiple examples.
 
     Args:
-        x (int | float): Primary input value for computation.
-        y (str, optional): Secondary parameter with default None.
+        x (int | float): Primary input value for computation. y (str, optional): Secondary parameter with default None.
         *args (Any): Additional positional arguments.
         **kwargs (Any): Additional keyword arguments like `verbose=True` for logging.
 
@@ -225,8 +223,8 @@ def union_and_optional_types(x, y=None):
     """Test union and optional type annotations.
 
     Args:
-        x (int | float | str): Value accepting multiple types.
-        y (list[int] | tuple[int, ...] | None, optional): Optional sequence with None default.
+        x (int | float | str): Value accepting multiple types. y (list[int] | tuple[int, ...] | None, optional):
+            Optional sequence with None default.
 
     Returns:
         (bool): Whether processing succeeded.
@@ -250,8 +248,7 @@ class ExampleClass:
     """Test class docstring formatting.
 
     Attributes:
-        name (str): Instance name identifier.
-        callback (Callable[[int], bool]): Callback with bracket types.
+        name (str): Instance name identifier. callback (Callable[[int], bool]): Callback with bracket types.
     """
 
     def method_with_returns(self, x):
