@@ -77,6 +77,165 @@ def multiline_continuation(model, data, epochs):
     pass
 
 
+def no_args_function():
+    """Test function with no arguments."""
+    pass
+
+
+def args_kwargs_function(*args, **kwargs):
+    """Test function with variable arguments.
+
+    Args:
+        *args (Any): Variable positional arguments passed to the function for flexible parameter handling.
+        **kwargs (Any): Variable keyword arguments for additional named parameters and configuration options.
+    """
+    pass
+
+
+def generator_function(n):
+    """Test function with Yields section.
+
+    Args:
+        n (int): Number of items to generate in sequence.
+
+    Yields:
+        (int): Sequential integers from 0 to n-1.
+
+    Examples:
+        Generate first 5 numbers
+        >>> for i in generator_function(5):
+        >>>     print(i)
+    """
+    for i in range(n):
+        yield i
+
+
+def function_with_raises(x):
+    """Test function with Raises section.
+
+    Args:
+        x (int): Input value that must be positive.
+
+    Returns:
+        (float): Square root of the input value.
+
+    Raises:
+        ValueError: If x is negative.
+        TypeError: If x is not a number.
+    """
+    if x < 0:
+        raise ValueError("x must be positive")
+    return x ** 0.5
+
+
+def function_with_notes(data):
+    """Test function with Notes and Warnings.
+
+    Args:
+        data (list): Input data to process.
+
+    Returns:
+        (list): Processed data.
+
+    Notes:
+        This function modifies the input list in-place for memory efficiency. Consider passing a copy if you need to preserve the original data.
+
+    Warnings:
+        Performance may degrade with lists larger than 10000 elements. Use batch processing for large datasets.
+    """
+    return data
+
+
+def comprehensive_docstring(x, y=None, *args, **kwargs):
+    """Test function with all common sections.
+
+    This function demonstrates a comprehensive docstring with all major sections including detailed descriptions and multiple examples.
+
+    Args:
+        x (int | float): Primary input value for computation.
+        y (str, optional): Secondary parameter with default None.
+        *args (Any): Additional positional arguments.
+        **kwargs (Any): Additional keyword arguments like `verbose=True` for logging.
+
+    Returns:
+        result (dict): Dictionary containing:
+            - value (float): Computed result.
+            - status (str): Operation status.
+
+    Raises:
+        ValueError: If x is not within valid range [0, 100].
+        RuntimeError: If computation fails unexpectedly.
+
+    Examples:
+        Basic usage with required argument
+        >>> result = comprehensive_docstring(42)
+        >>> print(result['value'])
+        42.0
+
+        Usage with optional parameters
+        >>> result = comprehensive_docstring(10, y='test', verbose=True)
+        >>> print(result['status'])
+        'success'
+
+    Notes:
+        This function uses advanced algorithms for optimal performance. See https://docs.example.com/algorithms for implementation details.
+
+    Warnings:
+        Results may vary based on system precision and floating-point representation.
+    """
+    return {'value': float(x), 'status': 'success'}
+
+
+def returns_none(x):
+    """Test function returning None.
+
+    Args:
+        x (Any): Input value to log.
+
+    Returns:
+        (None): This function returns nothing.
+    """
+    print(x)
+    return None
+
+
+def multiple_return_types(x):
+    """Test function with union return types.
+
+    Args:
+        x (int): Input value.
+
+    Returns:
+        (int | None): Returns processed value or None on failure.
+    """
+    return x if x > 0 else None
+
+
+def union_and_optional_types(x, y=None):
+    """Test union and optional type annotations.
+
+    Args:
+        x (int | float | str): Value accepting multiple types.
+        y (list[int] | tuple[int, ...] | None, optional): Optional sequence with None default.
+
+    Returns:
+        (bool): Whether processing succeeded.
+    """
+    return True
+
+
+def literal_types(mode):
+    """Test literal type annotations.
+
+    Args:
+        mode (Literal['train', 'val', 'test']): Operation mode must be one of the specified literal values.
+
+    Returns:
+        (str): Confirmation message for selected mode.
+    """
+    return f"Mode: {mode}"
+
+
 class ExampleClass:
     """Test class docstring formatting.
 
@@ -108,6 +267,42 @@ class ExampleClass:
             ```
         """
         pass
+
+    @classmethod
+    def class_method(cls, x):
+        """Test classmethod docstring.
+
+        Args:
+            x (int): Value to initialize class with.
+
+        Returns:
+            (ExampleClass): New instance of the class.
+        """
+        instance = cls()
+        instance.name = str(x)
+        return instance
+
+    @staticmethod
+    def static_method(x, y):
+        """Test staticmethod docstring.
+
+        Args:
+            x (int): First value.
+            y (int): Second value.
+
+        Returns:
+            (int): Sum of x and y.
+        """
+        return x + y
+
+    @property
+    def computed_property(self):
+        """Test property docstring.
+
+        Returns:
+            (str): Computed property value based on name.
+        """
+        return f"Property: {self.name}"
 
 
 if __name__ == '__main__':
