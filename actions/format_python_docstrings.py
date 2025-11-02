@@ -153,11 +153,11 @@ def header_name(line: str) -> str | None:
     return name if name in SECTIONS else None
 
 
-def add_header(lines: list[str], indent: int, title: str, opener_line: str) -> None:
-    """Append a section header with clean spacing rules."""
+def add_header(lines: list[str], indent: int, title: str) -> None:
+    """Append a section header with a blank line before it."""
     while lines and lines[-1] == "":
         lines.pop()
-    if lines and lines[-1] != opener_line:
+    if lines:
         lines.append("")
     lines.append(" " * indent + f"{title}:")
 
@@ -324,13 +324,13 @@ def format_google(text: str, indent: int, width: int, quotes: str, prefix: str, 
 
     for sec in ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises"):
         if any(x.strip() for x in p[sec]):
-            add_header(out, indent, sec, out[0])
+            add_header(out, indent, sec)
             out.extend(format_structured_block(p[sec], width, indent))
 
     for sec in ("Example", "Notes", "References"):
         if any(x.strip() for x in p[sec]):
             title = "Examples" if sec == "Example" else sec
-            add_header(out, indent, title, out[0])
+            add_header(out, indent, title)
             out.extend(x.rstrip() for x in p[sec])
 
     while out and out[-1] == "":
