@@ -66,13 +66,17 @@ def mixed_content(params):
     pass
 
 
-def multiline_continuation(model, data, epochs):
+def multiline_continuation(model, data, epochs, optimizer, scheduler):
     """Test multiline parameter descriptions.
 
     Args:
-        model (nn.Module): PyTorch model instance that will be trained using the provided data and configuration settings.
+        model (nn.Module): PyTorch model instance that will be trained using the provided data and configuration settings for optimal performance.
         data (str): Path to dataset YAML file containing train/val splits and class names for training.
-        epochs (int): Number of training epochs to run, with checkpoints saved at regular intervals throughout.
+        epochs (int): Number of training epochs to run, with checkpoints saved at regular intervals throughout the entire training process to ensure model recovery.
+        optimizer (torch.optim.Optimizer): Optimizer instance for gradient descent.
+            Common choices include Adam, SGD, or AdamW with appropriate learning rates and weight decay parameters.
+            Second set of common choices include Adam, SGD, or AdamW with appropriate learning rates and weight decay parameters.
+        scheduler (torch.optim.lr_scheduler._LRScheduler | None): Learning rate scheduler for adaptive learning rate adjustment during training, or None to use constant learning rate.
     """
     pass
 
