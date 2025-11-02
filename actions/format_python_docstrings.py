@@ -232,10 +232,10 @@ def looks_like_param(s: str) -> bool:
     if not head:
         return False
     # Parameter names shouldn't contain punctuation (except parentheses) or be long phrases
-    if any(c in head for c in '.,;!?'):
+    if any(c in head for c in ".,;!?"):
         return False
     # Likely a param if it's a single word or word(type) pattern
-    words = head.replace('(', ' ').replace(')', ' ').split()
+    words = head.replace("(", " ").replace(")", " ").split()
     return len(words) <= 2
 
 
