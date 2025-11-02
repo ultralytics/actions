@@ -129,7 +129,7 @@ def function_with_raises(x):
     """
     if x < 0:
         raise ValueError("x must be positive")
-    return x ** 0.5
+    return x**0.5
 
 
 def function_with_notes(data):
@@ -173,12 +173,12 @@ def comprehensive_docstring(x, y=None, *args, **kwargs):
     Examples:
         Basic usage with required argument
         >>> result = comprehensive_docstring(42)
-        >>> print(result['value'])
+        >>> print(result["value"])
         42.0
 
         Usage with optional parameters
-        >>> result = comprehensive_docstring(10, y='test', verbose=True)
-        >>> print(result['status'])
+        >>> result = comprehensive_docstring(10, y="test", verbose=True)
+        >>> print(result["status"])
         'success'
 
     Notes:
@@ -187,7 +187,7 @@ def comprehensive_docstring(x, y=None, *args, **kwargs):
     Warnings:
         Results may vary based on system precision and floating-point representation.
     """
-    return {'value': float(x), 'status': 'success'}
+    return {"value": float(x), "status": "success"}
 
 
 def returns_none(x):
@@ -309,7 +309,7 @@ class ExampleClass:
         return f"Property: {self.name}"
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     import os
 
     os.system("python actions/format_python_docstrings.py example_docstrings.py && git --no-pager diff -U999999")
