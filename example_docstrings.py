@@ -108,3 +108,9 @@ class ExampleClass:
             ```
         """
         pass
+
+
+if __name__ == '__main__':
+    import os
+
+    os.system("python actions/format_python_docstrings.py example_docstrings.py && git --no-pager diff -U999999")
