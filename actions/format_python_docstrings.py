@@ -11,7 +11,18 @@ from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
 URLS = {"https", "http", "ftp"}
-SECTIONS = ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises", "Example", "Notes", "References")
+SECTIONS = (
+    "Args",
+    "Attributes",
+    "Methods",
+    "Returns",
+    "Yields",
+    "Raises",
+    "Example",
+    "Examples",
+    "Notes",
+    "References",
+)
 LIST_RX = re.compile(r"""^(\s*)(?:[-*•]\s+|(?:\d+|[A-Za-z]+)[\.\)]\s+)""")
 TABLE_RX = re.compile(r"^\s*\|.*\|\s*$")
 TABLE_RULE_RX = re.compile(r"^\s*[:\-\|\s]{3,}$")
@@ -378,7 +389,7 @@ def format_docstring(
         body = "\n".join(line.rstrip() for line in content.rstrip("\n").splitlines())
         return f"{prefix}{quotes}{body}{quotes}"
     text = content.strip()
-    has_section = any(f"{s}:" in text for s in (*SECTIONS, "Examples"))
+    has_section = any(f"{s}:" in text for s in SECTIONS)
     has_list = any(is_list_item(line) for line in text.splitlines())
     single_ok = (
         ("\n" not in text)
