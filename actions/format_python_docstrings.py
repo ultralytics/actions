@@ -265,17 +265,18 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
             out.extend(emit_paragraphs(item, width, cont, lst, orphan_min=2))
             continue
         # Join continuation lines that aren't new paragraphs into desc
-        desc = desc or ""
+        parts = [desc] if desc else []
         tail, i = [], 1
         while i < len(item):
             line = item[i].strip()
             if not line or is_list_item(item[i]) or is_fence_line(item[i]) or is_table_like(item[i]):
                 tail = item[i:]
                 break
-            desc = f"{desc} {line}"
+            parts.append(line)
             i += 1
         else:
             tail = []
+        desc = " ".join(parts)
         head = " " * cont + (f"{name}: " if (desc or had_colon) else name)
         out.extend(wrap_hanging(head, desc, width, cont + 4))
         if tail:
