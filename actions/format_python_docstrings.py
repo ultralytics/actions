@@ -534,7 +534,7 @@ def run(files: list[Path], width: int, check: bool, preserve_inline: bool, worke
                 print(f"  {p}")
                 changed += 1
             elif status == 2:
-                print(f"  Error: {p}: {msg}")
+                print(f"  ❌ {p}: {msg}")
                 errors += 1
         return changed, errors
     changed = errors = 0
@@ -546,7 +546,7 @@ def run(files: list[Path], width: int, check: bool, preserve_inline: bool, worke
                 print(f"  {p}")
                 changed += 1
             elif status == 2:
-                print(f"  Error: {p}: {msg}")
+                print(f"  ❌ {p}: {msg}")
                 errors += 1
     return changed, errors
 
@@ -580,12 +580,12 @@ def main() -> None:
     paths, width, check, preserve_inline = parse_cli(args)
     files = iter_py_files(paths)
     if not files:
-        print("No Python files found")
+        print("⚠️ No Python files found")
         return
     workers = min(8, len(files), os.cpu_count() or 1)
     root = paths[0].resolve() if paths else Path.cwd().resolve()
     t0 = time.time()
-    action = "Checking" if check else "Formatting"
+    action = "🔍 Checking" if check else "🔧 Formatting"
     print(
         f"{action} {len(files)} file{'s' if len(files) != 1 else ''} in {root} with {workers} worker{'s' if workers != 1 else ''}"
     )
@@ -601,14 +601,14 @@ def main() -> None:
             parts.append(f"{unchanged} file{'s' if unchanged != 1 else ''} left unchanged")
         if nerr:
             parts.append(f"{nerr} error{'s' if nerr != 1 else ''}")
-        print(f"{', '.join(parts)} ({dur:.1f}s)")
+        print(f"✅ {', '.join(parts)} ({dur:.1f}s)")
         if check:
             sys.exit(1)
     else:
-        print(
-            f"{len(files) - nerr} file{'s' if (len(files) - nerr) != 1 else ''} left unchanged"
-            f"{'' if not nerr else f', {nerr} error' + ('s' if nerr != 1 else '')} ({dur:.1f}s)"
-        )
+        msg = f"{len(files) - nerr} file{'s' if (len(files) - nerr) != 1 else ''} left unchanged"
+        if nerr:
+            msg += f", {nerr} error{'s' if nerr != 1 else ''}"
+        print(f"✅ {msg} ({dur:.1f}s)")
 
 
 if __name__ == "__main__":
