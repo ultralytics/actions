@@ -229,7 +229,14 @@ def looks_like_param(s: str) -> bool:
     if is_list_item(s) or ":" not in s:
         return False
     head = s.split(":", 1)[0].strip()
-    return bool(head)
+    if not head:
+        return False
+    # Parameter names shouldn't contain punctuation (except parentheses) or be long phrases
+    if any(c in head for c in '.,;!?'):
+        return False
+    # Likely a param if it's a single word or word(type) pattern
+    words = head.replace('(', ' ').replace(')', ' ').split()
+    return len(words) <= 2
 
 
 def iter_items(lines: list[str]) -> list[list[str]]:
