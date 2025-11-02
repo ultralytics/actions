@@ -41,11 +41,8 @@ def _sanitize_ai_text(s: str) -> str:
 def parse_diff_files(diff_text: str) -> tuple[dict, str]:
     """Parse diff and return file mapping with line numbers AND augmented diff with explicit line numbers.
 
-    Structure:
-      files[file]["RIGHT"][line] -> str (added line text)
-      files[file]["LEFT"][line]  -> str (removed line text)
-      files[file]["_HUNK"]["RIGHT"][line] -> int (hunk id)
-      files[file]["_HUNK"]["LEFT"][line]  -> int (hunk id)
+    Structure: files[file]["RIGHT"][line] -> str (added line text) files[file]["LEFT"][line] -> str (removed line text)
+    files[file]["_HUNK"]["RIGHT"][line] -> int (hunk id) files[file]["_HUNK"]["LEFT"][line] -> int (hunk id)
     """
     files, current_file, new_line, old_line = {}, None, 0, 0
     augmented_lines, hunk_id = [], -1
@@ -286,7 +283,9 @@ def generate_pr_review(
                     c.pop("start_line", None)
                 else:
                     if hunk_map.get(start_line) != hunk_map.get(line_num):
-                        print(f"start_line {start_line} not in same hunk as line {line_num} for {file_path}, dropping start_line")
+                        print(
+                            f"start_line {start_line} not in same hunk as line {line_num} for {file_path}, dropping start_line"
+                        )
                         c.pop("start_line", None)
 
             # Deduplicate by line number and side
