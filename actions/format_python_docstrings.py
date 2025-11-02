@@ -28,6 +28,7 @@ SECTION_ALIASES = {
     "Usage": "Examples",
     "Usage Example": "Examples",
     "Usage Examples": "Examples",
+    "Example Usage": "Examples",
     "Example": "Examples",
     "Return": "Returns",
     "Note": "Notes",
