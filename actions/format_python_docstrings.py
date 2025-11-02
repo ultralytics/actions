@@ -10,6 +10,7 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
+URLS = {"https", "http", "ftp"}
 SECTIONS = ("Args", "Attributes", "Methods", "Returns", "Yields", "Raises", "Example", "Notes", "References")
 LIST_RX = re.compile(r"""^(\s*)(?:[-*•]\s+|(?:\d+|[A-Za-z]+)[\.\)]\s+)""")
 TABLE_RX = re.compile(r"^\s*\|.*\|\s*$")
@@ -229,6 +230,8 @@ def looks_like_param(s: str) -> bool:
     if is_list_item(s) or ":" not in s:
         return False
     head = s.split(":", 1)[0].strip()
+    if head in URLS:
+        return False
     return bool(head)
 
 
