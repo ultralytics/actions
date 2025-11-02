@@ -347,7 +347,7 @@ def format_google(text: str, indent: int, width: int, quotes: str, prefix: str, 
 
 def likely_docstring_style(text: str) -> str:
     """Return 'google' | 'numpy' | 'rest' | 'epydoc' | 'unknown' for docstring text."""
-    t = "\n".join(l.rstrip() for l in text.strip().splitlines())
+    t = "\n".join(line.rstrip() for line in text.strip().splitlines())
     if RST_FIELD_RX.search(t):
         return "rest"
     if EPYDOC_RX.search(t):
@@ -371,7 +371,7 @@ def format_docstring(
         return f"{prefix}{quotes}{body}{quotes}"
     text = content.strip()
     has_section = any(f"{s}:" in text for s in (*SECTIONS, "Examples"))
-    has_list = any(is_list_item(l) for l in text.splitlines())
+    has_list = any(is_list_item(line) for line in text.splitlines())
     single_ok = (
         ("\n" not in text)
         and not has_section
