@@ -301,25 +301,26 @@ def detect_opener(original_literal: str) -> tuple[str, str, bool]:
     return keep, quotes, inline_hint
 
 
-def format_google(text: str, indent: int, width: int, quotes: str, prefix: str, inline_first_line: bool) -> str:
-    """Format multi-line Google-style docstring with proper wrapping for opener inline case."""
+def format_google(text: str, indent: int, width: int, quotes: str, prefix: str, start_newline: bool) -> str:
+    """Format multi-line Google-style docstring with start_newline controlling summary placement."""
     p = parse_sections(text)
     opener = prefix + quotes
     out: list[str] = []
 
     if p["summary"]:
         summary_text = " ".join(x.strip() for x in p["summary"]).strip()
-        # Ensure summary ends with proper punctuation
         if summary_text and summary_text[-1] not in ".!?":
             summary_text += "."
-        if inline_first_line:
-            # IMPORTANT: account for indentation added during splice
+
+        if start_newline:
+            # Force newline: opener, blank line, then summary
+            out.append(opener)
+            #out.append("")
+            out.extend(emit_paragraphs([summary_text], width, indent, list_indent=indent, orphan_min=1))
+        else:
+            # Force inline: summary on same line as opener
             eff_width = max(1, width - indent)
             out.extend(wrap_hanging(opener, summary_text, eff_width, indent))
-        else:
-            out.append(opener)
-            # Split summary_text back into lines for emit_paragraphs to preserve the period
-            out.extend(emit_paragraphs([summary_text], width, indent, list_indent=indent, orphan_min=1))
     else:
         out.append(opener)
 
@@ -359,13 +360,7 @@ def likely_docstring_style(text: str) -> str:
 
 
 def format_docstring(
-    content: str,
-    indent: int,
-    width: int,
-    quotes: str,
-    prefix: str,
-    inline_hint: bool,
-    preserve_inline: bool = True,
+    content: str, indent: int, width: int, quotes: str, prefix: str, start_newline: bool = False
 ) -> str:
     """Single-line if short/sectionless/no-lists; else Google-style; preserve quotes/prefix."""
     if not content or not content.strip():
@@ -391,15 +386,15 @@ def format_docstring(
         if out and out[-1] not in ".!?":
             out += "."
         return f"{prefix}{quotes}{out}{quotes}"
-    return format_google(text, indent, width, quotes, prefix, inline_first_line=(preserve_inline and inline_hint))
+    return format_google(text, indent, width, quotes, prefix, start_newline)
 
 
 class Visitor(ast.NodeVisitor):
     """Collect docstring replacements for classes and functions."""
 
-    def __init__(self, src: list[str], width: int = 120, preserve_inline: bool = True):
-        """Init with source lines, target width, and inline preservation flag."""
-        self.src, self.width, self.repl, self.preserve_inline = src, width, [], preserve_inline
+    def __init__(self, src: list[str], width: int = 120, start_newline: bool = False):
+        """Init with source lines, target width, and start_newline flag."""
+        self.src, self.width, self.repl, self.start_newline = src, width, [], start_newline
 
     def visit_Module(self, node):
         """Skip module docstring; visit children."""
@@ -440,15 +435,15 @@ class Visitor(ast.NodeVisitor):
                 if sl == el
                 else "\n".join([self.src[sl][sc:], *self.src[sl + 1 : el], self.src[el][:ec]])
             )
-            prefix, quotes, inline_hint = detect_opener(original)
-            formatted = format_docstring(doc, sc, self.width, quotes, prefix, inline_hint, self.preserve_inline)
+            prefix, quotes, _ = detect_opener(original)
+            formatted = format_docstring(doc, sc, self.width, quotes, prefix, self.start_newline)
             if formatted.strip() != original.strip():
                 self.repl.append((sl, el, sc, ec, formatted))
         except Exception:
             return
 
 
-def format_python_file(text: str, width: int = 120, preserve_inline: bool = True) -> str:
+def format_python_file(text: str, width: int = 120, start_newline: bool = False) -> str:
     """Return source with reformatted docstrings; on failure, return original."""
     s = text
     if not s.strip():
@@ -460,7 +455,7 @@ def format_python_file(text: str, width: int = 120, preserve_inline: bool = True
     except SyntaxError:
         return s
     src = s.splitlines()
-    v = Visitor(src, width, preserve_inline=preserve_inline)
+    v = Visitor(src, width, start_newline=start_newline)
     try:
         v.visit(tree)
     except Exception:
@@ -513,11 +508,11 @@ def iter_py_files(paths: list[Path]) -> list[Path]:
     return list(dict.fromkeys(sorted(out)))
 
 
-def _process_file_worker(path: Path, width: int, check: bool, preserve_inline: bool) -> tuple[str, int, str]:
+def _process_file_worker(path: Path, width: int, check: bool, start_newline: bool) -> tuple[str, int, str]:
     """Worker: returns (path, status, msg). status: 0 unchanged, 1 changed, 2 error."""
     try:
         orig = path.read_text(encoding="utf-8")
-        fmt = preserve_trailing_newlines(orig, format_python_file(orig, width, preserve_inline=preserve_inline))
+        fmt = preserve_trailing_newlines(orig, format_python_file(orig, width, start_newline=start_newline))
         if check:
             return (str(path), 1 if orig != fmt else 0, "")
         if orig != fmt:
@@ -528,12 +523,12 @@ def _process_file_worker(path: Path, width: int, check: bool, preserve_inline: b
         return (str(path), 2, f"{e}")
 
 
-def run(files: list[Path], width: int, check: bool, preserve_inline: bool, workers: int) -> tuple[int, int]:
+def run(files: list[Path], width: int, check: bool, start_newline: bool, workers: int) -> tuple[int, int]:
     """Run processing serially or in parallel; returns (changed, errors)."""
     if workers <= 1 or len(files) <= 1:
         changed = errors = 0
         for f in files:
-            p, status, msg = _process_file_worker(f, width, check, preserve_inline)
+            p, status, msg = _process_file_worker(f, width, check, start_newline)
             if status == 1:
                 print(f"  {p}")
                 changed += 1
@@ -543,7 +538,7 @@ def run(files: list[Path], width: int, check: bool, preserve_inline: bool, worke
         return changed, errors
     changed = errors = 0
     with ProcessPoolExecutor(max_workers=workers) as ex:
-        futs = {ex.submit(_process_file_worker, f, width, check, preserve_inline): f for f in files}
+        futs = {ex.submit(_process_file_worker, f, width, check, start_newline): f for f in files}
         for fut in as_completed(futs):
             p, status, msg = fut.result()
             if status == 1:
@@ -556,13 +551,22 @@ def run(files: list[Path], width: int, check: bool, preserve_inline: bool, worke
 
 
 def parse_cli(argv: list[str]) -> tuple[list[Path], int, bool, bool]:
-    """Minimal argv parser: (paths, width, check, preserve_inline)."""
-    width, check, paths, preserve_inline = 120, False, [], True
+    """Parse command-line arguments.
+
+    Args:
+        --check: Check if files would be reformatted without modifying them.
+        --start-newline: Force docstring summaries to start on a newline after opening quotes.
+        --line-width=N: Set maximum line width (default: 120).
+
+    Returns:
+        (paths, width, check, start_newline)
+    """
+    width, check, paths, start_newline = 120, False, [], False
     for a in argv:
         if a == "--check":
             check = True
-        elif a == "--no-preserve-inline":
-            preserve_inline = False
+        elif a == "--start-newline":
+            start_newline = True
         elif a.startswith("--line-width="):
             try:
                 width = int(a.split("=", 1)[1])
@@ -570,18 +574,16 @@ def parse_cli(argv: list[str]) -> tuple[list[Path], int, bool, bool]:
                 pass
         else:
             paths.append(Path(a))
-    return paths, width, check, preserve_inline
+    return paths, width, check, start_newline
 
 
 def main() -> None:
     """CLI entry point."""
     args = sys.argv[1:]
     if not args:
-        print(
-            "Usage: format_python_docstrings.py [--check] [--no-preserve-inline] [--line-width=120] <files_or_dirs...>"
-        )
+        print("Usage: format_python_docstrings.py [--check] [--start-newline] [--line-width=120] <files_or_dirs...>")
         return
-    paths, width, check, preserve_inline = parse_cli(args)
+    paths, width, check, start_newline = parse_cli(args)
     files = iter_py_files(paths)
     if not files:
         print("⚠️ No Python files found")
@@ -593,7 +595,7 @@ def main() -> None:
     print(
         f"{action} {len(files)} file{'s' if len(files) != 1 else ''} in {root} with {workers} worker{'s' if workers != 1 else ''}"
     )
-    changed, nerr = run(files, width, check, preserve_inline, workers)
+    changed, nerr = run(files, width, check, start_newline, workers)
     dur = time.time() - t0
     if changed:
         verb = "would be reformatted" if check else "reformatted"
