@@ -23,6 +23,15 @@ SECTIONS = (
     "Notes",
     "References",
 )
+SECTION_ALIASES = {
+    "Arguments": "Args",
+    "Usage": "Examples",
+    "Usage Example": "Examples",
+    "Usage Examples": "Examples",
+    "Example": "Examples",
+    "Return": "Returns",
+    "Note": "Notes",
+}
 LIST_RX = re.compile(r"""^(\s*)(?:[-*•]\s+|(?:\d+|[A-Za-z]+)[\.\)]\s+)""")
 TABLE_RX = re.compile(r"^\s*\|.*\|\s*$")
 TABLE_RULE_RX = re.compile(r"^\s*[:\-\|\s]{3,}$")
@@ -158,10 +167,8 @@ def header_name(line: str) -> str | None:
     if not s.endswith(":") or len(s) <= 1:
         return None
     name = s[:-1].strip()
-    if name == "Examples":
-        name = "Example"
-    if name == "Note":
-        name = "Notes"
+    # Apply aliases to normalize section names
+    name = SECTION_ALIASES.get(name, name)
     return name if name in SECTIONS else None
 
 
@@ -352,10 +359,9 @@ def format_google(text: str, indent: int, width: int, quotes: str, prefix: str, 
                 has_content = True
             out.extend(format_structured_block(p[sec], width, indent))
 
-    for sec in ("Example", "Notes", "References"):
+    for sec in ("Examples", "Notes", "References"):
         if any(x.strip() for x in p[sec]):
-            title = "Examples" if sec == "Example" else sec
-            add_header(out, indent, title)
+            add_header(out, indent, sec)
             out.extend(x.rstrip() for x in p[sec])
 
     while out and out[-1] == "":
