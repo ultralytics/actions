@@ -309,13 +309,17 @@ def format_google(text: str, indent: int, width: int, quotes: str, prefix: str, 
 
     if p["summary"]:
         summary_text = " ".join(x.strip() for x in p["summary"]).strip()
+        # Ensure summary ends with proper punctuation
+        if summary_text and summary_text[-1] not in ".!?":
+            summary_text += "."
         if inline_first_line:
             # IMPORTANT: account for indentation added during splice
             eff_width = max(1, width - indent)
             out.extend(wrap_hanging(opener, summary_text, eff_width, indent))
         else:
             out.append(opener)
-            out.extend(emit_paragraphs(p["summary"], width, indent, list_indent=indent, orphan_min=1))
+            # Split summary_text back into lines for emit_paragraphs to preserve the period
+            out.extend(emit_paragraphs([summary_text], width, indent, list_indent=indent, orphan_min=1))
     else:
         out.append(opener)
 
