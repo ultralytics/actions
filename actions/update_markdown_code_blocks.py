@@ -63,13 +63,14 @@ def format_code_with_ruff(temp_dir):
         # D103 Missing docstring in public function
         # F821 Undefined name
         # F841 Local variable is assigned to but never used
+        # Note removed --extend-select=FA to not add 'from future' imports in Python 3.8 environments
         subprocess.run(
             [
                 "ruff",
                 "check",
                 "--fix",
                 "--unsafe-fixes",
-                "--extend-select=F,I,D,UP,RUF,FA",
+                "--extend-select=F,I,D,UP,RUF",
                 "--target-version=py39",                
                 "--ignore=D100,D101,D103,D104,D203,D205,D212,D213,D401,D406,D407,D413,F821,F841,RUF001,RUF002,RUF012"
                 str(temp_dir),
