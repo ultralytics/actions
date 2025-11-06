@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest] # does not work with windows-latest
-        python-version: ["3.9", "3.14"]
+        python-version: ["3.8", "3.14"]
 
     steps:
       - uses: actions/checkout@v5
