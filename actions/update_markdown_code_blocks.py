@@ -58,7 +58,7 @@ def format_code_with_ruff(temp_dir):
         print(f"ERROR running ruff format ❌ {e}")
 
     try:
-        # Run ruff check with ignored rules:
+        # Run ruff check with extra ignored rules:
         # D101 Missing docstring in public class
         # D103 Missing docstring in public function
         # F821 Undefined name
@@ -70,8 +70,8 @@ def format_code_with_ruff(temp_dir):
                 "--fix",
                 "--unsafe-fixes",
                 "--extend-select=F,I,D,UP,RUF,FA",
-                "--target-version=py39",
-                "--ignore=D100,D101,D103,D104,D203,D205,D212,D213,D401,D406,D407,D413,F821,F841",
+                "--target-version=py39",                
+                "--ignore=D100,D101,D103,D104,D203,D205,D212,D213,D401,D406,D407,D413,F821,F841,RUF001,RUF002,RUF012"
                 str(temp_dir),
             ],
             check=True,
