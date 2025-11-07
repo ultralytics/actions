@@ -56,8 +56,7 @@ def parse_diff_files(diff_text: str) -> tuple[dict, str]:
                 files[current_file] = {"RIGHT": {}, "LEFT": {}, "_HUNK": {"RIGHT": {}, "LEFT": {}}}
             augmented_lines.append(line)
         elif line.startswith("@@") and current_file:
-            match = re.search(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)?", line)
-            if match:
+            if match := re.search(r"@@ -(\d+)(?:,\d+)? \+(\d+)(?:,\d+)?", line):
                 old_line, new_line = int(match.group(1)), int(match.group(2))
                 hunk_id += 1
             augmented_lines.append(line)
@@ -281,12 +280,11 @@ def generate_pr_review(
                 elif start_line not in side_map:
                     print(f"start_line {start_line} not in diff for {file_path}, dropping start_line")
                     c.pop("start_line", None)
-                else:
-                    if hunk_map.get(start_line) != hunk_map.get(line_num):
-                        print(
-                            f"start_line {start_line} not in same hunk as line {line_num} for {file_path}, dropping start_line"
-                        )
-                        c.pop("start_line", None)
+                elif hunk_map.get(start_line) != hunk_map.get(line_num):
+                    print(
+                        f"start_line {start_line} not in same hunk as line {line_num} for {file_path}, dropping start_line"
+                    )
+                    c.pop("start_line", None)
 
             # Deduplicate by line number and side
             key = f"{file_path}:{side}:{line_num}"

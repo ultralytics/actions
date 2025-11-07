@@ -23,9 +23,7 @@ def get_pr_branch(event) -> tuple[str, str | None]:
     head = pr_data.get("head", {})
 
     # Check if PR is from a fork
-    is_fork = head.get("repo") and head["repo"]["id"] != pr_data["base"]["repo"]["id"]
-
-    if is_fork:
+    if head.get("repo") and head["repo"]["id"] != pr_data["base"]["repo"]["id"]:  # is from a fork
         # Create temp branch in base repo by pushing fork code
         temp_branch = f"temp-ci-{pr_number}-{int(time.time() * 1000)}"
         fork_repo = head["repo"]["full_name"]

@@ -122,15 +122,18 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
         special_line_index = 0
         prefix_lines.append(lines[0])
 
-    # Find existing header
-    header_index = -1
     start_idx = special_line_index + 1 if special_line_index >= 0 else 0
     end_idx = min(start_idx + 5, len(lines))  # Look in first few lines
 
-    for i in range(start_idx, end_idx):
-        if any(x in lines[i] for x in {"© 2014-", "AGPL-3.0", "CONFIDENTIAL", "Ultralytics 🚀"}):
-            header_index = i
-            break
+    # Find existing header
+    header_index = next(
+        (
+            i
+            for i in range(start_idx, end_idx)
+            if any(x in lines[i] for x in {"© 2014-", "AGPL-3.0", "CONFIDENTIAL", "Ultralytics 🚀"})
+        ),
+        -1,
+    )
 
     # Add the formatted header to prefix lines
     prefix_lines.append(formatted_header)
