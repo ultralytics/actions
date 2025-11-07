@@ -20,9 +20,7 @@ def apply_and_check_labels(event, number, node_id, issue_type, username, labels,
         return
 
     available = {k.lower(): k for k in label_descriptions}
-    normalized = [available.get(label.lower(), label) for label in labels if label.lower() in available]
-
-    if normalized:
+    if normalized := [available.get(label.lower(), label) for label in labels if label.lower() in available]:
         print(f"Applying labels: {normalized}")
         event.apply_labels(number, node_id, normalized, issue_type)
         if "Alert" in normalized and not event.is_org_member(username):

@@ -134,9 +134,7 @@ URL_PATTERN = re.compile(
 
 def remove_html_comments(body: str) -> str:
     """Removes HTML comments from a string using regex pattern matching."""
-    if not body:
-        return ""
-    return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip()
+    return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip() if body else ""
 
 
 def clean_url(url):

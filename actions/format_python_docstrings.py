@@ -97,7 +97,7 @@ def wrap_words(words: list[str], width: int, indent: int, min_words_per_line: in
                 if this_len + (1 if lines[i] else 0) + len(donor) <= width:
                     lines[i - 1].pop()
                     lines[i].insert(0, donor)
-                    if i - 1 > 0 and len(lines[i - 1]) == 1:
+                    if i > 1 and len(lines[i - 1]) == 1:
                         i -= 1
                         continue
             i += 1
@@ -106,10 +106,10 @@ def wrap_words(words: list[str], width: int, indent: int, min_words_per_line: in
 
 def wrap_para(text: str, width: int, indent: int, min_words_per_line: int = 1) -> list[str]:
     """Wrap a paragraph string; orphan control via min_words_per_line."""
-    text = text.strip()
-    if not text:
+    if text := text.strip():
+        return wrap_words(text.split(), width, indent, min_words_per_line)
+    else:
         return []
-    return wrap_words(text.split(), width, indent, min_words_per_line)
 
 
 def wrap_hanging(head: str, desc: str, width: int, cont_indent: int) -> list[str]:
@@ -231,8 +231,7 @@ def parse_sections(text: str) -> dict[str, list[str]]:
     cur = "summary"
     for raw in text.splitlines():
         line = raw.rstrip("\n")
-        h = header_name(line)
-        if h:
+        if h := header_name(line):
             cur = h
             continue
         if not line.strip():
@@ -250,9 +249,7 @@ def looks_like_param(s: str) -> bool:
     if is_list_item(s) or ":" not in s:
         return False
     head = s.split(":", 1)[0].strip()
-    if head in URLS:
-        return False
-    return bool(head)
+    return False if head in URLS else bool(head)
 
 
 def iter_items(lines: list[str]) -> list[list[str]]:
@@ -303,8 +300,7 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
         head = " " * cont + (f"{name}: " if (desc or had_colon) else name)
         out.extend(wrap_hanging(head, desc, width, cont + 4))
         if tail:
-            body = emit_paragraphs(tail, width, cont + 4, lst, orphan_min=2)
-            if body:
+            if body := emit_paragraphs(tail, width, cont + 4, lst, orphan_min=2):
                 out.extend(body)
     return out
 
@@ -381,9 +377,7 @@ def likely_docstring_style(text: str) -> str:
         return "epydoc"
     if NUMPY_UNDERLINE_SECTION_RX.search(t):
         return "numpy"
-    if GOOGLE_SECTION_RX.search(t):
-        return "google"
-    return "unknown"
+    return "google" if GOOGLE_SECTION_RX.search(t) else "unknown"
 
 
 def format_docstring(
@@ -407,7 +401,7 @@ def format_docstring(
     )
     if single_ok:
         words = text.split()
-        if words and not (words[0].startswith(("http://", "https://")) or words[0][0].isupper()):
+        if words and not words[0].startswith(("http://", "https://")) and not words[0][0].isupper():
             words[0] = words[0][0].upper() + words[0][1:]
         out = " ".join(words)
         if out and out[-1] not in ".!?":
@@ -627,9 +621,7 @@ def main() -> None:
     if changed:
         verb = "would be reformatted" if check else "reformatted"
         unchanged = len(files) - changed - nerr
-        parts = []
-        if changed:
-            parts.append(f"{changed} file{'s' if changed != 1 else ''} {verb}")
+        parts = [f"{changed} file{'s' if changed != 1 else ''} {verb}"]
         if unchanged > 0:
             parts.append(f"{unchanged} file{'s' if unchanged != 1 else ''} left unchanged")
         if nerr:
