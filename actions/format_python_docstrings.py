@@ -574,13 +574,18 @@ def run(files: list[Path], width: int, check: bool, start_newline: bool, workers
 def parse_cli(argv: list[str]) -> tuple[list[Path], int, bool, bool]:
     """Parse command-line arguments.
 
+    Processes CLI arguments to extract paths and formatting options. Supports '--check' for validation mode,
+    '--start-newline' to force docstring summaries on new lines, and '--line-width=N' to set maximum line width.
+    Non-flag arguments are treated as file or directory paths.
+
     Args:
-        --check: Check if files would be reformatted without modifying them.
-        --start-newline: Force docstring summaries to start on a newline after opening quotes.
-        --line-width=N: Set maximum line width (default: 120).
+        argv: List of command-line argument strings.
 
     Returns:
-        (paths, width, check, start_newline)
+        paths: List of Path objects to process.
+        width: Maximum line width for formatting (default 120).
+        check: Bool for dry-run mode.
+        start_newline: Bool controlling docstring summary placement.
     """
     width, check, paths, start_newline = 120, False, [], False
     for a in argv:
