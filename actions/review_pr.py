@@ -100,7 +100,10 @@ def generate_pr_review(
     diff_files = filtered_files
 
     if not diff_files:
-        return {"comments": [], "summary": f"All {len(skipped_files)} changed files are generated/vendored (skipped review)"}
+        return {
+            "comments": [],
+            "summary": f"All {len(skipped_files)} changed files are generated/vendored (skipped review)",
+        }
 
     file_list = list(diff_files.keys())
     diff_truncated = len(augmented_diff) > MAX_PROMPT_CHARS
