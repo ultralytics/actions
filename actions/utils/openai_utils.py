@@ -32,13 +32,14 @@ SYSTEM_PROMPT_ADDITION = """Guidance:
   - Use the "@" symbol to refer to GitHub users, e.g. @glenn-jocher.
   - Tone: Adopt a professional, friendly, and concise tone.
 """
+_CITATION_PATTERN = re.compile(
+    r"[\uE000-\uF8FF]*\bcite[\uE000-\uF8FF]*(turn\d+(?:search|view)\d+|[\w\d]+)[\uE000-\uF8FF]*"
+)
 
 
 def sanitize_ai_text(s: str) -> str:
     """Strip private-use citation tokens like '' and normalize whitespace."""
-    return re.sub(
-        r"[\uE000-\uF8FF]*\bcite[\uE000-\uF8FF]*(turn\d+(?:search|view)\d+|[\w\d]+)[\uE000-\uF8FF]*", "", s or ""
-    )
+    return _CITATION_PATTERN.sub("", s) if s else ""
 
 
 def remove_outer_codeblocks(string):
