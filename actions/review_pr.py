@@ -96,11 +96,11 @@ def generate_pr_review(
 
     # Filter out generated/vendored files
     filtered_files = {p: s for p, s in diff_files.items() if not any(re.search(x, p) for x in SKIP_PATTERNS)}
-    skipped_count = len(diff_files) - len(filtered_files)
+    skipped_files = [p for p in diff_files if p not in filtered_files]
     diff_files = filtered_files
 
     if not diff_files:
-        return {"comments": [], "summary": f"All {skipped_count} changed files are generated/vendored (skipped review)"}
+        return {"comments": [], "summary": f"All {len(skipped_files)} changed files are generated/vendored (skipped review)"}
 
     file_list = list(diff_files.keys())
     diff_truncated = len(augmented_diff) > MAX_PROMPT_CHARS
@@ -299,7 +299,7 @@ def generate_pr_review(
                 "comments_before_filtering": comments_before_filtering,
                 "diff_files": diff_files,
                 "diff_truncated": diff_truncated,
-                "skipped_files": skipped_count,
+                "skipped_files": skipped_files,
             }
         )
         print(f"Valid comments after filtering: {len(response['comments'])}")
@@ -369,7 +369,11 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
         body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
 
     if skipped := review_data.get("skipped_files"):
-        body += f"\n📋 **Skipped {skipped} file{'s' if skipped != 1 else ''}** (lock files, minified, images, etc.)\n"
+        count = len(skipped)
+        body += f"\n📋 **Skipped {count} file{'s' if count != 1 else ''}** (lock files, minified, images, etc.)\n"
+        if skipped:
+            file_list = "\n".join(f"- `{f}`" for f in sorted(skipped))
+            body += f"\n<details><summary>View skipped files</summary>\n\n{file_list}\n</details>\n"
 
     # Build inline comments for the review
     review_comments = []
