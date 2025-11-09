@@ -6,7 +6,15 @@ import json
 import re
 from pathlib import Path
 
-from .utils import ACTIONS_CREDIT, GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_response, remove_html_comments, sanitize_ai_text
+from .utils import (
+    ACTIONS_CREDIT,
+    GITHUB_API_URL,
+    MAX_PROMPT_CHARS,
+    Action,
+    get_response,
+    remove_html_comments,
+    sanitize_ai_text,
+)
 
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
