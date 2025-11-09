@@ -375,8 +375,8 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
         count = len(skipped)
         skip_str = f"📋 Skipped {count} file{'s' if count != 1 else ''} (lock files, minified, images, etc.)"
         file_list = "\n".join(f"- `{f}`" for f in sorted(skipped[:100]))
-        if count>100:
-            file_list += f"\n{count-100} more..."
+        if count > 100:
+            file_list += f"\n{count - 100} more..."
         body += f"\n<details><summary>{skip_str}</summary>\n\n{file_list}\n</details>\n"
 
     # Build inline comments for the review
