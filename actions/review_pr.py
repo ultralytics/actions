@@ -373,7 +373,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     if skipped := review_data.get("skipped_files"):
         count = len(skipped)
-        skip_str = f"📋 **Skipped {count} file{'s' if count != 1 else ''}** (lock files, minified, images, etc.)"
+        skip_str = f"📋 Skipped {count} file{'s' if count != 1 else ''} (lock files, minified, images, etc.)"
         file_list = "\n".join(f"- `{f}`" for f in sorted(skipped))
         body += f"\n<details><summary>{skip_str}</summary>\n\n{file_list}\n</details>\n"
 
