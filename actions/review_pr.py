@@ -103,6 +103,7 @@ def generate_pr_review(
         return {
             "comments": [],
             "summary": f"All {len(skipped_files)} changed files are generated/vendored (skipped review)",
+            "skipped_files": skipped_files,
         }
 
     file_list = list(diff_files.keys())
