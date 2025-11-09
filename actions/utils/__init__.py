@@ -17,6 +17,7 @@ from .openai_utils import (
     get_pr_summary_guidelines,
     get_pr_summary_prompt,
     get_response,
+    sanitize_ai_text,
 )
 from .version_utils import check_pubdev_version, check_pypi_version
 
@@ -39,5 +40,6 @@ __all__ = (
     "get_pr_summary_prompt",
     "get_response",
     "remove_html_comments",
+    "sanitize_ai_text",
     "ultralytics_actions_info",
 )

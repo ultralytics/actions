@@ -6,7 +6,7 @@ import json
 import re
 from pathlib import Path
 
-from .utils import ACTIONS_CREDIT, GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_response, remove_html_comments
+from .utils import ACTIONS_CREDIT, GITHUB_API_URL, MAX_PROMPT_CHARS, Action, get_response, remove_html_comments, sanitize_ai_text
 
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
@@ -29,13 +29,6 @@ SKIP_PATTERNS = [
     r"^Pipfile\.lock$",
     r"\.(svg|png|jpe?g|gif)$",  # Images
 ]
-
-
-def _sanitize_ai_text(s: str) -> str:
-    """Strip private-use citation tokens like '' and normalize whitespace."""
-    return re.sub(
-        r"[\uE000-\uF8FF]*\bcite[\uE000-\uF8FF]*(turn\d+(?:search|view)\d+|[\w\d]+)[\uE000-\uF8FF]*", "", s or ""
-    )
 
 
 def parse_diff_files(diff_text: str) -> tuple[dict, str]:
@@ -237,10 +230,10 @@ def generate_pr_review(
         )
 
         # Sanitize leaked tool-citation tokens from model output
-        response["summary"] = _sanitize_ai_text(response.get("summary", ""))
+        response["summary"] = sanitize_ai_text(response.get("summary", ""))
         for c in response.get("comments", []):
             if "message" in c:
-                c["message"] = _sanitize_ai_text(c["message"])
+                c["message"] = sanitize_ai_text(c["message"])
 
         print(json.dumps(response, indent=2))
 
