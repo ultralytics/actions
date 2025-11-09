@@ -146,14 +146,14 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
         if content_start < len(lines) and not lines[content_start].strip():
             content_start += 1
         content_lines = lines[content_start:]
+
+    # No header found
+    elif special_line_index >= 0:
+        # Content starts after special line
+        content_lines = lines[special_line_index + 1 :]
     else:
-        # No header found
-        if special_line_index >= 0:
-            # Content starts after special line
-            content_lines = lines[special_line_index + 1 :]
-        else:
-            # No special line, content starts at beginning
-            content_lines = lines
+        # No special line, content starts at beginning
+        content_lines = lines
 
     # Add blank line if the first content line isn't blank and isn't a docstring
     if content_lines and content_lines[0].strip() and not content_lines[0].strip().startswith('"""'):
