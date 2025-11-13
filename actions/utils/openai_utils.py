@@ -12,11 +12,11 @@ import requests
 from actions.utils.common_utils import check_links_in_string
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-2025-08-07")
+OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.1-2025-11-13")
 MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% of 128k context)
 MODEL_COSTS = {
     "gpt-5-codex": (1.25, 10.00),
-    "gpt-5-2025-08-07": (1.25, 10.00),
+    "gpt-5.1-2025-11-13": (1.25, 10.00),
     "gpt-5-nano-2025-08-07": (0.05, 0.40),
     "gpt-5-mini-2025-08-07": (0.25, 2.00),
 }
