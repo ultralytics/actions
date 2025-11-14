@@ -118,7 +118,7 @@ def generate_pr_review(
         for file_path in file_list:
             try:
                 p = Path(file_path)
-                if not p.exists() or not p.is_file():
+                if not p.is_file():
                     continue
                 # Skip files matching SKIP_PATTERNS and files >100KB
                 if any(re.search(x, file_path) for x in SKIP_PATTERNS) or p.stat().st_size > 100_000:
