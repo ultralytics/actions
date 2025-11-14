@@ -190,9 +190,10 @@ def generate_pr_review(
         },
     ]
 
-    # Debug output
-    # print(f"\nSystem prompt (first 3000 chars):\n{messages[0]['content'][:3000]}...\n")
-    # print(f"\nUser prompt (first 3000 chars):\n{messages[1]['content'][:3000]}...\n")
+    # Debug output for ultralytics/actions repo
+    if repository == "ultralytics/actions":
+        print(f"\nSystem prompt ({len(messages[0]['content'])} chars):\n{messages[0]['content']}\n")
+        print(f"\nUser prompt ({len(messages[1]['content'])} chars):\n{messages[1]['content']}\n")
 
     try:
         schema = {
