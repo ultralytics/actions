@@ -118,7 +118,10 @@ def generate_pr_review(
         for file_path in file_list:
             try:
                 p = Path(file_path)
-                if not p.exists():
+                if not p.is_file():
+                    continue
+                # Skip files matching SKIP_PATTERNS and files >100KB
+                if any(re.search(x, file_path) for x in SKIP_PATTERNS) or p.stat().st_size > 100_000:
                     continue
                 content = p.read_text(encoding="utf-8")
                 # Only include if within budget
@@ -187,9 +190,10 @@ def generate_pr_review(
         },
     ]
 
-    # Debug output
-    # print(f"\nSystem prompt (first 3000 chars):\n{messages[0]['content'][:3000]}...\n")
-    # print(f"\nUser prompt (first 3000 chars):\n{messages[1]['content'][:3000]}...\n")
+    # Debug output for ultralytics/actions repo
+    if repository == "ultralytics/actions":
+        print(f"\nSystem prompt ({len(messages[0]['content'])} chars):\n{messages[0]['content']}\n")
+        print(f"\nUser prompt ({len(messages[1]['content'])} chars):\n{messages[1]['content']}\n")
 
     try:
         schema = {
