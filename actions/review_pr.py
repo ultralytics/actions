@@ -349,7 +349,7 @@ def generate_pr_review(
         print(f"Review generation failed: {e}\n{error_details}")
         summary = (
             f"{ERROR_MARKER}: `{type(e).__name__}`\n\n"
-            f"<details><summary>Debug Info</summary>\n\n```\n{error_details}```\n</details>"
+            f"<details><summary>Debug Info</summary>\n\n```\n{error_details}\n```\n</details>"
         )
         return {"comments": [], "summary": summary}
 
