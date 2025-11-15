@@ -228,7 +228,7 @@ def generate_pr_review(
                             "start_line": {"type": ["integer", "null"]},
                             "suggestion": {"type": ["string", "null"]},
                         },
-                        "required": ["file", "line", "side", "severity", "message"],
+                        "required": ["file", "line", "side", "severity", "message", "start_line", "suggestion"],
                         "additionalProperties": False,
                     },
                 },
