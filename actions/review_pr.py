@@ -46,7 +46,11 @@ SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 
 
 def should_skip_file(path: str) -> bool:
     """Return True if file path matches a generated/minified skip pattern."""
-    return any(pattern.search(path) for pattern in SKIP_PATTERNS)
+    normalized = Path(path).as_posix().lstrip("./")
+    if normalized.startswith("/"):
+        normalized = normalized.lstrip("/")
+    filename = normalized.rsplit("/", 1)[-1]
+    return any(pattern.search(normalized) or pattern.search(filename) for pattern in SKIP_PATTERNS)
 
 
 def parse_diff_files(diff_text: str) -> tuple[dict, str]:
@@ -186,7 +190,7 @@ def generate_pr_review(
         "- Extract line numbers from R#### or L#### prefixes in the diff\n"
         "- Exact paths (no ./), 'side' field must match R (RIGHT) or L (LEFT) prefix\n"
         "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
-        f"- Keep feedback concise: {TARGET_REVIEW_COMMENTS} issues max (hard cap {MAX_REVIEW_COMMENTS})\n"
+        f"- Keep feedback concise: {TARGET_REVIEW_COMMENTS} issues max (less is better) with hard cap at {MAX_REVIEW_COMMENTS}\n"
         f"- Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''})\n"
         f"- Lines changed: {lines_changed}\n"
     )
