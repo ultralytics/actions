@@ -47,10 +47,8 @@ SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 
 def should_skip_file(path: str) -> bool:
     """Return True if file path matches a generated/minified skip pattern."""
     normalized = Path(path).as_posix().lstrip("./")
-    if normalized.startswith("/"):
-        normalized = normalized.lstrip("/")
     filename = normalized.rsplit("/", 1)[-1]
-    return any(pattern.search(normalized) or pattern.search(filename) for pattern in SKIP_PATTERNS)
+    return any(pattern.search(candidate) for pattern in SKIP_PATTERNS for candidate in (normalized, filename))
 
 
 def parse_diff_files(diff_text: str) -> tuple[dict, str]:
@@ -325,7 +323,7 @@ def generate_pr_review(
         filtered_comments = list(unique_comments.values())
         filtered_comments.sort(
             key=lambda c: (
-                SEVERITY_RANK.get((c.get("severity") or "SUGGESTION"), 5),
+                SEVERITY_RANK.get(c.get("severity")),
                 c.get("file") or "",
                 c.get("line", 0),
             )
@@ -374,12 +372,13 @@ def dismiss_previous_reviews(event: Action) -> int:
                     event.put(f"{reviews_base}/{review_id}/dismissals", json={"message": "Superseded by new review"})
 
     # Delete previous inline comments
-    comments_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments?per_page=100"
+    comments_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
+    comments_url = f"{comments_base}?per_page=100"
     if (response := event.get(comments_url)).status_code == 200:
         for comment in response.json():
             if comment.get("user", {}).get("login") == bot_username and (comment_id := comment.get("id")):
                 event.delete(
-                    f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments/{comment_id}",
+                    f"{comments_base}/{comment_id}",
                     expected_status=[200, 204, 404],
                 )
 
