@@ -19,7 +19,7 @@ from .utils import (
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
-SKIP_PATTERNS = [
+SKIP_PATTERN_STRINGS = [
     r"\.lock$",  # Lock files
     r"-lock\.(json|yaml|yml)$",
     r"\.min\.(js|css)$",  # Minified
@@ -37,6 +37,16 @@ SKIP_PATTERNS = [
     r"^Pipfile\.lock$",
     r"\.(svg|png|jpe?g|gif)$",  # Images
 ]
+SKIP_PATTERNS = tuple(re.compile(pattern) for pattern in SKIP_PATTERN_STRINGS)
+MAX_CONTEXT_FILE_CHARS = 5000
+MAX_REVIEW_COMMENTS = 10
+TARGET_REVIEW_COMMENTS = 5
+SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
+
+
+def should_skip_file(path: str) -> bool:
+    """Return True if file path matches a generated/minified skip pattern."""
+    return any(pattern.search(path) for pattern in SKIP_PATTERNS)
 
 
 def parse_diff_files(diff_text: str) -> tuple[dict, str]:
@@ -96,7 +106,7 @@ def generate_pr_review(
         return {"comments": [], "summary": "No files with changes detected in diff"}
 
     # Filter out generated/vendored files
-    filtered_files = {p: s for p, s in diff_files.items() if not any(re.search(x, p) for x in SKIP_PATTERNS)}
+    filtered_files = {p: s for p, s in diff_files.items() if not should_skip_file(p)}
     skipped_files = [p for p in diff_files if p not in filtered_files]
     diff_files = filtered_files
 
@@ -121,13 +131,18 @@ def generate_pr_review(
                 if not p.is_file():
                     continue
                 # Skip files matching SKIP_PATTERNS and files >100KB
-                if any(re.search(x, file_path) for x in SKIP_PATTERNS) or p.stat().st_size > 100_000:
+                if should_skip_file(file_path) or p.stat().st_size > 100_000:
                     continue
-                content = p.read_text(encoding="utf-8")
-                # Only include if within budget
-                if total_chars + len(content) + 1000 < MAX_PROMPT_CHARS:  # 1000 char buffer for formatting
-                    file_contents.append(f"### {file_path}\n```\n{content}\n```")
-                    total_chars += len(content) + 1000
+                snippet = p.read_text(encoding="utf-8", errors="ignore")[:MAX_CONTEXT_FILE_CHARS]
+                if not snippet:
+                    continue
+                if len(snippet) == MAX_CONTEXT_FILE_CHARS:
+                    snippet = f"{snippet.rstrip()}\n... (truncated)"
+                # Only include if within budget, include buffer for markdown noise
+                estimated_cost = len(snippet) + 200
+                if total_chars + estimated_cost < MAX_PROMPT_CHARS:
+                    file_contents.append(f"### {file_path}\n```\n{snippet}\n```")
+                    total_chars += estimated_cost
                 else:
                     break  # Stop when we hit budget limit
             except Exception:
@@ -171,6 +186,7 @@ def generate_pr_review(
         "- Extract line numbers from R#### or L#### prefixes in the diff\n"
         "- Exact paths (no ./), 'side' field must match R (RIGHT) or L (LEFT) prefix\n"
         "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
+        f"- Keep feedback concise: {TARGET_REVIEW_COMMENTS} issues max (hard cap {MAX_REVIEW_COMMENTS})\n"
         f"- Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''})\n"
         f"- Lines changed: {lines_changed}\n"
     )
@@ -212,7 +228,7 @@ def generate_pr_review(
                             "start_line": {"type": ["integer", "null"]},
                             "suggestion": {"type": ["string", "null"]},
                         },
-                        "required": ["file", "line", "side", "severity", "message", "start_line", "suggestion"],
+                        "required": ["file", "line", "side", "severity", "message"],
                         "additionalProperties": False,
                     },
                 },
@@ -302,9 +318,21 @@ def generate_pr_review(
             else:
                 print(f"⚠️  AI duplicate for {key}: {c.get('severity')} - {(c.get('message') or '')[:60]}...")
 
+        filtered_comments = list(unique_comments.values())
+        filtered_comments.sort(
+            key=lambda c: (
+                SEVERITY_RANK.get((c.get("severity") or "SUGGESTION"), 5),
+                c.get("file") or "",
+                c.get("line", 0),
+            )
+        )
+        if len(filtered_comments) > MAX_REVIEW_COMMENTS:
+            print(f"Trimming comments from {len(filtered_comments)} to {MAX_REVIEW_COMMENTS}")
+            filtered_comments = filtered_comments[:MAX_REVIEW_COMMENTS]
+
         response.update(
             {
-                "comments": list(unique_comments.values()),
+                "comments": filtered_comments,
                 "comments_before_filtering": comments_before_filtering,
                 "diff_files": diff_files,
                 "diff_truncated": diff_truncated,
@@ -332,16 +360,17 @@ def dismiss_previous_reviews(event: Action) -> int:
         return 1
 
     review_count = 0
-    reviews_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
+    reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
+    reviews_url = f"{reviews_base}?per_page=100"
     if (response := event.get(reviews_url)).status_code == 200:
         for review in response.json():
             if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or ""):
                 review_count += 1
                 if review.get("state") in ["APPROVED", "CHANGES_REQUESTED"] and (review_id := review.get("id")):
-                    event.put(f"{reviews_url}/{review_id}/dismissals", json={"message": "Superseded by new review"})
+                    event.put(f"{reviews_base}/{review_id}/dismissals", json={"message": "Superseded by new review"})
 
     # Delete previous inline comments
-    comments_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
+    comments_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments?per_page=100"
     if (response := event.get(comments_url)).status_code == 200:
         for comment in response.json():
             if comment.get("user", {}).get("login") == bot_username and (comment_id := comment.get("id")):
@@ -371,8 +400,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     body = f"{review_title}\n\n{ACTIONS_CREDIT}\n\n{summary[:3000]}\n\n"
 
     if comments:
-        shown = min(len(comments), 10)
-        body += f"💬 Posted {shown} inline comment{'s' if shown != 1 else ''}\n"
+        body += f"💬 Posted {len(comments)} inline comment{'s' if len(comments) != 1 else ''}\n"
 
     if review_data.get("diff_truncated"):
         body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
@@ -387,7 +415,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
 
     # Build inline comments for the review
     review_comments = []
-    for comment in comments[:10]:  # Limit inline comments
+    for comment in comments:
         if not (file_path := comment.get("file")) or not (line := comment.get("line", 0)):
             continue
 
