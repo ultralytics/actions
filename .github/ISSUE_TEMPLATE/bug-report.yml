@@ -3,7 +3,7 @@
 name: 🐛 Bug Report
 # title: " "
 description: Problems with Ultralytics Actions workflows, standalone actions, or the Python package
-labels: [bug, triage]
+labels: [bug]
 type: "bug"
 body:
   - type: markdown
