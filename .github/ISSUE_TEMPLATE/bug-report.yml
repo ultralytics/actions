@@ -1,0 +1,113 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+name: 🐛 Bug Report
+# title: " "
+description: Problems with Ultralytics Actions workflows, standalone actions, or the Python package
+labels: [bug, triage]
+type: "bug"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for submitting an Ultralytics Actions 🐛 Bug Report! Read the [Ultralytics Actions README](https://github.com/ultralytics/actions#readme) first to confirm the expected behavior and configuration for each action.
+
+  - type: checkboxes
+    attributes:
+      label: Search before asking
+      description: >
+        Please read the [Ultralytics Actions README](https://github.com/ultralytics/actions#readme), search the Ultralytics [Docs](https://docs.ultralytics.com/), and review existing [issues](https://github.com/ultralytics/actions/issues) to see if a similar bug report already exists.
+      options:
+        - label: >
+            I have reviewed the Ultralytics Actions README and searched the [issues](https://github.com/ultralytics/actions/issues) with no similar bug report.
+          required: true
+
+  - type: dropdown
+    attributes:
+      label: Ultralytics Actions area
+      description: |
+        Please select the part of this repository that is affected.
+      multiple: true
+      options:
+        - "Ultralytics Actions workflow (ultralytics/actions@main)"
+        - "Retry Action"
+        - "Cleanup Disk Action"
+        - "Scan PRs Action"
+        - "Python package (`ultralytics-actions`)"
+        - "Repository documentation / README"
+        - "Other"
+    validations:
+      required: false
+
+  - type: textarea
+    attributes:
+      label: Workflow or command context
+      description: >
+        Share the relevant GitHub workflow snippet, CLI command, or Python API usage (see README sections: Ultralytics Actions, Standalone Actions, and Python Package). Describe what you expected to happen and what happened instead.
+      placeholder: |
+        ```yaml
+        - name: Run Ultralytics Actions
+          uses: ultralytics/actions@main
+          with:
+            python: true
+            summary: true
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Bug
+      description: Include actionable details such as failing job links, action version (`@main`, commit SHA, or package version), logs, screenshots, and any configuration overrides. Use [Markdown](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax) for formatting.
+      placeholder: |
+        💡 ProTip! Include GitHub Actions URLs, console logs, stack traces, and the outcome vs. expectation so we can reproduce quickly.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Environment
+      description: Please provide your runner/system information to help us diagnose the problem.
+      placeholder: |
+        Please include:
+        - Runner OS (e.g., ubuntu-latest, macos-13, self-hosted)
+        - Workflow trigger (push, PR, issue) or CLI environment
+        - `ultralytics-actions` version (Action ref or pip version)
+        - Python version (if using the package)
+        - Any other tooling versions (Ruff, Prettier, swift-format, etc.)
+
+        Example:
+        ```
+        OS: macOS-13.5.2
+        Python: 3.11.2
+        Action ref: ultralytics/actions@main
+        Runner: ubuntu-latest
+        Workflow: .github/workflows/ultralytics-actions.yml
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Minimal Reproducible Example
+      description: >
+        Provide the smallest workflow snippet, command invocation, or Python example that reproduces the bug using the guidance in the README. See [minimal reproducible example](https://docs.ultralytics.com/help/minimum-reproducible-example/).
+      placeholder: |
+        ```python
+        # Code to reproduce your issue here
+        ```
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Additional
+      description: Anything else you would like to share?
+
+  - type: checkboxes
+    attributes:
+      label: Are you willing to submit a PR?
+      description: >
+        (Optional) We encourage you to submit a [Pull Request](https://github.com/ultralytics/actions/pulls) (PR) to help improve Ultralytics Actions for everyone, especially if you have a good understanding of how to implement a fix or feature.
+        See the Ultralytics [Contributing Guide](https://docs.ultralytics.com/help/contributing/) to get started.
+      options:
+        - label: Yes I'd like to help by submitting a PR!
