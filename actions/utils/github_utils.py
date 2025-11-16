@@ -125,7 +125,7 @@ query($owner: String!, $repo: String!, $number: Int!, $botLogin: String!) {
                     author { login }
                 }
             }
-            comments(last: 100) {
+            reviewComments(last: 100) {
                 nodes {
                     id
                     author { login }
