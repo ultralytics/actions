@@ -134,14 +134,12 @@ class Action:
         r = getattr(requests, method)(url, headers=headers or self.headers, **kwargs)
         expected = expected_status or self._default_status[method]
         status_expected = r.status_code in expected
-        log_success = status_expected and r.status_code < 400
+        success = status_expected and r.status_code < 400
 
         if self.verbose:
             elapsed = r.elapsed.total_seconds()
-            print(
-                f"{'✓' if log_success else '✗'} {method.upper()} {url} → {r.status_code} ({elapsed:.1f}s)", flush=True
-            )
-            if not log_success:
+            print(f"{'✓' if success else '✗'} {method.upper()} {url} → {r.status_code} ({elapsed:.1f}s)", flush=True)
+            if not success:
                 try:
                     error_data = r.json()
                     print(f"  ❌ Error: {error_data.get('message', 'Unknown error')}")
