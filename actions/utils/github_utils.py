@@ -343,7 +343,9 @@ class Action:
             updated_description = current_body.split(start)[0].rstrip() + "\n\n" + new_summary
         else:
             print("PR Summary not found, appending.")
-            updated_description = (current_body.rstrip() + "\n\n" + new_summary) if current_body.strip() else new_summary
+            updated_description = (
+                (current_body.rstrip() + "\n\n" + new_summary) if current_body.strip() else new_summary
+            )
 
         self.patch(url, json={"body": updated_description})
         self._pr_summary_cache = new_summary
@@ -494,16 +496,20 @@ Thank you 🙏
         owner, repo = self.repository.split("/")
         queries = []
         for i, num in enumerate(issue_numbers):
-            queries.append(f'issue{i}: issue(number: {num}) {{ id }}')
+            queries.append(f"issue{i}: issue(number: {num}) {{ id }}")
 
         query = f"""query {{
             repository(owner: \"{owner}\", name: \"{repo}\") {{
-                {' '.join(queries)}
+                {" ".join(queries)}
             }}
         }}"""
         result = self.graphql_request(query)
         repo_data = result.get("data", {}).get("repository", {})
-        return {num: repo_data.get(f"issue{i}", {}).get("id") for i, num in enumerate(issue_numbers) if repo_data.get(f"issue{i}")}
+        return {
+            num: repo_data.get(f"issue{i}", {}).get("id")
+            for i, num in enumerate(issue_numbers)
+            if repo_data.get(f"issue{i}")
+        }
 
     def get_pr_contributors(self) -> tuple[str | None, dict]:
         """Gets PR contributors and closing issues, returns (pr_credit_string, pr_data)."""

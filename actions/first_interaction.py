@@ -195,7 +195,9 @@ def main(*args, **kwargs):
 
         if summary := response.get("summary"):
             print("Updating PR description with summary...")
-            event.update_pr_description(number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}", pr_data.get("body"))
+            event.update_pr_description(
+                number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}", pr_data.get("body")
+            )
         else:
             summary = body
 
