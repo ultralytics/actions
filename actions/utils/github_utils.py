@@ -181,6 +181,7 @@ class Action:
         """Checks if the repository is public using event data."""
         return self.event_data.get("repository", {}).get("private", False)
 
+    @lru_cache(maxsize=128)
     def get_username(self) -> str | None:
         """Gets username associated with the GitHub token with caching."""
         if self._username_cache:
@@ -244,7 +245,6 @@ class Action:
             self._pr_diff_cache = "ERROR: UNABLE TO RETRIEVE DIFF."
         return self._pr_diff_cache
 
-    @lru_cache(maxsize=128)
     def get_repo_data(self, endpoint: str) -> dict:
         """Fetches repository data from a specified endpoint."""
         return self.get(f"{GITHUB_API_URL}/repos/{self.repository}/{endpoint}").json()
