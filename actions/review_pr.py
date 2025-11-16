@@ -39,8 +39,7 @@ SKIP_PATTERN_STRINGS = [
 ]
 SKIP_PATTERNS = tuple(re.compile(pattern) for pattern in SKIP_PATTERN_STRINGS)
 MAX_CONTEXT_FILE_CHARS = 5000
-MAX_REVIEW_COMMENTS = 10
-TARGET_REVIEW_COMMENTS = 5
+MAX_REVIEW_COMMENTS = 8
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
 
 
@@ -188,7 +187,7 @@ def generate_pr_review(
         "- Extract line numbers from R#### or L#### prefixes in the diff\n"
         "- Exact paths (no ./), 'side' field must match R (RIGHT) or L (LEFT) prefix\n"
         "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
-        f"- Keep feedback concise: {TARGET_REVIEW_COMMENTS} issues max (less is better) with hard cap at {MAX_REVIEW_COMMENTS}\n"
+        f"- Keep feedback concise: less issues is better with hard cap at {MAX_REVIEW_COMMENTS}\n"
         f"- Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''})\n"
         f"- Lines changed: {lines_changed}\n"
     )
