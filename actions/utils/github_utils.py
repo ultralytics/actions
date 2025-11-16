@@ -471,12 +471,12 @@ Thank you 🙏
 
         pr_data = result.get("data", {}).get("repository", {}).get("pullRequest", {})
         reviews = pr_data.get("reviews", {}).get("nodes", [])
-        
+
         # Flatten comments from all reviews
         comments = []
         for review in reviews:
             comments.extend(review.get("comments", {}).get("nodes", []))
-        
+
         return reviews, comments
 
     def batch_delete_review_comments(self, comment_ids: list[str]) -> None:
