@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+from functools import lru_cache
 from pathlib import Path
 
 import requests
@@ -114,13 +115,11 @@ class Action:
         self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
         self.pr = self.event_data.get("pull_request", {})
         self.repository = self.event_data.get("repository", {}).get("full_name")
+        self.owner, self.repo_name = self.repository.split("/") if self.repository else (None, None)
         self.headers = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json"}
         self.headers_diff = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github.v3.diff"}
         self.verbose = verbose
         self.eyes_reaction_id = None
-        self._pr_diff_cache = None
-        self._pr_summary_cache = None
-        self._username_cache = None
         self._default_status = {
             "get": [200, 204],
             "post": [200, 201, 204],
@@ -180,22 +179,20 @@ class Action:
         """Checks if the repository is public using event data."""
         return self.event_data.get("repository", {}).get("private", False)
 
+    @lru_cache(maxsize=1)
     def get_username(self) -> str | None:
-        """Gets username associated with the GitHub token with caching."""
-        if self._username_cache:
-            return self._username_cache
-
+        """Gets username associated with the GitHub token."""
         response = self.post(GITHUB_GRAPHQL_URL, json={"query": "query { viewer { login } }"})
         if response.status_code == 200:
             try:
-                self._username_cache = response.json()["data"]["viewer"]["login"]
+                return response.json()["data"]["viewer"]["login"]
             except KeyError as e:
                 print(f"Error parsing authenticated user response: {e}")
-        return self._username_cache
+        return None
 
     def is_org_member(self, username: str) -> bool:
         """Checks if a user is a member of the organization."""
-        return self.get(f"{GITHUB_API_URL}/orgs/{self.repository.split('/')[0]}/members/{username}").status_code == 204
+        return self.get(f"{GITHUB_API_URL}/orgs/{self.owner}/members/{username}").status_code == 204
 
     def should_skip_pr_author(self) -> bool:
         """Checks if PR should be skipped based on author (self-authored or bot PRs)."""
@@ -227,21 +224,19 @@ class Action:
             return True
         return False
 
+    @lru_cache(maxsize=1)
     def get_pr_diff(self) -> str:
-        """Retrieves the diff content for a specified pull request with caching."""
-        if self._pr_diff_cache:
-            return self._pr_diff_cache
-
+        """Retrieves the diff content for a specified pull request."""
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}"
         response = self.get(url, headers=self.headers_diff)
         if response.status_code == 200:
-            self._pr_diff_cache = response.text or "ERROR: EMPTY DIFF, NO CODE CHANGES IN THIS PR."
+            return response.text or "ERROR: EMPTY DIFF, NO CODE CHANGES IN THIS PR."
         elif response.status_code == 406:
-            self._pr_diff_cache = "ERROR: PR diff exceeds GitHub's 20,000 line limit, unable to retrieve diff."
+            return "ERROR: PR diff exceeds GitHub's 20,000 line limit, unable to retrieve diff."
         else:
-            self._pr_diff_cache = "ERROR: UNABLE TO RETRIEVE DIFF."
-        return self._pr_diff_cache
+            return "ERROR: UNABLE TO RETRIEVE DIFF."
 
+    @lru_cache(maxsize=128)
     def get_repo_data(self, endpoint: str) -> dict:
         """Fetches repository data from a specified endpoint."""
         return self.get(f"{GITHUB_API_URL}/repos/{self.repository}/{endpoint}").json()
@@ -296,12 +291,10 @@ class Action:
             updated_description = (description.rstrip() + "\n\n" + new_summary) if description.strip() else new_summary
 
         self.patch(url, json={"body": updated_description})
-        self._pr_summary_cache = new_summary
 
     def get_label_ids(self, labels: list[str]) -> list[str]:
         """Retrieves GitHub label IDs for a list of label names using the GraphQL API."""
-        owner, repo = self.repository.split("/")
-        result = self.graphql_request(GRAPHQL_REPO_LABELS, variables={"owner": owner, "name": repo})
+        result = self.graphql_request(GRAPHQL_REPO_LABELS, variables={"owner": self.owner, "name": self.repo_name})
         if "data" in result and "repository" in result["data"]:
             all_labels = result["data"]["repository"]["labels"]["nodes"]
             label_map = {label["name"].lower(): label["id"] for label in all_labels}
@@ -378,8 +371,7 @@ class Action:
 
     def block_user(self, username: str):
         """Blocks a user from the organization."""
-        url = f"{GITHUB_API_URL}/orgs/{self.repository.split('/')[0]}/blocks/{username}"
-        self.put(url)
+        self.put(f"{GITHUB_API_URL}/orgs/{self.owner}/blocks/{username}")
 
     def handle_alert(self, number: int, node_id: str, issue_type: str, username: str, block: bool = False):
         """Handles content flagged as alert: updates content, locks, optionally closes and blocks user."""
@@ -402,8 +394,7 @@ Thank you 🙏
 
     def get_pr_contributors(self) -> tuple[str | None, dict]:
         """Gets PR contributors and closing issues, returns (pr_credit_string, pr_data)."""
-        owner, repo = self.repository.split("/")
-        variables = {"owner": owner, "repo": repo, "pr_number": self.pr["number"]}
+        variables = {"owner": self.owner, "repo": self.repo_name, "pr_number": self.pr["number"]}
         response = self.post(GITHUB_GRAPHQL_URL, json={"query": GRAPHQL_PR_CONTRIBUTORS, "variables": variables})
         if response.status_code != 200:
             return None, {}
