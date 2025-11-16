@@ -138,7 +138,9 @@ class Action:
 
         if self.verbose:
             elapsed = r.elapsed.total_seconds()
-            print(f"{'✓' if log_success else '✗'} {method.upper()} {url} → {r.status_code} ({elapsed:.1f}s)", flush=True)
+            print(
+                f"{'✓' if log_success else '✗'} {method.upper()} {url} → {r.status_code} ({elapsed:.1f}s)", flush=True
+            )
             if not log_success:
                 try:
                     error_data = r.json()
