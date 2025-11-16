@@ -9,7 +9,13 @@ from .common_utils import (
     allow_redirect,
     remove_html_comments,
 )
-from .github_utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, GRAPHQL_LABEL_AND_COMMENT_ISSUE, Action, ultralytics_actions_info
+from .github_utils import (
+    GITHUB_API_URL,
+    GITHUB_GRAPHQL_URL,
+    GRAPHQL_LABEL_AND_COMMENT_ISSUE,
+    Action,
+    ultralytics_actions_info,
+)
 from .openai_utils import (
     MAX_PROMPT_CHARS,
     filter_labels,
