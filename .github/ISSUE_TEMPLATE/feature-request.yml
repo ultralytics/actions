@@ -1,0 +1,80 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+name: 🚀 Feature Request
+description: Suggest an Ultralytics Actions improvement
+# title: " "
+labels: [enhancement]
+type: "feature"
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for submitting an Ultralytics Actions 🚀 Feature Request! Review the [Ultralytics Actions README](https://github.com/ultralytics/actions#readme) to ensure the requested functionality does not already exist.
+
+  - type: checkboxes
+    attributes:
+      label: Search before asking
+      description: >
+        Please read the [Ultralytics Actions README](https://github.com/ultralytics/actions#readme), browse the Ultralytics [Docs](https://docs.ultralytics.com/), and search existing [issues](https://github.com/ultralytics/actions/issues) to see if a similar feature request already exists.
+      options:
+        - label: >
+            I have reviewed the Ultralytics Actions README and searched the [issues](https://github.com/ultralytics/actions/issues) with no similar feature requests.
+          required: true
+
+  - type: dropdown
+    attributes:
+      label: Ultralytics Actions area
+      description: |
+        Select the part of the repository this feature targets.
+      multiple: true
+      options:
+        - "Ultralytics Actions workflow (ultralytics/actions@main)"
+        - "Retry Action"
+        - "Cleanup Disk Action"
+        - "Scan PRs Action"
+        - "Python package (`ultralytics-actions`)"
+        - "Repository documentation / README"
+        - "Other"
+
+  - type: textarea
+    attributes:
+      label: Description
+      description: Describe the feature you would like to see, including the current limitation or pain point.
+      placeholder: |
+        What new capability should Ultralytics Actions provide?
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Use case
+      description: |
+        Describe the workflow, GitHub Action job, or Python automation that would benefit. Link to README sections or workflows this feature builds upon.
+      placeholder: |
+        How would this feature be used, and who would use it?
+
+  - type: textarea
+    attributes:
+      label: Proposed solution
+      description: Outline your ideal implementation details. Include workflow snippets, flags, or API changes referencing README terminology.
+      placeholder: |
+        ```yaml
+        - uses: ultralytics/actions@main
+          with:
+            summary: true
+            <new-option>: true
+        ```
+
+  - type: textarea
+    attributes:
+      label: Additional
+      description: Anything else you would like to share?
+
+  - type: checkboxes
+    attributes:
+      label: Are you willing to submit a PR?
+      description: >
+        (Optional) We encourage you to submit a [Pull Request](https://github.com/ultralytics/actions/pulls) (PR) to help improve Ultralytics Actions for everyone, especially if you have a good understanding of how to implement a fix or feature.
+        See the Ultralytics [Contributing Guide](https://docs.ultralytics.com/help/contributing/) to get started.
+      options:
+        - label: Yes I'd like to help by submitting a PR!
