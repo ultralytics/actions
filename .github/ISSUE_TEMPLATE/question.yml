@@ -14,7 +14,7 @@ body:
     attributes:
       label: Search before asking
       description: >
-        Please read the [Ultralytics Actions README](https://github.com/ultralytics/actions#readme), search the Ultralytics [Docs](https://docs.ultralytics.com/), [issues](https://github.com/ultralytics/actions/issues) and [discussions](https://github.com/orgs/ultralytics/discussions) to see if a similar question already exists.
+        I have reviewed the README and Docs and searched the Ultralytics [issues](https://github.com/ultralytics/actions/issues) and [discussions](https://github.com/orgs/ultralytics/discussions) with no similar questions.
       options:
         - label: >
             I have reviewed the README and searched the Ultralytics [issues](https://github.com/ultralytics/actions/issues) and [discussions](https://github.com/orgs/ultralytics/discussions) with no similar questions.
