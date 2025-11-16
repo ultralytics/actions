@@ -361,11 +361,12 @@ def dismiss_previous_reviews(event: Action) -> int:
     if not (pr_number := event.pr.get("number")):
         return 1
 
-    # Fetch reviews and comments in single GraphQL query
-    reviews, comments = event.get_pr_reviews_and_comments(pr_number)
     bot_username = event.get_username()
     if not bot_username:
         return 1
+
+    # Fetch reviews and comments in single GraphQL query
+    reviews, comments = event.get_pr_reviews_and_comments(pr_number)
 
     review_count = 0
     reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"

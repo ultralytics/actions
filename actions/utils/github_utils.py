@@ -111,7 +111,7 @@ query($owner: String!, $repo: String!, $number: Int!) {
         }
     }
 }
-"""
+"""  # Note: Limited to first 100 labels. Sufficient for most repos; add pagination if needed.
 
 GRAPHQL_PR_REVIEWS_COMMENTS = """
 query($owner: String!, $repo: String!, $number: Int!, $botLogin: String!) {
@@ -473,10 +473,13 @@ Thank you 🙏
         return reviews, comments
 
     def batch_delete_review_comments(self, comment_ids: list[str]) -> None:
-        """Batch delete PR review comments using a single GraphQL mutation."""
+        """Batch delete PR review comments using a single GraphQL mutation (max 50 to avoid query limits)."""
         if not comment_ids:
             return
 
+        # Limit to first 50 comments to avoid hitting GraphQL complexity limits
+        comment_ids = comment_ids[:50]
+        
         mutations = []
         for i, comment_id in enumerate(comment_ids):
             mutations.append(
@@ -492,16 +495,26 @@ Thank you 🙏
             return {}
 
         owner, repo = self.repository.split("/")
-        queries = []
-        for i, num in enumerate(issue_numbers):
-            queries.append(f'issue{i}: issue(number: {num}) {{ id }}')
-
-        query = f"""query {{
-            repository(owner: \"{owner}\", name: \"{repo}\") {{
-                {' '.join(queries)}
+        
+        # Build parameterized query to avoid injection risks
+        query_parts = []
+        for i in range(len(issue_numbers)):
+            query_parts.append(f'issue{i}: issue(number: $num{i}) {{ id }}')
+        
+        variables = {f"num{i}": num for i, num in enumerate(issue_numbers)}
+        variables["owner"] = owner
+        variables["repo"] = repo
+        
+        # Build variable definitions
+        var_defs = ["$owner: String!", "$repo: String!"] + [f"$num{i}: Int!" for i in range(len(issue_numbers))]
+        
+        query = f"""query({', '.join(var_defs)}) {{
+            repository(owner: $owner, name: $repo) {{
+                {' '.join(query_parts)}
             }}
         }}"""
-        result = self.graphql_request(query)
+        
+        result = self.graphql_request(query, variables)
         repo_data = result.get("data", {}).get("repository", {})
         return {num: repo_data.get(f"issue{i}", {}).get("id") for i, num in enumerate(issue_numbers) if repo_data.get(f"issue{i}")}
 

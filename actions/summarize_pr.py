@@ -97,7 +97,7 @@ def label_fixed_issues(event, pr_summary):
         return pr_credit
 
     # Batch label and comment all issues using GraphQL mutations
-    for issue_num, issue_node_id in issue_node_ids.items():
+    for issue_node_id in issue_node_ids.values():
         event.graphql_request(GRAPHQL_LABEL_AND_COMMENT_ISSUE, {
             "issueId": issue_node_id,
             "labelIds": label_ids,
