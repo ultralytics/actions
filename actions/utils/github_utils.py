@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import os
-from functools import lru_cache
 from pathlib import Path
 
 import requests
@@ -181,7 +180,6 @@ class Action:
         """Checks if the repository is public using event data."""
         return self.event_data.get("repository", {}).get("private", False)
 
-    @lru_cache(maxsize=128)
     def get_username(self) -> str | None:
         """Gets username associated with the GitHub token with caching."""
         if self._username_cache:
