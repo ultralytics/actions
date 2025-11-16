@@ -125,7 +125,7 @@ query($owner: String!, $repo: String!, $number: Int!, $botLogin: String!) {
                     author { login }
                     comments(last: 100) {
                         nodes {
-                            id
+                            databaseId
                             author { login }
                         }
                     }
@@ -479,25 +479,10 @@ Thank you 🙏
         
         return reviews, comments
 
-    def batch_delete_review_comments(self, comment_ids: list[str]) -> None:
-        """Batch delete PR review comments using a single GraphQL mutation (max 50 to avoid query limits)."""
-        if not comment_ids:
-            return
-
-        # Limit to first 50 comments to avoid hitting GraphQL complexity limits
-        comment_ids = comment_ids[:50]
-
-        # Build mutation with variables
-        mutations = []
-        var_defs = []
-        variables = {}
-        for i, comment_id in enumerate(comment_ids):
-            mutations.append(f"delete{i}: deletePullRequestReviewComment(input: {{id: $id{i}}}) {{ clientMutationId }}")
-            var_defs.append(f"$id{i}: ID!")
-            variables[f"id{i}"] = comment_id
-
-        mutation = f"mutation({', '.join(var_defs)}) {{ {' '.join(mutations)} }}"
-        self.graphql_request(mutation, variables)
+    def batch_delete_review_comments(self, comment_ids: list[int]) -> None:
+        """Delete PR review comments using REST API (GraphQL batch mutations hit complexity limits)."""
+        for comment_id in comment_ids:
+            self.delete(f"{GITHUB_API_URL}/repos/{self.repository}/pulls/comments/{comment_id}")
 
     def get_multiple_issue_node_ids(self, issue_numbers: list[int]) -> dict[int, str]:
         """Gets multiple issue node IDs in a single GraphQL query."""
