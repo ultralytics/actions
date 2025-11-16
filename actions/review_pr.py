@@ -358,29 +358,27 @@ def generate_pr_review(
 
 def dismiss_previous_reviews(event: Action) -> int:
     """Dismiss previous bot reviews and delete inline comments, returns count for numbering."""
-    if not (pr_number := event.pr.get("number")) or not (bot_username := event.get_username()):
+    if not (pr_number := event.pr.get("number")):
+        return 1
+
+    # Fetch reviews and comments in single GraphQL query
+    reviews, comments = event.get_pr_reviews_and_comments(pr_number)
+    bot_username = event.get_username()
+    if not bot_username:
         return 1
 
     review_count = 0
     reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
-    reviews_url = f"{reviews_base}?per_page=100"
-    if (response := event.get(reviews_url)).status_code == 200:
-        for review in response.json():
-            if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or ""):
-                review_count += 1
-                if review.get("state") in ["APPROVED", "CHANGES_REQUESTED"] and (review_id := review.get("id")):
-                    event.put(f"{reviews_base}/{review_id}/dismissals", json={"message": "Superseded by new review"})
+    for review in reviews:
+        # Double-check author matches bot (defense in depth)
+        if review.get("author", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or ""):
+            review_count += 1
+            if review.get("state") in ["APPROVED", "CHANGES_REQUESTED"] and (review_id := review.get("databaseId")):
+                event.put(f"{reviews_base}/{review_id}/dismissals", json={"message": "Superseded by new review"})
 
-    # Delete previous inline comments
-    comments_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
-    comments_url = f"{comments_base}?per_page=100"
-    if (response := event.get(comments_url)).status_code == 200:
-        for comment in response.json():
-            if comment.get("user", {}).get("login") == bot_username and (comment_id := comment.get("id")):
-                event.delete(
-                    f"{comments_base}/{comment_id}",
-                    expected_status=[200, 204, 404],
-                )
+    # Batch delete all inline comments (with author verification)
+    comment_ids = [c["id"] for c in comments if c.get("id") and c.get("author", {}).get("login") == bot_username]
+    event.batch_delete_review_comments(comment_ids)
 
     return review_count + 1
 

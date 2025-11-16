@@ -97,6 +97,56 @@ mutation($labelableId: ID!, $labelIds: [ID!]!) {
 }
 """
 
+GRAPHQL_PR_DETAILS = """
+query($owner: String!, $repo: String!, $number: Int!) {
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $number) {
+            body
+        }
+        labels(first: 100) {
+            nodes {
+                name
+                description
+            }
+        }
+    }
+}
+"""
+
+GRAPHQL_PR_REVIEWS_COMMENTS = """
+query($owner: String!, $repo: String!, $number: Int!, $botLogin: String!) {
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $number) {
+            reviews(first: 100, author: $botLogin) {
+                nodes {
+                    databaseId
+                    state
+                    body
+                    author { login }
+                }
+            }
+            comments(first: 100, author: $botLogin) {
+                nodes {
+                    id
+                    author { login }
+                }
+            }
+        }
+    }
+}
+"""
+
+GRAPHQL_LABEL_AND_COMMENT_ISSUE = """
+mutation($issueId: ID!, $labelIds: [ID!]!, $body: String!) {
+    addLabelsToLabelable(input: {labelableId: $issueId, labelIds: $labelIds}) {
+        labelable { id }
+    }
+    addComment(input: {subjectId: $issueId, body: $body}) {
+        commentEdge { node { id } }
+    }
+}
+"""
+
 
 class Action:
     """Handles GitHub Actions API interactions and event processing."""
@@ -273,27 +323,27 @@ class Action:
             print(result.get("errors"))
         return result
 
-    def update_pr_description(self, number: int, new_summary: str, max_retries: int = 2):
-        """Updates PR description with summary, retrying if description is None."""
+    def update_pr_description(self, number: int, new_summary: str, current_body: str | None = None):
+        """Updates PR description with summary, uses cached body if provided to avoid redundant API calls."""
         import time
 
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{number}"
-        description = ""
-        for i in range(max_retries + 1):
-            description = self.get(url).json().get("body") or ""
-            if description:
-                break
-            if i < max_retries:
-                print("No current PR description found, retrying...")
-                time.sleep(1)
+        if current_body is None:
+            for i in range(3):
+                current_body = self.get(url).json().get("body") or ""
+                if current_body:
+                    break
+                if i < 2:
+                    print("No current PR description found, retrying...")
+                    time.sleep(1)
 
         start = "## 🛠️ PR Summary"
-        if start in description:
+        if start in current_body:
             print("Existing PR Summary found, replacing.")
-            updated_description = description.split(start)[0].rstrip() + "\n\n" + new_summary
+            updated_description = current_body.split(start)[0].rstrip() + "\n\n" + new_summary
         else:
             print("PR Summary not found, appending.")
-            updated_description = (description.rstrip() + "\n\n" + new_summary) if description.strip() else new_summary
+            updated_description = (current_body.rstrip() + "\n\n" + new_summary) if current_body.strip() else new_summary
 
         self.patch(url, json={"body": updated_description})
         self._pr_summary_cache = new_summary
@@ -399,6 +449,61 @@ Thank you 🙏
         self.lock_item(number, node_id, issue_type)
         if block:
             self.block_user(username)
+
+    def get_pr_details_and_labels(self, pr_number: int) -> dict:
+        """Gets PR details and repository labels in a single GraphQL query."""
+        owner, repo = self.repository.split("/")
+        variables = {"owner": owner, "repo": repo, "number": pr_number}
+        result = self.graphql_request(GRAPHQL_PR_DETAILS, variables=variables)
+        return result.get("data", {}).get("repository", {})
+
+    def get_pr_reviews_and_comments(self, pr_number: int) -> tuple[list, list]:
+        """Gets PR reviews and comments by bot in a single GraphQL query."""
+        owner, repo = self.repository.split("/")
+        bot_login = self.get_username()
+        if not bot_login:
+            return [], []
+
+        variables = {"owner": owner, "repo": repo, "number": pr_number, "botLogin": bot_login}
+        result = self.graphql_request(GRAPHQL_PR_REVIEWS_COMMENTS, variables=variables)
+
+        pr_data = result.get("data", {}).get("repository", {}).get("pullRequest", {})
+        reviews = pr_data.get("reviews", {}).get("nodes", [])
+        comments = pr_data.get("comments", {}).get("nodes", [])
+        return reviews, comments
+
+    def batch_delete_review_comments(self, comment_ids: list[str]) -> None:
+        """Batch delete PR review comments using a single GraphQL mutation."""
+        if not comment_ids:
+            return
+
+        mutations = []
+        for i, comment_id in enumerate(comment_ids):
+            mutations.append(
+                f'delete{i}: deletePullRequestReviewComment(input: {{id: "{comment_id}"}}) {{ clientMutationId }}'
+            )
+
+        mutation = f"mutation {{ {' '.join(mutations)} }}"
+        self.graphql_request(mutation)
+
+    def get_multiple_issue_node_ids(self, issue_numbers: list[int]) -> dict[int, str]:
+        """Gets multiple issue node IDs in a single GraphQL query."""
+        if not issue_numbers:
+            return {}
+
+        owner, repo = self.repository.split("/")
+        queries = []
+        for i, num in enumerate(issue_numbers):
+            queries.append(f'issue{i}: issue(number: {num}) {{ id }}')
+
+        query = f"""query {{
+            repository(owner: \"{owner}\", name: \"{repo}\") {{
+                {' '.join(queries)}
+            }}
+        }}"""
+        result = self.graphql_request(query)
+        repo_data = result.get("data", {}).get("repository", {})
+        return {num: repo_data.get(f"issue{i}", {}).get("id") for i, num in enumerate(issue_numbers) if repo_data.get(f"issue{i}")}
 
     def get_pr_contributors(self) -> tuple[str | None, dict]:
         """Gets PR contributors and closing issues, returns (pr_credit_string, pr_data)."""
