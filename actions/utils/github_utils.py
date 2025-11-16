@@ -133,7 +133,8 @@ class Action:
         """Unified request handler with error checking."""
         r = getattr(requests, method)(url, headers=headers or self.headers, **kwargs)
         expected = expected_status or self._default_status[method]
-        success = r.status_code in expected
+        status_expected = r.status_code in expected
+        success = status_expected and r.status_code < 400
 
         if self.verbose:
             elapsed = r.elapsed.total_seconds()
@@ -147,7 +148,7 @@ class Action:
                 except Exception:
                     print(f"  ❌ Error: {r.text[:1000]}")
 
-        if not success and hard:
+        if not status_expected and hard:
             r.raise_for_status()
         return r
 
