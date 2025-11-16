@@ -378,7 +378,9 @@ def dismiss_previous_reviews(event: Action) -> int:
                 event.put(f"{reviews_base}/{review_id}/dismissals", json={"message": "Superseded by new review"})
 
     # Batch delete all inline comments (with author verification)
-    comment_ids = [c["databaseId"] for c in comments if c.get("databaseId") and c.get("author", {}).get("login") == bot_username]
+    comment_ids = [
+        c["databaseId"] for c in comments if c.get("databaseId") and c.get("author", {}).get("login") == bot_username
+    ]
     event.batch_delete_review_comments(comment_ids)
 
     return review_count + 1
