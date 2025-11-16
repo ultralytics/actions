@@ -188,7 +188,7 @@ def generate_pr_review(
         "- Extract line numbers from R#### or L#### prefixes in the diff\n"
         "- Exact paths (no ./), 'side' field must match R (RIGHT) or L (LEFT) prefix\n"
         "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
-        f"- Keep feedback concise: {TARGET_REVIEW_COMMENTS} issues max (less is better) with hard cap at {MAX_REVIEW_COMMENTS}\n"
+        f"- Keep feedback concise: ideally less than {TARGET_REVIEW_COMMENTS} issues (less is better) with hard cap at {MAX_REVIEW_COMMENTS}\n"
         f"- Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''})\n"
         f"- Lines changed: {lines_changed}\n"
     )
