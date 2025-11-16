@@ -123,12 +123,12 @@ query($owner: String!, $repo: String!, $number: Int!, $botLogin: String!) {
                     state
                     body
                     author { login }
-                }
-            }
-            reviewComments(last: 100) {
-                nodes {
-                    id
-                    author { login }
+                    comments(last: 100) {
+                        nodes {
+                            id
+                            author { login }
+                        }
+                    }
                 }
             }
         }
@@ -471,7 +471,12 @@ Thank you 🙏
 
         pr_data = result.get("data", {}).get("repository", {}).get("pullRequest", {})
         reviews = pr_data.get("reviews", {}).get("nodes", [])
-        comments = pr_data.get("comments", {}).get("nodes", [])
+        
+        # Flatten comments from all reviews
+        comments = []
+        for review in reviews:
+            comments.extend(review.get("comments", {}).get("nodes", []))
+        
         return reviews, comments
 
     def batch_delete_review_comments(self, comment_ids: list[str]) -> None:
