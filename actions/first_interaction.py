@@ -219,21 +219,22 @@ def main(*args, **kwargs):
         return
 
     # Handle issues and discussions (NOT PRs)
-    available_labels = event.get_repo_data("labels")
-    label_descriptions = {label["name"]: label.get("description") or "" for label in available_labels}
+    if issue_type != "pull request":
+        available_labels = event.get_repo_data("labels")
+        label_descriptions = {label["name"]: label.get("description") or "" for label in available_labels}
 
-    current_labels = (
-        []
-        if issue_type == "discussion"
-        else [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
-    )
+        current_labels = (
+            []
+            if issue_type == "discussion"
+            else [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
+        )
 
-    relevant_labels = get_relevant_labels(issue_type, title, body, label_descriptions, current_labels)
-    apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
+        relevant_labels = get_relevant_labels(issue_type, title, body, label_descriptions, current_labels)
+        apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
 
-    if action in {"opened", "created"}:
-        custom_response = get_first_interaction_response(event, issue_type, title, body, username)
-        event.add_comment(number, node_id, custom_response, issue_type)
+        if action in {"opened", "created"}:
+            custom_response = get_first_interaction_response(event, issue_type, title, body, username)
+            event.add_comment(number, node_id, custom_response, issue_type)
 
 
 if __name__ == "__main__":

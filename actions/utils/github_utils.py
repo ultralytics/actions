@@ -482,14 +482,17 @@ Thank you 🙏
         # Limit to first 50 comments to avoid hitting GraphQL complexity limits
         comment_ids = comment_ids[:50]
 
+        # Build mutation with variables
         mutations = []
+        var_defs = []
+        variables = {}
         for i, comment_id in enumerate(comment_ids):
-            mutations.append(
-                f'delete{i}: deletePullRequestReviewComment(input: {{id: "{comment_id}"}}) {{ clientMutationId }}'
-            )
+            mutations.append(f"delete{i}: deletePullRequestReviewComment(input: {{id: $id{i}}}) {{ clientMutationId }}")
+            var_defs.append(f"$id{i}: ID!")
+            variables[f"id{i}"] = comment_id
 
-        mutation = f"mutation {{ {' '.join(mutations)} }}"
-        self.graphql_request(mutation)
+        mutation = f"mutation({', '.join(var_defs)}) {{ {' '.join(mutations)} }}"
+        self.graphql_request(mutation, variables)
 
     def get_multiple_issue_node_ids(self, issue_numbers: list[int]) -> dict[int, str]:
         """Gets multiple issue node IDs in a single GraphQL query."""
