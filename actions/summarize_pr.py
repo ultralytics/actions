@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from .utils import ACTIONS_CREDIT, GITHUB_API_URL, GRAPHQL_LABEL_AND_COMMENT_ISSUE, Action, get_pr_summary_prompt, get_response
+from .utils import (
+    ACTIONS_CREDIT,
+    GITHUB_API_URL,
+    GRAPHQL_LABEL_AND_COMMENT_ISSUE,
+    Action,
+    get_pr_summary_prompt,
+    get_response,
+)
 
 SUMMARY_MARKER = "## 🛠️ PR Summary"
 
@@ -98,11 +105,9 @@ def label_fixed_issues(event, pr_summary):
 
     # Batch label and comment all issues using GraphQL mutations
     for issue_node_id in issue_node_ids.values():
-        event.graphql_request(GRAPHQL_LABEL_AND_COMMENT_ISSUE, {
-            "issueId": issue_node_id,
-            "labelIds": label_ids,
-            "body": comment
-        })
+        event.graphql_request(
+            GRAPHQL_LABEL_AND_COMMENT_ISSUE, {"issueId": issue_node_id, "labelIds": label_ids, "body": comment}
+        )
 
     return pr_credit
 

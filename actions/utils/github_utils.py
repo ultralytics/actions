@@ -343,7 +343,9 @@ class Action:
             updated_description = current_body.split(start)[0].rstrip() + "\n\n" + new_summary
         else:
             print("PR Summary not found, appending.")
-            updated_description = (current_body.rstrip() + "\n\n" + new_summary) if current_body.strip() else new_summary
+            updated_description = (
+                (current_body.rstrip() + "\n\n" + new_summary) if current_body.strip() else new_summary
+            )
 
         self.patch(url, json={"body": updated_description})
         self._pr_summary_cache = new_summary
@@ -479,7 +481,7 @@ Thank you 🙏
 
         # Limit to first 50 comments to avoid hitting GraphQL complexity limits
         comment_ids = comment_ids[:50]
-        
+
         mutations = []
         for i, comment_id in enumerate(comment_ids):
             mutations.append(
@@ -495,28 +497,32 @@ Thank you 🙏
             return {}
 
         owner, repo = self.repository.split("/")
-        
+
         # Build parameterized query to avoid injection risks
         query_parts = []
         for i in range(len(issue_numbers)):
-            query_parts.append(f'issue{i}: issue(number: $num{i}) {{ id }}')
-        
+            query_parts.append(f"issue{i}: issue(number: $num{i}) {{ id }}")
+
         variables = {f"num{i}": num for i, num in enumerate(issue_numbers)}
         variables["owner"] = owner
         variables["repo"] = repo
-        
+
         # Build variable definitions
         var_defs = ["$owner: String!", "$repo: String!"] + [f"$num{i}: Int!" for i in range(len(issue_numbers))]
-        
-        query = f"""query({', '.join(var_defs)}) {{
+
+        query = f"""query({", ".join(var_defs)}) {{
             repository(owner: $owner, name: $repo) {{
-                {' '.join(query_parts)}
+                {" ".join(query_parts)}
             }}
         }}"""
-        
+
         result = self.graphql_request(query, variables)
         repo_data = result.get("data", {}).get("repository", {})
-        return {num: repo_data.get(f"issue{i}", {}).get("id") for i, num in enumerate(issue_numbers) if repo_data.get(f"issue{i}")}
+        return {
+            num: repo_data.get(f"issue{i}", {}).get("id")
+            for i, num in enumerate(issue_numbers)
+            if repo_data.get(f"issue{i}")
+        }
 
     def get_pr_contributors(self) -> tuple[str | None, dict]:
         """Gets PR contributors and closing issues, returns (pr_credit_string, pr_data)."""
