@@ -371,13 +371,13 @@ def dismiss_previous_reviews(event: Action) -> int:
                     event.put(f"{reviews_base}/{review_id}/dismissals", json={"message": "Superseded by new review"})
 
     # Delete previous inline comments
-    comments_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
-    comments_url = f"{comments_base}?per_page=100"
+    comments_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments?per_page=100"
+    delete_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments"
     if (response := event.get(comments_url)).status_code == 200:
         for comment in response.json():
             if comment.get("user", {}).get("login") == bot_username and (comment_id := comment.get("id")):
                 event.delete(
-                    f"{comments_base}/{comment_id}",
+                    f"{delete_base}/{comment_id}",
                     expected_status=[200, 204, 404],
                 )
 
