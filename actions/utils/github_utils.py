@@ -229,7 +229,6 @@ class Action:
             return True
         return False
 
-
     def get_pr_diff(self) -> str:
         """Retrieves the diff content for a specified pull request with caching."""
         if self._pr_diff_cache:
