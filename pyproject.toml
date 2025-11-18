@@ -75,6 +75,9 @@ dev = [
     "pytest",
     "pytest-cov",
 ]
+completion = [
+    "argcomplete>=3.6.3",
+]
 
 [project.urls]
 "Homepage" = "https://ultralytics.com"

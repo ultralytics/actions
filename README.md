@@ -164,6 +164,23 @@ ultralytics-actions update-markdown-code-blocks
 ultralytics-actions info
 ```
 
+#### Shell Completion
+
+Enable tab completion for your shell:
+
+```bash
+# Install completion support (optional)
+pip install ultralytics-actions[completion]
+
+# Generate completion script
+ultralytics-actions completion bash   # For Bash
+ultralytics-actions completion zsh    # For Zsh
+ultralytics-actions completion fish   # For Fish
+
+# Example: Enable for Zsh (add to ~/.zshrc)
+eval "$(ultralytics-actions completion zsh)"
+```
+
 ### Pre-commit Integration
 
 Use Ultralytics Actions in your `.pre-commit-config.yaml`:

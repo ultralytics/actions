@@ -9,6 +9,12 @@ This module provides a unified command-line interface for all Ultralytics Action
 import argparse
 import sys
 
+try:
+    import argcomplete
+    ARGCOMPLETE_AVAILABLE = True
+except ImportError:
+    ARGCOMPLETE_AVAILABLE = False
+
 
 def main():
     """Main CLI entry point for ultralytics-actions."""
@@ -51,21 +57,39 @@ def main():
     )
     
     # Update markdown code blocks
-    subparsers.add_parser(
+    update_markdown_parser = subparsers.add_parser(
         "update-markdown-code-blocks",
         help="Update markdown code blocks",
     )
+    update_markdown_parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Path to directory or file to process (default: current directory)",
+    )
     
     # Update headers
-    subparsers.add_parser(
+    headers_parser = subparsers.add_parser(
         "headers",
         help="Update file headers",
     )
+    headers_parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Path to directory or file to update (default: current directory)",
+    )
     
     # Format Python docstrings
-    subparsers.add_parser(
+    format_docstrings_parser = subparsers.add_parser(
         "format-python-docstrings",
         help="Format Python docstrings",
+    )
+    format_docstrings_parser.add_argument(
+        "path",
+        nargs="?",
+        default=".",
+        help="Path to directory or file to format (default: current directory)",
     )
     
     # Info
@@ -74,7 +98,22 @@ def main():
         help="Display package information",
     )
     
-    args = parser.parse_args()
+    # Completion
+    completion_parser = subparsers.add_parser(
+        "completion",
+        help="Generate shell completion script",
+    )
+    completion_parser.add_argument(
+        "shell",
+        choices=["bash", "zsh", "fish"],
+        help="Shell type for completion script",
+    )
+    
+    # Enable argcomplete if available
+    if ARGCOMPLETE_AVAILABLE:
+        argcomplete.autocomplete(parser)
+    
+    args, unknown = parser.parse_known_args()
     
     if not args.command:
         parser.print_help()
@@ -91,12 +130,22 @@ def main():
         from actions.summarize_release import main as cmd_main
     elif args.command == "update-markdown-code-blocks":
         from actions.update_markdown_code_blocks import main as cmd_main
+        # Pass the path argument using sys.argv manipulation
+        sys.argv = [sys.argv[0], args.path]
     elif args.command == "headers":
         from actions.update_file_headers import main as cmd_main
+        # Pass the path argument using sys.argv manipulation
+        sys.argv = [sys.argv[0], args.path]
     elif args.command == "format-python-docstrings":
         from actions.format_python_docstrings import main as cmd_main
+        # Pass the path argument using sys.argv manipulation
+        import sys
+        sys.argv = [sys.argv[0], args.path]
     elif args.command == "info":
         from actions.utils import ultralytics_actions_info as cmd_main
+    elif args.command == "completion":
+        generate_completion(args.shell)
+        return
     else:
         parser.print_help()
         sys.exit(1)
@@ -108,6 +157,43 @@ def get_version():
     """Get package version."""
     from actions import __version__
     return __version__
+
+
+def generate_completion(shell):
+    """Generate shell completion script."""
+    if not ARGCOMPLETE_AVAILABLE:
+        print("Error: argcomplete is not installed. Install with: pip install argcomplete")
+        sys.exit(1)
+    
+    if shell == "bash":
+        print("""
+# Bash completion for ultralytics-actions
+# Add this to ~/.bashrc or ~/.bash_profile:
+#   eval "$(register-python-argcomplete ultralytics-actions)"
+# Or run: activate-global-python-argcomplete (one-time setup)
+
+eval "$(register-python-argcomplete ultralytics-actions)"
+""")
+    elif shell == "zsh":
+        print("""
+# Zsh completion for ultralytics-actions
+# Add this to ~/.zshrc:
+#   autoload -U bashcompinit
+#   bashcompinit
+#   eval "$(register-python-argcomplete ultralytics-actions)"
+
+autoload -U bashcompinit
+bashcompinit
+eval "$(register-python-argcomplete ultralytics-actions)"
+""")
+    elif shell == "fish":
+        print("""
+# Fish completion for ultralytics-actions
+# Add this to ~/.config/fish/config.fish:
+#   register-python-argcomplete --shell fish ultralytics-actions | source
+
+register-python-argcomplete --shell fish ultralytics-actions | source
+""")
 
 
 if __name__ == "__main__":
