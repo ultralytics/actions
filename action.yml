@@ -98,19 +98,11 @@ runs:
         INPUTS_SPELLING: ${{ inputs.spelling }}
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_REF: ${{ github.ref }}
-        GITHUB_SHA: ${{ github.sha }}
       run: |
-        # Install from git branch/commit if testing in ultralytics/actions repo, otherwise from PyPI
+        # Install from git branch if testing in ultralytics/actions repo, otherwise from PyPI
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
-          if [[ "$GITHUB_REF" == refs/pull/* ]]; then
-            # For PRs, use the commit SHA
-            echo "Installing from PR commit: $GITHUB_SHA"
-            packages="git+https://github.com/ultralytics/actions@${GITHUB_SHA}"
-          else
-            # For branches, strip refs/heads/ prefix
-            echo "Installing from git branch: $GITHUB_REF"
-            packages="git+https://github.com/ultralytics/actions@${GITHUB_REF#refs/heads/}"
-          fi
+          echo "Installing from git branch: $GITHUB_REF"
+          packages="git+https://github.com/ultralytics/actions@${GITHUB_REF#refs/heads/}"
         else
           # packages="ultralytics-actions"
           packages="git+https://github.com/ultralytics/actions@main"
