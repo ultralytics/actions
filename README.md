@@ -146,6 +146,18 @@ Install `ultralytics-actions` for programmatic access to action utilities.
 pip install ultralytics-actions
 ```
 
+Or use with [uv](https://docs.astral.sh/uv/) as a tool (no installation needed):
+
+```bash
+# Run directly with uvx
+uvx ultralytics-actions --help
+uvx ultralytics-actions info
+
+# Or install as a uv tool
+uv tool install ultralytics-actions
+uv tool run ultralytics-actions --help
+```
+
 ### CLI Usage
 
 All tools are accessible via a unified CLI:
