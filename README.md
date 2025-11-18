@@ -146,6 +146,48 @@ Install `ultralytics-actions` for programmatic access to action utilities.
 pip install ultralytics-actions
 ```
 
+### CLI Usage
+
+All tools are accessible via a unified CLI:
+
+```bash
+# Show all available commands
+ultralytics-actions --help
+
+# Run specific commands
+ultralytics-actions first-interaction
+ultralytics-actions review-pr
+ultralytics-actions summarize-pr
+ultralytics-actions headers
+ultralytics-actions format-python-docstrings
+ultralytics-actions update-markdown-code-blocks
+ultralytics-actions info
+```
+
+### Pre-commit Integration
+
+Use Ultralytics Actions in your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/ultralytics/actions
+    rev: main  # Use a specific tag/version in production
+    hooks:
+      - id: update-file-headers
+      - id: format-python-docstrings
+      - id: update-markdown-code-blocks
+```
+
+Then install and run:
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files  # Run on all files
+```
+
+### Python API
+
 **Available Modules:**
 
 - `actions.review_pr` - AI-powered PR review
