@@ -114,7 +114,7 @@ def format_bash_with_prettier(temp_dir):
         print(f"ERROR running prettier-plugin-sh ❌ {e}")
 
 
-def format_markdown_string(
+def process_markdown_string(
     markdown_content: str,
     process_python: bool = True,
     process_bash: bool = True,
