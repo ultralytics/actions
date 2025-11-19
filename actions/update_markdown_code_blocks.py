@@ -6,6 +6,7 @@ import hashlib
 import re
 import shutil
 import subprocess
+import tempfile
 from pathlib import Path
 
 
@@ -111,6 +112,37 @@ def format_bash_with_prettier(temp_dir):
             print("Completed bash formatting ✅")
     except Exception as e:
         print(f"ERROR running prettier-plugin-sh ❌ {e}")
+
+
+def format_markdown_string(
+    markdown_content: str,
+    process_python: bool = True,
+    process_bash: bool = True,
+    verbose: bool = False,
+) -> str:
+    """Formats Python/Bash code blocks inside a markdown string."""
+    formatted_markdown = markdown_content
+    with tempfile.TemporaryDirectory() as temp_dir_name:
+        temp_dir = Path(temp_dir_name)
+        temp_md = temp_dir / "input.md"
+        temp_md.write_text(markdown_content)
+
+        markdown_snapshot, temp_files = process_markdown_file(temp_md, temp_dir, process_python, process_bash, verbose)
+        if markdown_snapshot is None or temp_files is None:
+            return formatted_markdown
+
+        python_files_exist = process_python and any(code_type == "python" for _, _, _, code_type in temp_files)
+        bash_files_exist = process_bash and any(code_type == "bash" for _, _, _, code_type in temp_files)
+
+        if python_files_exist:
+            format_code_with_ruff(temp_dir)
+        if bash_files_exist:
+            format_bash_with_prettier(temp_dir)
+
+        update_markdown_file(temp_md, markdown_snapshot, temp_files)
+        formatted_markdown = temp_md.read_text()
+
+    return formatted_markdown
 
 
 def generate_temp_filename(file_path, index, code_type):
