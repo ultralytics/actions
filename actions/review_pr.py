@@ -39,8 +39,7 @@ SKIP_PATTERN_STRINGS = [
 ]
 SKIP_PATTERNS = tuple(re.compile(pattern) for pattern in SKIP_PATTERN_STRINGS)
 MAX_CONTEXT_FILE_CHARS = 5000
-MAX_REVIEW_COMMENTS = 10
-TARGET_REVIEW_COMMENTS = 5
+MAX_REVIEW_COMMENTS = 8
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
 
 
@@ -188,7 +187,7 @@ def generate_pr_review(
         "- Extract line numbers from R#### or L#### prefixes in the diff\n"
         "- Exact paths (no ./), 'side' field must match R (RIGHT) or L (LEFT) prefix\n"
         "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
-        f"- Keep feedback concise: less than {TARGET_REVIEW_COMMENTS} issues is ideal (less is better) with hard cap at {MAX_REVIEW_COMMENTS}\n"
+        f"- Keep feedback concise: less issues is better with hard cap at {MAX_REVIEW_COMMENTS}\n"
         f"- Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''})\n"
         f"- Lines changed: {lines_changed}\n"
     )
@@ -243,7 +242,7 @@ def generate_pr_review(
         response = get_response(
             messages,
             reasoning_effort="low",
-            model="gpt-5.1-2025-11-13",  # or "gpt-5-codex"
+            model="gpt-5.1-codex",
             text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
             tools=[
                 {
@@ -370,18 +369,24 @@ def dismiss_previous_reviews(event: Action) -> int:
 
     review_count = 0
     reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
-    for review in reviews:
-        # Double-check author matches bot (defense in depth)
-        if review.get("author", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or ""):
-            review_count += 1
-            if review.get("state") in ["APPROVED", "CHANGES_REQUESTED"] and (review_id := review.get("databaseId")):
-                event.put(f"{reviews_base}/{review_id}/dismissals", json={"message": "Superseded by new review"})
+    reviews_url = f"{reviews_base}?per_page=100"
+    if (response := event.get(reviews_url)).status_code == 200:
+        for review in response.json():
+            if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or ""):
+                review_count += 1
+                if review.get("state") in ["APPROVED", "CHANGES_REQUESTED"] and (review_id := review.get("id")):
+                    event.put(f"{reviews_base}/{review_id}/dismissals", json={"message": "Superseded by new review"})
 
-    # Batch delete all inline comments (with author verification)
-    comment_ids = [
-        c["databaseId"] for c in comments if c.get("databaseId") and c.get("author", {}).get("login") == bot_username
-    ]
-    event.batch_delete_review_comments(comment_ids)
+    # Delete previous inline comments
+    comments_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments?per_page=100"
+    delete_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments"
+    if (response := event.get(comments_url)).status_code == 200:
+        for comment in response.json():
+            if comment.get("user", {}).get("login") == bot_username and (comment_id := comment.get("id")):
+                event.delete(
+                    f"{delete_base}/{comment_id}",
+                    expected_status=[200, 204, 404],
+                )
 
     return review_count + 1
 

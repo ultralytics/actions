@@ -139,8 +139,9 @@ def remove_html_comments(body: str) -> str:
 
 def clean_url(url):
     """Remove extra characters from URL strings."""
-    for _ in range(3):
-        url = str(url).strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
+    url = str(url).strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
+    # Second pass for nested quotes/punctuation
+    url = url.strip('"').strip("'").rstrip(".,:;!?`\\")
     return url
 
 
