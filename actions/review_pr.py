@@ -365,7 +365,7 @@ def dismiss_previous_reviews(event: Action) -> int:
         return 1
 
     # Fetch reviews and comments in single GraphQL query
-    reviews, comments = event.get_pr_reviews_and_comments(pr_number)
+    _reviews, _comments = event.get_pr_reviews_and_comments(pr_number)
 
     review_count = 0
     reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
