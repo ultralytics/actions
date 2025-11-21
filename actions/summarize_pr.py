@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action, get_pr_summary_prompt, get_response
+from .utils import (
+    ACTIONS_CREDIT,
+    GITHUB_API_URL,
+    GRAPHQL_LABEL_AND_COMMENT_ISSUE,
+    Action,
+    get_pr_summary_prompt,
+    get_response,
+)
 
 SUMMARY_MARKER = "## 🛠️ PR Summary"
 
@@ -82,11 +89,25 @@ def label_fixed_issues(event, pr_summary):
         return None
 
     comment = generate_issue_comment(data["url"], pr_summary, pr_credit, data.get("title") or "")
+    closing_issues = data["closingIssuesReferences"]["nodes"]
+    if not closing_issues:
+        return pr_credit
 
-    for issue in data["closingIssuesReferences"]["nodes"]:
-        number = issue["number"]
-        event.post(f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/labels", json={"labels": ["fixed"]})
-        event.post(f"{GITHUB_API_URL}/repos/{event.repository}/issues/{number}/comments", json={"body": comment})
+    # Batch get all issue node IDs in single query
+    issue_numbers = [issue["number"] for issue in closing_issues]
+    issue_node_ids = event.get_multiple_issue_node_ids(issue_numbers)
+
+    # Get label IDs once
+    label_ids = event.get_label_ids(["fixed"])
+    if not label_ids:
+        print("Warning: 'fixed' label not found")
+        return pr_credit
+
+    # Batch label and comment all issues using GraphQL mutations
+    for issue_node_id in issue_node_ids.values():
+        event.graphql_request(
+            GRAPHQL_LABEL_AND_COMMENT_ISSUE, {"issueId": issue_node_id, "labelIds": label_ids, "body": comment}
+        )
 
     return pr_credit
 
@@ -108,9 +129,9 @@ def main(*args, **kwargs):
     print("Generating PR summary...")
     summary = generate_pr_summary(event.repository, diff)
 
-    # Update PR description
+    # Update PR description - use cached body from event data
     print("Updating PR description...")
-    event.update_pr_description(event.pr["number"], summary)
+    event.update_pr_description(event.pr["number"], summary, event.pr.get("body"))
 
     if event.pr.get("merged"):
         print("PR is merged, labeling fixed issues...")
