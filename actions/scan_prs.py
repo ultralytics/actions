@@ -187,7 +187,11 @@ def run():
 
         merged = 0
         for pr in json.loads(result.stdout):
-            if not all(f["path"].startswith(".github/workflows/") for f in pr["files"]):
+            paths = [f["path"] for f in pr["files"]]
+            if not paths or not all(
+                p.startswith(".github/workflows/") or p.endswith(("action.yml", "action.yaml")) for p in paths
+            ):
+                print("    ⏭️  Skipped (non-action files)")
                 continue
 
             total_found += 1
