@@ -63,7 +63,11 @@ def get_repo_filter(visibility_list):
 def get_status_checks(rollup):
     """Extract and validate status checks from rollup, return failed checks."""
     checks = rollup if isinstance(rollup, list) else rollup.get("contexts", []) if isinstance(rollup, dict) else []
-    return [c for c in checks if c.get("conclusion") not in ["SUCCESS", "SKIPPED", "NEUTRAL"]]
+    return [
+        c
+        for c in checks
+        if (s := (c.get("conclusion") or c.get("state") or "").upper()) and s not in {"SUCCESS", "SKIPPED", "NEUTRAL"}
+    ]
 
 
 def run():
@@ -173,7 +177,7 @@ def run():
                 "--state",
                 "open",
                 "--json",
-                "number,title,files,mergeable,statusCheckRollup",
+                "number,title,url,files,mergeable,statusCheckRollup",
             ],
             capture_output=True,
             text=True,
@@ -187,8 +191,21 @@ def run():
                 continue
 
             total_found += 1
+            pr_link = pr.get("url", f"https://github.com/{org}/{repo_name}/pull/{pr['number']}")
             pr_ref = f"{org}/{repo_name}#{pr['number']}"
-            print(f"  Found: {pr_ref} - {pr['title']}")
+            print(f"  Found: {pr_link} - {pr['title']}")
+
+            # Log status checks to help troubleshoot merge decisions
+            rollup = pr.get("statusCheckRollup") or []
+            checks = rollup if isinstance(rollup, list) else rollup.get("contexts", [])
+            if checks:
+                print("    ℹ️  Status checks:")
+                for check in checks:
+                    name = check.get("name") or check.get("context") or "unknown"
+                    status = check.get("conclusion") or check.get("state") or ""
+                    print(f"      - {name}: {status}")
+            else:
+                print("    ℹ️  No status checks found")
 
             if merged >= 1:
                 print(f"    ⏭️  Skipped (already merged 1 PR in {repo_name})")
@@ -202,7 +219,9 @@ def run():
 
             if failed := get_status_checks(pr.get("statusCheckRollup")):
                 for check in failed:
-                    print(f"    ❌ Failing check: {check.get('name', 'unknown')} = {check.get('conclusion')}")
+                    name = check.get("name") or check.get("context") or "unknown"
+                    status = check.get("conclusion") or check.get("state") or ""
+                    print(f"    ❌ Failing check: {name} = {status}")
                 total_skipped += 1
                 continue
 
