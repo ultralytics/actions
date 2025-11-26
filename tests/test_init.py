@@ -72,13 +72,6 @@ def test_cli_entry_points():
         pytest.skip("pyproject.toml not found")
 
     content = pyproject_path.read_text()
-    expected_names = [
-        "ultralytics-actions-first-interaction",
-        "ultralytics-actions-summarize-pr",
-        "ultralytics-actions-summarize-release",
-        "ultralytics-actions-update-markdown-code-blocks",
-        "ultralytics-actions-info",
-    ]
-
-    for name in expected_names:
-        assert name in content, f"Entry point {name} not found in pyproject.toml"
+    # Check for the main CLI entry point
+    assert "ultralytics-actions = " in content, "Main CLI entry point not found in pyproject.toml"
+    assert '"actions.cli:main"' in content, "CLI module not properly configured"

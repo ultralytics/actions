@@ -86,7 +86,7 @@ def format_code_with_ruff(temp_dir):
         # Run Ultralytics Python docstring formatter
         subprocess.run(
             [
-                "ultralytics-actions-format-python-docstrings",
+                "ultralytics-actions format-python-docstrings",
                 str(temp_dir),
             ],
             check=True,
