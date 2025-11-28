@@ -179,7 +179,7 @@ runs:
     - name: Run Biome
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.biome == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
-        if [ -f "biome.json" ]; then
+        if [ -f "biome.json" ] || [ -f "biome.jsonc" ] || [ -f "biome.yaml" ] || [ -f "biome.yml" ]; then
           npm install --global @biomejs/biome@latest
           npx biome check --write --unsafe .
         fi
