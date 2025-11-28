@@ -31,6 +31,7 @@ AI-powered formatting, labeling, and PR summaries for Python, Swift, and Markdow
 
 - **Python Code:** Formatted using [Ruff](https://github.com/astral-sh/ruff), an extremely fast Python linter and formatter
 - **Python Docstrings:** Google-style formatting enforced with Ultralytics Python docstring formatter (optional)
+- **JavaScript/TypeScript:** Formatted with [Biome](https://biomejs.dev/), an extremely fast formatter for JS, TS, JSX, TSX, and JSON (optional, auto-detected via `biome.json`)
 - **Markdown Files:** Styled with [Prettier](https://github.com/prettier/prettier) to ensure consistent documentation appearance
 - **Swift Code:** Formatted with [`swift-format`](https://github.com/swiftlang/swift-format) _(requires `macos-latest` runner)_
 - **Spell Check:** Common misspellings caught using [codespell](https://github.com/codespell-project/codespell)
@@ -82,6 +83,7 @@ jobs:
           labels: true # Auto-label issues/PRs using AI
           python: true # Format Python with Ruff
           python_docstrings: false # Format Python docstrings (default: false)
+          biome: true # Format JS/TS with Biome (auto-detected via biome.json)
           prettier: true # Format YAML, JSON, Markdown, CSS
           swift: false # Format Swift (requires macos-latest)
           dart: false # Format Dart/Flutter
