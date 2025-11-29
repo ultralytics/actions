@@ -183,7 +183,7 @@ runs:
           npm install --global @biomejs/biome@latest
           npx biome check --write --line-width 120 .
         else
-          echo "⚠️  No biome.json or biome.jsonc found, skipping Biome formatting"
+          echo "⚠️  No biome.json found - skipping Biome formatting. Add biome.json to enable."
         fi
       shell: bash
       continue-on-error: true
