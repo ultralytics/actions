@@ -181,7 +181,7 @@ runs:
       run: |
         if [ -f "biome.json" ] || [ -f "biome.jsonc" ]; then
           npm install --global @biomejs/biome@latest
-          npx biome check --write --line-width 120 .
+          npx biome check --write --line-width=120 .
         else
           echo "⚠️  No biome.json found - skipping Biome formatting. Add biome.json to enable."
         fi
