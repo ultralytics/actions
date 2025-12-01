@@ -357,8 +357,15 @@ def generate_pr_review(
 
 def dismiss_previous_reviews(event: Action) -> int:
     """Dismiss previous bot reviews and delete inline comments, returns count for numbering."""
-    if not (pr_number := event.pr.get("number")) or not (bot_username := event.get_username()):
+    if not (pr_number := event.pr.get("number")):
         return 1
+
+    bot_username = event.get_username()
+    if not bot_username:
+        return 1
+
+    # Fetch reviews and comments in single GraphQL query
+    _reviews, _comments = event.get_pr_reviews_and_comments(pr_number)
 
     review_count = 0
     reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
