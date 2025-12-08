@@ -29,6 +29,8 @@ def get_response(
 ) -> str | dict:
     """Generate completion using Anthropic Messages API with retry logic."""
     assert ANTHROPIC_API_KEY, "Anthropic API key is required."
+    if tools:
+        raise NotImplementedError("Tools not yet supported for Anthropic API")
     url = "https://api.anthropic.com/v1/messages"
 
     # Extract system prompt
@@ -84,6 +86,8 @@ def get_response(
             ).strip()
 
             if usage := response_json.get("usage"):
+                # Note: output_tokens includes thinking tokens. Anthropic doesn't provide separate thinking token counts.
+                # See https://docs.anthropic.com/en/docs/build-with-claude/extended-thinking#pricing
                 input_tokens, output_tokens = usage.get("input_tokens", 0), usage.get("output_tokens", 0)
                 costs = MODEL_COSTS.get(model, (0.0, 0.0))
                 cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
