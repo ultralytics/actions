@@ -15,6 +15,25 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
 MODEL_COSTS = {"claude-sonnet-4-5-20250929": (3.00, 15.00)}
 THINKING_BUDGET = {"low": 1024, "medium": 4096, "high": 16384}
+WEB_SEARCH_COST_PER_1K = 10.00  # $10 per 1,000 searches
+
+
+def convert_openai_tools_to_anthropic(tools: list[dict]) -> list[dict]:
+    """Convert OpenAI tool format to Anthropic tool format."""
+    anthropic_tools = []
+    for tool in tools:
+        tool_type = tool.get("type")
+        if tool_type == "web_search":
+            anthropic_tool = {"type": "web_search_20250305", "name": "web_search"}
+            if filters := tool.get("filters"):
+                if allowed := filters.get("allowed_domains"):
+                    anthropic_tool["allowed_domains"] = allowed
+                if blocked := filters.get("blocked_domains"):
+                    anthropic_tool["blocked_domains"] = blocked
+            anthropic_tools.append(anthropic_tool)
+        else:
+            print(f"WARNING ⚠️ Tool type '{tool_type}' not supported for Anthropic API, skipping")
+    return anthropic_tools
 
 
 def get_response(
@@ -29,8 +48,7 @@ def get_response(
 ) -> str | dict:
     """Generate completion using Anthropic Messages API with retry logic."""
     assert ANTHROPIC_API_KEY, "Anthropic API key is required."
-    if tools:
-        raise NotImplementedError("Tools not yet supported for Anthropic API")
+    anthropic_tools = convert_openai_tools_to_anthropic(tools) if tools else None
     url = "https://api.anthropic.com/v1/messages"
 
     # Extract system prompt
@@ -65,6 +83,8 @@ def get_response(
             data["output_format"] = output_format
         if reasoning_effort:
             data["thinking"] = {"type": "enabled", "budget_tokens": THINKING_BUDGET.get(reasoning_effort, 1024)}
+        if anthropic_tools:
+            data["tools"] = anthropic_tools
 
         try:
             r = requests.post(url, json=data, headers=headers, timeout=(30, 900))
@@ -91,6 +111,10 @@ def get_response(
                 input_tokens, output_tokens = usage.get("input_tokens", 0), usage.get("output_tokens", 0)
                 costs = MODEL_COSTS.get(model, (0.0, 0.0))
                 cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
+                # Add web search cost if applicable
+                if server_tool_use := usage.get("server_tool_use"):
+                    web_searches = server_tool_use.get("web_search_requests", 0)
+                    cost += web_searches * WEB_SEARCH_COST_PER_1K / 1000
                 print(
                     f"{model} ({input_tokens}→{output_tokens} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)"
                 )
