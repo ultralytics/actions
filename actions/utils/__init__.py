@@ -1,4 +1,5 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+from __future__ import annotations
 
 from .anthropic_utils import ANTHROPIC_API_KEY
 from .anthropic_utils import get_response as _anthropic_get_response
@@ -47,6 +48,7 @@ def get_response(
     if model is not None:
         kwargs["model"] = model
     return _anthropic_get_response(**kwargs) if ANTHROPIC_API_KEY else _openai_get_response(**kwargs)
+
 
 __all__ = (
     "ACTIONS_CREDIT",
