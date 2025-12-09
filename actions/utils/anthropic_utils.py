@@ -47,7 +47,7 @@ def get_response(
     reasoning_effort: str | None = None,  # maps to thinking.budget_tokens
     text_format: dict | None = None,
     model: str = ANTHROPIC_MODEL,
-    tools: list[dict] | None = None,  # ignored, for API compat
+    tools: list[dict] | None = None,
 ) -> str | dict:
     """Generate completion using Anthropic Messages API with retry logic."""
     assert ANTHROPIC_API_KEY, "Anthropic API key is required."
@@ -78,6 +78,7 @@ def get_response(
     if beta_features:
         headers["anthropic-beta"] = ",".join(beta_features)
 
+    content = ""
     for attempt in range(3):
         data = {"model": model, "max_tokens": 8192, "messages": claude_messages, "temperature": temperature}
         if system_content:
