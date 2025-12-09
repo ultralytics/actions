@@ -76,7 +76,7 @@ inputs:
     description: "Anthropic API Key (takes priority over OpenAI if both are set)"
     required: false
   anthropic_model:
-    description: "Anthropic Model for general tasks (PR review uses claude-sonnet-4-5)"
+    description: "Anthropic Model for general tasks (PR review uses claude-sonnet-4-5-20250929)"
     required: false
     default: "claude-haiku-4-5-20251001"
   first_issue_response:

@@ -15,6 +15,7 @@ from .utils import (
     remove_html_comments,
     sanitize_ai_text,
 )
+from actions.utils.anthropic_utils import ANTHROPIC_API_KEY
 
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
@@ -238,8 +239,6 @@ def generate_pr_review(
             "required": ["comments", "summary"],
             "additionalProperties": False,
         }
-
-        from actions.utils.anthropic_utils import ANTHROPIC_API_KEY
 
         response = get_response(
             messages,
