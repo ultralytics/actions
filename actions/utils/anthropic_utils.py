@@ -16,6 +16,7 @@ ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
 MODEL_COSTS = {"claude-sonnet-4-5-20250929": (3.00, 15.00)}
 THINKING_BUDGET = {"low": 1024, "medium": 4096, "high": 16384}
 WEB_SEARCH_COST_PER_1K = 10.00  # $10 per 1,000 searches
+ANTHROPIC_BLOCKED_DOMAINS = {"stackoverflow.com"}  # Domains blocked by Anthropic's web search
 
 
 def convert_openai_tools_to_anthropic(tools: list[dict]) -> list[dict]:
@@ -27,7 +28,9 @@ def convert_openai_tools_to_anthropic(tools: list[dict]) -> list[dict]:
             anthropic_tool = {"type": "web_search_20250305", "name": "web_search"}
             if filters := tool.get("filters"):
                 if allowed := filters.get("allowed_domains"):
-                    anthropic_tool["allowed_domains"] = allowed
+                    allowed = [d for d in allowed if d not in ANTHROPIC_BLOCKED_DOMAINS]
+                    if allowed:
+                        anthropic_tool["allowed_domains"] = allowed
                 if blocked := filters.get("blocked_domains"):
                     anthropic_tool["blocked_domains"] = blocked
             anthropic_tools.append(anthropic_tool)
