@@ -12,8 +12,11 @@ from actions.utils.common_utils import check_links_in_string
 from actions.utils.openai_utils import SYSTEM_PROMPT_ADDITION, remove_outer_codeblocks
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
-ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-sonnet-4-5-20250929")
-MODEL_COSTS = {"claude-sonnet-4-5-20250929": (3.00, 15.00)}
+ANTHROPIC_MODEL = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5-20251001")
+MODEL_COSTS = {
+    "claude-sonnet-4-5-20250929": (3.00, 15.00),
+    "claude-haiku-4-5-20251001": (1.00, 5.00),
+}
 THINKING_BUDGET = {"low": 1024, "medium": 4096, "high": 16384}
 WEB_SEARCH_COST_PER_1K = 10.00  # $10 per 1,000 searches
 ANTHROPIC_BLOCKED_DOMAINS = {"stackoverflow.com"}  # Domains blocked by Anthropic's web search

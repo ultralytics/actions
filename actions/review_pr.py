@@ -239,6 +239,8 @@ def generate_pr_review(
             "additionalProperties": False,
         }
 
+        from actions.utils.anthropic_utils import ANTHROPIC_API_KEY
+
         response = get_response(
             messages,
             reasoning_effort="low",
@@ -255,6 +257,7 @@ def generate_pr_review(
                     },
                 }
             ],
+            model="claude-sonnet-4-5-20250929" if ANTHROPIC_API_KEY else "gpt-5.1-codex",
         )
 
         # Sanitize leaked tool-citation tokens from model output
