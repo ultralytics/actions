@@ -225,7 +225,7 @@ class Action:
         from actions.utils.openai_utils import OPENAI_API_KEY
 
         if not ANTHROPIC_API_KEY and not OPENAI_API_KEY:
-            print("Skipping LLM operations (no ANTHROPIC_API_KEY or OPENAI_API_KEY found)")
+            print("⚠️ LLM operations (no ANTHROPIC_API_KEY or OPENAI_API_KEY found)")
             return True
         return False
 
