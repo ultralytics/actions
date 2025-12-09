@@ -6,6 +6,8 @@ import json
 import re
 from pathlib import Path
 
+from actions.utils.anthropic_utils import ANTHROPIC_API_KEY
+
 from .utils import (
     ACTIONS_CREDIT,
     GITHUB_API_URL,
@@ -15,7 +17,6 @@ from .utils import (
     remove_html_comments,
     sanitize_ai_text,
 )
-from actions.utils.anthropic_utils import ANTHROPIC_API_KEY
 
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
