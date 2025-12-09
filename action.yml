@@ -69,14 +69,14 @@ inputs:
     description: "OpenAI API Key"
     required: false
   openai_model:
-    description: "OpenAI Model"
+    description: "OpenAI Model for general tasks (PR review uses gpt-5.1-codex)"
     required: false
     default: "gpt-5.1-2025-11-13"
   anthropic_api_key:
     description: "Anthropic API Key (takes priority over OpenAI if both are set)"
     required: false
   anthropic_model:
-    description: "Anthropic Model"
+    description: "Anthropic Model for general tasks (PR review uses claude-sonnet-4-5)"
     required: false
     default: "claude-haiku-4-5-20251001"
   first_issue_response:
