@@ -19,6 +19,7 @@ MODEL_COSTS = {
 }
 THINKING_BUDGET = {"low": 1024, "medium": 4096, "high": 16384}
 WEB_SEARCH_COST_PER_1K = 10.00  # $10 per 1,000 searches
+MAX_WEB_SEARCH_USES = 2  # Limit web searches (search results count as input tokens)
 ANTHROPIC_BLOCKED_DOMAINS = {"stackoverflow.com"}  # Domains blocked by Anthropic's web search
 
 
@@ -28,7 +29,7 @@ def convert_openai_tools_to_anthropic(tools: list[dict]) -> list[dict]:
     for tool in tools:
         tool_type = tool.get("type")
         if tool_type == "web_search":
-            anthropic_tool = {"type": "web_search_20250305", "name": "web_search"}
+            anthropic_tool = {"type": "web_search_20250305", "name": "web_search", "max_uses": MAX_WEB_SEARCH_USES}
             if filters := tool.get("filters"):
                 if allowed := filters.get("allowed_domains"):
                     allowed = [d for d in allowed if d not in ANTHROPIC_BLOCKED_DOMAINS]
