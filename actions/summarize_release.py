@@ -162,12 +162,22 @@ def create_github_release(event, tag_name: str, name: str, body: str):
 
 def get_actual_previous_tag(current_tag: str) -> str:
     """Gets the actual previous tag using git, excluding the current tag."""
-    cmd = ["git", "describe", "--tags", "--abbrev=0", "--exclude", current_tag]
     try:
-        return subprocess.run(cmd, check=True, text=True, capture_output=True).stdout.strip()
+        return subprocess.run(
+            ["git", "describe", "--tags", "--abbrev=0", "--exclude", current_tag],
+            check=True, text=True, capture_output=True
+        ).stdout.strip()
     except subprocess.CalledProcessError:
-        print("Failed to get previous tag from git. Using previous commit.")
-        return "HEAD~1"
+        # No previous tag - use first commit for first release
+        try:
+            first = subprocess.run(
+                ["git", "rev-list", "--max-parents=0", "HEAD"],
+                check=True, text=True, capture_output=True
+            ).stdout.split()[0]
+            print(f"No previous tag found. Using first commit: {first[:7]}")
+            return first
+        except (subprocess.CalledProcessError, IndexError):
+            return "HEAD~20"
 
 
 def main(*args, **kwargs):
