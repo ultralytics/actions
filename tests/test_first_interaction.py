@@ -37,15 +37,15 @@ def test_get_event_content_pr():
     # Create mock event
     mock_event = MagicMock()
     mock_event.event_name = "pull_request"
-    mock_event.event_data = {"action": "opened", "pull_request": {"number": 456}}
-
-    # Mock PR data returned from API
-    mock_event.get_repo_data.return_value = {
-        "number": 456,
-        "node_id": "node456",
-        "title": "Test PR",
-        "body": "PR description",
-        "user": {"login": "testuser"},
+    mock_event.event_data = {
+        "action": "opened",
+        "pull_request": {
+            "number": 456,
+            "node_id": "node456",
+            "title": "Test PR",
+            "body": "PR description",
+            "user": {"login": "testuser"},
+        },
     }
 
     number, node_id, title, body, username, issue_type, action = get_event_content(mock_event)

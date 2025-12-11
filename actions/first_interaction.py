@@ -36,8 +36,7 @@ def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
         item = data["issue"]
         issue_type = "issue"
     elif name in ["pull_request", "pull_request_target"]:
-        pr_number = data["pull_request"]["number"]
-        item = event.get_repo_data(f"pulls/{pr_number}")
+        item = data["pull_request"]
         issue_type = "pull request"
     elif name == "discussion":
         item = data["discussion"]
@@ -178,8 +177,6 @@ def main(*args, **kwargs):
         return
 
     number, node_id, title, body, username, issue_type, action = get_event_content(event)
-    available_labels = event.get_repo_data("labels")
-    label_descriptions = {label["name"]: label.get("description") or "" for label in available_labels}
 
     # Use unified PR open response for new PRs (summary + labels + first comment in 1 API call)
     if issue_type == "pull request" and action == "opened":
@@ -187,12 +184,20 @@ def main(*args, **kwargs):
             return
 
         print(f"Processing PR open by @{username} with unified API call...")
+        # Fetch PR details and labels in single GraphQL query
+        repo_data = event.get_pr_details_and_labels(number)
+        pr_data = repo_data.get("pullRequest", {})
+        available_labels = repo_data.get("labels", {}).get("nodes", [])
+        label_descriptions = {label["name"]: label.get("description") or "" for label in available_labels}
+
         diff = event.get_pr_diff()
         response = get_pr_open_response(event.repository, diff, title, username, label_descriptions)
 
         if summary := response.get("summary"):
             print("Updating PR description with summary...")
-            event.update_pr_description(number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}")
+            event.update_pr_description(
+                number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}", pr_data.get("body")
+            )
         else:
             summary = body
 
@@ -214,18 +219,22 @@ def main(*args, **kwargs):
         return
 
     # Handle issues and discussions (NOT PRs)
-    current_labels = (
-        []
-        if issue_type == "discussion"
-        else [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
-    )
+    if issue_type != "pull request":
+        available_labels = event.get_repo_data("labels")
+        label_descriptions = {label["name"]: label.get("description") or "" for label in available_labels}
 
-    relevant_labels = get_relevant_labels(issue_type, title, body, label_descriptions, current_labels)
-    apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
+        current_labels = (
+            []
+            if issue_type == "discussion"
+            else [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
+        )
 
-    if action in {"opened", "created"}:
-        custom_response = get_first_interaction_response(event, issue_type, title, body, username)
-        event.add_comment(number, node_id, custom_response, issue_type)
+        relevant_labels = get_relevant_labels(issue_type, title, body, label_descriptions, current_labels)
+        apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
+
+        if action in {"opened", "created"}:
+            custom_response = get_first_interaction_response(event, issue_type, title, body, username)
+            event.add_comment(number, node_id, custom_response, issue_type)
 
 
 if __name__ == "__main__":
