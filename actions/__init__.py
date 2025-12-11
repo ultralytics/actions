@@ -27,4 +27,4 @@
 #     ├── test_summarize_pr.py
 #     └── ...
 
-__version__ = "0.2.8"
+__version__ = "0.2.9"
