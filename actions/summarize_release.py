@@ -178,16 +178,9 @@ def get_actual_previous_tag(current_tag: str) -> str:
             print(f"No previous tag found. Using first commit: {first[:7]}")
             return first
         except (subprocess.CalledProcessError, IndexError):
-            pass
-        # Fallback - validate HEAD~1 exists (safe for shallow clones)
-        try:
-            return subprocess.run(
-                ["git", "rev-parse", "--verify", "HEAD~1"],
-                check=True, text=True, capture_output=True
-            ).stdout.strip()
-        except subprocess.CalledProcessError:
-            print("Warning: Could not determine previous revision, using HEAD")
-            return "HEAD"
+            # Fallback for shallow clones - GitHub API accepts HEAD~1 even if git can't verify locally
+            print("Warning: Could not determine first commit, using HEAD~1")
+            return "HEAD~1"
 
 
 def main(*args, **kwargs):
