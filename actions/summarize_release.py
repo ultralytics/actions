@@ -182,8 +182,7 @@ def get_actual_previous_tag(current_tag: str) -> str:
         # Fallback - validate HEAD~1 exists (safe for shallow clones)
         try:
             return subprocess.run(
-                ["git", "rev-parse", "--verify", "HEAD~1"],
-                check=True, text=True, capture_output=True
+                ["git", "rev-parse", "--verify", "HEAD~1"], check=True, text=True, capture_output=True
             ).stdout.strip()
         except subprocess.CalledProcessError:
             print("Warning: Could not determine previous revision, using HEAD")
