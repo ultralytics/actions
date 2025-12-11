@@ -165,14 +165,15 @@ def get_actual_previous_tag(current_tag: str) -> str:
     try:
         return subprocess.run(
             ["git", "describe", "--tags", "--abbrev=0", "--exclude", current_tag],
-            check=True, text=True, capture_output=True
+            check=True,
+            text=True,
+            capture_output=True,
         ).stdout.strip()
     except subprocess.CalledProcessError:
         # No previous tag - use first commit for first release
         try:
             first = subprocess.run(
-                ["git", "rev-list", "--max-parents=0", "HEAD"],
-                check=True, text=True, capture_output=True
+                ["git", "rev-list", "--max-parents=0", "HEAD"], check=True, text=True, capture_output=True
             ).stdout.split()[0]
             print(f"No previous tag found. Using first commit: {first[:7]}")
             return first
