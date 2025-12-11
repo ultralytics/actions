@@ -48,7 +48,7 @@ jobs:
 
       - name: Run CLI tests
         run: |
-          ultralytics-actions-info
+          ultralytics-actions info
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5

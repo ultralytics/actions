@@ -121,7 +121,7 @@ runs:
         else
           sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
         fi
-        ultralytics-actions-info
+        ultralytics-actions info
       shell: bash
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
@@ -139,7 +139,7 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (github.event.action == 'opened' || github.event.action == 'synchronize')
       env:
         HEADER: ${{ inputs.header }}
-      run: ultralytics-actions-headers
+      run: ultralytics-actions headers
       shell: bash
       continue-on-error: false
 
@@ -170,7 +170,7 @@ runs:
         --line-length 120 \
         . || true
         if [ "${{ inputs.python_docstrings }}" = "true" ]; then
-          ultralytics-actions-format-python-docstrings . || true
+          ultralytics-actions format-python-docstrings . || true
         fi
       shell: bash
       continue-on-error: true
@@ -194,7 +194,7 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         npm install --global prettier@3.6.2 prettier-plugin-sh
-        ultralytics-actions-update-markdown-code-blocks
+        ultralytics-actions update-markdown-code-blocks
         npx prettier --write --list-different --print-width 120 "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
         # Bash file format
         if find . -name "*.sh" -type f | grep -q .; then
@@ -280,7 +280,7 @@ runs:
         BRAVE_API_KEY: ${{ inputs.brave_api_key }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
-      run: ultralytics-actions-summarize-pr
+      run: ultralytics-actions summarize-pr
       shell: bash
       continue-on-error: true
 
@@ -295,7 +295,7 @@ runs:
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
         REVIEW: ${{ inputs.review }}
-      run: ultralytics-actions-first-interaction
+      run: ultralytics-actions first-interaction
       shell: bash
       continue-on-error: true
 
@@ -309,7 +309,7 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         OPENAI_MODEL: ${{ inputs.openai_model }}
-      run: ultralytics-actions-review-pr
+      run: ultralytics-actions review-pr
       shell: bash
       continue-on-error: true
 

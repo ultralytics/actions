@@ -148,6 +148,77 @@ Install `ultralytics-actions` for programmatic access to action utilities.
 pip install ultralytics-actions
 ```
 
+Or use with [uv](https://docs.astral.sh/uv/) as a tool (no installation needed):
+
+```bash
+# Run directly with uvx
+uvx ultralytics-actions --help
+uvx ultralytics-actions info
+
+# Or install as a uv tool
+uv tool install ultralytics-actions
+uv tool run ultralytics-actions --help
+```
+
+### CLI Usage
+
+All tools are accessible via a unified CLI:
+
+```bash
+# Show all available commands
+ultralytics-actions --help
+
+# Run specific commands
+ultralytics-actions first-interaction
+ultralytics-actions review-pr
+ultralytics-actions summarize-pr
+ultralytics-actions headers
+ultralytics-actions format-python-docstrings
+ultralytics-actions update-markdown-code-blocks
+ultralytics-actions info
+```
+
+#### Shell Completion
+
+Enable tab completion for your shell:
+
+```bash
+# Install completion support (optional)
+pip install ultralytics-actions[completion]
+
+# Generate completion script
+ultralytics-actions completion bash   # For Bash
+ultralytics-actions completion zsh    # For Zsh
+ultralytics-actions completion fish   # For Fish
+
+# Example: Enable for Zsh (add to ~/.zshrc)
+eval "$(ultralytics-actions completion zsh)"
+```
+
+### Pre-commit Integration
+
+Use Ultralytics Actions in your `.pre-commit-config.yaml`:
+
+```yaml
+repos:
+  - repo: https://github.com/ultralytics/actions
+    rev: main  # Use a specific tag/version in production
+    hooks:
+      - id: update-file-headers
+      - id: format-python-docstrings
+      - id: update-markdown-code-blocks
+```
+
+Then install and run:
+
+```bash
+pip install pre-commit
+pre-commit install
+pre-commit run --all-files  # Run on all files
+```
+
+### Python API
+
 **Available Modules:**
 
 - `actions.review_pr` - AI-powered PR review
