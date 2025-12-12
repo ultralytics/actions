@@ -71,7 +71,7 @@ inputs:
   openai_model:
     description: "OpenAI Model for general tasks (PR review uses gpt-5.1-codex)"
     required: false
-    default: "gpt-5.1-2025-11-13"
+    default: "gpt-5.2-2025-12-11"
   anthropic_api_key:
     description: "Anthropic API Key (takes priority over OpenAI if both are set)"
     required: false

@@ -244,7 +244,7 @@ def generate_pr_review(
         response = get_response(
             messages,
             reasoning_effort="low",
-            model="claude-sonnet-4-5-20250929" if ANTHROPIC_API_KEY else "gpt-5.1-codex",
+            model="claude-sonnet-4-5-20250929" if ANTHROPIC_API_KEY else "gpt-5.2-2025-12-11",
             text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
             tools=[
                 {
