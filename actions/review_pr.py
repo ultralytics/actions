@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 from pathlib import Path
 
@@ -28,6 +29,7 @@ SKIP_PATTERN_STRINGS = [
     r"(^|/)build/",
     r"(^|/)vendor/",
     r"(^|/)node_modules/",
+    r"(^|/)coverage/",  # Coverage reports
     r"\.pb\.py$",  # Proto generated
     r"_pb2\.py$",
     r"_pb2_grpc\.py$",
@@ -35,7 +37,11 @@ SKIP_PATTERN_STRINGS = [
     r"^yarn\.lock$",
     r"^poetry\.lock$",
     r"^Pipfile\.lock$",
-    r"\.(svg|png|jpe?g|gif)$",  # Images
+    r"\.(svg|png|jpe?g|gif|ico|webp)$",  # Images
+    r"\.(woff2?|ttf|eot|otf)$",  # Fonts
+    r"\.(mp4|webm|mov|avi|mkv)$",  # Videos
+    r"\.(pdf|doc|docx|xls|xlsx)$",  # Documents
+    r"\.generated\.",  # Common generated file pattern
 ]
 SKIP_PATTERNS = tuple(re.compile(pattern) for pattern in SKIP_PATTERN_STRINGS)
 MAX_CONTEXT_FILE_CHARS = 5000
@@ -152,44 +158,48 @@ def generate_pr_review(
             full_files_section = f"FULL FILE CONTENTS:\n{chr(10).join(file_contents)}\n\n"
 
     content = (
-        "You are an expert code reviewer for Ultralytics. Review the code changes and provide inline comments where you identify issues or opportunities for improvement.\n\n"
-        "Focus on: bugs, security vulnerabilities, performance issues, best practices, edge cases, error handling, and code clarity.\n\n"
-        "CRITICAL RULES:\n"
-        "1. Provide balanced, constructive feedback - flag bugs, improvements, and best practice issues\n"
-        "2. For issues spanning multiple adjacent lines, use 'start_line' to create ONE multi-line comment, never separate comments\n"
-        "3. Combine related issues into a single comment when they stem from the same root cause\n"
-        "4. Prioritize: CRITICAL bugs/security > HIGH impact > code quality improvements\n"
-        "5. Keep comments concise and friendly - avoid jargon\n"
-        "6. Use backticks for code: `x=3`, `file.py`, `function()`\n"
-        "7. Skip routine changes: imports, version updates, standard refactoring\n\n"
-        "SUMMARY:\n"
-        "- Brief and actionable - what needs fixing, not where (locations shown in inline comments)\n\n"
+        "You are an expert code reviewer for Ultralytics. Review code changes and provide inline comments ONLY for genuine issues.\n\n"
+        "WHEN TO COMMENT (priority order):\n"
+        "- Bugs and logic errors that will cause failures\n"
+        "- Performance issues with measurable impact\n"
+        "- Code best practices and maintainability\n"
+        "- Missing error handling for likely failure cases\n"
+        "- Security issues (only obvious vulnerabilities, not speculative)\n\n"
+        "WHEN NOT TO COMMENT:\n"
+        "- Style/formatting (handled by ruff/prettier)\n"
+        "- Minor naming preferences\n"
+        "- 'Consider using X' without clear benefit\n"
+        "- Issues in unchanged context lines\n\n"
+        "LIMITED VISIBILITY - IMPORTANT:\n"
+        "- You can only see the diff and partial file contents, not the full codebase\n"
+        "- Assume the author is knowledgeable about: new package versions, imports to functions defined elsewhere, dependencies, and codebase architecture\n"
+        "- Do NOT flag: version updates, new imports that appear unused in the diff, or references to code outside the diff\n"
+        "- If unsure whether something is an error, assume the author knows what they're doing\n\n"
+        "QUALITY OVER QUANTITY:\n"
+        "- Zero comments is valid for clean PRs - don't invent issues\n"
+        "- Each comment must be actionable with clear reasoning\n"
+        "- Combine related issues into one comment\n"
+        f"- Hard cap: {MAX_REVIEW_COMMENTS} comments maximum\n\n"
         "SUGGESTIONS:\n"
         "- Provide 'suggestion' field with ready-to-merge code when you can confidently fix the issue\n"
         "- Suggestions must be complete, working code with NO comments, placeholders, or explanations\n"
-        "- For single-line fixes: provide 'suggestion' without 'start_line' to replace the line at 'line'\n"
-        "- Do not provide multi-line fixes: suggestions should only be single line\n"
+        "- Single-line fixes only: provide 'suggestion' without 'start_line' to replace the line at 'line'\n"
         "- Match the exact indentation of the original code\n"
-        "- Web search is available to consult docs, dependencies, or technical details\n"
         "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n\n"
-        "LINE NUMBERS:\n"
-        "- Each line in the diff is prefixed with its line number for clarity:\n"
-        "  R  123 +added code     <- RIGHT side (new file), line 123\n"
-        "  L   45 -removed code   <- LEFT side (old file), line 45\n"
-        "         context line    <- context (no number needed)\n"
-        "- Extract the number after R or L prefix to get the exact line number\n"
-        "- Use 'side': 'RIGHT' for R-prefixed lines, 'side': 'LEFT' for L-prefixed lines\n"
-        "- Suggestions only work on RIGHT lines, never on LEFT lines\n"
-        "- CRITICAL: Only use line numbers that you see explicitly prefixed in the diff\n\n"
+        "SUMMARY:\n"
+        "- Brief overall assessment: what's good, what needs attention\n"
+        "- If no issues found, acknowledge the PR is clean\n\n"
+        "DIFF LINE FORMAT (how to read line numbers):\n"
+        "  R  123 +code here      <- 'R' means RIGHT (new file), number is 123, use {\"line\": 123, \"side\": \"RIGHT\"}\n"
+        "  L   45 -code here      <- 'L' means LEFT (old file), number is 45, use {\"line\": 45, \"side\": \"LEFT\"}\n"
+        "         context         <- no prefix = unchanged context, don't comment on these\n"
+        "- Extract the integer after R or L prefix (e.g., 'R  123' -> line 123, 'L   45' -> line 45)\n"
+        "- Suggestions ONLY work on RIGHT (added) lines, never LEFT (removed) lines\n"
+        "- ONLY use line numbers you see explicitly prefixed with R or L in the diff\n\n"
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "side": "RIGHT", "severity": "HIGH", "message": "..."}], "summary": "..."}\n\n'
-        "Rules:\n"
-        "- Extract line numbers from R#### or L#### prefixes in the diff\n"
-        "- Exact paths (no ./), 'side' field must match R (RIGHT) or L (LEFT) prefix\n"
-        "- Severity: CRITICAL, HIGH, MEDIUM, LOW, SUGGESTION\n"
-        f"- Keep feedback concise: less issues is better with hard cap at {MAX_REVIEW_COMMENTS}\n"
-        f"- Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''})\n"
-        f"- Lines changed: {lines_changed}\n"
+        "JSON rules: exact paths (no ./), severity: CRITICAL|HIGH|MEDIUM|LOW|SUGGESTION\n"
+        f"Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''}), Lines: {lines_changed}\n"
     )
 
     messages = [
