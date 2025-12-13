@@ -36,7 +36,7 @@ BAD_HTTP_CODES = frozenset(
         502,  # Bad Gateway - upstream server sent invalid response
         503,  # Service Unavailable - server temporarily unable to handle request
         504,  # Gateway Timeout - upstream server didn't respond in time
-        525,  # Cloudfare handshake error
+        525,  # Cloudflare handshake error
     }
 )
 
