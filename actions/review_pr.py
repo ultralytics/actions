@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import re
 from pathlib import Path
 
@@ -190,8 +189,8 @@ def generate_pr_review(
         "- Brief overall assessment: what's good, what needs attention\n"
         "- If no issues found, acknowledge the PR is clean\n\n"
         "DIFF LINE FORMAT (how to read line numbers):\n"
-        "  R  123 +code here      <- 'R' means RIGHT (new file), number is 123, use {\"line\": 123, \"side\": \"RIGHT\"}\n"
-        "  L   45 -code here      <- 'L' means LEFT (old file), number is 45, use {\"line\": 45, \"side\": \"LEFT\"}\n"
+        '  R  123 +code here      <- \'R\' means RIGHT (new file), number is 123, use {"line": 123, "side": "RIGHT"}\n'
+        '  L   45 -code here      <- \'L\' means LEFT (old file), number is 45, use {"line": 45, "side": "LEFT"}\n'
         "         context         <- no prefix = unchanged context, don't comment on these\n"
         "- Extract the integer after R or L prefix (e.g., 'R  123' -> line 123, 'L   45' -> line 45)\n"
         "- Suggestions ONLY work on RIGHT (added) lines, never LEFT (removed) lines\n"
