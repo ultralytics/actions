@@ -16,6 +16,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Cleanup any leftover test files
+        run: rm -f /tmp/retry_attempt /tmp/retry_attempt_py
+
       - name: Test successful command
         uses: ./retry
         with:
@@ -64,6 +67,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
+
+      - name: Cleanup any leftover test files
+        run: rm -f /tmp/retry_attempt /tmp/retry_attempt_py
 
       - name: Test successful Python command
         uses: ./retry

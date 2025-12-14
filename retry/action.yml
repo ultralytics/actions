@@ -16,7 +16,7 @@
 #         python setup.py install
 #         pytest tests/
 #       retries: 2             # Retry twice after initial attempt (3 total runs)
-#       timeout_minutes: 30    # Each attempt times out after 30 minutes
+#       timeout_minutes: 30    # Total timeout for all attempts combined
 #       retry_delay_seconds: 60 # Wait 60 seconds between retries
 #       shell: bash            # Use python or bash shell
 
@@ -24,7 +24,7 @@ name: "Step-Level Retry"
 description: "Retries a step while preserving its full context"
 inputs:
   timeout_minutes:
-    description: "Maximum time in minutes for each attempt"
+    description: "Maximum total time in minutes for all attempts"
     required: false
     default: "360"
   retries:
@@ -65,7 +65,14 @@ runs:
 
         # Create temporary script file with appropriate extension
         if [ "$shell_type" = "python" ]; then
-            TEMP_SCRIPT=$(mktemp --suffix=.py 2>/dev/null) || TEMP_SCRIPT=$(mktemp).py
+            if TEMP_SCRIPT=$(mktemp --suffix=.py 2>/dev/null); then
+                : # Success with --suffix
+            else
+                # Fallback: create temp file then rename it
+                TEMP_SCRIPT=$(mktemp)
+                mv "$TEMP_SCRIPT" "${TEMP_SCRIPT}.py"
+                TEMP_SCRIPT="${TEMP_SCRIPT}.py"
+            fi
         else
             TEMP_SCRIPT=$(mktemp)
         fi
