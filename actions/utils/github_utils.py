@@ -178,7 +178,7 @@ class Action:
         return json.loads(Path(event_path).read_text()) if event_path and Path(event_path).exists() else {}
 
     def is_repo_private(self) -> bool:
-        """Checks if the repository is public using event data."""
+        """Checks if the repository is private using event data."""
         return self.event_data.get("repository", {}).get("private", False)
 
     def get_username(self) -> str | None:

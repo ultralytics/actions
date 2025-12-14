@@ -71,7 +71,7 @@ inputs:
   openai_model:
     description: "OpenAI Model"
     required: false
-    default: "gpt-5.1-2025-11-13"
+    default: "gpt-5.2-2025-12-11"
   first_issue_response:
     description: "Example response to a new issue"
     required: false
