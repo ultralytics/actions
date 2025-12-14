@@ -97,7 +97,7 @@ runs:
 
             # Execute the script with appropriate interpreter
             if [ "$shell_type" = "python" ]; then
-                python "$TEMP_SCRIPT"
+                python3 "$TEMP_SCRIPT"
             else
                 bash -e "$TEMP_SCRIPT"
             fi
