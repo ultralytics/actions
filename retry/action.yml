@@ -16,7 +16,7 @@
 #         python setup.py install
 #         pytest tests/
 #       retries: 2             # Retry twice after initial attempt (3 total runs)
-#       timeout_minutes: 30    # Each attempt times out after 30 minutes
+#       timeout_minutes: 30    # Total timeout for all attempts combined
 #       retry_delay_seconds: 60 # Wait 60 seconds between retries
 #       shell: bash            # Use python or bash shell
 
@@ -24,7 +24,7 @@ name: "Step-Level Retry"
 description: "Retries a step while preserving its full context"
 inputs:
   timeout_minutes:
-    description: "Maximum time in minutes for each attempt"
+    description: "Maximum total time in minutes for all attempts"
     required: false
     default: "360"
   retries:
@@ -46,113 +46,98 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Execute with retry (Python)
-      if: inputs.shell == 'python'
-      shell: python
-      env: ${{ env }}
-      run: |
-        import time
-        import sys
-        from pathlib import Path
-        import tempfile
-
-        start_time = time.time()
-        timeout_seconds = ${{ inputs.timeout_minutes }} * 60
-        attempt = 1
-        max_attempts = 1 + ${{ inputs.retries }}  # Initial run + retries
-
-        # Create temporary script file
-        temp_path = Path(tempfile.gettempdir()) / 'retry_script.py'
-        temp_path.write_text("""${{ inputs.run }}""")
-
-        while attempt <= max_attempts:
-            if attempt > 1:
-                print(f"::group::Retry {attempt-1} of ${{ inputs.retries }}")
-            
-            if (time.time() - start_time) > timeout_seconds:
-                print(f"::error::Step timed out after ${{ inputs.timeout_minutes }} minutes")
-                temp_path.unlink(missing_ok=True)
-                sys.exit(1)
-            
-            try:
-                exec(temp_path.read_text())
-                if attempt > 1:
-                    print("::endgroup::")
-                temp_path.unlink(missing_ok=True)
-                sys.exit(0)
-            except Exception as e:
-                if attempt > 1:
-                    print(f"Retry {attempt-1} failed with error: {str(e)}")
-                    print("::endgroup::")
-                else:
-                    print(f"Initial attempt failed with error: {str(e)}")
-                
-                if attempt == max_attempts:
-                    print(f"::error::Step failed after initial attempt and {attempt-1} retries")
-                    temp_path.unlink(missing_ok=True)
-                    sys.exit(1)
-                
-                print(f"Retrying in ${{ inputs.retry_delay_seconds }} seconds...")
-                time.sleep(${{ inputs.retry_delay_seconds }})
-                attempt += 1
-
-    - name: Execute with retry (Bash)
-      if: inputs.shell != 'python'
+    - name: Execute with retry
       shell: bash
-      env: ${{ env }}
+      env:
+        # Note: Workflow env vars are automatically inherited. Only RETRY_COMMANDS is added here.
+        RETRY_COMMANDS: ${{ inputs.run }}
       run: |
-        set +e
+        set +e  # Don't exit on error - we handle errors manually
 
         start_time=$(date +%s)
         timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
         attempt=1
         max_attempts=$(( 1 + ${{ inputs.retries }} ))  # Initial run + retries
+        retries=${{ inputs.retries }}
+        retry_delay=${{ inputs.retry_delay_seconds }}
+        timeout_mins=${{ inputs.timeout_minutes }}
+        shell_type="${{ inputs.shell }}"
+        exit_code=0
 
-        # Create a temporary script file with proper shebang
-        TEMP_SCRIPT=$(mktemp)
-        cat << 'EOF' > "$TEMP_SCRIPT"
-        #!/bin/bash
-        set -e
-        ${{ inputs.run }}
-        EOF
-        chmod +x "$TEMP_SCRIPT"
-
-        while [ $attempt -le $max_attempts ]; do
-            if [ $attempt -gt 1 ]; then
-                echo "::group::Retry $((attempt-1)) of ${{ inputs.retries }}"
+        # Create temporary script file with appropriate extension
+        if [ "$shell_type" = "python" ]; then
+            if ! TEMP_SCRIPT=$(mktemp --suffix=.py 2>/dev/null); then
+                # Fallback: create temp file then rename it
+                if ! TEMP_SCRIPT=$(mktemp 2>/dev/null); then
+                    echo "::error::Failed to create temporary file"
+                    exit 1
+                fi
+                if ! mv "$TEMP_SCRIPT" "${TEMP_SCRIPT}.py"; then
+                    rm -f "$TEMP_SCRIPT"
+                    echo "::error::Failed to rename temporary file"
+                    exit 1
+                fi
+                TEMP_SCRIPT="${TEMP_SCRIPT}.py"
             fi
-            
-            current_time=$(date +%s)
-            if [ $((current_time - start_time)) -gt $timeout_seconds ]; then
-                echo "::error::Step timed out after ${{ inputs.timeout_minutes }} minutes"
-                rm "$TEMP_SCRIPT"
+        else
+            if ! TEMP_SCRIPT=$(mktemp 2>/dev/null); then
+                echo "::error::Failed to create temporary file"
                 exit 1
             fi
-            
-            # Execute the temporary script
-            "$TEMP_SCRIPT"
+        fi
+
+        # Ensure cleanup on exit
+        trap 'rm -f "$TEMP_SCRIPT"' EXIT
+
+        # Write the user's commands to the temp script
+        printf '%s\n' "$RETRY_COMMANDS" > "$TEMP_SCRIPT"
+
+        # Validate script was written
+        if [ ! -s "$TEMP_SCRIPT" ]; then
+            echo "::error::No commands provided to execute"
+            exit 1
+        fi
+
+        while [ "$attempt" -le "$max_attempts" ]; do
+            if [ "$attempt" -gt 1 ]; then
+                echo "::group::Retry $((attempt - 1)) of $retries"
+            fi
+
+            current_time=$(date +%s)
+            elapsed=$((current_time - start_time))
+            if [ "$elapsed" -gt "$timeout_seconds" ]; then
+                echo "::error::Step timed out after $timeout_mins minutes"
+                [ "$attempt" -gt 1 ] && echo "::endgroup::"
+                exit 1
+            fi
+
+            # Execute the script with appropriate interpreter
+            if [ "$shell_type" = "python" ]; then
+                python3 "$TEMP_SCRIPT"
+            else
+                bash -e "$TEMP_SCRIPT"
+            fi
             exit_code=$?
-            
-            if [ $exit_code -eq 0 ]; then
-                [ $attempt -gt 1 ] && echo "::endgroup::"
-                rm "$TEMP_SCRIPT"
+
+            if [ "$exit_code" -eq 0 ]; then
+                [ "$attempt" -gt 1 ] && echo "::endgroup::"
                 exit 0
             fi
-            
-            if [ $attempt -gt 1 ]; then
-                echo "Retry $((attempt-1)) failed with exit code $exit_code"
+
+            # Handle failure
+            if [ "$attempt" -gt 1 ]; then
+                echo "Retry $((attempt - 1)) failed with exit code $exit_code"
                 echo "::endgroup::"
             else
                 echo "Initial attempt failed with exit code $exit_code"
             fi
-            
-            if [ $attempt -eq $max_attempts ]; then
-                echo "::error::Step failed after initial attempt and $((attempt-1)) retries"
-                rm "$TEMP_SCRIPT"
-                exit $exit_code
+
+            if [ "$attempt" -eq "$max_attempts" ]; then
+                echo "::error::Step failed after initial attempt and $((attempt - 1)) retries"
+                exit "$exit_code"
             fi
-            
-            echo "Retrying in ${{ inputs.retry_delay_seconds }} seconds..."
-            sleep ${{ inputs.retry_delay_seconds }}
+
+            echo "Retrying in $retry_delay seconds..."
+            sleep "$retry_delay"
             attempt=$((attempt + 1))
         done

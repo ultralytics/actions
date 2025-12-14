@@ -16,16 +16,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Cleanup any leftover test files
+        run: rm -f /tmp/retry_attempt /tmp/retry_attempt_py
+
       - name: Test successful command
-        uses: ultralytics/actions/retry@main
+        uses: ./retry
         with:
           run: |
             echo "This should succeed first try"
             true
 
       - name: Test retry with eventual success
-        uses: ultralytics/actions/retry@main
-        continue-on-error: true
+        uses: ./retry
         env:
           TEST_VAR: "hello"
         with:
@@ -33,10 +35,28 @@ jobs:
           retry_delay_seconds: 5
           run: |
             echo "Running attempt with TEST_VAR=$TEST_VAR"
-            exit 1
+            # Validate env var is passed correctly
+            if [ "$TEST_VAR" != "hello" ]; then
+              echo "ERROR: TEST_VAR not passed correctly, got '$TEST_VAR'"
+              exit 1
+            fi
+            # Fail first two times, succeed on third attempt
+            if [ ! -f /tmp/retry_attempt ]; then
+              echo "1" > /tmp/retry_attempt
+              echo "First attempt - failing"
+              exit 1
+            fi
+            count=$(cat /tmp/retry_attempt)
+            if [ "$count" -lt 2 ]; then
+              echo "$((count + 1))" > /tmp/retry_attempt
+              echo "Attempt $((count + 1)) - failing"
+              exit 1
+            fi
+            rm -f /tmp/retry_attempt
+            echo "Success on attempt $((count + 1))!"
 
       - name: Test multi-line failure
-        uses: ultralytics/actions/retry@main
+        uses: ./retry
         continue-on-error: true
         env:
           TEST_VAR: "hello"
@@ -53,16 +73,18 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      - name: Cleanup any leftover test files
+        run: rm -f /tmp/retry_attempt /tmp/retry_attempt_py
+
       - name: Test successful Python command
-        uses: ultralytics/actions/retry@main
+        uses: ./retry
         with:
           shell: python
           run: |
             print("This should succeed first try")
 
       - name: Test Python retry with eventual success
-        uses: ultralytics/actions/retry@main
-        continue-on-error: true
+        uses: ./retry
         env:
           TEST_VAR: "hello"
         with:
@@ -71,11 +93,27 @@ jobs:
           retry_delay_seconds: 5
           run: |
             import os
+            from pathlib import Path
             print(f"Running attempt with TEST_VAR={os.environ.get('TEST_VAR')}")
-            raise Exception("Forced failure")
+            # Validate env var is passed correctly
+            if os.environ.get('TEST_VAR') != 'hello':
+                raise Exception(f"TEST_VAR not passed correctly, got '{os.environ.get('TEST_VAR')}'")
+            # Fail first two times, succeed on third attempt
+            counter_file = Path("/tmp/retry_attempt_py")
+            if not counter_file.exists():
+                counter_file.write_text("1")
+                print("First attempt - failing")
+                raise Exception("Intentional failure")
+            count = int(counter_file.read_text())
+            if count < 2:
+                counter_file.write_text(str(count + 1))
+                print(f"Attempt {count + 1} - failing")
+                raise Exception("Intentional failure")
+            counter_file.unlink()
+            print(f"Success on attempt {count + 1}!")
 
       - name: Test Python multi-line failure
-        uses: ultralytics/actions/retry@main
+        uses: ./retry
         continue-on-error: true
         env:
           TEST_VAR: "hello"
