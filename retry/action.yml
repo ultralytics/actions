@@ -49,7 +49,6 @@ runs:
     - name: Execute with retry (Python)
       if: inputs.shell == 'python'
       shell: python
-      env: ${{ env }}
       run: |
         import time
         import sys
@@ -99,59 +98,53 @@ runs:
     - name: Execute with retry (Bash)
       if: inputs.shell != 'python'
       shell: bash
-      env: ${{ env }}
       run: |
-        set +e
-
         start_time=$(date +%s)
         timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
         attempt=1
         max_attempts=$(( 1 + ${{ inputs.retries }} ))  # Initial run + retries
+        exit_code=0
 
-        # Create a temporary script file with proper shebang
         TEMP_SCRIPT=$(mktemp)
-        cat << 'EOF' > "$TEMP_SCRIPT"
-        #!/bin/bash
-        set -e
-        ${{ inputs.run }}
-        EOF
-        chmod +x "$TEMP_SCRIPT"
+        trap 'rm -f "$TEMP_SCRIPT"' EXIT
+        cat > "$TEMP_SCRIPT" <<'EOF'
+${{ inputs.run }}
+EOF
 
         while [ $attempt -le $max_attempts ]; do
             if [ $attempt -gt 1 ]; then
                 echo "::group::Retry $((attempt-1)) of ${{ inputs.retries }}"
             fi
-            
+
             current_time=$(date +%s)
             if [ $((current_time - start_time)) -gt $timeout_seconds ]; then
                 echo "::error::Step timed out after ${{ inputs.timeout_minutes }} minutes"
-                rm "$TEMP_SCRIPT"
+                [ $attempt -gt 1 ] && echo "::endgroup::"
                 exit 1
             fi
-            
-            # Execute the temporary script
-            "$TEMP_SCRIPT"
+
+            set +e
+            bash "$TEMP_SCRIPT"
             exit_code=$?
-            
+            set -e
+
             if [ $exit_code -eq 0 ]; then
                 [ $attempt -gt 1 ] && echo "::endgroup::"
-                rm "$TEMP_SCRIPT"
                 exit 0
             fi
-            
+
             if [ $attempt -gt 1 ]; then
                 echo "Retry $((attempt-1)) failed with exit code $exit_code"
                 echo "::endgroup::"
             else
                 echo "Initial attempt failed with exit code $exit_code"
             fi
-            
+
             if [ $attempt -eq $max_attempts ]; then
                 echo "::error::Step failed after initial attempt and $((attempt-1)) retries"
-                rm "$TEMP_SCRIPT"
                 exit $exit_code
             fi
-            
+
             echo "Retrying in ${{ inputs.retry_delay_seconds }} seconds..."
             sleep ${{ inputs.retry_delay_seconds }}
             attempt=$((attempt + 1))
