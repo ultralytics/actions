@@ -49,6 +49,7 @@ runs:
     - name: Execute with retry
       shell: bash
       env:
+        # Note: Workflow env vars are automatically inherited. Only RETRY_COMMANDS is added here.
         RETRY_COMMANDS: ${{ inputs.run }}
       run: |
         set +e  # Don't exit on error - we handle errors manually
@@ -65,16 +66,24 @@ runs:
 
         # Create temporary script file with appropriate extension
         if [ "$shell_type" = "python" ]; then
-            if TEMP_SCRIPT=$(mktemp --suffix=.py 2>/dev/null); then
-                : # Success with --suffix
-            else
+            if ! TEMP_SCRIPT=$(mktemp --suffix=.py 2>/dev/null); then
                 # Fallback: create temp file then rename it
-                TEMP_SCRIPT=$(mktemp)
-                mv "$TEMP_SCRIPT" "${TEMP_SCRIPT}.py"
+                if ! TEMP_SCRIPT=$(mktemp 2>/dev/null); then
+                    echo "::error::Failed to create temporary file"
+                    exit 1
+                fi
+                if ! mv "$TEMP_SCRIPT" "${TEMP_SCRIPT}.py"; then
+                    rm -f "$TEMP_SCRIPT"
+                    echo "::error::Failed to rename temporary file"
+                    exit 1
+                fi
                 TEMP_SCRIPT="${TEMP_SCRIPT}.py"
             fi
         else
-            TEMP_SCRIPT=$(mktemp)
+            if ! TEMP_SCRIPT=$(mktemp 2>/dev/null); then
+                echo "::error::Failed to create temporary file"
+                exit 1
+            fi
         fi
 
         # Ensure cleanup on exit
