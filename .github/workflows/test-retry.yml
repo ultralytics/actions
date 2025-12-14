@@ -25,7 +25,6 @@ jobs:
 
       - name: Test retry with eventual success
         uses: ./retry
-        continue-on-error: true
         env:
           TEST_VAR: "hello"
         with:
@@ -33,7 +32,20 @@ jobs:
           retry_delay_seconds: 5
           run: |
             echo "Running attempt with TEST_VAR=$TEST_VAR"
-            exit 1
+            # Fail first two times, succeed on third attempt
+            if [ ! -f /tmp/retry_attempt ]; then
+              echo "1" > /tmp/retry_attempt
+              echo "First attempt - failing"
+              exit 1
+            fi
+            count=$(cat /tmp/retry_attempt)
+            if [ "$count" -lt 2 ]; then
+              echo "$((count + 1))" > /tmp/retry_attempt
+              echo "Attempt $((count + 1)) - failing"
+              exit 1
+            fi
+            rm -f /tmp/retry_attempt
+            echo "Success on attempt $((count + 1))!"
 
       - name: Test multi-line failure
         uses: ./retry
@@ -62,7 +74,6 @@ jobs:
 
       - name: Test Python retry with eventual success
         uses: ./retry
-        continue-on-error: true
         env:
           TEST_VAR: "hello"
         with:
@@ -71,8 +82,21 @@ jobs:
           retry_delay_seconds: 5
           run: |
             import os
+            from pathlib import Path
             print(f"Running attempt with TEST_VAR={os.environ.get('TEST_VAR')}")
-            raise Exception("Forced failure")
+            # Fail first two times, succeed on third attempt
+            counter_file = Path("/tmp/retry_attempt_py")
+            if not counter_file.exists():
+                counter_file.write_text("1")
+                print("First attempt - failing")
+                raise Exception("Intentional failure")
+            count = int(counter_file.read_text())
+            if count < 2:
+                counter_file.write_text(str(count + 1))
+                print(f"Attempt {count + 1} - failing")
+                raise Exception("Intentional failure")
+            counter_file.unlink()
+            print(f"Success on attempt {count + 1}!")
 
       - name: Test Python multi-line failure
         uses: ./retry
