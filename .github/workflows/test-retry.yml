@@ -35,6 +35,11 @@ jobs:
           retry_delay_seconds: 5
           run: |
             echo "Running attempt with TEST_VAR=$TEST_VAR"
+            # Validate env var is passed correctly
+            if [ "$TEST_VAR" != "hello" ]; then
+              echo "ERROR: TEST_VAR not passed correctly, got '$TEST_VAR'"
+              exit 1
+            fi
             # Fail first two times, succeed on third attempt
             if [ ! -f /tmp/retry_attempt ]; then
               echo "1" > /tmp/retry_attempt
@@ -90,6 +95,9 @@ jobs:
             import os
             from pathlib import Path
             print(f"Running attempt with TEST_VAR={os.environ.get('TEST_VAR')}")
+            # Validate env var is passed correctly
+            if os.environ.get('TEST_VAR') != 'hello':
+                raise Exception(f"TEST_VAR not passed correctly, got '{os.environ.get('TEST_VAR')}'")
             # Fail first two times, succeed on third attempt
             counter_file = Path("/tmp/retry_attempt_py")
             if not counter_file.exists():
