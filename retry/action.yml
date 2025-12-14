@@ -101,7 +101,7 @@ runs:
       shell: bash
       env: ${{ env }}
       run: |
-        set +e
+        set -euo pipefail
 
         start_time=$(date +%s)
         timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
@@ -113,7 +113,7 @@ runs:
         trap 'rm -f "$TEMP_SCRIPT"' EXIT
         cat > "$TEMP_SCRIPT" << 'EOF'
         #!/usr/bin/env bash
-        set -euo pipefail
+        set -e
         ${{ inputs.run }}
         EOF
 
@@ -125,11 +125,14 @@ runs:
           current_time=$(date +%s)
           if [ $((current_time - start_time)) -gt "$timeout_seconds" ]; then
             echo "::error::Step timed out after ${{ inputs.timeout_minutes }} minutes"
+            [ "$attempt" -gt 1 ] && echo "::endgroup::"
             exit 1
           fi
 
+          set +e
           bash "$TEMP_SCRIPT"
           exit_code=$?
+          set -e
 
           if [ "$exit_code" -eq 0 ]; then
             [ "$attempt" -gt 1 ] && echo "::endgroup::"
