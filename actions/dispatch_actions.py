@@ -118,7 +118,7 @@ def update_comment(event, comment_body: str, triggered_actions: list[dict], bran
 
 ## ⚡ Actions Trigger
 
-<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)<sub>
+<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>
 
 GitHub Actions below triggered via workflow dispatch for this PR at {timestamp} with `{RUN_CI_KEYWORD}` command:
 

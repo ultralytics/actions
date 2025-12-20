@@ -40,7 +40,7 @@ _CITATION_PATTERN = re.compile(
 
 
 def sanitize_ai_text(s: str) -> str:
-    """Strip private-use citation tokens like '' and normalize whitespace."""
+    """Strip private-use citation tokens (for example, ``cite...`` markers)."""
     return _CITATION_PATTERN.sub("", s) if s else ""
 
 
