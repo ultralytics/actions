@@ -1,0 +1,33 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+# Ultralytics Actions Pre-commit Configuration
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+
+repos:
+  - repo: https://github.com/ultralytics/actions
+    rev: main  # Use a specific tag/version in production
+    hooks:
+      - id: update-file-headers
+        name: Update File Headers
+        description: Add or update file headers with license information
+        entry: ultralytics-actions headers
+        language: python
+        types_or: [python, yaml, shell, c, c++, java, javascript, typescript]
+        pass_filenames: false
+
+      - id: format-python-docstrings
+        name: Format Python Docstrings
+        description: Format Python docstrings to Google style
+        entry: ultralytics-actions format-python-docstrings
+        language: python
+        types: [python]
+        pass_filenames: false
+
+      - id: update-markdown-code-blocks
+        name: Update Markdown Code Blocks
+        description: Format code blocks in Markdown files
+        entry: ultralytics-actions update-markdown-code-blocks
+        language: python
+        types: [markdown]
+        pass_filenames: false
