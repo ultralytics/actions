@@ -251,7 +251,7 @@ def generate_pr_review(
         response = get_response(
             messages,
             reasoning_effort="low",
-            model="gpt-5.2-2025-12-11",
+            model="gpt-5.2-codex",
             text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
             tools=[
                 {
