@@ -188,9 +188,12 @@ def filter_diff_text(diff_text: str) -> tuple[str, list[str]]:
 
     for line in diff_text.split("\n"):
         if line.startswith("diff --git"):
-            # Extract file path from diff header
-            match = re.search(r" b/(.+)$", line)
-            current_file = match.group(1) if match else None
+            # Extract file path from diff header, handling quoted paths (spaces/renames)
+            # Formats: "diff --git a/path b/path" or 'diff --git "a/path" "b/path"'
+            if match := re.search(r' "?b/(.+?)"?$', line):
+                current_file = match.group(1).rstrip('"')
+            else:
+                current_file = None
             skip_current = current_file and should_skip_file(current_file)
 
             if skip_current and current_file:
@@ -221,7 +224,7 @@ def format_skipped_files_dropdown(skipped_files: list[str], max_files: int = 100
 
     count = len(skipped_files)
     summary = f"📋 Skipped {count} file{'s' if count != 1 else ''} (lock files, generated, images, etc.)"
-    file_list = "\n".join(f"- `{f}`" for f in sorted(skipped_files[:max_files]))
+    file_list = "\n".join(f"- `{f}`" for f in sorted(skipped_files)[:max_files])
     if count > max_files:
         file_list += f"\n- ... and {count - max_files} more"
 
