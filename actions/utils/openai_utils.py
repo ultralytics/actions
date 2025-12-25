@@ -9,7 +9,7 @@ import time
 
 import requests
 
-from actions.utils.common_utils import check_links_in_string
+from actions.utils.common_utils import check_links_in_string, filter_diff_text, format_skipped_files_note
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.2-2025-12-11")
@@ -99,10 +99,12 @@ def get_pr_summary_guidelines() -> str:
 - (bullet points explaining benefits and potential impact to users)"""
 
 
-def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
-    """Returns the complete PR summary generation prompt with diff (used by PR update/merge)."""
-    prompt = f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{diff_text[:MAX_PROMPT_CHARS]}"
-    return prompt, len(diff_text) > MAX_PROMPT_CHARS
+def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool, list[str]]:
+    """Returns the complete PR summary generation prompt with filtered diff (used by PR update/merge)."""
+    filtered_diff, skipped_files = filter_diff_text(diff_text)
+    prompt = f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{filtered_diff[:MAX_PROMPT_CHARS]}"
+    prompt += format_skipped_files_note(skipped_files)
+    return prompt, len(filtered_diff) > MAX_PROMPT_CHARS, skipped_files
 
 
 def get_pr_first_comment_template(repository: str, username: str) -> str:
@@ -219,7 +221,8 @@ def get_response(
 
 def get_pr_open_response(repository: str, diff_text: str, title: str, username: str, available_labels: dict) -> dict:
     """Generates unified PR response with summary, labels, and first comment in a single API call."""
-    is_large = len(diff_text) > MAX_PROMPT_CHARS
+    filtered_diff, skipped_files = filter_diff_text(diff_text)
+    is_large = len(filtered_diff) > MAX_PROMPT_CHARS
 
     filtered_labels = filter_labels(available_labels, is_pr=True)
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
@@ -227,7 +230,7 @@ def get_pr_open_response(repository: str, diff_text: str, title: str, username: 
     prompt = f"""You are processing a new GitHub PR by @{username} for the {repository} repository.
 
 Generate 3 outputs in a single JSON response for the PR titled '{title}' with the following diff:
-{diff_text[:MAX_PROMPT_CHARS]}
+{filtered_diff[:MAX_PROMPT_CHARS]}{format_skipped_files_note(skipped_files)}
 
 
 --- FIRST JSON OUTPUT (PR SUMMARY) ---
@@ -274,6 +277,7 @@ Example comment template (adapt as needed, keep all links):
         result["summary"] = (
             "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + result["summary"]
         )
+    result["skipped_files"] = skipped_files
     return result
 
 
