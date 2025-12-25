@@ -6,9 +6,37 @@ import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from urllib import parse
 
 import requests
+
+# Patterns for files that should be skipped in PR summaries and reviews (lock files, generated, minified, etc.)
+SKIP_PATTERN_STRINGS = [
+    r"\.lock$",  # Lock files
+    r"-lock\.(json|yaml|yml)$",
+    r"\.min\.(js|css)$",  # Minified
+    r"\.bundle\.(js|css)$",
+    r"(^|/)dist/",  # Generated/vendored directories
+    r"(^|/)build/",
+    r"(^|/)vendor/",
+    r"(^|/)node_modules/",
+    r"(^|/)coverage/",  # Coverage reports
+    r"\.pb\.py$",  # Proto generated
+    r"_pb2\.py$",
+    r"_pb2_grpc\.py$",
+    r"^package-lock\.json$",  # Package locks
+    r"^yarn\.lock$",
+    r"^poetry\.lock$",
+    r"^Pipfile\.lock$",
+    r"^uv\.lock$",
+    r"\.(svg|png|jpe?g|gif|ico|webp)$",  # Images
+    r"\.(woff2?|ttf|eot|otf)$",  # Fonts
+    r"\.(mp4|webm|mov|avi|mkv)$",  # Videos
+    r"\.(pdf|doc|docx|xls|xlsx)$",  # Documents
+    r"\.generated\.",  # Common generated file pattern
+]
+SKIP_PATTERNS = tuple(re.compile(pattern) for pattern in SKIP_PATTERN_STRINGS)
 
 REQUESTS_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
@@ -135,6 +163,72 @@ URL_PATTERN = re.compile(
 def remove_html_comments(body: str) -> str:
     """Removes HTML comments from a string using regex pattern matching."""
     return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip() if body else ""
+
+
+def should_skip_file(path: str) -> bool:
+    """Return True if file path matches a generated/minified skip pattern (lock files, images, etc.)."""
+    normalized = Path(path).as_posix().removeprefix("./")
+    filename = normalized.rsplit("/", 1)[-1]
+    return any(pattern.search(candidate) for pattern in SKIP_PATTERNS for candidate in (normalized, filename))
+
+
+def filter_diff_text(diff_text: str) -> tuple[str, list[str]]:
+    """Filter diff text to exclude lock files and other generated files.
+
+    Returns:
+        tuple: (filtered_diff_text, list of skipped file paths)
+    """
+    if not diff_text or diff_text.startswith("ERROR"):
+        return diff_text, []
+
+    filtered_lines = []
+    skipped_files = set()
+    current_file = None
+    skip_current = False
+
+    for line in diff_text.split("\n"):
+        if line.startswith("diff --git"):
+            # Extract file path from diff header, handling quoted paths (spaces/renames)
+            # Formats: "diff --git a/path b/path" or 'diff --git "a/path" "b/path"'
+            if match := re.search(r' "?b/(.+?)"?$', line):
+                current_file = match.group(1).rstrip('"')
+            else:
+                current_file = None
+            skip_current = current_file and should_skip_file(current_file)
+
+            if skip_current and current_file:
+                skipped_files.add(current_file)
+            else:
+                filtered_lines.append(line)
+        elif skip_current:
+            continue
+        else:
+            filtered_lines.append(line)
+
+    return "\n".join(filtered_lines), sorted(skipped_files)
+
+
+def format_skipped_files_dropdown(skipped_files: list[str], max_files: int = 100) -> str:
+    """Format skipped files as a collapsible HTML details dropdown for GitHub markdown."""
+    if not skipped_files:
+        return ""
+    count = len(skipped_files)
+    summary = f"📋 Skipped {count} file{'s' if count != 1 else ''} (lock files, generated, images, etc.)"
+    file_list = "\n".join(f"- `{f}`" for f in sorted(skipped_files)[:max_files])
+    if count > max_files:
+        file_list += f"\n- ... and {count - max_files} more"
+    return f"\n<details><summary>{summary}</summary>\n\n{file_list}\n</details>\n"
+
+
+def format_skipped_files_note(skipped_files: list[str], max_files: int = 10) -> str:
+    """Format skipped files as a brief inline note for AI prompts."""
+    if not skipped_files:
+        return ""
+    note = "\n\nNote: The following auto-generated/lock files were also modified but diff details omitted: "
+    note += ", ".join(f"`{f}`" for f in skipped_files[:max_files])
+    if len(skipped_files) > max_files:
+        note += f" and {len(skipped_files) - max_files} more"
+    return note
 
 
 def clean_url(url):
