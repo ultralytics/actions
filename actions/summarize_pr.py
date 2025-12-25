@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
-from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action, format_skipped_files_dropdown, get_pr_summary_prompt, get_response
+from .utils import (
+    ACTIONS_CREDIT,
+    GITHUB_API_URL,
+    Action,
+    format_skipped_files_dropdown,
+    get_pr_summary_prompt,
+    get_response,
+)
 
 SUMMARY_MARKER = "## 🛠️ PR Summary"
 

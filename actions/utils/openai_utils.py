@@ -113,7 +113,10 @@ def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool, l
 
     # Add note about skipped files if any were filtered out (for AI context only)
     if skipped_files:
-        skipped_note = "\n\nNote: The following auto-generated/lock files were also modified but diff details omitted: " + ", ".join(f"`{f}`" for f in skipped_files[:10])
+        skipped_note = (
+            "\n\nNote: The following auto-generated/lock files were also modified but diff details omitted: "
+            + ", ".join(f"`{f}`" for f in skipped_files[:10])
+        )
         if len(skipped_files) > 10:
             skipped_note += f" and {len(skipped_files) - 10} more"
         prompt += skipped_note
@@ -245,7 +248,10 @@ def get_pr_open_response(repository: str, diff_text: str, title: str, username: 
     # Build skipped files note if any were filtered out
     skipped_note = ""
     if skipped_files:
-        skipped_note = "\n\nNote: The following auto-generated/lock files were also modified but diff details omitted: " + ", ".join(f"`{f}`" for f in skipped_files[:10])
+        skipped_note = (
+            "\n\nNote: The following auto-generated/lock files were also modified but diff details omitted: "
+            + ", ".join(f"`{f}`" for f in skipped_files[:10])
+        )
         if len(skipped_files) > 10:
             skipped_note += f" and {len(skipped_files) - 10} more"
 
