@@ -205,7 +205,7 @@ def filter_diff_text(diff_text: str) -> tuple[str, list[str]]:
         else:
             filtered_lines.append(line)
 
-    return "\n".join(filtered_lines), list(skipped_files)
+    return "\n".join(filtered_lines), sorted(skipped_files)
 
 
 def format_skipped_files_dropdown(skipped_files: list[str], max_files: int = 100) -> str:
