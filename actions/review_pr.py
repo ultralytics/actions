@@ -11,48 +11,19 @@ from .utils import (
     GITHUB_API_URL,
     MAX_PROMPT_CHARS,
     Action,
+    format_skipped_files_dropdown,
     get_response,
     remove_html_comments,
     sanitize_ai_text,
+    should_skip_file,
 )
 
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
-SKIP_PATTERN_STRINGS = [
-    r"\.lock$",  # Lock files
-    r"-lock\.(json|yaml|yml)$",
-    r"\.min\.(js|css)$",  # Minified
-    r"\.bundle\.(js|css)$",
-    r"(^|/)dist/",  # Generated/vendored directories
-    r"(^|/)build/",
-    r"(^|/)vendor/",
-    r"(^|/)node_modules/",
-    r"(^|/)coverage/",  # Coverage reports
-    r"\.pb\.py$",  # Proto generated
-    r"_pb2\.py$",
-    r"_pb2_grpc\.py$",
-    r"^package-lock\.json$",  # Package locks
-    r"^yarn\.lock$",
-    r"^poetry\.lock$",
-    r"^Pipfile\.lock$",
-    r"\.(svg|png|jpe?g|gif|ico|webp)$",  # Images
-    r"\.(woff2?|ttf|eot|otf)$",  # Fonts
-    r"\.(mp4|webm|mov|avi|mkv)$",  # Videos
-    r"\.(pdf|doc|docx|xls|xlsx)$",  # Documents
-    r"\.generated\.",  # Common generated file pattern
-]
-SKIP_PATTERNS = tuple(re.compile(pattern) for pattern in SKIP_PATTERN_STRINGS)
 MAX_CONTEXT_FILE_CHARS = 5000
 MAX_REVIEW_COMMENTS = 8
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
-
-
-def should_skip_file(path: str) -> bool:
-    """Return True if file path matches a generated/minified skip pattern."""
-    normalized = Path(path).as_posix().lstrip("./")
-    filename = normalized.rsplit("/", 1)[-1]
-    return any(pattern.search(candidate) for pattern in SKIP_PATTERNS for candidate in (normalized, filename))
 
 
 def parse_diff_files(diff_text: str) -> tuple[dict, str]:
@@ -416,13 +387,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     if review_data.get("diff_truncated"):
         body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
 
-    if skipped := review_data.get("skipped_files"):
-        count = len(skipped)
-        skip_str = f"📋 Skipped {count} file{'s' if count != 1 else ''} (lock files, minified, images, etc.)"
-        file_list = "\n".join(f"- `{f}`" for f in sorted(skipped[:100]))
-        if count > 100:
-            file_list += f"\n{count - 100} more..."
-        body += f"\n<details><summary>{skip_str}</summary>\n\n{file_list}\n</details>\n"
+    body += format_skipped_files_dropdown(review_data.get("skipped_files", []))
 
     # Build inline comments for the review
     review_comments = []

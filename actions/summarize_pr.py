@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action, get_pr_summary_prompt, get_response
+from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action, format_skipped_files_dropdown, get_pr_summary_prompt, get_response
 
 SUMMARY_MARKER = "## 🛠️ PR Summary"
 
@@ -59,7 +59,7 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
 
 def generate_pr_summary(repository, diff_text):
     """Generates a concise, professional summary of a PR using OpenAI's API."""
-    prompt, is_large = get_pr_summary_prompt(repository, diff_text)
+    prompt, is_large, skipped_files = get_pr_summary_prompt(repository, diff_text)
 
     messages = [
         {
@@ -72,7 +72,10 @@ def generate_pr_summary(repository, diff_text):
     if is_large:
         reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
 
-    return f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{reply}"
+    # Add skipped files dropdown if any files were filtered
+    skipped_dropdown = format_skipped_files_dropdown(skipped_files)
+
+    return f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{reply}{skipped_dropdown}"
 
 
 def label_fixed_issues(event, pr_summary):

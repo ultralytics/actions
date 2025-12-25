@@ -7,7 +7,7 @@ import time
 
 from . import review_pr
 from .summarize_pr import SUMMARY_MARKER
-from .utils import ACTIONS_CREDIT, Action, filter_labels, get_pr_open_response, get_response, remove_html_comments
+from .utils import ACTIONS_CREDIT, Action, filter_labels, format_skipped_files_dropdown, get_pr_open_response, get_response, remove_html_comments
 
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 AUTO_PR_REVIEW = os.getenv("REVIEW", "true").lower() == "true"
@@ -192,7 +192,8 @@ def main(*args, **kwargs):
 
         if summary := response.get("summary"):
             print("Updating PR description with summary...")
-            event.update_pr_description(number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}")
+            skipped_dropdown = format_skipped_files_dropdown(response.get("skipped_files", []))
+            event.update_pr_description(number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}{skipped_dropdown}")
         else:
             summary = body
 
