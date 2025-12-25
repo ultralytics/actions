@@ -210,25 +210,26 @@ def filter_diff_text(diff_text: str) -> tuple[str, list[str]]:
 
 
 def format_skipped_files_dropdown(skipped_files: list[str], max_files: int = 100) -> str:
-    """Format skipped files as a collapsible HTML details dropdown for GitHub markdown.
-
-    Args:
-        skipped_files: List of file paths that were skipped
-        max_files: Maximum number of files to show in the list (default 100)
-
-    Returns:
-        Formatted dropdown string, or empty string if no files were skipped
-    """
+    """Format skipped files as a collapsible HTML details dropdown for GitHub markdown."""
     if not skipped_files:
         return ""
-
     count = len(skipped_files)
     summary = f"📋 Skipped {count} file{'s' if count != 1 else ''} (lock files, generated, images, etc.)"
     file_list = "\n".join(f"- `{f}`" for f in sorted(skipped_files)[:max_files])
     if count > max_files:
         file_list += f"\n- ... and {count - max_files} more"
-
     return f"\n<details><summary>{summary}</summary>\n\n{file_list}\n</details>\n"
+
+
+def format_skipped_files_note(skipped_files: list[str], max_files: int = 10) -> str:
+    """Format skipped files as a brief inline note for AI prompts."""
+    if not skipped_files:
+        return ""
+    note = "\n\nNote: The following auto-generated/lock files were also modified but diff details omitted: "
+    note += ", ".join(f"`{f}`" for f in skipped_files[:max_files])
+    if len(skipped_files) > max_files:
+        note += f" and {len(skipped_files) - max_files} more"
+    return note
 
 
 def clean_url(url):

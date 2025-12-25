@@ -10,6 +10,7 @@ from .common_utils import (
     allow_redirect,
     filter_diff_text,
     format_skipped_files_dropdown,
+    format_skipped_files_note,
     remove_html_comments,
     should_skip_file,
 )
@@ -42,6 +43,7 @@ __all__ = (
     "filter_diff_text",
     "filter_labels",
     "format_skipped_files_dropdown",
+    "format_skipped_files_note",
     "get_pr_open_response",
     "get_pr_summary_guidelines",
     "get_pr_summary_prompt",
