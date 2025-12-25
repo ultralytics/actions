@@ -167,7 +167,7 @@ def remove_html_comments(body: str) -> str:
 
 def should_skip_file(path: str) -> bool:
     """Return True if file path matches a generated/minified skip pattern (lock files, images, etc.)."""
-    normalized = Path(path).as_posix().lstrip("./")
+    normalized = Path(path).as_posix().removeprefix("./")
     filename = normalized.rsplit("/", 1)[-1]
     return any(pattern.search(candidate) for pattern in SKIP_PATTERNS for candidate in (normalized, filename))
 
@@ -182,7 +182,7 @@ def filter_diff_text(diff_text: str) -> tuple[str, list[str]]:
         return diff_text, []
 
     filtered_lines = []
-    skipped_files = []
+    skipped_files = set()
     current_file = None
     skip_current = False
 
@@ -197,16 +197,15 @@ def filter_diff_text(diff_text: str) -> tuple[str, list[str]]:
             skip_current = current_file and should_skip_file(current_file)
 
             if skip_current and current_file:
-                skipped_files.append(current_file)
+                skipped_files.add(current_file)
             else:
                 filtered_lines.append(line)
         elif skip_current:
-            # Skip all lines for this file
             continue
         else:
             filtered_lines.append(line)
 
-    return "\n".join(filtered_lines), skipped_files
+    return "\n".join(filtered_lines), list(skipped_files)
 
 
 def format_skipped_files_dropdown(skipped_files: list[str], max_files: int = 100) -> str:
