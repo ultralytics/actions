@@ -232,6 +232,7 @@ runs:
       continue-on-error: true # Important so that commit step can pick up changes
 
     # Spelling ---------------------------------------------------------------------------------------------------------
+    # --ignore-regex '\b[a-z]+[A-Z][a-zA-Z]*\b' ignores camelCase words (e.g. repoRes, dateA) to prevent false positives
     - name: Run Codespell
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.spelling == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
