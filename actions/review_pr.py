@@ -115,7 +115,7 @@ def generate_pr_review(
                     continue
                 if len(snippet) == MAX_CONTEXT_FILE_CHARS:
                     snippet = f"{snippet.rstrip()}\n... (truncated)"
-                # Only include if within budget, include buffer for markdown noise
+                # Only include if within budget, include buffer for Markdown noise
                 estimated_cost = len(snippet) + 200
                 if total_chars + estimated_cost < MAX_PROMPT_CHARS:
                     file_contents.append(f"### {file_path}\n```\n{snippet}\n```")
@@ -155,7 +155,7 @@ def generate_pr_review(
         "- Suggestions must be complete, working code with NO comments, placeholders, or explanations\n"
         "- Single-line fixes only: provide 'suggestion' without 'start_line' to replace the line at 'line'\n"
         "- Match the exact indentation of the original code\n"
-        "- Avoid triple backticks (```) in suggestions as they break markdown formatting\n\n"
+        "- Avoid triple backticks (```) in suggestions as they break Markdown formatting\n\n"
         "SUMMARY:\n"
         "- Brief overall assessment: what's good, what needs attention\n"
         "- If no issues found, acknowledge the PR is clean\n\n"
