@@ -182,7 +182,7 @@ YOUR {issue_type.upper()} RESPONSE:
 def main(*args, **kwargs):
     """Executes auto-labeling and custom response generation for new GitHub issues, PRs, and discussions."""
     event = Action(*args, **kwargs)
-    if event.should_skip_openai():
+    if event.should_skip_llm():
         return
 
     number, node_id, title, body, username, issue_type, action = get_event_content(event)

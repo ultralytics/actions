@@ -108,7 +108,7 @@ def main(*args, **kwargs):
     if action == "opened":
         print("Skipping PR open - handled by first_interaction.py with unified API call")
         return
-    if event.should_skip_openai():
+    if event.should_skip_llm():
         return
 
     print(f"Retrieving diff for PR {event.pr['number']}")
