@@ -209,7 +209,7 @@ def filter_diff_text(diff_text: str) -> tuple[str, list[str]]:
 
 
 def format_skipped_files_dropdown(skipped_files: list[str], max_files: int = 100) -> str:
-    """Format skipped files as a collapsible HTML details dropdown for GitHub markdown."""
+    """Format skipped files as a collapsible HTML details dropdown for GitHub Markdown."""
     if not skipped_files:
         return ""
     count = len(skipped_files)

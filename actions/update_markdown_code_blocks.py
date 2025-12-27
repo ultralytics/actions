@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 def extract_code_blocks(markdown_content):
-    """Extracts Python and Bash code blocks from markdown content using regex pattern matching."""
+    """Extracts Python and Bash code blocks from Markdown content using regex pattern matching."""
     # Python code blocks
     py_pattern = r"^( *)```(?:python|py|\{[ ]*\.py[ ]*\.annotate[ ]*\})\n(.*?)\n\1```"
     py_code_blocks = re.compile(py_pattern, re.DOTALL | re.MULTILINE).findall(markdown_content)
@@ -120,7 +120,7 @@ def process_markdown_string(
     process_bash: bool = True,
     verbose: bool = False,
 ) -> str:
-    """Formats Python/Bash code blocks inside a markdown string."""
+    """Formats Python/Bash code blocks inside a Markdown string."""
     formatted_markdown = markdown_content
     with tempfile.TemporaryDirectory() as temp_dir_name:
         temp_dir = Path(temp_dir_name)
@@ -157,7 +157,7 @@ def generate_temp_filename(file_path, index, code_type):
 
 
 def process_markdown_file(file_path, temp_dir, process_python=True, process_bash=True, verbose=False):
-    """Processes a markdown file, extracting code blocks for formatting and updating the original file."""
+    """Processes a Markdown file, extracting code blocks for formatting and updating the original file."""
     try:
         markdown_content = Path(file_path).read_text()
         code_blocks_by_type = extract_code_blocks(markdown_content)
@@ -192,7 +192,7 @@ def process_markdown_file(file_path, temp_dir, process_python=True, process_bash
 
 
 def update_markdown_file(file_path, markdown_content, temp_files):
-    """Updates a markdown file with formatted code blocks."""
+    """Updates a Markdown file with formatted code blocks."""
     for num_spaces, original_code_block, temp_file_path, code_type in temp_files:
         try:
             with open(temp_file_path) as temp_file:
@@ -219,7 +219,7 @@ def update_markdown_file(file_path, markdown_content, temp_files):
 
 
 def main(root_dir=Path.cwd(), process_python=True, process_bash=True, verbose=False):
-    """Processes markdown files, extracts and formats code blocks, and updates the original files."""
+    """Processes Markdown files, extracts and formats code blocks, and updates the original files."""
     root_path = Path(root_dir)
     markdown_files = list(root_path.rglob("*.md"))
     temp_dir = Path("temp_code_blocks")
@@ -242,7 +242,7 @@ def main(root_dir=Path.cwd(), process_python=True, process_bash=True, verbose=Fa
     if process_bash:
         format_bash_with_prettier(temp_dir)  # Format Bash files
 
-    # Update markdown files with formatted code blocks
+    # Update Markdown files with formatted code blocks
     for markdown_file, markdown_content, temp_files in all_temp_files:
         update_markdown_file(markdown_file, markdown_content, temp_files)
 
