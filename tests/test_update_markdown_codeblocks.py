@@ -15,7 +15,7 @@ from actions.update_markdown_code_blocks import (
 
 
 def test_extract_code_blocks():
-    """Test extracting code blocks from markdown content."""
+    """Test extracting code blocks from Markdown content."""
     # Test with Python and Bash code blocks
     markdown_content = """
 # Test Markdown
@@ -87,7 +87,7 @@ def test_generate_temp_filename():
 @patch("pathlib.Path.write_text")
 @patch("builtins.open", new_callable=mock_open)
 def test_process_markdown_file(mock_file, mock_write, mock_read_text):
-    """Test processing markdown files."""
+    """Test processing Markdown files."""
     mock_read_text.return_value = """
 # Test
 
@@ -109,7 +109,7 @@ def test():
 
 
 def test_main_real_files():
-    """Test main function on actual repository markdown files."""
-    # Run main on current directory which contains README.md and other markdown files
+    """Test main function on actual repository Markdown files."""
+    # Run main on current directory which contains README.md and other Markdown files
     # This provides real-world test coverage of the entire pipeline
     main(process_python=True, process_bash=True, verbose=False)
