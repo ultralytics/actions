@@ -251,7 +251,9 @@ def get_response(
                     output_tokens = usage.get("output_tokens", 0)
                     costs = MODEL_COSTS.get(model, (0.0, 0.0))
                     cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
-                    print(f"{model} ({input_tokens}→{output_tokens} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)")
+                    print(
+                        f"{model} ({input_tokens}→{output_tokens} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)"
+                    )
             else:
                 content = ""
                 for item in response_json.get("output", []):
