@@ -180,9 +180,9 @@ def get_response(
     user_messages = messages.copy()
     if user_messages and user_messages[0].get("role") == "system":
         system_content = user_messages.pop(0)["content"] + "\n\n" + SYSTEM_PROMPT_ADDITION
-    elif not is_anthropic:  # OpenAI: modify in-place for non-system first message
-        if messages and messages[0].get("role") == "system":
-            messages[0]["content"] += "\n\n" + SYSTEM_PROMPT_ADDITION
+        if not is_anthropic:
+            # For OpenAI, keep system message in messages list with addition
+            messages = [{"role": "system", "content": system_content}] + user_messages
 
     for attempt in range(3):
         if is_anthropic:
