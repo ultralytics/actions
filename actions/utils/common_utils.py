@@ -12,26 +12,28 @@ from urllib import parse
 import requests
 
 # Common directories to exclude when traversing file trees (used by docstring formatter, header updater, etc.)
-COMMON_EXCLUDED_DIRS = frozenset({
-    ".git",
-    ".venv",
-    "venv",
-    "env",
-    ".env",
-    "__pycache__",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".tox",
-    ".nox",
-    ".eggs",
-    "eggs",
-    ".idea",
-    ".vscode",
-    "node_modules",
-    "site-packages",
-    "build",
-    "dist",
-})
+COMMON_EXCLUDED_DIRS = frozenset(
+    {
+        ".git",
+        ".venv",
+        "venv",
+        "env",
+        ".env",
+        "__pycache__",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".tox",
+        ".nox",
+        ".eggs",
+        "eggs",
+        ".idea",
+        ".vscode",
+        "node_modules",
+        "site-packages",
+        "build",
+        "dist",
+    }
+)
 
 # Patterns for files that should be skipped in PR summaries and reviews (lock files, generated, minified, etc.)
 SKIP_PATTERN_STRINGS = [
