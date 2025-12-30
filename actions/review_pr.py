@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .utils import (
     ACTIONS_CREDIT,
+    DIFF_FILE_PATTERN,
     GITHUB_API_URL,
     MAX_PROMPT_CHARS,
     Action,
@@ -37,8 +38,8 @@ def parse_diff_files(diff_text: str) -> tuple[dict, str]:
 
     for line in diff_text.split("\n"):
         if line.startswith("diff --git"):
-            match = re.search(r" b/(.+)$", line)
-            current_file = match.group(1) if match else None
+            match = DIFF_FILE_PATTERN.search(line)
+            current_file = match.group(1).rstrip('"') if match else None
             new_line, old_line, hunk_id = 0, 0, -1
             if current_file:
                 files[current_file] = {"RIGHT": {}, "LEFT": {}, "_HUNK": {"RIGHT": {}, "LEFT": {}}}
