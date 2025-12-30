@@ -1,7 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-# from actions.utils.version_utils import check_pypi_version
-# check_pypi_version()
+# Functions exported for use in publish workflows (e.g., publish.yml) to check package versions before release
 
 from __future__ import annotations
 
