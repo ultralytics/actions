@@ -182,7 +182,7 @@ def get_response(
         system_content = user_messages.pop(0)["content"] + "\n\n" + SYSTEM_PROMPT_ADDITION
         if not is_anthropic:
             # For OpenAI, keep system message in messages list with addition
-            messages = [{"role": "system", "content": system_content}] + user_messages
+            messages = [{"role": "system", "content": system_content}, *user_messages]
 
     for attempt in range(3):
         if is_anthropic:
