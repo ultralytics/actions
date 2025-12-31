@@ -303,6 +303,7 @@ runs:
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
         MODEL: ${{ inputs.model }}
+        REVIEW_MODEL: ${{ inputs.review_model }}
         REVIEW: ${{ inputs.review }}
       run: ultralytics-actions-first-interaction
       shell: bash
