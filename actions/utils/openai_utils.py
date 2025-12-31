@@ -99,7 +99,7 @@ def filter_labels(available_labels: dict, current_labels: list | None = None, is
 
 def get_pr_summary_guidelines() -> str:
     """Returns PR summary formatting guidelines (used by both unified PR open and PR update/merge)."""
-    return """Summarize this PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Your response must include all 3 sections below with their Markdown headers:
+    return """Summarize this PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Your response must include all 3 sections below with their H3 Markdown headers (do not use H1 or H2 headers):
 
 ### 🌟 Summary
 (single-line synopsis)
