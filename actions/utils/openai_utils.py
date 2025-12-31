@@ -14,6 +14,7 @@ from actions.utils.common_utils import check_links_in_string, filter_diff_text, 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 MODEL = os.getenv("MODEL")  # Auto-detected from API keys if not set
+REVIEW_MODEL = os.getenv("REVIEW_MODEL")  # Optional override for PR reviews
 MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% of 128k context)
 
 # Default models (single source of truth)
@@ -145,6 +146,11 @@ def _get_default_model() -> str:
     if ANTHROPIC_API_KEY:
         return ANTHROPIC_MODEL_DEFAULT
     return OPENAI_MODEL_DEFAULT
+
+
+def get_review_model() -> str:
+    """Get model for PR reviews, using REVIEW_MODEL if set, otherwise default model."""
+    return REVIEW_MODEL or _get_default_model()
 
 
 def get_response(

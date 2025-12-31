@@ -20,6 +20,7 @@ from .github_utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, ultralytic
 from .openai_utils import (
     MAX_PROMPT_CHARS,
     filter_labels,
+    get_review_model,
     get_pr_open_response,
     get_pr_summary_guidelines,
     get_pr_summary_prompt,
@@ -46,6 +47,7 @@ __all__ = (
     "check_pypi_version",
     "filter_diff_text",
     "filter_labels",
+    "get_review_model",
     "format_skipped_files_dropdown",
     "format_skipped_files_note",
     "get_pr_open_response",

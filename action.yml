@@ -74,6 +74,9 @@ inputs:
   model:
     description: "AI Model - defaults to GPT-5.2 or Sonnet 4.5 based on API key"
     required: false
+  review_model:
+    description: "AI Model for PR reviews (optional, defaults to model)"
+    required: false
   first_issue_response:
     description: "Example response to a new issue"
     required: false
@@ -316,6 +319,7 @@ runs:
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
         MODEL: ${{ inputs.model }}
+        REVIEW_MODEL: ${{ inputs.review_model }}
       run: ultralytics-actions-review-pr
       shell: bash
       continue-on-error: true

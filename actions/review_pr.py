@@ -13,6 +13,7 @@ from .utils import (
     MAX_PROMPT_CHARS,
     Action,
     format_skipped_files_dropdown,
+    get_review_model,
     get_response,
     remove_html_comments,
     sanitize_ai_text,
@@ -224,6 +225,7 @@ def generate_pr_review(
             messages,
             reasoning_effort="low",
             text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
+            model=get_review_model(),
             tools=[
                 {
                     "type": "web_search",

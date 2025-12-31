@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from actions.utils.openai_utils import _is_anthropic_model, get_response, remove_outer_codeblocks
+from actions.utils.openai_utils import _is_anthropic_model, get_response, get_review_model, remove_outer_codeblocks
 
 
 def test_is_anthropic_model():
@@ -29,6 +29,20 @@ def test_remove_outer_codeblocks():
     # Test with no code blocks
     input_str = "def test():\n    return True"
     assert remove_outer_codeblocks(input_str) == input_str
+
+
+def test_get_review_model_override():
+    """Test review model override logic."""
+    with patch("actions.utils.openai_utils.REVIEW_MODEL", "claude-opus-4-5-20251101"):
+        with patch("actions.utils.openai_utils.MODEL", "gpt-5.2-2025-12-11"):
+            assert get_review_model() == "claude-opus-4-5-20251101"
+
+
+def test_get_review_model_fallback():
+    """Test review model fallback to default model."""
+    with patch("actions.utils.openai_utils.REVIEW_MODEL", None):
+        with patch("actions.utils.openai_utils.MODEL", "gpt-5.2-2025-12-11"):
+            assert get_review_model() == "gpt-5.2-2025-12-11"
 
 
 @patch("requests.post")
