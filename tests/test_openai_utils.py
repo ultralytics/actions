@@ -2,7 +2,16 @@
 
 from unittest.mock import MagicMock, patch
 
-from actions.utils.openai_utils import get_response, remove_outer_codeblocks
+from actions.utils.openai_utils import _is_anthropic_model, get_response, get_review_model, remove_outer_codeblocks
+
+
+def test_is_anthropic_model():
+    """Test model provider detection."""
+    assert _is_anthropic_model("claude-sonnet-4-5-20250929") is True
+    assert _is_anthropic_model("claude-haiku-4-5-20251001") is True
+    assert _is_anthropic_model("claude-opus-4-5-20251101") is True
+    assert _is_anthropic_model("gpt-5.2-2025-12-11") is False
+    assert _is_anthropic_model("gpt-5-mini-2025-08-07") is False
 
 
 def test_remove_outer_codeblocks():
@@ -20,6 +29,20 @@ def test_remove_outer_codeblocks():
     # Test with no code blocks
     input_str = "def test():\n    return True"
     assert remove_outer_codeblocks(input_str) == input_str
+
+
+def test_get_review_model_override():
+    """Test review model override logic."""
+    with patch("actions.utils.openai_utils.REVIEW_MODEL", "claude-opus-4-5-20251101"):
+        with patch("actions.utils.openai_utils.MODEL", "gpt-5.2-2025-12-11"):
+            assert get_review_model() == "claude-opus-4-5-20251101"
+
+
+def test_get_review_model_fallback():
+    """Test review model fallback to default model."""
+    with patch("actions.utils.openai_utils.REVIEW_MODEL", None):
+        with patch("actions.utils.openai_utils.MODEL", "gpt-5.2-2025-12-11"):
+            assert get_review_model() == "gpt-5.2-2025-12-11"
 
 
 @patch("requests.post")
@@ -79,3 +102,29 @@ def test_get_response_with_link_check(mock_check_links, mock_post):
 
     assert result == "Response with https://example.com link"
     mock_check_links.assert_called_once()
+
+
+@patch("requests.post")
+def test_get_response_anthropic(mock_post):
+    """Test Anthropic Messages API completion function with mocked response."""
+    # Setup mock response with Anthropic Messages API structure
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.elapsed.total_seconds.return_value = 1.5
+    mock_response.json.return_value = {
+        "content": [{"type": "text", "text": "Test response from Claude"}],
+        "usage": {"input_tokens": 50, "output_tokens": 20},
+    }
+    mock_post.return_value = mock_response
+
+    messages = [{"role": "system", "content": "You are a helpful assistant"}, {"role": "user", "content": "Hello"}]
+
+    with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}, clear=False):
+        with patch("actions.utils.openai_utils.ANTHROPIC_API_KEY", "test-key"):
+            result = get_response(messages, check_links=False, model="claude-sonnet-4-5-20250929")
+
+    assert result == "Test response from Claude"
+    mock_post.assert_called_once()
+    # Verify Anthropic endpoint was called
+    call_args = mock_post.call_args
+    assert call_args[0][0] == "https://api.anthropic.com/v1/messages"

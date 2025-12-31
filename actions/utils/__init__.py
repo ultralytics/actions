@@ -24,6 +24,7 @@ from .openai_utils import (
     get_pr_summary_guidelines,
     get_pr_summary_prompt,
     get_response,
+    get_review_model,
     sanitize_ai_text,
 )
 from .version_utils import check_pubdev_version, check_pypi_version
@@ -52,6 +53,7 @@ __all__ = (
     "get_pr_summary_guidelines",
     "get_pr_summary_prompt",
     "get_response",
+    "get_review_model",
     "remove_html_comments",
     "sanitize_ai_text",
     "should_skip_file",

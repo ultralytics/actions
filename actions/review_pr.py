@@ -14,6 +14,7 @@ from .utils import (
     Action,
     format_skipped_files_dropdown,
     get_response,
+    get_review_model,
     remove_html_comments,
     sanitize_ai_text,
     should_skip_file,
@@ -223,8 +224,8 @@ def generate_pr_review(
         response = get_response(
             messages,
             reasoning_effort="low",
-            model="gpt-5.2-2025-12-11",
             text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
+            model=get_review_model(),
             tools=[
                 {
                     "type": "web_search",
@@ -237,6 +238,7 @@ def generate_pr_review(
                     },
                 }
             ],
+            retries=0,
         )
 
         # Sanitize leaked tool-citation tokens from model output

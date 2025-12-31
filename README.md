@@ -2,7 +2,7 @@
 
 # 🚀 Ultralytics Actions
 
-Welcome to [Ultralytics Actions](https://github.com/ultralytics/actions) - a collection of GitHub Actions and Python tools for automating code quality, PR management, and CI/CD workflows across Ultralytics projects.
+Welcome to [Ultralytics Actions](https://github.com/ultralytics/actions) - a collection of GitHub Actions for automating code quality, PR management, and CI/CD workflows across Ultralytics projects.
 
 [![GitHub Actions Marketplace](https://img.shields.io/badge/Marketplace-Ultralytics_Actions-blue?style=flat&logo=github)](https://github.com/marketplace/actions/ultralytics-actions)
 
@@ -36,9 +36,20 @@ AI-powered formatting, labeling, and PR summaries for Python, Swift, and Markdow
 - **Swift Code:** Formatted with [`swift-format`](https://github.com/swiftlang/swift-format) _(requires `macos-latest` runner)_
 - **Spell Check:** Common misspellings caught using [codespell](https://github.com/codespell-project/codespell)
 - **Broken Links Check:** Broken links identified using [Lychee](https://github.com/lycheeverse/lychee)
-- **PR Summary:** Concise Pull Request summaries generated using [OpenAI](https://openai.com/) GPT-5
+- **PR Summary:** Concise Pull Request summaries generated using AI
 - **PR Review:** AI-powered code reviews identify critical bugs, security issues, and quality concerns with suggested fixes
-- **Auto-labeling:** Applies relevant labels to issues and PRs via [OpenAI](https://openai.com/) GPT-5
+- **Auto-labeling:** Applies relevant labels to issues and PRs via AI
+
+### 🤖 Supported AI Providers
+
+Choose between [OpenAI](https://openai.com/) or [Anthropic](https://anthropic.com/) for AI-powered features:
+
+| Provider  | Default Model                | API Key             |
+| --------- | ---------------------------- | ------------------- |
+| OpenAI    | `gpt-5.2-2025-12-11`         | `openai_api_key`    |
+| Anthropic | `claude-sonnet-4-5-20250929` | `anthropic_api_key` |
+
+The model is auto-detected based on which API key you provide. Override with the `model` input, or use `review_model` to override PR review only.
 
 ### 🛠️ How It Works
 
@@ -46,7 +57,7 @@ Triggers on GitHub events to streamline workflows:
 
 - **Push Events:** Automatically formats code when changes are pushed to `main`
 - **Pull Requests:** Ensures formatting standards, generates summaries, provides AI reviews, and applies labels
-- **Issues:** Automatically applies relevant labels using GPT-5
+- **Issues:** Automatically applies relevant labels using AI
 
 ### 🔧 Setup
 
@@ -90,7 +101,11 @@ jobs:
           spelling: true # Check spelling with codespell
           links: true # Check broken links with Lychee
           summary: true # Generate AI-powered PR summaries
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }} # Powers PR summaries, labels and reviews
+          # AI API keys - provide OpenAI OR Anthropic (model auto-detected from key)
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # model: claude-haiku-4-5-20251001  # Optional: override default model
+          # review_model: claude-opus-4-5-20251101  # Optional: override PR review model
           brave_api_key: ${{ secrets.BRAVE_API_KEY }} # Used for broken link resolution
 ```
 

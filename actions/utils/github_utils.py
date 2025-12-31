@@ -219,12 +219,12 @@ class Action:
         head_repo = self.pr.get("head", {}).get("repo", {}).get("full_name")
         return bool(head_repo) and head_repo != self.repository
 
-    def should_skip_openai(self) -> bool:
-        """Check if OpenAI operations should be skipped."""
-        from actions.utils.openai_utils import OPENAI_API_KEY
+    def should_skip_llm(self) -> bool:
+        """Check if LLM operations should be skipped (no API key found)."""
+        from actions.utils.openai_utils import ANTHROPIC_API_KEY, OPENAI_API_KEY
 
-        if not OPENAI_API_KEY:
-            print("⚠️ Skipping LLM operations (OPENAI_API_KEY not found)")
+        if not OPENAI_API_KEY and not ANTHROPIC_API_KEY:
+            print("⚠️ Skipping LLM operations (no OPENAI_API_KEY or ANTHROPIC_API_KEY found)")
             return True
         return False
 

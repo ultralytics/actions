@@ -12,15 +12,27 @@ import requests
 from actions.utils.common_utils import check_links_in_string, filter_diff_text, format_skipped_files_note
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5.2-2025-12-11")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+MODEL = os.getenv("MODEL")  # Auto-detected from API keys if not set
+REVIEW_MODEL = os.getenv("REVIEW_MODEL")  # Optional override for PR reviews
 MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% of 128k context)
-MODEL_COSTS = {
+
+# Default models (single source of truth)
+OPENAI_MODEL_DEFAULT = "gpt-5.2-2025-12-11"
+ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-4-5-20250929"
+
+MODEL_COSTS = {  # (input, output) per 1M tokens
+    # OpenAI models
     "gpt-5-codex": (1.25, 10.00),
     "gpt-5.1-codex": (1.25, 10.00),
     "gpt-5.1-2025-11-13": (1.25, 10.00),
     "gpt-5.2-2025-12-11": (1.75, 14.00),
     "gpt-5-nano-2025-08-07": (0.05, 0.40),
     "gpt-5-mini-2025-08-07": (0.25, 2.00),
+    # Anthropic Claude 4.5 models
+    "claude-sonnet-4-5-20250929": (3.00, 15.00),
+    "claude-haiku-4-5-20251001": (1.00, 5.00),
+    "claude-opus-4-5-20251101": (5.00, 25.00),
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
@@ -122,6 +134,25 @@ def get_pr_first_comment_template(repository: str, username: str) -> str:
 For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing/). Don't hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀"""
 
 
+def _is_anthropic_model(model: str) -> bool:
+    """Check if the model is an Anthropic model."""
+    return model.startswith("claude")
+
+
+def _get_default_model() -> str:
+    """Get default model based on available API keys."""
+    if MODEL:
+        return MODEL
+    if ANTHROPIC_API_KEY:
+        return ANTHROPIC_MODEL_DEFAULT
+    return OPENAI_MODEL_DEFAULT
+
+
+def get_review_model() -> str:
+    """Get model for PR reviews, using REVIEW_MODEL if set, otherwise default model."""
+    return REVIEW_MODEL or _get_default_model()
+
+
 def get_response(
     messages: list[dict[str, str]],
     check_links: bool = True,
@@ -129,24 +160,62 @@ def get_response(
     temperature: float = 1.0,
     reasoning_effort: str | None = None,
     text_format: dict | None = None,
-    model: str = OPENAI_MODEL,
+    model: str | None = None,
     tools: list[dict] | None = None,
+    retries: int = 2,
 ) -> str | dict:
-    """Generates a completion using OpenAI's Responses API with retry logic."""
-    assert OPENAI_API_KEY, "OpenAI API key is required."
-    url = "https://api.openai.com/v1/responses"
-    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
-    if messages and messages[0].get("role") == "system":
-        messages[0]["content"] += "\n\n" + SYSTEM_PROMPT_ADDITION
+    """Generates a completion using OpenAI or Anthropic API with retry logic."""
+    model = model or _get_default_model()
+    is_anthropic = _is_anthropic_model(model)
 
-    for attempt in range(3):
-        data = {"model": model, "input": messages, "store": False, "temperature": temperature}
-        if "gpt-5" in model:
-            data["reasoning"] = {"effort": reasoning_effort or "low"}
-        if text_format:
-            data["text"] = text_format
-        if tools:
-            data["tools"] = tools
+    # Validate API key
+    if is_anthropic:
+        assert ANTHROPIC_API_KEY, "Anthropic API key is required for Claude models."
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
+    else:
+        assert OPENAI_API_KEY, "OpenAI API key is required."
+        url = "https://api.openai.com/v1/responses"
+        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+
+    # Extract system message and append guidance
+    system_content = ""
+    user_messages = messages.copy()
+    if user_messages and user_messages[0].get("role") == "system":
+        system_content = user_messages.pop(0)["content"] + "\n\n" + SYSTEM_PROMPT_ADDITION
+        if not is_anthropic:
+            # For OpenAI, keep system message in messages list with addition
+            messages = [{"role": "system", "content": system_content}, *user_messages]
+
+    for attempt in range(retries + 1):
+        if is_anthropic:
+            data = {
+                "model": model,
+                "max_tokens": 8192,
+                "temperature": temperature,
+                "messages": user_messages,
+            }
+            if system_content:
+                data["system"] = system_content
+            # Skip web_search for Anthropic when using JSON schema (causes empty responses)
+            # Handle structured JSON output for Anthropic
+            if text_format and text_format.get("format", {}).get("type") == "json_schema":
+                schema = text_format["format"].get("schema", {})
+                # Add JSON instruction to system prompt
+                json_instruction = f"\n\nRespond ONLY with valid JSON matching this schema:\n{json.dumps(schema)}"
+                data["system"] = (data.get("system") or "") + json_instruction
+        else:
+            data = {"model": model, "input": messages, "store": False, "temperature": temperature}
+            if "gpt-5" in model:
+                data["reasoning"] = {"effort": reasoning_effort or "low"}
+            if text_format:
+                data["text"] = text_format
+            if tools:
+                data["tools"] = tools
 
         try:
             r = requests.post(url, json=data, headers=headers, timeout=(30, 900))
@@ -155,45 +224,58 @@ def get_response(
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
 
             # Retry server errors
-            if attempt < 2 and r.status_code >= 500:
-                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/3)...")
+            if attempt < retries and r.status_code >= 500:
+                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
                 time.sleep(2**attempt)
                 continue
 
             if r.status_code >= 400:
                 error_body = r.text
                 print(f"API Error {r.status_code}: {error_body}")
-                r.reason = f"{r.reason}\n{error_body}"  # Add error body to exception message
+                r.reason = f"{r.reason}\n{error_body}"
 
             r.raise_for_status()
 
             # Parse response
             response_json = r.json()
-            content = ""
-            for item in response_json.get("output", []):
-                if item.get("type") == "message":
-                    for c in item.get("content", []):
-                        if c.get("type") == "output_text":
-                            content += c.get("text") or ""
-            content = content.strip()
+            if is_anthropic:
+                content = ""
+                for block in response_json.get("content", []):
+                    if block.get("type") == "text":
+                        content += block.get("text") or ""
+                content = content.strip()
 
-            # Extract and print token usage
-            if usage := response_json.get("usage"):
-                input_tokens = usage.get("input_tokens", 0)
-                output_tokens = usage.get("output_tokens", 0)
-                thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
+                # Extract usage
+                if usage := response_json.get("usage"):
+                    input_tokens = usage.get("input_tokens", 0)
+                    output_tokens = usage.get("output_tokens", 0)
+                    costs = MODEL_COSTS.get(model, (0.0, 0.0))
+                    cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
+                    print(
+                        f"{model} ({input_tokens}→{output_tokens} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)"
+                    )
+            else:
+                content = ""
+                for item in response_json.get("output", []):
+                    if item.get("type") == "message":
+                        for c in item.get("content", []):
+                            if c.get("type") == "output_text":
+                                content += c.get("text") or ""
+                content = content.strip()
 
-                # Calculate cost
-                costs = MODEL_COSTS.get(model, (0.0, 0.0))
-                cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
-
-                # Format summary
-                token_str = f"{input_tokens}→{output_tokens - thinking_tokens}"
-                if thinking_tokens:
-                    token_str += f" (+{thinking_tokens} thinking)"
-                print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)")
+                if usage := response_json.get("usage"):
+                    input_tokens = usage.get("input_tokens", 0)
+                    output_tokens = usage.get("output_tokens", 0)
+                    thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
+                    costs = MODEL_COSTS.get(model, (0.0, 0.0))
+                    cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
+                    token_str = f"{input_tokens}→{output_tokens - thinking_tokens}"
+                    if thinking_tokens:
+                        token_str += f" (+{thinking_tokens} thinking)"
+                    print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)")
 
             if text_format and text_format.get("format", {}).get("type") in ["json_object", "json_schema"]:
+                content = remove_outer_codeblocks(content)
                 return json.loads(content)
 
             content = remove_outer_codeblocks(content)
@@ -201,19 +283,19 @@ def get_response(
                 content = content.replace(x, "")
 
             # Retry on bad links
-            if attempt < 2 and check_links and not check_links_in_string(content):
+            if attempt < retries and check_links and not check_links_in_string(content):
                 print("Bad URLs detected, retrying")
                 continue
 
             return content
 
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError) as e:
-            if attempt < 2:
-                print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/3)...")
+            if attempt < retries:
+                print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
                 time.sleep(2**attempt)
                 continue
             raise
-        except requests.exceptions.HTTPError:  # 4xx errors
+        except requests.exceptions.HTTPError:
             raise
 
     return content
