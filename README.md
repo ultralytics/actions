@@ -2,7 +2,7 @@
 
 # 🚀 Ultralytics Actions
 
-Welcome to [Ultralytics Actions](https://github.com/ultralytics/actions) - a collection of GitHub Actions and Python tools for automating code quality, PR management, and CI/CD workflows across Ultralytics projects.
+Welcome to [Ultralytics Actions](https://github.com/ultralytics/actions) - a collection of GitHub Actions for automating code quality, PR management, and CI/CD workflows across Ultralytics projects.
 
 [![GitHub Actions Marketplace](https://img.shields.io/badge/Marketplace-Ultralytics_Actions-blue?style=flat&logo=github)](https://github.com/marketplace/actions/ultralytics-actions)
 
