@@ -195,14 +195,7 @@ def get_response(
             }
             if system_content:
                 data["system"] = system_content
-            # Convert tools for Anthropic (web_search)
-            if tools:
-                anthropic_tools = []
-                for tool in tools:
-                    if tool.get("type") == "web_search":
-                        anthropic_tools.append({"type": "web_search_20250305", "name": "web_search", "max_uses": 5})
-                if anthropic_tools:
-                    data["tools"] = anthropic_tools
+            # Skip web_search for Anthropic when using JSON schema (causes empty responses)
             # Handle structured JSON output for Anthropic
             if text_format and text_format.get("format", {}).get("type") == "json_schema":
                 schema = text_format["format"].get("schema", {})
