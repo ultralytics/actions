@@ -219,7 +219,7 @@ def get_response(
 
             # Retry server errors
             if attempt < retries and r.status_code >= 500:
-                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/3)...")
+                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
                 time.sleep(2**attempt)
                 continue
 
@@ -285,7 +285,7 @@ def get_response(
 
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError) as e:
             if attempt < retries:
-                print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/3)...")
+                print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
                 time.sleep(2**attempt)
                 continue
             raise
