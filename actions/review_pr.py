@@ -236,6 +236,7 @@ def generate_pr_review(
                     },
                 }
             ],
+            retries=0,
         )
 
         # Sanitize leaked tool-citation tokens from model output

@@ -156,6 +156,7 @@ def get_response(
     text_format: dict | None = None,
     model: str | None = None,
     tools: list[dict] | None = None,
+    retries: int = 2,
 ) -> str | dict:
     """Generates a completion using OpenAI or Anthropic API with retry logic."""
     model = model or _get_default_model()
@@ -184,7 +185,7 @@ def get_response(
             # For OpenAI, keep system message in messages list with addition
             messages = [{"role": "system", "content": system_content}, *user_messages]
 
-    for attempt in range(3):
+    for attempt in range(retries + 1):
         if is_anthropic:
             data = {
                 "model": model,
@@ -224,7 +225,7 @@ def get_response(
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
 
             # Retry server errors
-            if attempt < 2 and r.status_code >= 500:
+            if attempt < retries and r.status_code >= 500:
                 print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/3)...")
                 time.sleep(2**attempt)
                 continue
@@ -283,14 +284,14 @@ def get_response(
                 content = content.replace(x, "")
 
             # Retry on bad links
-            if attempt < 2 and check_links and not check_links_in_string(content):
+            if attempt < retries and check_links and not check_links_in_string(content):
                 print("Bad URLs detected, retrying")
                 continue
 
             return content
 
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError) as e:
-            if attempt < 2:
+            if attempt < retries:
                 print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/3)...")
                 time.sleep(2**attempt)
                 continue
