@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import re
+from datetime import datetime
 from pathlib import Path
 
 from actions.utils import Action
@@ -183,8 +185,6 @@ def main(*args, **kwargs):
 
     if "ultralytics" in event.repository.lower():
         if event.is_repo_private() and event.repository.startswith("ultralytics/"):
-            from datetime import datetime
-
             notice = f"© 2014-{datetime.now().year} Ultralytics Inc. 🚀"
             header = f"{notice} All rights reserved. CONFIDENTIAL: Unauthorized use or distribution prohibited."
         else:
@@ -193,6 +193,10 @@ def main(*args, **kwargs):
         header = HEADER
     else:
         return
+
+    if "2014-" in header:
+        current_year = datetime.now().year
+        header = re.sub(r"2014([–-])\d{4}", rf"2014\1{current_year}", header)
 
     directory = Path.cwd()
     total = changed = unchanged = 0
