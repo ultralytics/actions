@@ -37,7 +37,8 @@ def get_repo_guidelines() -> str:
             if p.is_file() and p.stat().st_size <= 100_000:
                 content = p.read_text(encoding="utf-8", errors="ignore")[:MAX_CONTEXT_FILE_CHARS]
                 if content:
-                    guidelines.append(f"### {filename}\n```\n{content}\n```")
+                    # Use tilde fence to avoid conflicts with backticks in guideline content
+                    guidelines.append(f"### {filename}\n~~~\n{content}\n~~~")
                     print(f"Loaded {filename} ({len(content)} chars) for review context")
         except Exception as e:
             print(f"Failed to read {filename}: {e}")
@@ -113,7 +114,6 @@ def generate_pr_review(
         }
 
     file_list = list(diff_files.keys())
-    diff_truncated = len(augmented_diff) > MAX_PROMPT_CHARS
     lines_changed = sum(len(sides["RIGHT"]) + len(sides["LEFT"]) for sides in diff_files.values())
 
     # Read CLAUDE.md and AGENTS.md from repo root for project-specific review context
@@ -147,6 +147,10 @@ def generate_pr_review(
                 continue
         if file_contents:
             full_files_section = f"FULL FILE CONTENTS:\n{chr(10).join(file_contents)}\n\n"
+
+    # Calculate remaining budget for diff and check if truncation needed
+    diff_budget = max(1000, MAX_PROMPT_CHARS - len(guidelines_section) - len(full_files_section))
+    diff_truncated = len(augmented_diff) > diff_budget
 
     content = (
         "You are an expert code reviewer for Ultralytics. Review code changes and provide inline comments ONLY for genuine issues.\n\n"
@@ -204,7 +208,7 @@ def generate_pr_review(
                 f"BODY:\n{remove_html_comments(pr_description or '')[:1000]}\n\n"
                 f"{guidelines_section}"
                 f"{full_files_section}"
-                f"DIFF:\n{augmented_diff[:MAX_PROMPT_CHARS]}\n\n"
+                f"DIFF:\n{augmented_diff[:diff_budget]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),
         },
