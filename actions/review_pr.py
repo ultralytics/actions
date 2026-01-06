@@ -28,6 +28,22 @@ MAX_REVIEW_COMMENTS = 8
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
 
 
+def get_repo_guidelines() -> str:
+    """Read CLAUDE.md and AGENTS.md from the repository root if they exist."""
+    guidelines = []
+    for filename in ("CLAUDE.md", "AGENTS.md"):
+        try:
+            p = Path(filename)
+            if p.is_file() and p.stat().st_size <= 100_000:
+                content = p.read_text(encoding="utf-8", errors="ignore")[:MAX_CONTEXT_FILE_CHARS]
+                if content:
+                    guidelines.append(f"### {filename}\n```\n{content}\n```")
+                    print(f"Loaded {filename} ({len(content)} chars) for review context")
+        except Exception as e:
+            print(f"Failed to read {filename}: {e}")
+    return f"PROJECT GUIDELINES:\n{chr(10).join(guidelines)}\n\n" if guidelines else ""
+
+
 def parse_diff_files(diff_text: str) -> tuple[dict, str]:
     """Parse diff and return file mapping with line numbers AND augmented diff with explicit line numbers.
 
@@ -100,10 +116,13 @@ def generate_pr_review(
     diff_truncated = len(augmented_diff) > MAX_PROMPT_CHARS
     lines_changed = sum(len(sides["RIGHT"]) + len(sides["LEFT"]) for sides in diff_files.values())
 
+    # Read CLAUDE.md and AGENTS.md from repo root for project-specific review context
+    guidelines_section = get_repo_guidelines()
+
     # Fetch full file contents for better context if within token budget
     full_files_section = ""
     if event and len(file_list) <= 10:  # Reasonable file count limit
-        file_contents, total_chars = [], len(augmented_diff)
+        file_contents, total_chars = [], len(augmented_diff) + len(guidelines_section)
         for file_path in file_list:
             try:
                 p = Path(file_path)
@@ -146,7 +165,8 @@ def generate_pr_review(
         "- You can only see the diff and partial file contents, not the full codebase\n"
         "- Assume the author is knowledgeable about: new package versions, imports to functions defined elsewhere, dependencies, and codebase architecture\n"
         "- Do NOT flag: version updates, new imports that appear unused in the diff, or references to code outside the diff\n"
-        "- If unsure whether something is an error, assume the author knows what they're doing\n\n"
+        "- If unsure whether something is an error, assume the author knows what they're doing\n"
+        "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
         "QUALITY OVER QUANTITY:\n"
         "- Zero comments is valid for clean PRs - don't invent issues\n"
         "- Each comment must be actionable with clear reasoning\n"
@@ -182,6 +202,7 @@ def generate_pr_review(
                 f"Review this PR in https://github.com/{repository}:\n\n"
                 f"TITLE:\n{pr_title}\n\n"
                 f"BODY:\n{remove_html_comments(pr_description or '')[:1000]}\n\n"
+                f"{guidelines_section}"
                 f"{full_files_section}"
                 f"DIFF:\n{augmented_diff[:MAX_PROMPT_CHARS]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
