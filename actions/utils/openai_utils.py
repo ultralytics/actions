@@ -35,7 +35,7 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "claude-opus-4-5-20251101": (5.00, 25.00),
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
-  - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
+  - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v).
   - Avoid Equations: Do not include equations or mathematical notations.
   - Markdown: Reply in Markdown format.
   - Links: Use descriptive anchor text for all URLs.
@@ -366,7 +366,7 @@ Example comment template (adapt as needed, keep all links):
 if __name__ == "__main__":
     messages = [
         {"role": "system", "content": "You are a helpful AI assistant."},
-        {"role": "user", "content": "Explain how to export a YOLO11 model to CoreML."},
+        {"role": "user", "content": "Explain how to export a YOLO26 model to CoreML."},
     ]
     response = get_response(messages)
     print(response)
