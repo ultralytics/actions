@@ -192,7 +192,7 @@ def main(*args, **kwargs):
     else:
         return
 
-    # Update any year range to current year (handles both - and – dashes)
+    # Update any year range to current year (handles both - and en-dash)
     header = re.sub(r"(\d{4}[–-])\d{4}", rf"\g<1>{current_year}", header)
 
     directory = Path.cwd()

@@ -20,6 +20,7 @@ MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% o
 # Default models (single source of truth)
 OPENAI_MODEL_DEFAULT = "gpt-5.2-2025-12-11"
 ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-4-5-20250929"
+PR_REVIEW_MODEL_DEFAULT = "gpt-5.2-codex"
 
 MODEL_COSTS = {  # (input, output) per 1M tokens
     # OpenAI models
@@ -27,6 +28,7 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "gpt-5.1-codex": (1.25, 10.00),
     "gpt-5.1-2025-11-13": (1.25, 10.00),
     "gpt-5.2-2025-12-11": (1.75, 14.00),
+    "gpt-5.2-codex": (1.75, 14.00),
     "gpt-5-nano-2025-08-07": (0.05, 0.40),
     "gpt-5-mini-2025-08-07": (0.25, 2.00),
     # Anthropic Claude 4.5 models
@@ -150,7 +152,7 @@ def _get_default_model() -> str:
 
 def get_review_model() -> str:
     """Get model for PR reviews, using REVIEW_MODEL if set, otherwise default model."""
-    return REVIEW_MODEL or _get_default_model()
+    return REVIEW_MODEL or PR_REVIEW_MODEL_DEFAULT
 
 
 def get_response(

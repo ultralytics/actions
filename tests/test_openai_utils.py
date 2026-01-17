@@ -2,7 +2,13 @@
 
 from unittest.mock import MagicMock, patch
 
-from actions.utils.openai_utils import _is_anthropic_model, get_response, get_review_model, remove_outer_codeblocks
+from actions.utils.openai_utils import (
+    PR_REVIEW_MODEL_DEFAULT,
+    _is_anthropic_model,
+    get_response,
+    get_review_model,
+    remove_outer_codeblocks,
+)
 
 
 def test_is_anthropic_model():
@@ -41,8 +47,7 @@ def test_get_review_model_override():
 def test_get_review_model_fallback():
     """Test review model fallback to default model."""
     with patch("actions.utils.openai_utils.REVIEW_MODEL", None):
-        with patch("actions.utils.openai_utils.MODEL", "gpt-5.2-2025-12-11"):
-            assert get_review_model() == "gpt-5.2-2025-12-11"
+        assert get_review_model() == PR_REVIEW_MODEL_DEFAULT
 
 
 @patch("requests.post")
