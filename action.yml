@@ -75,7 +75,7 @@ inputs:
     description: "AI Model - defaults to GPT-5.2 or Sonnet 4.5 based on API key"
     required: false
   review_model:
-    description: "AI Model for PR reviews (optional, defaults to model)"
+    description: "AI Model for PR reviews (optional, defaults to gpt-5.2-codex)"
     required: false
   first_issue_response:
     description: "Example response to a new issue"
