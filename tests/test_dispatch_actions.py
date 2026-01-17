@@ -140,7 +140,7 @@ def test_update_comment_function():
     with patch("actions.dispatch_actions.datetime") as mock_datetime:
         mock_datetime.now.return_value = datetime(2023, 1, 1, 12, 0, 0)
         # Call without capturing return value
-        update_comment(mock_event, comment_body, triggered_actions, "feature-branch")
+        update_comment(mock_event, comment_body, triggered_actions)
 
     # Check that patch was called with expected content
     mock_event.patch.assert_called_once()

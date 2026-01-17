@@ -6,7 +6,7 @@ import os
 import time
 from datetime import datetime
 
-from .utils import GITHUB_API_URL, Action
+from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action
 
 # Configuration
 RUN_CI_KEYWORD = "@ultralytics/run-ci"  # and then to merge "@ultralytics/run-ci-and-merge"
@@ -108,7 +108,7 @@ def trigger_and_get_workflow_info(event, branch: str, temp_branch: str | None = 
     return results
 
 
-def update_comment(event, comment_body: str, triggered_actions: list[dict], branch: str):
+def update_comment(event, comment_body: str, triggered_actions: list[dict]):
     """Updates the comment with workflow information."""
     if not triggered_actions:
         return
@@ -118,7 +118,7 @@ def update_comment(event, comment_body: str, triggered_actions: list[dict], bran
 
 ## ⚡ Actions Trigger
 
-<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>
+{ACTIONS_CREDIT}
 
 GitHub Actions below triggered via workflow dispatch for this PR at {timestamp} with `{RUN_CI_KEYWORD}` command:
 
@@ -162,7 +162,7 @@ def main(*args, **kwargs):
     print(f"Triggering workflows on branch: {branch}" + (" (temp)" if temp_branch else ""))
 
     triggered_actions = trigger_and_get_workflow_info(event, branch, temp_branch)
-    update_comment(event, comment_body, triggered_actions, branch)
+    update_comment(event, comment_body, triggered_actions)
     event.toggle_eyes_reaction(False)
 
 

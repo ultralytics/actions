@@ -11,6 +11,30 @@ from urllib import parse
 
 import requests
 
+# Common directories to exclude when traversing file trees (used by docstring formatter, header updater, etc.)
+COMMON_EXCLUDED_DIRS = frozenset(
+    {
+        ".git",
+        ".venv",
+        "venv",
+        "env",
+        ".env",
+        "__pycache__",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".tox",
+        ".nox",
+        ".eggs",
+        "eggs",
+        ".idea",
+        ".vscode",
+        "node_modules",
+        "site-packages",
+        "build",
+        "dist",
+    }
+)
+
 # Patterns for files that should be skipped in PR summaries and reviews (lock files, generated, minified, etc.)
 SKIP_PATTERN_STRINGS = [
     r"\.lock$",  # Lock files
@@ -37,6 +61,9 @@ SKIP_PATTERN_STRINGS = [
     r"\.generated\.",  # Common generated file pattern
 ]
 SKIP_PATTERNS = tuple(re.compile(pattern) for pattern in SKIP_PATTERN_STRINGS)
+
+# Regex to extract file path from git diff header (handles quoted paths with spaces/renames)
+DIFF_FILE_PATTERN = re.compile(r' "?b/(.+?)"?$')
 
 REQUESTS_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
@@ -188,9 +215,8 @@ def filter_diff_text(diff_text: str) -> tuple[str, list[str]]:
 
     for line in diff_text.split("\n"):
         if line.startswith("diff --git"):
-            # Extract file path from diff header, handling quoted paths (spaces/renames)
-            # Formats: "diff --git a/path b/path" or 'diff --git "a/path" "b/path"'
-            if match := re.search(r' "?b/(.+?)"?$', line):
+            # Extract file path from diff header using shared pattern
+            if match := DIFF_FILE_PATTERN.search(line):
                 current_file = match.group(1).rstrip('"')
             else:
                 current_file = None
