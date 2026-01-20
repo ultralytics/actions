@@ -54,10 +54,15 @@ SKIP_PATTERN_STRINGS = [
     r"^poetry\.lock$",
     r"^Pipfile\.lock$",
     r"^uv\.lock$",
-    r"\.(svg|png|jpe?g|gif|ico|webp)$",  # Images
+    r"\.(svg|png|jpe?g|gif|ico|webp|avif|heic|heif|tiff?|bmp|eps|raw|cr2|nef|arw|dng|psd|ai|xcf)$",  # Images
     r"\.(woff2?|ttf|eot|otf)$",  # Fonts
-    r"\.(mp4|webm|mov|avi|mkv)$",  # Videos
-    r"\.(pdf|doc|docx|xls|xlsx)$",  # Documents
+    r"\.(mp4|webm|mov|avi|mkv|wmv|flv|m4v|3gp|mpeg|mpg|ogv|mts)$",  # Videos
+    r"\.(mp3|wav|ogg|flac|aac|m4a|wma|opus|aiff?)$",  # Audio
+    r"\.(pdf|doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp|rtf|epub)$",  # Documents
+    r"\.(zip|tar|gz|tgz|bz2|xz|rar|7z|cab|iso|dmg)$",  # Archives
+    r"\.(exe|dll|so|dylib|bin|o|a|lib|pyc|pyo|class|jar|war|whl|egg)$",  # Binaries
+    r"\.(db|sqlite|sqlite3|mdb|pkl|pickle|npy|npz|h5|hdf5|parquet|arrow|feather)$",  # Data/Database
+    r"\.(pt|pth|onnx|pb|tflite|mlmodel|safetensors|ckpt|weights|model)$",  # ML Models
     r"\.generated\.",  # Common generated file pattern
 ]
 SKIP_PATTERNS = tuple(re.compile(pattern) for pattern in SKIP_PATTERN_STRINGS)
