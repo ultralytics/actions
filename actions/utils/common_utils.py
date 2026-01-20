@@ -54,7 +54,7 @@ SKIP_PATTERN_STRINGS = [
     r"^poetry\.lock$",
     r"^Pipfile\.lock$",
     r"^uv\.lock$",
-    r"\.(svg|png|jpe?g|gif|ico|webp)$",  # Images
+    r"\.(svg|png|jpe?g|gif|ico|webp|avif|heic|heif|tiff?|bmp)$",  # Images
     r"\.(woff2?|ttf|eot|otf)$",  # Fonts
     r"\.(mp4|webm|mov|avi|mkv)$",  # Videos
     r"\.(pdf|doc|docx|xls|xlsx)$",  # Documents
