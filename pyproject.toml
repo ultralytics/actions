@@ -92,6 +92,7 @@ ultralytics-actions-update-markdown-code-blocks = "actions.update_markdown_code_
 ultralytics-actions-headers = "actions.update_file_headers:main"
 ultralytics-actions-format-python-docstrings = "actions.format_python_docstrings:main"
 ultralytics-actions-info = "actions.utils:ultralytics_actions_info"
+ultralytics-actions-check-cla = "actions.check_cla:main"
 
 [tool.setuptools]
 packages = { find = { where = ["."], include = ["actions", "actions.*"] } }
