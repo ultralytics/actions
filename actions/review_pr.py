@@ -31,7 +31,7 @@ SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 
 def get_repo_guidelines() -> str:
     """Read CLAUDE.md and AGENTS.md from the repository root if they exist."""
     guidelines = []
-    for filename in ("CLAUDE.md", "AGENTS.md"):
+    for filename in ("CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md"):
         try:
             p = Path(filename)
             if p.is_file() and p.stat().st_size <= 100_000:
