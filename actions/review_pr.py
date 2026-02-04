@@ -306,7 +306,12 @@ def generate_pr_review(
             # Enforce same-hunk multi-line selection; otherwise drop start_line
             if start_line:
                 if c.get("suggestion"):
-                    print(f"Dropping start_line for {file_path}:{line_num} - suggestions must be single-line only")
+                    # Multi-line suggestions need start_line to define the range - drop both if invalid
+                    suggestion_text = c.get("suggestion", "")
+                    if "\n" in suggestion_text:
+                        print(f"Dropping multi-line suggestion for {file_path}:{line_num} - range required but start_line invalid")
+                        c.pop("suggestion", None)
+                    print(f"Dropping start_line for {file_path}:{line_num} - single-line comments only")
                     c.pop("start_line", None)
                 elif start_line >= line_num:
                     print(f"Invalid start_line {start_line} >= line {line_num} for {file_path}, dropping start_line")
@@ -392,9 +397,26 @@ def dismiss_previous_reviews(event: Action) -> int:
     return review_count + 1
 
 
+def get_local_head_sha() -> str | None:
+    """Get the current HEAD SHA from local git repo."""
+    import subprocess
+
+    try:
+        result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except Exception as e:
+        print(f"Failed to get local HEAD SHA: {e}")
+        return None
+
+
 def post_review_summary(event: Action, review_data: dict, review_number: int) -> None:
     """Post overall review summary and inline comments as a single PR review."""
-    if not (pr_number := event.pr.get("number")) or not (commit_sha := event.pr.get("head", {}).get("sha")):
+    if not (pr_number := event.pr.get("number")):
+        return
+
+    # Use local HEAD SHA to avoid "Line could not be resolved" errors when auto-format pushed new commits
+    commit_sha = get_local_head_sha() or event.pr.get("head", {}).get("sha")
+    if not commit_sha:
         return
 
     review_title = f"{REVIEW_MARKER} {review_number}" if review_number > 1 else REVIEW_MARKER
