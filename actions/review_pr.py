@@ -309,7 +309,9 @@ def generate_pr_review(
                     # Multi-line suggestions need start_line to define the range - drop both if invalid
                     suggestion_text = c.get("suggestion", "")
                     if "\n" in suggestion_text:
-                        print(f"Dropping multi-line suggestion for {file_path}:{line_num} - range required but start_line invalid")
+                        print(
+                            f"Dropping multi-line suggestion for {file_path}:{line_num} - range required but start_line invalid"
+                        )
                         c.pop("suggestion", None)
                     print(f"Dropping start_line for {file_path}:{line_num} - single-line comments only")
                     c.pop("start_line", None)
