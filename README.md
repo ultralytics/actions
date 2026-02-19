@@ -44,10 +44,10 @@ AI-powered formatting, labeling, and PR summaries for Python, Swift, and Markdow
 
 Choose between [OpenAI](https://openai.com/) or [Anthropic](https://anthropic.com/) for AI-powered features:
 
-| Provider  | Default Model                | API Key             |
-| --------- | ---------------------------- | ------------------- |
-| OpenAI    | `gpt-5.3-codex`              | `openai_api_key`    |
-| Anthropic | `claude-sonnet-4-6`          | `anthropic_api_key` |
+| Provider  | Default Model       | API Key             |
+| --------- | ------------------- | ------------------- |
+| OpenAI    | `gpt-5.3-codex`     | `openai_api_key`    |
+| Anthropic | `claude-sonnet-4-6` | `anthropic_api_key` |
 
 The model is auto-detected based on which API key you provide. Override with the `model` input, or use `review_model` to override PR review only.
 
