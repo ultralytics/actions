@@ -72,10 +72,10 @@ inputs:
     description: "Anthropic API Key"
     required: false
   model:
-    description: "AI Model - defaults to GPT-5.2 or Sonnet 4.5 based on API key"
+    description: "AI Model - defaults to GPT-5.3-codex or Sonnet 4.6 based on API key"
     required: false
   review_model:
-    description: "AI Model for PR reviews (optional, defaults to gpt-5.2-codex)"
+    description: "AI Model for PR reviews (optional, defaults to gpt-5.3-codex)"
     required: false
   first_issue_response:
     description: "Example response to a new issue"

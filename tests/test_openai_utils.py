@@ -13,10 +13,10 @@ from actions.utils.openai_utils import (
 
 def test_is_anthropic_model():
     """Test model provider detection."""
-    assert _is_anthropic_model("claude-sonnet-4-5-20250929") is True
+    assert _is_anthropic_model("claude-sonnet-4-6") is True
     assert _is_anthropic_model("claude-haiku-4-5-20251001") is True
     assert _is_anthropic_model("claude-opus-4-5-20251101") is True
-    assert _is_anthropic_model("gpt-5.2-2025-12-11") is False
+    assert _is_anthropic_model("gpt-5.3-codex") is False
     assert _is_anthropic_model("gpt-5-mini-2025-08-07") is False
 
 
@@ -40,7 +40,7 @@ def test_remove_outer_codeblocks():
 def test_get_review_model_override():
     """Test review model override logic."""
     with patch("actions.utils.openai_utils.REVIEW_MODEL", "claude-opus-4-5-20251101"):
-        with patch("actions.utils.openai_utils.MODEL", "gpt-5.2-2025-12-11"):
+        with patch("actions.utils.openai_utils.MODEL", "gpt-5.3-codex"):
             assert get_review_model() == "claude-opus-4-5-20251101"
 
 
@@ -126,7 +126,7 @@ def test_get_response_anthropic(mock_post):
 
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}, clear=False):
         with patch("actions.utils.openai_utils.ANTHROPIC_API_KEY", "test-key"):
-            result = get_response(messages, check_links=False, model="claude-sonnet-4-5-20250929")
+            result = get_response(messages, check_links=False, model="claude-sonnet-4-6")
 
     assert result == "Test response from Claude"
     mock_post.assert_called_once()
