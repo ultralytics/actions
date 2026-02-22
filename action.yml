@@ -189,7 +189,7 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.biome == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         if [ -f "biome.json" ] || [ -f "biome.jsonc" ]; then
-          npm install --global @biomejs/biome@latest
+          npm install -g @biomejs/biome@latest
           npx biome --version
           npx biome check --write --line-width=120 --max-diagnostics=1000 --diagnostic-level=error --unsafe .
         else
@@ -202,7 +202,7 @@ runs:
     - name: Run Prettier
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
-        npm install --global prettier@3.6.2 prettier-plugin-sh
+        npm install -g prettier@3.6.2 prettier-plugin-sh
         ultralytics-actions-update-markdown-code-blocks
         npx prettier --write --list-different --print-width 120 "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
         # Bash file format
