@@ -303,7 +303,7 @@ runs:
 
     # Bun Update ---------------------------------------------------------------------------------------------------------
     - name: Bun Update
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.bun_update == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.bun_update == 'true' && github.event.action == 'opened'
       run: |
         if [ -f "bun.lock" ] || [ -f "bun.lockb" ]; then
           npm install -g bun
