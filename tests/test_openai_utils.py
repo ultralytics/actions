@@ -16,7 +16,7 @@ def test_is_anthropic_model():
     assert _is_anthropic_model("claude-sonnet-4-6") is True
     assert _is_anthropic_model("claude-haiku-4-5-20251001") is True
     assert _is_anthropic_model("claude-opus-4-5-20251101") is True
-    assert _is_anthropic_model("gpt-5.3-codex") is False
+    assert _is_anthropic_model("gpt-5.4") is False
     assert _is_anthropic_model("gpt-5-mini-2025-08-07") is False
 
 
@@ -40,7 +40,7 @@ def test_remove_outer_codeblocks():
 def test_get_review_model_override():
     """Test review model override logic."""
     with patch("actions.utils.openai_utils.REVIEW_MODEL", "claude-opus-4-5-20251101"):
-        with patch("actions.utils.openai_utils.MODEL", "gpt-5.3-codex"):
+        with patch("actions.utils.openai_utils.MODEL", "gpt-5.4"):
             assert get_review_model() == "claude-opus-4-5-20251101"
 
 
