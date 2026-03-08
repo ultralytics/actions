@@ -117,6 +117,7 @@ class Action:
         self.owner, self.repo_name = self.repository.split("/") if self.repository else (None, None)
         self.headers = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json"}
         self.headers_diff = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github.v3.diff"}
+        self.session = requests.Session()
         self.verbose = verbose
         self.eyes_reaction_id = None
         self._pr_diff_cache = None
@@ -129,9 +130,17 @@ class Action:
             "delete": [200, 204],
         }
 
+    def __del__(self):
+        """Cleanup session on garbage collection."""
+        try:
+            if hasattr(self, "session"):
+                self.session.close()
+        except Exception:
+            pass
+
     def _request(self, method: str, url: str, headers=None, expected_status=None, hard=False, **kwargs):
         """Unified request handler with error checking."""
-        r = getattr(requests, method)(url, headers=headers or self.headers, **kwargs)
+        r = getattr(self.session, method)(url, headers=headers or self.headers, **kwargs)
         expected = expected_status or self._default_status[method]
         status_expected = r.status_code in expected
         success = status_expected and r.status_code < 400
