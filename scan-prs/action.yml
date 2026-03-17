@@ -32,6 +32,7 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_SHA: ${{ github.sha }}
       run: |
+        echo "::group::Install ultralytics-actions"
         # Install from git commit if testing in ultralytics/actions repo, otherwise from main
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
           echo "Installing from commit: $GITHUB_SHA"
@@ -44,6 +45,7 @@ runs:
         else
           sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
         fi
+        echo "::endgroup::"
       shell: bash
 
     - name: Scan PRs
@@ -52,5 +54,8 @@ runs:
         ORG: ${{ inputs.org }}
         VISIBILITY: ${{ inputs.visibility }}
         REPO_VISIBILITY: ${{ github.event.repository.visibility }}
-      run: python -m actions.scan_prs
+      run: |
+        echo "::group::Scan PRs"
+        python -m actions.scan_prs
+        echo "::endgroup::"
       shell: bash
