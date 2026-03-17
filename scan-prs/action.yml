@@ -32,6 +32,8 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_SHA: ${{ github.sha }}
       run: |
+        echo "::group::Install ultralytics-actions"
+        trap 'echo "::endgroup::"' EXIT
         # Install from git commit if testing in ultralytics/actions repo, otherwise from main
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
           echo "Installing from commit: $GITHUB_SHA"
@@ -52,5 +54,8 @@ runs:
         ORG: ${{ inputs.org }}
         VISIBILITY: ${{ inputs.visibility }}
         REPO_VISIBILITY: ${{ github.event.repository.visibility }}
-      run: python -m actions.scan_prs
+      run: |
+        echo "::group::Scan PRs"
+        trap 'echo "::endgroup::"' EXIT
+        python -m actions.scan_prs
       shell: bash
