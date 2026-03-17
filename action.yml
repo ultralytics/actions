@@ -113,6 +113,7 @@ runs:
         GITHUB_REF: ${{ github.ref }}
       run: |
         echo "::group::Install Dependencies"
+        trap 'echo "::endgroup::"' EXIT
         # Install from git branch if testing in ultralytics/actions repo, otherwise from PyPI
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
           echo "Installing from git branch: $GITHUB_REF"
@@ -132,7 +133,6 @@ runs:
           sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
         fi
         ultralytics-actions-info
-        echo "::endgroup::"
       shell: bash
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
@@ -171,6 +171,7 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.python == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         echo "::group::Run Python"
+        trap 'echo "::endgroup::"' EXIT
         ruff check \
         --fix \
         --unsafe-fixes \
@@ -184,7 +185,6 @@ runs:
         if [ "${{ inputs.python_docstrings }}" = "true" ]; then
           ultralytics-actions-format-python-docstrings . || true
         fi
-        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
@@ -193,6 +193,7 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.biome == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         echo "::group::Run Biome"
+        trap 'echo "::endgroup::"' EXIT
         if [ -f "biome.json" ] || [ -f "biome.jsonc" ]; then
           npm install -g @biomejs/biome@latest
           npx biome --version
@@ -200,7 +201,6 @@ runs:
         else
           echo "⚠️  No biome.json found - skipping Biome formatting. Add biome.json to enable."
         fi
-        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
