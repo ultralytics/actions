@@ -113,7 +113,6 @@ runs:
         GITHUB_REF: ${{ github.ref }}
       run: |
         echo "::group::Install Dependencies"
-        trap 'echo "::endgroup::"' EXIT
         # Install from git branch if testing in ultralytics/actions repo, otherwise from PyPI
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
           echo "Installing from git branch: $GITHUB_REF"
@@ -133,6 +132,7 @@ runs:
           sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
         fi
         ultralytics-actions-info
+        echo "::endgroup::"
       shell: bash
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
@@ -171,7 +171,6 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.python == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         echo "::group::Run Python"
-        trap 'echo "::endgroup::"' EXIT
         ruff check \
         --fix \
         --unsafe-fixes \
@@ -185,6 +184,7 @@ runs:
         if [ "${{ inputs.python_docstrings }}" = "true" ]; then
           ultralytics-actions-format-python-docstrings . || true
         fi
+        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
@@ -193,7 +193,6 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.biome == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         echo "::group::Run Biome"
-        trap 'echo "::endgroup::"' EXIT
         if [ -f "biome.json" ] || [ -f "biome.jsonc" ]; then
           npm install -g @biomejs/biome@latest
           npx biome --version
@@ -201,6 +200,7 @@ runs:
         else
           echo "⚠️  No biome.json found - skipping Biome formatting. Add biome.json to enable."
         fi
+        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
@@ -209,7 +209,6 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         echo "::group::Run Prettier"
-        trap 'echo "::endgroup::"' EXIT
         npm install -g prettier@3.6.2 prettier-plugin-sh
         ultralytics-actions-update-markdown-code-blocks
         npx prettier --write --list-different --print-width 120 "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
@@ -222,6 +221,7 @@ runs:
         if [ -d "./docs" ]; then
           find ./docs -name "*.md" ! -path "*/reference/*" -exec npx prettier --tab-width 4 --print-width 120 --write --list-different {} +
         fi
+        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
@@ -230,9 +230,9 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.swift == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         echo "::group::Run Swift Formatter"
-        trap 'echo "::endgroup::"' EXIT
         brew install swift-format
         swift-format --in-place --recursive .
+        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
@@ -256,7 +256,6 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.spelling == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         echo "::group::Run Codespell"
-        trap 'echo "::endgroup::"' EXIT
         codespell \
           --builtin clear,rare,informal,en-GB_to_en-US \
           --write-changes \
@@ -264,6 +263,7 @@ runs:
           --ignore-regex '\b[a-z]+[A-Z][a-zA-Z]*\b' \
           --ignore-words-list "nin,cancelled,MapPin,couldn,grey,writeable,RepResNet,Idenfy,WIT,Smoot,EHR,ROUGE,ALS,Carmel,FPR,Hach,Calle,ore,COO,MOT,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall,skelton,goin,cann,CANN" \
           --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,*lock*,__pycache__*,*.ico,*.jpg,*.png,*.webp,*.avif,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml,action.yml"
+        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
@@ -318,13 +318,13 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.bun_update == 'true' && github.event.action == 'opened'
       run: |
         echo "::group::Bun Update"
-        trap 'echo "::endgroup::"' EXIT
         if [ -f "bun.lock" ] || [ -f "bun.lockb" ]; then
           npm install -g bun
           bun update
         else
           echo "No bun.lock found - skipping Bun update"
         fi
+        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
@@ -336,13 +336,13 @@ runs:
         GITHUB_EMAIL: ${{ inputs.github_email }}
       run: |
         echo "::group::Commit and Push Changes"
-        trap 'echo "::endgroup::"' EXIT
         COMMIT_MSG="Auto-format by https://ultralytics.com/actions"
         # Check if last two commits were both auto-format to prevent recursive loops
         LAST_TWO=$(git log -2 --pretty=format:'%s' 2>/dev/null || echo "")
         MATCH_COUNT=$(printf '%s\n' "$LAST_TWO" | grep -Fxc "$COMMIT_MSG" || true)
         if [ "$MATCH_COUNT" -ge 2 ]; then
           echo "Skipping commit: last two commits were auto-format"
+          echo "::endgroup::"
           exit 0
         fi
         git config --global user.name "$GITHUB_USERNAME"
@@ -355,6 +355,7 @@ runs:
         else
           echo "No changes to commit"
         fi
+        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
