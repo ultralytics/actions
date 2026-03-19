@@ -201,7 +201,7 @@ def main(*args, **kwargs):
         prefix, block_start, block_end = comment_style
 
         for file_path in directory.rglob(f"*{ext}"):
-            if any(part in str(file_path) for part in IGNORE_PATHS):
+            if not file_path.is_file() or any(part in str(file_path) for part in IGNORE_PATHS):
                 continue
 
             total += 1
