@@ -248,7 +248,7 @@ def generate_pr_review(
 
         response = get_response(
             messages,
-            reasoning_effort="low",
+            reasoning_effort="medium",
             text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
             model=get_review_model(),
             tools=[
