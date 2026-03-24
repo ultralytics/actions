@@ -28,18 +28,21 @@ MAX_REVIEW_COMMENTS = 8
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
 
 
-def get_repo_guidelines() -> str:
-    """Read CLAUDE.md and AGENTS.md from the repository root if they exist."""
+def get_repo_guidelines(model: str = "") -> str:
+    """Read guidelines from the repository root if they exist (one agent file + CONTRIBUTING.md)."""
     guidelines = []
-    for filename in ("CLAUDE.md", "AGENTS.md", "CONTRIBUTING.md"):
+    # Prefer CLAUDE.md for Anthropic models, AGENTS.md for others; load only one, never both
+    agent_prefs = ("CLAUDE.md", "AGENTS.md") if "claude" in model.lower() else ("AGENTS.md", "CLAUDE.md")
+    for filename in ("CONTRIBUTING.md", *agent_prefs):
         try:
             p = Path(filename)
             if p.is_file() and p.stat().st_size <= 100_000:
                 content = p.read_text(encoding="utf-8", errors="ignore")[:MAX_CONTEXT_FILE_CHARS]
                 if content:
-                    # Use tilde fence to avoid conflicts with backticks in guideline content
                     guidelines.append(f"### {filename}\n~~~\n{content}\n~~~")
                     print(f"Loaded {filename} ({len(content)} chars) for review context")
+                    if filename in agent_prefs:
+                        break  # Only load one agent guidelines file
         except Exception as e:
             print(f"Failed to read {filename}: {e}")
     return f"PROJECT GUIDELINES:\n{chr(10).join(guidelines)}\n\n" if guidelines else ""
@@ -116,8 +119,9 @@ def generate_pr_review(
     file_list = list(diff_files.keys())
     lines_changed = sum(len(sides["RIGHT"]) + len(sides["LEFT"]) for sides in diff_files.values())
 
-    # Read CLAUDE.md and AGENTS.md from repo root for project-specific review context
-    guidelines_section = get_repo_guidelines()
+    # Read model-appropriate guidelines from repo root for project-specific review context
+    review_model = get_review_model()
+    guidelines_section = get_repo_guidelines(review_model)
 
     # Fetch full file contents for better context if within token budget
     full_files_section = ""
@@ -250,7 +254,7 @@ def generate_pr_review(
             messages,
             reasoning_effort="medium",
             text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
-            model=get_review_model(),
+            model=review_model,
             tools=[
                 {
                     "type": "web_search",
