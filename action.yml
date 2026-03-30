@@ -320,14 +320,16 @@ runs:
         echo "::group::Bun Update"
         if [ -f "bun.lock" ] || [ -f "bun.lockb" ]; then
           npm install -g bun
-          echo "Updating root dependencies..."
+          echo "Updating root..."
           bun update --latest
           for pkg in apps/*/package.json packages/*/package.json; do
             [ -f "$pkg" ] || continue
             dir=$(dirname "$pkg")
-            echo "Updating workspace $dir..."
+            echo "Updating $dir..."
             (cd "$dir" && bun update --latest)
           done
+          echo "Resolving bun.lock versions..."
+          bun update
         else
           echo "No bun.lock found - skipping Bun update"
         fi
