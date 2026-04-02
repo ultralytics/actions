@@ -206,7 +206,7 @@ def run():
             # Skip PRs with merge conflicts
             mergeable = pr.get("mergeable", "UNKNOWN")
             if mergeable == "CONFLICTING":
-                print(f"    ❌ Skipped (merge conflicts)")
+                print("    ❌ Skipped (merge conflicts)")
                 summary.append(f"- ❌ {pr_ref}: merge conflicts")
                 total_skipped += 1
                 continue
@@ -223,8 +223,12 @@ def run():
             print(f"    🔀 Merging (mergeable={mergeable})...")
             merge_result = subprocess.run(
                 [
-                    "gh", "pr", "merge", str(pr["number"]),
-                    "--repo", f"{org}/{repo_name}",
+                    "gh",
+                    "pr",
+                    "merge",
+                    str(pr["number"]),
+                    "--repo",
+                    f"{org}/{repo_name}",
                     "--squash",
                     "--admin",
                     "--delete-branch",
