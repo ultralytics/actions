@@ -7,7 +7,6 @@ import re
 import subprocess
 
 import requests
-from packaging.version import InvalidVersion, Version
 
 # Matches: `uses: owner/repo@ref` or `uses: owner/repo/path@ref` with optional `# comment`
 USES_PATTERN = re.compile(
@@ -27,11 +26,36 @@ def is_branch(ref):
 
 
 def parse_version(ref):
-    """Parse a tag-like ref into a comparable version."""
-    try:
-        return Version(ref.lstrip("v"))
-    except InvalidVersion:
+    """Parse a tag-like ref into comparable release and prerelease parts."""
+    m = re.fullmatch(r"v?(\d+(?:\.\d+)*)(?:[-.]?(a|alpha|b|beta|rc|pre|preview)[.-]?(\d*)?)?", ref, re.IGNORECASE)
+    if not m:
         return None
+    release = tuple(int(x) for x in m.group(1).split("."))
+    label = (m.group(2) or "").lower()
+    num = int(m.group(3) or 0)
+    rank = {"a": 0, "alpha": 0, "b": 1, "beta": 1, "pre": 2, "preview": 2, "rc": 2}.get(label, 3)
+    return release, rank, num
+
+
+def is_newer_version(current_ref, latest_ref):
+    """Check if latest_ref is semantically newer than current_ref."""
+    current = parse_version(current_ref)
+    latest = parse_version(latest_ref)
+    if not current or not latest:
+        return False
+    release_len = max(len(current[0]), len(latest[0]), 3)
+    current_release = current[0] + (0,) * (release_len - len(current[0]))
+    latest_release = latest[0] + (0,) * (release_len - len(latest[0]))
+    return (latest_release, latest[1], latest[2]) > (current_release, current[1], current[2])
+
+
+def ref_version(ref, comment=""):
+    """Get the version label to show in titles."""
+    if is_sha(ref):
+        tag = comment.lstrip().lstrip("#").strip()
+        if re.match(r"^v?\d", tag):
+            return tag
+    return ref
 
 
 def get_latest_release(action, token, cache):
@@ -102,9 +126,7 @@ def compute_update(current_ref, comment, latest):
             return latest["major_tag"], comment
     elif current_ref != latest_tag:
         # Specific tag like @v2.8.0 -> update to the latest tag only when it is semantically newer.
-        current_version = parse_version(current_ref)
-        latest_version = parse_version(latest_tag)
-        if current_version and latest_version and latest_version > current_version:
+        if is_newer_version(current_ref, latest_tag):
             return latest_tag, comment
 
     return None
@@ -136,16 +158,23 @@ def get_file_content(org, repo, path, token):
     return r.text if r.status_code == 200 else None
 
 
-def make_pr_title(action, new_ref, old_refs=None):
+def make_pr_title(action, new_ref, new_comment="", old_versions=None):
     """Generate a Dependabot-style PR title for an action update."""
-    new_ver = new_ref.split("#")[-1].strip() if "#" in new_ref else new_ref
-    if old_refs:
-        if len(old_refs) == 1:
-            old_ref = next(iter(old_refs))
-            old_ver = old_ref.split("#")[-1].strip() if "#" in old_ref else old_ref
+    new_ver = ref_version(new_ref, new_comment)
+    if old_versions:
+        if len(old_versions) == 1:
+            old_ver = next(iter(old_versions))
             return f"Bump {action} from {old_ver} to {new_ver} in /.github/workflows"
         return f"Bump {action} from various versions to {new_ver} in /.github/workflows"
     return f"Bump {action} to {new_ver} in /.github/workflows"
+
+
+def title_exists(open_titles, action, new_ref, new_comment, old_versions):
+    """Check if an equivalent PR title is already open."""
+    new_ver = re.escape(ref_version(new_ref, new_comment))
+    action = re.escape(action)
+    pattern = re.compile(rf"^Bump {action} (?:to|from .+ to) {new_ver} in /\.github/workflows$")
+    return any(pattern.fullmatch(title) for title in open_titles)
 
 
 def get_open_pr_titles(org, repo):
@@ -313,10 +342,10 @@ def run():
                     updates[key] = {
                         "new_ref": new_ref,
                         "new_comment": new_comment,
-                        "old_refs": set(),
+                        "old_versions": set(),
                         "replacements": [],
                     }
-                updates[key]["old_refs"].add(f"{ref}{comment}")
+                updates[key]["old_versions"].add(ref_version(ref, comment))
                 updates[key]["replacements"].append(
                     (path, m.start(), m.end(), m.group("indent"), action, new_ref, new_comment)
                 )
@@ -328,9 +357,9 @@ def run():
         open_titles = get_open_pr_titles(org, repo_name)
 
         for (action_repo, new_ref), info in updates.items():
-            title = make_pr_title(action_repo, f"{new_ref}{info['new_comment']}", info["old_refs"])
+            title = make_pr_title(action_repo, new_ref, info["new_comment"], info["old_versions"])
 
-            if title in open_titles:
+            if title_exists(open_titles, action_repo, new_ref, info["new_comment"], info["old_versions"]):
                 print(f"  ⏭️  {title} (PR already exists)")
                 total_prs_skipped += 1
                 continue
