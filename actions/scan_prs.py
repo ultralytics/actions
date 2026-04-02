@@ -188,6 +188,7 @@ def run():
             if not paths or not all(
                 p.startswith(".github/workflows/") or p.endswith(("action.yml", "action.yaml")) for p in paths
             ):
+                print("    ⏭️  Skipped (non-action files)")
                 continue
 
             total_found += 1
@@ -198,10 +199,14 @@ def run():
             # Log status checks to help troubleshoot merge decisions
             rollup = pr.get("statusCheckRollup") or []
             checks = rollup if isinstance(rollup, list) else rollup.get("contexts", [])
-            for check in checks:
-                name = check.get("name") or check.get("context") or "unknown"
-                status = check.get("conclusion") or check.get("state") or ""
-                print(f"    - {name}: {status}")
+            if checks:
+                print("    ℹ️  Status checks:")
+                for check in checks:
+                    name = check.get("name") or check.get("context") or "unknown"
+                    status = check.get("conclusion") or check.get("state") or ""
+                    print(f"      - {name}: {status}")
+            else:
+                print("    ℹ️  No status checks found")
 
             # Skip PRs with merge conflicts
             mergeable = pr.get("mergeable", "UNKNOWN")
