@@ -83,7 +83,6 @@ def get_latest_release(action, token, cache):
             return cache[repo]
 
     print(f"  Could not resolve latest version for {repo}")
-    cache[repo] = None
     return None
 
 
@@ -197,14 +196,15 @@ def get_file_content(org, repo, path, token):
     return r.text if r.status_code == 200 else None
 
 
-def make_pr_title(action, old_ref, new_ref):
+def make_pr_title(action, old_ref, new_ref, path):
     """Generate a Dependabot-style PR title for an action update.
 
     Example: 'Bump actions/checkout from v5 to v6 in /.github/workflows'
     """
     old_ver = old_ref.split("#")[-1].strip() if "#" in old_ref else old_ref
     new_ver = new_ref.split("#")[-1].strip() if "#" in new_ref else new_ref
-    return f"Bump {action} from {old_ver} to {new_ver} in /.github/workflows"
+    location = f"/{os.path.dirname(path)}" if "/" in path else "/"
+    return f"Bump {action} from {old_ver} to {new_ver} in {location}"
 
 
 def get_open_pr_titles(org, repo):
@@ -297,7 +297,12 @@ def run():
         print("Error: GH_TOKEN or GITHUB_TOKEN required")
         return
 
-    print(f"🔍 Scanning all repos in {org} for outdated GitHub Actions...")
+    # Build visibility filter from env vars (all on by default)
+    visibility = {v for v in ("public", "private", "internal") if os.getenv(v.upper(), "true").lower() == "true"}
+    if not visibility:
+        print("⚠️  No visibility selected, defaulting to all")
+        visibility = {"public", "private", "internal"}
+    print(f"🔍 Scanning {', '.join(sorted(visibility))} repos in {org} for outdated GitHub Actions...")
 
     # Get active repos across all visibilities
     result = subprocess.run(
@@ -306,7 +311,9 @@ def run():
         text=True,
         check=True,
     )
-    repos = sorted(r["name"] for r in json.loads(result.stdout) if not r["isArchived"])
+    repos = sorted(
+        r["name"] for r in json.loads(result.stdout) if not r["isArchived"] and r["visibility"].lower() in visibility
+    )
     print(f"Found {len(repos)} active repos\n")
 
     # Cache: maps 'owner/repo' -> {'tag': 'v6.0.1', 'sha': 'abc...'} (accumulated across all repos)
@@ -348,7 +355,7 @@ def run():
                     continue
 
                 new_ref, new_comment = result
-                title = make_pr_title(action, f"{ref}{comment}", f"{new_ref}{new_comment}")
+                title = make_pr_title(action, f"{ref}{comment}", f"{new_ref}{new_comment}", path)
 
                 # Skip if a PR with the same title already exists
                 if title in open_titles:
@@ -358,10 +365,9 @@ def run():
 
                 print(f"  {path}: {action} {ref}{comment} -> {new_ref}{new_comment}")
 
-                # Apply this single update to the file content
-                old_line = m.group(0)
+                # Apply this single update using match position (not str.replace)
                 new_line = f"{m.group('indent')}{action}@{new_ref}{new_comment}"
-                updated_content = content.replace(old_line, new_line, 1)
+                updated_content = content[: m.start()] + new_line + content[m.end() :]
 
                 pr_url = create_single_pr(org, repo_name, title, path, updated_content, token)
                 if pr_url:

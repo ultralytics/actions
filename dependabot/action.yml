@@ -14,6 +14,18 @@ inputs:
     description: "GitHub organization name"
     required: false
     default: "ultralytics"
+  public:
+    description: "Scan public repositories"
+    required: false
+    default: "true"
+  private:
+    description: "Scan private repositories"
+    required: false
+    default: "true"
+  internal:
+    description: "Scan internal repositories"
+    required: false
+    default: "true"
 runs:
   using: "composite"
   steps:
@@ -47,6 +59,9 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.token }}
         ORG: ${{ inputs.org }}
+        PUBLIC: ${{ inputs.public }}
+        PRIVATE: ${{ inputs.private }}
+        INTERNAL: ${{ inputs.internal }}
       run: |
         echo "::group::Dependabot"
         python -m actions.dependabot
