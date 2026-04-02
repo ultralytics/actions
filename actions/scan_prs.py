@@ -157,34 +157,38 @@ def run():
             summary.append(f"- ... {len(repo_prs) - 30} more PRs")
         summary.append("")
 
-    # Auto-merge Dependabot GitHub Actions PRs
-    print("\n🤖 Checking for Dependabot PRs to auto-merge...")
-    summary.append("\n# 🤖 Auto-Merge Dependabot GitHub Actions PRs\n")
+    # Auto-merge GitHub Actions update PRs
+    print("\n🤖 Checking for GitHub Actions update PRs to auto-merge...")
+    summary.append("\n# 🤖 Auto-Merge GitHub Actions Update PRs\n")
     total_found = total_merged = total_skipped = 0
+    approved_authors = ["app/dependabot", "UltralyticsAssistant"]
 
     for repo_name in repos:
-        pr_list = subprocess.run(
-            [
-                "gh",
-                "pr",
-                "list",
-                "--repo",
-                f"{org}/{repo_name}",
-                "--author",
-                "app/dependabot",
-                "--state",
-                "open",
-                "--json",
-                "number,title,url,files,mergeable,statusCheckRollup",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if pr_list.returncode != 0:
-            continue
+        # Query PRs once per approved author to avoid fetching all open PRs
+        all_prs = []
+        for author in approved_authors:
+            pr_list = subprocess.run(
+                [
+                    "gh",
+                    "pr",
+                    "list",
+                    "--repo",
+                    f"{org}/{repo_name}",
+                    "--author",
+                    author,
+                    "--state",
+                    "open",
+                    "--json",
+                    "number,title,url,files,mergeable,statusCheckRollup",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if pr_list.returncode == 0:
+                all_prs.extend(json.loads(pr_list.stdout))
 
         merged = 0
-        for pr in json.loads(pr_list.stdout):
+        for pr in all_prs:
             # Filter by title: must be a GitHub Actions bump PR
             title = pr.get("title", "").lower()
             if "bump" not in title or "/.github/workflows" not in title:

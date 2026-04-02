@@ -16,6 +16,7 @@
 # │   ├── first_interaction.py
 # │   ├── review_pr.py
 # │   ├── scan_prs.py
+# │   ├── dependabot.py
 # │   ├── summarize_pr.py
 # │   ├── summarize_release.py
 # │   ├── format_python_docstrings.py

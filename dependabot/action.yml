@@ -1,0 +1,54 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+name: "Dependabot"
+author: "Ultralytics"
+description: "Update GitHub Actions versions across organization repos with cached lookups. Designed for private repos where GitHub Dependabot is not available."
+branding:
+  icon: "refresh-cw"
+  color: "blue"
+inputs:
+  token:
+    description: "GitHub token with contents:write, pull-requests:write, and workflow permissions"
+    required: true
+  org:
+    description: "GitHub organization name"
+    required: false
+    default: "ultralytics"
+runs:
+  using: "composite"
+  steps:
+    - uses: astral-sh/setup-uv@v7
+      with:
+        ignore-empty-workdir: true
+        enable-cache: false
+        version: "0.9.4"
+
+    - name: Install ultralytics-actions
+      env:
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_SHA: ${{ github.sha }}
+      run: |
+        echo "::group::Install ultralytics-actions"
+        if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
+          echo "Installing from commit: $GITHUB_SHA"
+          packages="git+https://github.com/ultralytics/actions@${GITHUB_SHA}"
+        else
+          packages="git+https://github.com/ultralytics/actions@main"
+        fi
+        if [ "$(uname)" = "Darwin" ]; then
+          uv pip install --system --break-system-packages $packages
+        else
+          sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
+        fi
+        echo "::endgroup::"
+      shell: bash
+
+    - name: Dependabot
+      env:
+        GH_TOKEN: ${{ inputs.token }}
+        ORG: ${{ inputs.org }}
+      run: |
+        echo "::group::Dependabot"
+        python -m actions.dependabot
+        echo "::endgroup::"
+      shell: bash
