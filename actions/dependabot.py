@@ -7,6 +7,7 @@ import re
 import subprocess
 
 import requests
+from packaging.version import InvalidVersion, Version
 
 # Matches: `uses: owner/repo@ref` or `uses: owner/repo/path@ref` with optional `# comment`
 USES_PATTERN = re.compile(
@@ -26,9 +27,11 @@ def is_branch(ref):
 
 
 def parse_version(ref):
-    """Extract a comparable numeric version tuple from a tag-like ref."""
-    numbers = tuple(int(part) for part in re.findall(r"\d+", ref))
-    return numbers or None
+    """Parse a tag-like ref into a comparable version."""
+    try:
+        return Version(ref.lstrip("v"))
+    except InvalidVersion:
+        return None
 
 
 def get_latest_release(action, token, cache):
@@ -66,7 +69,7 @@ def get_latest_release(action, token, cache):
         r3 = requests.get(f"https://api.github.com/repos/{repo}/git/ref/tags/{major_tag}", headers=headers)
         has_major_tag = r3.status_code == 200
 
-    cache[repo] = {"tag": tag, "sha": sha, "major_tag": major_tag if has_major_tag else None}
+    cache[repo] = {"tag": tag, "sha": sha, "major_tag": major_tag if major_tag == tag or has_major_tag else None}
     print(f"  Cached {repo}: {tag} ({sha[:8]})" if sha else f"  Cached {repo}: {tag}")
     return cache[repo]
 
