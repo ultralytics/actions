@@ -81,13 +81,13 @@ def compute_update(current_ref, comment, latest):
         return None
 
     if re.fullmatch(r"v?\d+", current_ref):
-        # Major-only tag like @v6 -> update to @v8 (or @v8.0.0 if v8 tag doesn't exist)
+        # Major-only tag like @v6 -> update to @v8
         if int(latest_major.group(1)) > int(current_major.group(1)):
             prefix = "v" if current_ref.startswith("v") else ""
             major_tag = f"{prefix}{latest_major.group(1)}"
             return major_tag, comment
-    elif current_ref != latest_tag:
-        # Specific tag like @v2.8.0 -> update to latest tag
+    elif current_ref != latest_tag and int(latest_major.group(1)) >= int(current_major.group(1)):
+        # Specific tag like @v2.8.0 -> update to latest tag (only if same or newer major)
         return latest_tag, comment
 
     return None
@@ -164,11 +164,12 @@ def create_pr(org, repo, title, file_updates, token):
         print(f"    Failed to create branch: {r.json().get('message', '')}")
         return None
 
-    # Update each file on the branch
+    # Update each file on the branch (abort if any fails)
     for path, content in file_updates:
         r = requests.get(f"https://api.github.com/repos/{org}/{repo}/contents/{path}", headers=headers)
         if r.status_code != 200:
-            continue
+            print(f"    Failed to read {path}, aborting PR")
+            return None
         r = requests.put(
             f"https://api.github.com/repos/{org}/{repo}/contents/{path}",
             headers=headers,
@@ -180,7 +181,8 @@ def create_pr(org, repo, title, file_updates, token):
             },
         )
         if r.status_code not in (200, 201):
-            print(f"    Failed to update {path}: {r.json().get('message', '')}")
+            print(f"    Failed to update {path}, aborting PR")
+            return None
 
     # Create PR
     r = requests.post(
@@ -283,9 +285,11 @@ def run():
                 total_prs_skipped += 1
                 continue
 
-            # Apply replacements per file (reverse order to preserve positions within each file)
+            # Apply replacements per file in reverse position order to preserve offsets
             file_updates = {}
-            for path, start, end, indent, action, nref, ncomment in info["replacements"]:
+            for path, start, end, indent, action, nref, ncomment in sorted(
+                info["replacements"], key=lambda x: x[1], reverse=True
+            ):
                 content = file_updates.get(path, file_cache[path])
                 new_line = f"{indent}{action}@{nref}{ncomment}"
                 file_updates[path] = content[:start] + new_line + content[end:]
