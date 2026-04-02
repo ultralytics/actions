@@ -63,11 +63,9 @@ def get_repo_filter(visibility_list):
 def get_status_checks(rollup):
     """Extract and validate status checks from rollup, return failed checks."""
     checks = rollup if isinstance(rollup, list) else rollup.get("contexts", []) if isinstance(rollup, dict) else []
-    return [
-        c
-        for c in checks
-        if (s := (c.get("conclusion") or c.get("state") or "").upper()) and s not in {"SUCCESS", "SKIPPED", "NEUTRAL"}
-    ]
+    # Only flag explicit failures, not pending/stale/expected/in-progress states
+    failed = {"FAILURE", "ERROR", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED"}
+    return [c for c in checks if (c.get("conclusion") or c.get("state") or "").upper() in failed]
 
 
 def run():
@@ -216,8 +214,8 @@ def run():
                 total_skipped += 1
                 continue
 
-            if pr["mergeable"] != "MERGEABLE":
-                print(f"    ❌ Skipped (not mergeable: {pr['mergeable']})")
+            if pr["mergeable"] == "CONFLICTING":
+                print(f"    ❌ Skipped (merge conflicts)")
                 total_skipped += 1
                 continue
 
