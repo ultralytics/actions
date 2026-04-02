@@ -53,7 +53,15 @@ def get_latest_release(action, token, cache):
         else:
             sha = obj.get("sha")
 
-    cache[repo] = {"tag": tag, "sha": sha}
+    # Check if the major-only tag exists (e.g., 'v8' for release 'v8.0.0')
+    major_match = re.match(r"^(v?)(\d+)", tag)
+    major_tag = f"{major_match.group(1)}{major_match.group(2)}" if major_match else None
+    has_major_tag = False
+    if major_tag and major_tag != tag:
+        r3 = requests.get(f"https://api.github.com/repos/{repo}/git/ref/tags/{major_tag}", headers=headers)
+        has_major_tag = r3.status_code == 200
+
+    cache[repo] = {"tag": tag, "sha": sha, "major_tag": major_tag if has_major_tag else None}
     print(f"  Cached {repo}: {tag} ({sha[:8]})" if sha else f"  Cached {repo}: {tag}")
     return cache[repo]
 
@@ -81,11 +89,11 @@ def compute_update(current_ref, comment, latest):
         return None
 
     if re.fullmatch(r"v?\d+", current_ref):
-        # Major-only tag like @v6 -> update to @v8
+        # Major-only tag like @v6 -> update to @v8 if tag exists, else @v8.0.0
         if int(latest_major.group(1)) > int(current_major.group(1)):
-            prefix = "v" if current_ref.startswith("v") else ""
-            major_tag = f"{prefix}{latest_major.group(1)}"
-            return major_tag, comment
+            if latest.get("major_tag"):
+                return latest["major_tag"], comment
+            return latest_tag, comment
     elif current_ref != latest_tag and int(latest_major.group(1)) >= int(current_major.group(1)):
         # Specific tag like @v2.8.0 -> update to latest tag (only if same or newer major)
         return latest_tag, comment
@@ -138,55 +146,65 @@ def get_open_pr_titles(org, repo):
 
 
 def create_pr(org, repo, title, file_updates, token):
-    """Create a PR updating one or more files. file_updates is list of (path, content) tuples."""
+    """Create a PR with a single commit updating one or more files using the Git Data API."""
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    api = f"https://api.github.com/repos/{org}/{repo}"
 
-    # Get default branch and its HEAD SHA
-    r = requests.get(f"https://api.github.com/repos/{org}/{repo}", headers=headers)
+    # Get default branch and its HEAD commit SHA
+    r = requests.get(api, headers=headers)
     if r.status_code != 200:
         return None
     default_branch = r.json()["default_branch"]
 
-    r = requests.get(f"https://api.github.com/repos/{org}/{repo}/git/ref/heads/{default_branch}", headers=headers)
+    r = requests.get(f"{api}/git/ref/heads/{default_branch}", headers=headers)
     if r.status_code != 200:
         return None
     base_sha = r.json()["object"]["sha"]
 
-    # Create branch
+    # Get base tree SHA
+    r = requests.get(f"{api}/git/commits/{base_sha}", headers=headers)
+    if r.status_code != 200:
+        return None
+    base_tree_sha = r.json()["tree"]["sha"]
+
+    # Create blobs for each file and build tree entries
+    tree_entries = []
+    for path, content in file_updates:
+        r = requests.post(f"{api}/git/blobs", headers=headers, json={"content": content, "encoding": "utf-8"})
+        if r.status_code not in (200, 201):
+            print(f"    Failed to create blob for {path}, aborting PR")
+            return None
+        tree_entries.append({"path": path, "mode": "100644", "type": "blob", "sha": r.json()["sha"]})
+
+    # Create tree
+    r = requests.post(f"{api}/git/trees", headers=headers, json={"base_tree": base_tree_sha, "tree": tree_entries})
+    if r.status_code not in (200, 201):
+        print(f"    Failed to create tree: {r.json().get('message', '')}")
+        return None
+    tree_sha = r.json()["sha"]
+
+    # Create single commit
+    r = requests.post(
+        f"{api}/git/commits",
+        headers=headers,
+        json={"message": title, "tree": tree_sha, "parents": [base_sha]},
+    )
+    if r.status_code not in (200, 201):
+        print(f"    Failed to create commit: {r.json().get('message', '')}")
+        return None
+    commit_sha = r.json()["sha"]
+
+    # Create branch pointing to the commit
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", title).strip("-").lower()[:60]
     branch = f"dependabot/github_actions/{slug}"
-    r = requests.post(
-        f"https://api.github.com/repos/{org}/{repo}/git/refs",
-        headers=headers,
-        json={"ref": f"refs/heads/{branch}", "sha": base_sha},
-    )
+    r = requests.post(f"{api}/git/refs", headers=headers, json={"ref": f"refs/heads/{branch}", "sha": commit_sha})
     if r.status_code not in (200, 201):
         print(f"    Failed to create branch: {r.json().get('message', '')}")
         return None
 
-    # Update each file on the branch (abort if any fails)
-    for path, content in file_updates:
-        r = requests.get(f"https://api.github.com/repos/{org}/{repo}/contents/{path}", headers=headers)
-        if r.status_code != 200:
-            print(f"    Failed to read {path}, aborting PR")
-            return None
-        r = requests.put(
-            f"https://api.github.com/repos/{org}/{repo}/contents/{path}",
-            headers=headers,
-            json={
-                "message": f"{title} in {path}",
-                "content": base64.b64encode(content.encode()).decode(),
-                "sha": r.json()["sha"],
-                "branch": branch,
-            },
-        )
-        if r.status_code not in (200, 201):
-            print(f"    Failed to update {path}, aborting PR")
-            return None
-
     # Create PR
     r = requests.post(
-        f"https://api.github.com/repos/{org}/{repo}/pulls",
+        f"{api}/pulls",
         headers=headers,
         json={
             "title": title,
