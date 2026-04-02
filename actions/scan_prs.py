@@ -64,7 +64,7 @@ def get_status_checks(rollup):
     """Extract and validate status checks from rollup, return failed checks."""
     checks = rollup if isinstance(rollup, list) else rollup.get("contexts", []) if isinstance(rollup, dict) else []
     # Only flag explicit failures, not pending/stale/expected/in-progress states
-    failed = {"FAILURE", "ERROR", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED"}
+    failed = {"FAILURE", "ERROR", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE"}
     return [c for c in checks if (c.get("conclusion") or c.get("state") or "").upper() in failed]
 
 
