@@ -40,12 +40,12 @@ jobs:
 
 ## Version Handling
 
-| Format       | Example               | Behavior                        |
-| ------------ | --------------------- | ------------------------------- |
-| Branch       | `@main`               | Skipped                         |
-| Major tag    | `@v7`                 | Updated to `@v8`                |
-| Specific tag | `@v2.8.0`             | Updated to `@v3.0.1`            |
-| SHA pinned   | `@abc123... # v7.0.0` | SHA + comment updated to latest |
+| Format       | Example               | Behavior                                              |
+| ------------ | --------------------- | ----------------------------------------------------- |
+| Branch       | `@main`               | Skipped                                               |
+| Major tag    | `@v7`                 | Updated to `@v8` only if the upstream `v8` tag exists |
+| Specific tag | `@v2.8.0`             | Updated to a newer release tag                        |
+| SHA pinned   | `@abc123... # v7.0.0` | SHA + comment updated to latest                       |
 
 ## Caching
 

@@ -1,7 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 """Update GitHub Actions versions across organization repositories with cached version resolution."""
 
-import base64
 import json
 import os
 import re
@@ -26,6 +25,36 @@ def is_branch(ref):
     return not is_sha(ref) and not re.match(r"^v?\d", ref) and "release" not in ref
 
 
+def is_stable_patch(ref):
+    """Check if a ref is a stable major.minor.patch version tag."""
+    return bool(re.fullmatch(r"v?\d+\.\d+\.\d+", ref))
+
+
+def parse_version(ref):
+    """Parse a stable major.minor.patch ref into a comparable version tuple."""
+    if not is_stable_patch(ref):
+        return None
+    return tuple(int(x) for x in ref.lstrip("v").split("."))
+
+
+def is_newer_version(current_ref, latest_ref):
+    """Check if latest_ref is semantically newer than current_ref."""
+    current = parse_version(current_ref)
+    latest = parse_version(latest_ref)
+    if not current or not latest:
+        return False
+    return latest > current
+
+
+def ref_version(ref, comment=""):
+    """Get the version label to show in titles."""
+    if is_sha(ref):
+        tag = comment.lstrip().lstrip("#").strip()
+        if re.match(r"^v?\d", tag):
+            return tag
+    return ref
+
+
 def get_latest_release(action, token, cache):
     """Get latest release tag and its commit SHA for an action, using cache."""
     repo = "/".join(action.split("/")[:2])
@@ -39,7 +68,7 @@ def get_latest_release(action, token, cache):
         return None
 
     tag = r.json().get("tag_name", "")
-    if not tag:
+    if not tag or not is_stable_patch(tag):
         return None
 
     # Resolve tag to commit SHA (handles annotated tags)
@@ -53,7 +82,15 @@ def get_latest_release(action, token, cache):
         else:
             sha = obj.get("sha")
 
-    cache[repo] = {"tag": tag, "sha": sha}
+    # Check if the major-only tag exists (e.g., 'v8' for release 'v8.0.0')
+    major_match = re.match(r"^(v?)(\d+)", tag)
+    major_tag = f"{major_match.group(1)}{major_match.group(2)}" if major_match else None
+    has_major_tag = False
+    if major_tag and major_tag != tag:
+        r3 = requests.get(f"https://api.github.com/repos/{repo}/git/ref/tags/{major_tag}", headers=headers)
+        has_major_tag = r3.status_code == 200
+
+    cache[repo] = {"tag": tag, "sha": sha, "major_tag": major_tag if major_tag == tag or has_major_tag else None}
     print(f"  Cached {repo}: {tag} ({sha[:8]})" if sha else f"  Cached {repo}: {tag}")
     return cache[repo]
 
@@ -81,14 +118,13 @@ def compute_update(current_ref, comment, latest):
         return None
 
     if re.fullmatch(r"v?\d+", current_ref):
-        # Major-only tag like @v6 -> update to @v8
-        if int(latest_major.group(1)) > int(current_major.group(1)):
-            prefix = "v" if current_ref.startswith("v") else ""
-            major_tag = f"{prefix}{latest_major.group(1)}"
-            return major_tag, comment
-    elif current_ref != latest_tag and int(latest_major.group(1)) >= int(current_major.group(1)):
-        # Specific tag like @v2.8.0 -> update to latest tag (only if same or newer major)
-        return latest_tag, comment
+        # Major-only tag like @v6 -> update to @v8 only if that tag actually exists.
+        if int(latest_major.group(1)) > int(current_major.group(1)) and latest.get("major_tag"):
+            return latest["major_tag"], comment
+    elif current_ref != latest_tag:
+        # Specific tag like @v2.8.0 -> update to the latest tag only when it is semantically newer.
+        if is_newer_version(current_ref, latest_tag):
+            return latest_tag, comment
 
     return None
 
@@ -119,10 +155,23 @@ def get_file_content(org, repo, path, token):
     return r.text if r.status_code == 200 else None
 
 
-def make_pr_title(action, new_ref):
+def make_pr_title(action, new_ref, new_comment="", old_versions=None):
     """Generate a Dependabot-style PR title for an action update."""
-    new_ver = new_ref.split("#")[-1].strip() if "#" in new_ref else new_ref
+    new_ver = ref_version(new_ref, new_comment)
+    if old_versions:
+        if len(old_versions) == 1:
+            old_ver = next(iter(old_versions))
+            return f"Bump {action} from {old_ver} to {new_ver} in /.github/workflows"
+        return f"Bump {action} from various versions to {new_ver} in /.github/workflows"
     return f"Bump {action} to {new_ver} in /.github/workflows"
+
+
+def title_exists(open_titles, action, new_ref, new_comment, old_versions):
+    """Check if an equivalent PR title is already open."""
+    new_ver = re.escape(ref_version(new_ref, new_comment))
+    action = re.escape(action)
+    pattern = re.compile(rf"^Bump {action} (?:to|from .+ to) {new_ver} in /\.github/workflows$")
+    return any(pattern.fullmatch(title) for title in open_titles)
 
 
 def get_open_pr_titles(org, repo):
@@ -138,59 +187,78 @@ def get_open_pr_titles(org, repo):
 
 
 def create_pr(org, repo, title, file_updates, token):
-    """Create a PR updating one or more files. file_updates is list of (path, content) tuples."""
+    """Create a PR with a single commit updating one or more files using the Git Data API."""
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    api = f"https://api.github.com/repos/{org}/{repo}"
 
-    # Get default branch and its HEAD SHA
-    r = requests.get(f"https://api.github.com/repos/{org}/{repo}", headers=headers)
+    # Get default branch and its HEAD commit SHA
+    r = requests.get(api, headers=headers)
     if r.status_code != 200:
         return None
     default_branch = r.json()["default_branch"]
 
-    r = requests.get(f"https://api.github.com/repos/{org}/{repo}/git/ref/heads/{default_branch}", headers=headers)
+    r = requests.get(f"{api}/git/ref/heads/{default_branch}", headers=headers)
     if r.status_code != 200:
         return None
     base_sha = r.json()["object"]["sha"]
 
-    # Create branch
+    # Get base tree SHA
+    r = requests.get(f"{api}/git/commits/{base_sha}", headers=headers)
+    if r.status_code != 200:
+        return None
+    base_tree_sha = r.json()["tree"]["sha"]
+
+    # Create blobs for each file and build tree entries
+    tree_entries = []
+    for path, content in file_updates:
+        r = requests.post(f"{api}/git/blobs", headers=headers, json={"content": content, "encoding": "utf-8"})
+        if r.status_code not in (200, 201):
+            print(f"    Failed to create blob for {path}, aborting PR")
+            return None
+        tree_entries.append({"path": path, "mode": "100644", "type": "blob", "sha": r.json()["sha"]})
+
+    # Create tree
+    r = requests.post(f"{api}/git/trees", headers=headers, json={"base_tree": base_tree_sha, "tree": tree_entries})
+    if r.status_code not in (200, 201):
+        print(f"    Failed to create tree: {r.json().get('message', '')}")
+        return None
+    tree_sha = r.json()["sha"]
+
+    # Create single commit
+    r = requests.post(
+        f"{api}/git/commits",
+        headers=headers,
+        json={"message": title, "tree": tree_sha, "parents": [base_sha]},
+    )
+    if r.status_code not in (200, 201):
+        print(f"    Failed to create commit: {r.json().get('message', '')}")
+        return None
+    commit_sha = r.json()["sha"]
+
+    # Create branch pointing to the commit
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", title).strip("-").lower()[:60]
     branch = f"dependabot/github_actions/{slug}"
-    r = requests.post(
-        f"https://api.github.com/repos/{org}/{repo}/git/refs",
-        headers=headers,
-        json={"ref": f"refs/heads/{branch}", "sha": base_sha},
-    )
+    r = requests.post(f"{api}/git/refs", headers=headers, json={"ref": f"refs/heads/{branch}", "sha": commit_sha})
     if r.status_code not in (200, 201):
         print(f"    Failed to create branch: {r.json().get('message', '')}")
         return None
 
-    # Update each file on the branch (abort if any fails)
-    for path, content in file_updates:
-        r = requests.get(f"https://api.github.com/repos/{org}/{repo}/contents/{path}", headers=headers)
-        if r.status_code != 200:
-            print(f"    Failed to read {path}, aborting PR")
-            return None
-        r = requests.put(
-            f"https://api.github.com/repos/{org}/{repo}/contents/{path}",
-            headers=headers,
-            json={
-                "message": f"{title} in {path}",
-                "content": base64.b64encode(content.encode()).decode(),
-                "sha": r.json()["sha"],
-                "branch": branch,
-            },
-        )
-        if r.status_code not in (200, 201):
-            print(f"    Failed to update {path}, aborting PR")
-            return None
-
     # Create PR
     r = requests.post(
-        f"https://api.github.com/repos/{org}/{repo}/pulls",
+        f"{api}/pulls",
         headers=headers,
         json={
             "title": title,
-            "body": f"{title}\n\nAutomated by [Ultralytics Actions](https://github.com/ultralytics/actions).",
+            "body": (
+                f"{title}\n\n"
+                "This PR updates GitHub Actions references in this repository.\n\n"
+                "Examples:\n"
+                "- Branch: `actions/checkout@main` stays on `@main`\n"
+                "- Major tag: `actions/checkout@v4` updates to `@v5`\n"
+                "- Specific tag: `astral-sh/setup-uv@v0.5.0` updates to `@v0.9.4`\n"
+                "- SHA pinned: `actions/checkout@<sha> # v4.1.0` updates to the latest release SHA and tag comment\n\n"
+                "<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>"
+            ),
             "head": branch,
             "base": default_branch,
         },
@@ -268,7 +336,13 @@ def run():
                 key = ("/".join(action.split("/")[:2]), new_ref)
 
                 if key not in updates:
-                    updates[key] = {"new_ref": new_ref, "new_comment": new_comment, "replacements": []}
+                    updates[key] = {
+                        "new_ref": new_ref,
+                        "new_comment": new_comment,
+                        "old_versions": set(),
+                        "replacements": [],
+                    }
+                updates[key]["old_versions"].add(ref_version(ref, comment))
                 updates[key]["replacements"].append(
                     (path, m.start(), m.end(), m.group("indent"), action, new_ref, new_comment)
                 )
@@ -280,9 +354,9 @@ def run():
         open_titles = get_open_pr_titles(org, repo_name)
 
         for (action_repo, new_ref), info in updates.items():
-            title = make_pr_title(action_repo, f"{new_ref}{info['new_comment']}")
+            title = make_pr_title(action_repo, new_ref, info["new_comment"], info["old_versions"])
 
-            if title in open_titles:
+            if title_exists(open_titles, action_repo, new_ref, info["new_comment"], info["old_versions"]):
                 print(f"  ⏭️  {title} (PR already exists)")
                 total_prs_skipped += 1
                 continue
