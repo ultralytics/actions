@@ -36,8 +36,8 @@ def is_branch(ref):
 
 
 def get_major_version(tag):
-    """Extract major version from a tag like 'v6', 'v6.0.1', 'v2.8.0'."""
-    m = re.match(r"^v(\d+)", tag)
+    """Extract major version from a tag like 'v6', 'v6.0.1', '2.8.0'."""
+    m = re.match(r"^v?(\d+)", tag)
     return int(m.group(1)) if m else None
 
 
@@ -70,13 +70,20 @@ def get_latest_release(action, token, cache):
             print(f"  Cached {repo}: {tag} ({sha[:8]})" if sha else f"  Cached {repo}: {tag}")
             return cache[repo]
 
-    # Fallback to tags (sorted by semver-like ordering)
-    r = requests.get(f"https://api.github.com/repos/{repo}/tags?per_page=1", headers=headers)
+    # Fallback to tags - fetch enough to sort by semver
+    r = requests.get(f"https://api.github.com/repos/{repo}/tags?per_page=100", headers=headers)
     if r.status_code == 200:
         tags = r.json()
-        if tags:
-            tag = tags[0]["name"]
-            sha = tags[0]["commit"]["sha"]
+        # Sort by semver: extract (major, minor, patch) tuples, highest first
+        def semver_key(t):
+            m = re.match(r"^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?", t["name"])
+            return tuple(int(x or 0) for x in m.groups()) if m else (0, 0, 0)
+
+        semver_tags = [t for t in tags if re.match(r"^v?\d+", t["name"])]
+        if semver_tags:
+            best = max(semver_tags, key=semver_key)
+            tag = best["name"]
+            sha = best["commit"]["sha"]
             cache[repo] = {"tag": tag, "sha": sha}
             print(f"  Cached {repo}: {tag} ({sha[:8]})")
             return cache[repo]
@@ -111,8 +118,8 @@ def compute_update(current_ref, comment, latest):
     latest_sha = latest["sha"]
 
     if is_sha(current_ref):
-        # SHA pinned: update to latest SHA and tag comment
-        if current_ref == latest_sha:
+        # SHA pinned: update to latest SHA and tag comment (skip if SHA unresolved)
+        if not latest_sha or current_ref == latest_sha:
             return None
         new_comment = f" # {latest_tag}"
         return latest_sha, new_comment
@@ -123,13 +130,15 @@ def compute_update(current_ref, comment, latest):
     if current_major is None or latest_major is None:
         return None
 
-    # Check if using major-only tag (e.g., 'v6') vs specific (e.g., 'v6.0.1')
-    is_major_only = re.fullmatch(r"v\d+", current_ref)
+    # Check if using major-only tag (e.g., 'v6' or '6') vs specific (e.g., 'v6.0.1')
+    is_major_only = re.fullmatch(r"v?\d+", current_ref)
+    has_v_prefix = current_ref.startswith("v")
 
     if is_major_only:
         # Using major tag like @v6 -> update to latest major @v7
         if latest_major > current_major:
-            return f"v{latest_major}", comment
+            new_tag = f"v{latest_major}" if has_v_prefix else str(latest_major)
+            return new_tag, comment
     else:
         # Using specific tag like @v2.8.0 -> update to latest tag
         if current_ref != latest_tag:
