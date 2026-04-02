@@ -81,10 +81,11 @@ def compute_update(current_ref, comment, latest):
         return None
 
     if re.fullmatch(r"v?\d+", current_ref):
-        # Major-only tag like @v6 -> update to latest major @v7
+        # Major-only tag like @v6 -> update to @v8 (or @v8.0.0 if v8 tag doesn't exist)
         if int(latest_major.group(1)) > int(current_major.group(1)):
             prefix = "v" if current_ref.startswith("v") else ""
-            return f"{prefix}{latest_major.group(1)}", comment
+            major_tag = f"{prefix}{latest_major.group(1)}"
+            return major_tag, comment
     elif current_ref != latest_tag:
         # Specific tag like @v2.8.0 -> update to latest tag
         return latest_tag, comment
@@ -118,16 +119,26 @@ def get_file_content(org, repo, path, token):
     return r.text if r.status_code == 200 else None
 
 
-def make_pr_title(action, old_ref, new_ref, path):
+def make_pr_title(action, new_ref):
     """Generate a Dependabot-style PR title for an action update."""
-    old_ver = old_ref.split("#")[-1].strip() if "#" in old_ref else old_ref
     new_ver = new_ref.split("#")[-1].strip() if "#" in new_ref else new_ref
-    location = f"/{path}"
-    return f"Bump {action} from {old_ver} to {new_ver} in {location}"
+    return f"Bump {action} to {new_ver} in /.github/workflows"
 
 
-def create_single_pr(org, repo, title, file_path, new_content, token):
-    """Create a single PR updating one file. Returns PR URL or None."""
+def get_open_pr_titles(org, repo):
+    """Get titles of all open PRs in a repo using gh CLI."""
+    result = subprocess.run(
+        ["gh", "pr", "list", "--repo", f"{org}/{repo}", "--state", "open", "--json", "title", "--limit", "100"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return set()
+    return {pr["title"] for pr in json.loads(result.stdout)}
+
+
+def create_pr(org, repo, title, file_updates, token):
+    """Create a PR updating one or more files. file_updates is list of (path, content) tuples."""
     headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
 
     # Get default branch and its HEAD SHA
@@ -153,24 +164,23 @@ def create_single_pr(org, repo, title, file_path, new_content, token):
         print(f"    Failed to create branch: {r.json().get('message', '')}")
         return None
 
-    # Update file
-    r = requests.get(f"https://api.github.com/repos/{org}/{repo}/contents/{file_path}", headers=headers)
-    if r.status_code != 200:
-        return None
-
-    r = requests.put(
-        f"https://api.github.com/repos/{org}/{repo}/contents/{file_path}",
-        headers=headers,
-        json={
-            "message": title,
-            "content": base64.b64encode(new_content.encode()).decode(),
-            "sha": r.json()["sha"],
-            "branch": branch,
-        },
-    )
-    if r.status_code not in (200, 201):
-        print(f"    Failed to update {file_path}: {r.json().get('message', '')}")
-        return None
+    # Update each file on the branch
+    for path, content in file_updates:
+        r = requests.get(f"https://api.github.com/repos/{org}/{repo}/contents/{path}", headers=headers)
+        if r.status_code != 200:
+            continue
+        r = requests.put(
+            f"https://api.github.com/repos/{org}/{repo}/contents/{path}",
+            headers=headers,
+            json={
+                "message": f"{title} in {path}",
+                "content": base64.b64encode(content.encode()).decode(),
+                "sha": r.json()["sha"],
+                "branch": branch,
+            },
+        )
+        if r.status_code not in (200, 201):
+            print(f"    Failed to update {path}: {r.json().get('message', '')}")
 
     # Create PR
     r = requests.post(
@@ -228,12 +238,16 @@ def run():
             print("  No workflow files found")
             continue
 
-        open_titles = get_open_pr_titles(org, repo_name)
+        # Phase 1: collect all updates grouped by (action, new_ref) across all files
+        # Key: (action_base_repo, new_ref) -> {title, file_contents: {path: content}}
+        updates = {}
+        file_cache = {}  # path -> original content
 
         for path in workflow_files:
             content = get_file_content(org, repo_name, path, token)
             if not content:
                 continue
+            file_cache[path] = content
 
             for m in USES_PATTERN.finditer(content):
                 action = m.group("action")
@@ -249,25 +263,42 @@ def run():
                     continue
 
                 new_ref, new_comment = update
-                title = make_pr_title(action, f"{ref}{comment}", f"{new_ref}{new_comment}", path)
+                key = ("/".join(action.split("/")[:2]), new_ref)
 
-                if title in open_titles:
-                    print(f"  ⏭️  {title} (PR already exists)")
-                    total_prs_skipped += 1
-                    continue
+                if key not in updates:
+                    updates[key] = {"new_ref": new_ref, "new_comment": new_comment, "replacements": []}
+                updates[key]["replacements"].append((path, m.start(), m.end(), m.group("indent"), action, new_ref, new_comment))
 
-                print(f"  {path}: {action} {ref}{comment} -> {new_ref}{new_comment}")
-                new_line = f"{m.group('indent')}{action}@{new_ref}{new_comment}"
-                updated_content = content[: m.start()] + new_line + content[m.end() :]
+        if not updates:
+            continue
 
-                pr_url = create_single_pr(org, repo_name, title, path, updated_content, token)
-                if pr_url:
-                    print(f"    ✅ Created PR: {pr_url}")
-                    summary.append(f"- ✅ [{org}/{repo_name}]({pr_url}): {title}")
-                    open_titles.add(title)
-                    total_prs_created += 1
-                else:
-                    print("    ❌ Failed to create PR")
+        # Phase 2: create one PR per action update
+        open_titles = get_open_pr_titles(org, repo_name)
+
+        for (action_repo, new_ref), info in updates.items():
+            title = make_pr_title(action_repo, f"{new_ref}{info['new_comment']}")
+
+            if title in open_titles:
+                print(f"  ⏭️  {title} (PR already exists)")
+                total_prs_skipped += 1
+                continue
+
+            # Apply replacements per file (reverse order to preserve positions within each file)
+            file_updates = {}
+            for path, start, end, indent, action, nref, ncomment in info["replacements"]:
+                content = file_updates.get(path, file_cache[path])
+                new_line = f"{indent}{action}@{nref}{ncomment}"
+                file_updates[path] = content[:start] + new_line + content[end:]
+                print(f"  {path}: {action} -> {nref}{ncomment}")
+
+            pr_url = create_pr(org, repo_name, title, list(file_updates.items()), token)
+            if pr_url:
+                print(f"    ✅ Created PR: {pr_url}")
+                summary.append(f"- ✅ [{org}/{repo_name}]({pr_url}): {title}")
+                open_titles.add(title)
+                total_prs_created += 1
+            else:
+                print("    ❌ Failed to create PR")
 
     print(f"\n📊 Done! Created {total_prs_created} PRs | Skipped {total_prs_skipped} (already open)")
     print(f"Cached {len(cache)} action versions (saved ~{max(0, len(repos) * len(cache) - len(cache))} API lookups)")
@@ -280,18 +311,6 @@ def run():
         ]
         with open(summary_file, "a") as f:
             f.write("\n".join(lines))
-
-
-def get_open_pr_titles(org, repo):
-    """Get titles of all open PRs in a repo using gh CLI."""
-    result = subprocess.run(
-        ["gh", "pr", "list", "--repo", f"{org}/{repo}", "--state", "open", "--json", "title", "--limit", "100"],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        return set()
-    return {pr["title"] for pr in json.loads(result.stdout)}
 
 
 if __name__ == "__main__":
