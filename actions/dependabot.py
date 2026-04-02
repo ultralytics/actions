@@ -1,7 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 """Update GitHub Actions versions across organization repositories with cached version resolution."""
 
-import base64
 import json
 import os
 import re
@@ -24,6 +23,12 @@ def is_sha(ref):
 def is_branch(ref):
     """Check if a reference is likely a branch name (not a version tag or SHA)."""
     return not is_sha(ref) and not re.match(r"^v?\d", ref) and "release" not in ref
+
+
+def parse_version(ref):
+    """Extract a comparable numeric version tuple from a tag-like ref."""
+    numbers = tuple(int(part) for part in re.findall(r"\d+", ref))
+    return numbers or None
 
 
 def get_latest_release(action, token, cache):
@@ -89,14 +94,15 @@ def compute_update(current_ref, comment, latest):
         return None
 
     if re.fullmatch(r"v?\d+", current_ref):
-        # Major-only tag like @v6 -> update to @v8 if tag exists, else @v8.0.0
-        if int(latest_major.group(1)) > int(current_major.group(1)):
-            if latest.get("major_tag"):
-                return latest["major_tag"], comment
+        # Major-only tag like @v6 -> update to @v8 only if that tag actually exists.
+        if int(latest_major.group(1)) > int(current_major.group(1)) and latest.get("major_tag"):
+            return latest["major_tag"], comment
+    elif current_ref != latest_tag:
+        # Specific tag like @v2.8.0 -> update to the latest tag only when it is semantically newer.
+        current_version = parse_version(current_ref)
+        latest_version = parse_version(latest_tag)
+        if current_version and latest_version and latest_version > current_version:
             return latest_tag, comment
-    elif current_ref != latest_tag and int(latest_major.group(1)) >= int(current_major.group(1)):
-        # Specific tag like @v2.8.0 -> update to latest tag (only if same or newer major)
-        return latest_tag, comment
 
     return None
 

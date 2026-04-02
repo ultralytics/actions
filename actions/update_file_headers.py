@@ -179,9 +179,10 @@ def main(*args, **kwargs):
     """Automates file header updates for all files in the specified directory."""
     event = Action(*args, **kwargs)
     current_year = datetime.now().year
+    repository = (event.repository or "").lower()
 
     # Only process repos owned by the Ultralytics organization
-    if event.repository.lower().startswith("ultralytics/"):
+    if repository.startswith("ultralytics/"):
         if event.is_repo_private():
             notice = f"© 2014-{current_year} Ultralytics Inc. 🚀"
             header = f"{notice} All rights reserved. CONFIDENTIAL: Unauthorized use or distribution prohibited."
