@@ -122,7 +122,7 @@ def make_pr_title(action, old_ref, new_ref, path):
     """Generate a Dependabot-style PR title for an action update."""
     old_ver = old_ref.split("#")[-1].strip() if "#" in old_ref else old_ref
     new_ver = new_ref.split("#")[-1].strip() if "#" in new_ref else new_ref
-    location = f"/{os.path.dirname(path)}" if "/" in path else "/"
+    location = f"/{path}"
     return f"Bump {action} from {old_ver} to {new_ver} in {location}"
 
 
