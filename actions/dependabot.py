@@ -310,7 +310,12 @@ def run():
                 key = ("/".join(action.split("/")[:2]), new_ref)
 
                 if key not in updates:
-                    updates[key] = {"new_ref": new_ref, "new_comment": new_comment, "old_refs": set(), "replacements": []}
+                    updates[key] = {
+                        "new_ref": new_ref,
+                        "new_comment": new_comment,
+                        "old_refs": set(),
+                        "replacements": [],
+                    }
                 updates[key]["old_refs"].add(f"{ref}{comment}")
                 updates[key]["replacements"].append(
                     (path, m.start(), m.end(), m.group("indent"), action, new_ref, new_comment)
