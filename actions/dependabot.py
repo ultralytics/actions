@@ -6,7 +6,6 @@ import json
 import os
 import re
 import subprocess
-import time
 
 import requests
 
@@ -370,7 +369,7 @@ def run():
                     open_titles.add(title)  # Prevent duplicate within same run
                     total_prs_created += 1
                 else:
-                    print(f"    ❌ Failed to create PR")
+                    print("    ❌ Failed to create PR")
 
     # Print summary
     print(f"\n{'=' * 60}")
