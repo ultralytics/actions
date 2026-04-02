@@ -133,9 +133,15 @@ def get_file_content(org, repo, path, token):
     return r.text if r.status_code == 200 else None
 
 
-def make_pr_title(action, new_ref):
+def make_pr_title(action, new_ref, old_refs=None):
     """Generate a Dependabot-style PR title for an action update."""
     new_ver = new_ref.split("#")[-1].strip() if "#" in new_ref else new_ref
+    if old_refs:
+        if len(old_refs) == 1:
+            old_ref = next(iter(old_refs))
+            old_ver = old_ref.split("#")[-1].strip() if "#" in old_ref else old_ref
+            return f"Bump {action} from {old_ver} to {new_ver} in /.github/workflows"
+        return f"Bump {action} from various versions to {new_ver} in /.github/workflows"
     return f"Bump {action} to {new_ver} in /.github/workflows"
 
 
@@ -301,7 +307,8 @@ def run():
                 key = ("/".join(action.split("/")[:2]), new_ref)
 
                 if key not in updates:
-                    updates[key] = {"new_ref": new_ref, "new_comment": new_comment, "replacements": []}
+                    updates[key] = {"new_ref": new_ref, "new_comment": new_comment, "old_refs": set(), "replacements": []}
+                updates[key]["old_refs"].add(f"{ref}{comment}")
                 updates[key]["replacements"].append(
                     (path, m.start(), m.end(), m.group("indent"), action, new_ref, new_comment)
                 )
@@ -313,7 +320,7 @@ def run():
         open_titles = get_open_pr_titles(org, repo_name)
 
         for (action_repo, new_ref), info in updates.items():
-            title = make_pr_title(action_repo, f"{new_ref}{info['new_comment']}")
+            title = make_pr_title(action_repo, f"{new_ref}{info['new_comment']}", info["old_refs"])
 
             if title in open_titles:
                 print(f"  ⏭️  {title} (PR already exists)")
