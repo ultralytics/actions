@@ -22,13 +22,13 @@ jobs:
 
 ## Inputs
 
-| Input     | Description                                           | Required | Default       |
-| --------- | ----------------------------------------------------- | -------- | ------------- |
-| `token`   | GitHub token with `contents:write`, `pull-requests:write`, and `workflow` scopes | Yes      | -             |
-| `org`     | GitHub organization name                              | No       | `ultralytics` |
-| `public`  | Scan public repositories                              | No       | `true`        |
-| `private` | Scan private repositories                             | No       | `true`        |
-| `internal`| Scan internal repositories                            | No       | `true`        |
+| Input      | Description                                                                      | Required | Default       |
+| ---------- | -------------------------------------------------------------------------------- | -------- | ------------- |
+| `token`    | GitHub token with `contents:write`, `pull-requests:write`, and `workflow` scopes | Yes      | -             |
+| `org`      | GitHub organization name                                                         | No       | `ultralytics` |
+| `public`   | Scan public repositories                                                         | No       | `true`        |
+| `private`  | Scan private repositories                                                        | No       | `true`        |
+| `internal` | Scan internal repositories                                                       | No       | `true`        |
 
 ## How It Works
 
@@ -40,12 +40,12 @@ jobs:
 
 ## Version Handling
 
-| Format | Example | Behavior |
-| --- | --- | --- |
-| Branch | `@main` | Skipped |
-| Major tag | `@v7` | Updated to `@v8` |
-| Specific tag | `@v2.8.0` | Updated to `@v3.0.1` |
-| SHA pinned | `@abc123... # v7.0.0` | SHA + comment updated to latest |
+| Format       | Example               | Behavior                        |
+| ------------ | --------------------- | ------------------------------- |
+| Branch       | `@main`               | Skipped                         |
+| Major tag    | `@v7`                 | Updated to `@v8`                |
+| Specific tag | `@v2.8.0`             | Updated to `@v3.0.1`            |
+| SHA pinned   | `@abc123... # v7.0.0` | SHA + comment updated to latest |
 
 ## Caching
 

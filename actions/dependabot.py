@@ -269,7 +269,9 @@ def run():
 
                 if key not in updates:
                     updates[key] = {"new_ref": new_ref, "new_comment": new_comment, "replacements": []}
-                updates[key]["replacements"].append((path, m.start(), m.end(), m.group("indent"), action, new_ref, new_comment))
+                updates[key]["replacements"].append(
+                    (path, m.start(), m.end(), m.group("indent"), action, new_ref, new_comment)
+                )
 
         if not updates:
             continue
