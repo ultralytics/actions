@@ -215,7 +215,7 @@ def run():
                 continue
 
             if pr["mergeable"] == "CONFLICTING":
-                print(f"    ❌ Skipped (merge conflicts)")
+                print("    ❌ Skipped (merge conflicts)")
                 total_skipped += 1
                 continue
 
