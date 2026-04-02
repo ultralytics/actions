@@ -185,8 +185,14 @@ def run():
 
         merged = 0
         for pr in json.loads(pr_list.stdout):
+            # Filter by title: must be a GitHub Actions bump PR
+            title = pr.get("title", "").lower()
+            if "bump" not in title or "/.github/workflows" not in title:
+                continue
+
+            # Require at least one workflow/action file
             paths = [f["path"] for f in (pr.get("files") or [])]
-            if not paths or not all(
+            if not any(
                 p.startswith(".github/workflows/") or p.endswith(("action.yml", "action.yaml")) for p in paths
             ):
                 print("    ⏭️  Skipped (non-action files)")
