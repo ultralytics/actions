@@ -163,7 +163,7 @@ def run():
     total_found = total_merged = total_skipped = 0
 
     for repo_name in repos:
-        result = subprocess.run(
+        pr_list = subprocess.run(
             [
                 "gh",
                 "pr",
@@ -180,12 +180,12 @@ def run():
             capture_output=True,
             text=True,
         )
-        if result.returncode != 0:
+        if pr_list.returncode != 0:
             continue
 
         merged = 0
-        for pr in json.loads(result.stdout):
-            paths = [f["path"] for f in pr["files"]]
+        for pr in json.loads(pr_list.stdout):
+            paths = [f["path"] for f in (pr.get("files") or [])]
             if not paths or not all(
                 p.startswith(".github/workflows/") or p.endswith(("action.yml", "action.yaml")) for p in paths
             ):
@@ -214,32 +214,48 @@ def run():
                 total_skipped += 1
                 continue
 
-            if pr["mergeable"] == "CONFLICTING":
+            # Skip PRs with merge conflicts
+            mergeable = pr.get("mergeable", "UNKNOWN")
+            if mergeable == "CONFLICTING":
                 print("    ❌ Skipped (merge conflicts)")
+                summary.append(f"- ❌ {pr_ref}: merge conflicts")
                 total_skipped += 1
                 continue
 
+            # Skip PRs with explicitly failed checks
             if failed := get_status_checks(pr.get("statusCheckRollup")):
-                for check in failed:
-                    name = check.get("name") or check.get("context") or "unknown"
-                    status = check.get("conclusion") or check.get("state") or ""
-                    print(f"    ❌ Failing check: {name} = {status}")
+                names = ", ".join(c.get("name") or c.get("context") or "?" for c in failed)
+                print(f"    ❌ Skipped (failed checks: {names})")
+                summary.append(f"- ❌ {pr_ref}: failed checks ({names})")
                 total_skipped += 1
                 continue
 
-            print("    ✅ All checks passed, merging...")
-            result = subprocess.run(
-                ["gh", "pr", "merge", str(pr["number"]), "--repo", f"{org}/{repo_name}", "--squash", "--admin"],
+            # Attempt merge with admin bypass
+            print(f"    🔀 Merging (mergeable={mergeable})...")
+            merge_result = subprocess.run(
+                [
+                    "gh",
+                    "pr",
+                    "merge",
+                    str(pr["number"]),
+                    "--repo",
+                    f"{org}/{repo_name}",
+                    "--squash",
+                    "--admin",
+                    "--delete-branch",
+                ],
                 capture_output=True,
                 text=True,
             )
-            if result.returncode == 0:
-                print(f"    ✅ Successfully merged {pr_ref}")
+            if merge_result.returncode == 0:
+                print(f"    ✅ Merged {pr_ref}")
                 summary.append(f"- ✅ Merged {pr_ref}")
                 total_merged += 1
                 merged += 1
             else:
-                print(f"    ❌ Merge failed: {result.stderr.strip()}")
+                error = merge_result.stderr.strip()
+                print(f"    ❌ Merge failed: {error}")
+                summary.append(f"- ❌ {pr_ref}: {error[:80]}")
                 total_skipped += 1
 
     summary.append(f"\n**Summary:** Found {total_found} | Merged {total_merged} | Skipped {total_skipped}")
