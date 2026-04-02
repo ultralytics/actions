@@ -74,6 +74,7 @@ def get_latest_release(action, token, cache):
     r = requests.get(f"https://api.github.com/repos/{repo}/tags?per_page=100", headers=headers)
     if r.status_code == 200:
         tags = r.json()
+
         # Sort by semver: extract (major, minor, patch) tuples, highest first
         def semver_key(t):
             m = re.match(r"^v?(\d+)(?:\.(\d+))?(?:\.(\d+))?", t["name"])
