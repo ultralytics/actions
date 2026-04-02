@@ -183,6 +183,7 @@ def run():
         if pr_list.returncode != 0:
             continue
 
+        merged = 0
         for pr in json.loads(pr_list.stdout):
             paths = [f["path"] for f in (pr.get("files") or [])]
             if not paths or not all(
@@ -207,6 +208,11 @@ def run():
                     print(f"      - {name}: {status}")
             else:
                 print("    ℹ️  No status checks found")
+
+            if merged >= 1:
+                print(f"    ⏭️  Skipped (already merged 1 PR in {repo_name})")
+                total_skipped += 1
+                continue
 
             # Skip PRs with merge conflicts
             mergeable = pr.get("mergeable", "UNKNOWN")
@@ -245,6 +251,7 @@ def run():
                 print(f"    ✅ Merged {pr_ref}")
                 summary.append(f"- ✅ Merged {pr_ref}")
                 total_merged += 1
+                merged += 1
             else:
                 error = merge_result.stderr.strip()
                 print(f"    ❌ Merge failed: {error}")
