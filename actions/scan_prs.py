@@ -192,9 +192,7 @@ def run():
 
             # Require at least one workflow/action file
             paths = [f["path"] for f in (pr.get("files") or [])]
-            if not any(
-                p.startswith(".github/workflows/") or p.endswith(("action.yml", "action.yaml")) for p in paths
-            ):
+            if not any(p.startswith(".github/workflows/") or p.endswith(("action.yml", "action.yaml")) for p in paths):
                 print("    ⏭️  Skipped (non-action files)")
                 continue
 
