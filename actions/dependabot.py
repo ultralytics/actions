@@ -25,16 +25,16 @@ def is_branch(ref):
     return not is_sha(ref) and not re.match(r"^v?\d", ref) and "release" not in ref
 
 
+def is_stable_patch(ref):
+    """Check if a ref is a stable major.minor.patch version tag."""
+    return bool(re.fullmatch(r"v?\d+\.\d+\.\d+", ref))
+
+
 def parse_version(ref):
-    """Parse a tag-like ref into comparable release and prerelease parts."""
-    m = re.fullmatch(r"v?(\d+(?:\.\d+)*)(?:[-.]?(a|alpha|b|beta|rc|pre|preview)[.-]?(\d*)?)?", ref, re.IGNORECASE)
-    if not m:
+    """Parse a stable major.minor.patch ref into a comparable version tuple."""
+    if not is_stable_patch(ref):
         return None
-    release = tuple(int(x) for x in m.group(1).split("."))
-    label = (m.group(2) or "").lower()
-    num = int(m.group(3) or 0)
-    rank = {"a": 0, "alpha": 0, "b": 1, "beta": 1, "pre": 2, "preview": 2, "rc": 2}.get(label, 3)
-    return release, rank, num
+    return tuple(int(x) for x in ref.lstrip("v").split("."))
 
 
 def is_newer_version(current_ref, latest_ref):
@@ -43,10 +43,7 @@ def is_newer_version(current_ref, latest_ref):
     latest = parse_version(latest_ref)
     if not current or not latest:
         return False
-    release_len = max(len(current[0]), len(latest[0]), 3)
-    current_release = current[0] + (0,) * (release_len - len(current[0]))
-    latest_release = latest[0] + (0,) * (release_len - len(latest[0]))
-    return (latest_release, latest[1], latest[2]) > (current_release, current[1], current[2])
+    return latest > current
 
 
 def ref_version(ref, comment=""):
@@ -71,7 +68,7 @@ def get_latest_release(action, token, cache):
         return None
 
     tag = r.json().get("tag_name", "")
-    if not tag:
+    if not tag or not is_stable_patch(tag):
         return None
 
     # Resolve tag to commit SHA (handles annotated tags)
