@@ -214,7 +214,16 @@ def create_pr(org, repo, title, file_updates, token):
         headers=headers,
         json={
             "title": title,
-            "body": f"{title}\n\nAutomated by [Ultralytics Actions](https://github.com/ultralytics/actions).",
+            "body": (
+                f"{title}\n\n"
+                "This PR updates GitHub Actions references in this repository.\n\n"
+                "Examples:\n"
+                "- Branch: `actions/checkout@main` stays on `@main`\n"
+                "- Major tag: `actions/checkout@v4` updates to `@v5`\n"
+                "- Specific tag: `astral-sh/setup-uv@v0.5.0` updates to `@v0.9.4`\n"
+                "- SHA pinned: `actions/checkout@<sha> # v4.1.0` updates to the latest release SHA and tag comment\n\n"
+                "<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>"
+            ),
             "head": branch,
             "base": default_branch,
         },
