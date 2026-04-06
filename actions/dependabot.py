@@ -95,18 +95,27 @@ def get_latest_release(action, token, cache):
     return cache[repo]
 
 
-def action_file_exists(action, ref, token):
-    """Verify that action.yml or action.yaml exists at the given ref for the action path."""
+def action_is_valid(action, ref, token):
+    """Verify that an action manifest exists and any JS entrypoint declared in runs.main exists."""
     parts = action.split("/")
     repo = "/".join(parts[:2])
     subpath = "/".join(parts[2:]) if len(parts) > 2 else ""
 
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    raw_headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.v3.raw"}
+
     for filename in ("action.yml", "action.yaml"):
         path = f"{subpath}/{filename}" if subpath else filename
-        r = requests.get(f"https://api.github.com/repos/{repo}/contents/{path}?ref={ref}", headers=headers)
-        if r.status_code == 200:
-            return True
+        raw = requests.get(f"https://api.github.com/repos/{repo}/contents/{path}?ref={ref}", headers=raw_headers)
+        if raw.status_code == 200:
+            runs_match = re.search(r"(?ms)^runs:\s*$\n(?P<block>(?:^[ \t].*$\n?)*)", raw.text)
+            main_match = re.search(r'(?m)^[ \t]+main:\s*["\']?([^"\']+)["\']?\s*$', runs_match["block"]) if runs_match else None
+            if not main_match:
+                return True
+
+            main_path = main_match.group(1).strip()
+            entrypoint = f"{subpath}/{main_path}" if subpath else main_path
+            r = requests.get(f"https://api.github.com/repos/{repo}/contents/{entrypoint}?ref={ref}", headers=raw_headers)
+            return r.status_code == 200
     return False
 
 
@@ -349,9 +358,11 @@ def run():
 
                 new_ref, new_comment = update
 
-                # Verify action.yml exists at the new ref (prevents broken bumps in monorepos)
-                if not action_file_exists(action, new_ref, token):
-                    print(f"  ⚠️  Skipping {action}@{new_ref[:8]}... — no action.yml found at target ref")
+                # Verify action.yml exists and any declared runs.main entrypoint is present
+                if not action_is_valid(action, new_ref, token):
+                    print(
+                        f"  ⚠️  Skipping {action}@{new_ref[:8]}... — action manifest or runs.main file missing at ref"
+                    )
                     continue
                 key = ("/".join(action.split("/")[:2]), new_ref)
 
