@@ -101,6 +101,8 @@ def action_is_valid(action, ref, token):
     repo = "/".join(parts[:2])
     subpath = "/".join(parts[2:]) if len(parts) > 2 else ""
 
+    import posixpath
+
     raw_headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.v3.raw"}
 
     for filename in ("action.yml", "action.yaml"):
@@ -111,11 +113,20 @@ def action_is_valid(action, ref, token):
             main_match = (
                 re.search(r'(?m)^[ \t]+main:\s*["\']?([^"\']+)["\']?\s*$', runs_match["block"]) if runs_match else None
             )
+            using_match = (
+                re.search(r'(?m)^[ \t]+using:\s*["\']?([^"\']+)["\']?\s*$', runs_match["block"]) if runs_match else None
+            )
+
+            # JavaScript actions (using: node*) must declare runs.main
+            if using_match and using_match.group(1).startswith("node") and not main_match:
+                return False
+
             if not main_match:
                 return True
 
             main_path = main_match.group(1).strip()
-            entrypoint = f"{subpath}/{main_path}" if subpath else main_path
+            combined = f"{subpath}/{main_path}" if subpath else main_path
+            entrypoint = posixpath.normpath(combined)
             r = requests.get(
                 f"https://api.github.com/repos/{repo}/contents/{entrypoint}?ref={ref}", headers=raw_headers
             )
