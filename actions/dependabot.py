@@ -377,9 +377,7 @@ def run():
                 if not re.search(r"/\\.github/workflows/[^/]+\\.ya?ml$", action) and not action_is_valid(
                     action, new_ref, token
                 ):
-                    print(
-                        f"  ⚠️  Skipping {action}@{new_ref[:8]}... — action manifest or runs.main file missing at ref"
-                    )
+                    print(f"  ⚠️  Skipping {action}@{new_ref[:8]}... — action manifest or runs.main file missing at ref")
                     continue
                 key = ("/".join(action.split("/")[:2]), new_ref)
 
