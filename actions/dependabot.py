@@ -95,6 +95,21 @@ def get_latest_release(action, token, cache):
     return cache[repo]
 
 
+def action_file_exists(action, ref, token):
+    """Verify that action.yml or action.yaml exists at the given ref for the action path."""
+    parts = action.split("/")
+    repo = "/".join(parts[:2])
+    subpath = "/".join(parts[2:]) if len(parts) > 2 else ""
+
+    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+    for filename in ("action.yml", "action.yaml"):
+        path = f"{subpath}/{filename}" if subpath else filename
+        r = requests.get(f"https://api.github.com/repos/{repo}/contents/{path}?ref={ref}", headers=headers)
+        if r.status_code == 200:
+            return True
+    return False
+
+
 def compute_update(current_ref, comment, latest):
     """Determine the updated ref and comment for an action line.
 
@@ -333,6 +348,11 @@ def run():
                     continue
 
                 new_ref, new_comment = update
+
+                # Verify action.yml exists at the new ref (prevents broken bumps in monorepos)
+                if not action_file_exists(action, new_ref, token):
+                    print(f"  ⚠️  Skipping {action}@{new_ref[:8]}... — no action.yml found at target ref")
+                    continue
                 key = ("/".join(action.split("/")[:2]), new_ref)
 
                 if key not in updates:
