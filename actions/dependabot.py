@@ -149,7 +149,9 @@ def action_is_valid(action, ref, token):
         combined = f"{subpath}/{main}" if subpath else main
         entrypoint = posixpath.normpath(combined)
         try:
-            r = requests.get(f"https://api.github.com/repos/{repo}/contents/{entrypoint}?ref={ref}", headers=raw_headers)
+            r = requests.get(
+                f"https://api.github.com/repos/{repo}/contents/{entrypoint}?ref={ref}", headers=raw_headers
+            )
         except requests.RequestException:
             return False
         return r.status_code == 200
