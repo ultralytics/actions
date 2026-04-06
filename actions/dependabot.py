@@ -3,6 +3,7 @@
 
 import json
 import os
+import posixpath
 import re
 import subprocess
 
@@ -95,42 +96,63 @@ def get_latest_release(action, token, cache):
     return cache[repo]
 
 
+def _parse_runs_block(text):
+    """Extract using and main values from an action manifest's runs block."""
+    inline = re.search(r"runs:\s*\{([^}]*)\}", text, re.MULTILINE)
+    if inline:
+        body = inline.group(1)
+        using_m = re.search(r"using:\s*([^,}]+)", body)
+        main_m = re.search(r"main:\s*([^,}]+)", body)
+        using = using_m.group(1).strip(" \"'") if using_m else None
+        main = main_m.group(1).strip(" \"'") if main_m else None
+        return using, main
+
+    block_match = re.search(r"^runs:\s*$", text, re.MULTILINE)
+    if not block_match:
+        return None, None
+    tail = text[block_match.end() :]
+    next_top = re.search(r"^\S", tail, re.MULTILINE)
+    block = tail[: next_top.start()] if next_top else tail
+    using_m = re.search(r"^[ \t]+using:\s*(\S+)", block, re.MULTILINE)
+    main_m = re.search(r"^[ \t]+main:\s*(\S+)", block, re.MULTILINE)
+    using = using_m.group(1).strip("\"'") if using_m else None
+    main = main_m.group(1).strip("\"'") if main_m else None
+    return using, main
+
+
 def action_is_valid(action, ref, token):
     """Verify that an action manifest exists and any JS entrypoint declared in runs.main exists."""
     parts = action.split("/")
     repo = "/".join(parts[:2])
     subpath = "/".join(parts[2:]) if len(parts) > 2 else ""
 
-    import posixpath
-
     raw_headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.v3.raw"}
 
     for filename in ("action.yml", "action.yaml"):
         path = f"{subpath}/{filename}" if subpath else filename
-        raw = requests.get(f"https://api.github.com/repos/{repo}/contents/{path}?ref={ref}", headers=raw_headers)
-        if raw.status_code == 200:
-            runs_match = re.search(r"(?ms)^runs:\s*$\n(?P<block>(?:^[ \t].*$\n?)*)", raw.text)
-            main_match = (
-                re.search(r'(?m)^[ \t]+main:\s*["\']?([^"\']+)["\']?\s*$', runs_match["block"]) if runs_match else None
-            )
-            using_match = (
-                re.search(r'(?m)^[ \t]+using:\s*["\']?([^"\']+)["\']?\s*$', runs_match["block"]) if runs_match else None
-            )
+        try:
+            raw = requests.get(f"https://api.github.com/repos/{repo}/contents/{path}?ref={ref}", headers=raw_headers)
+        except requests.RequestException:
+            return False
+        if raw.status_code != 200:
+            continue
 
-            # JavaScript actions (using: node*) must declare runs.main
-            if using_match and using_match.group(1).startswith("node") and not main_match:
-                return False
+        using, main = _parse_runs_block(raw.text)
 
-            if not main_match:
-                return True
+        # JavaScript actions (using: node*) must declare runs.main
+        if using and using.startswith("node") and not main:
+            return False
 
-            main_path = main_match.group(1).strip()
-            combined = f"{subpath}/{main_path}" if subpath else main_path
-            entrypoint = posixpath.normpath(combined)
-            r = requests.get(
-                f"https://api.github.com/repos/{repo}/contents/{entrypoint}?ref={ref}", headers=raw_headers
-            )
-            return r.status_code == 200
+        if not main:
+            return True  # composite/docker actions without runs.main are fine
+
+        combined = f"{subpath}/{main}" if subpath else main
+        entrypoint = posixpath.normpath(combined)
+        try:
+            r = requests.get(f"https://api.github.com/repos/{repo}/contents/{entrypoint}?ref={ref}", headers=raw_headers)
+        except requests.RequestException:
+            return False
+        return r.status_code == 200
     return False
 
 
@@ -335,6 +357,7 @@ def run():
     print(f"Found {len(repos)} active repos\n")
 
     cache = {}
+    valid_cache = {}  # (action, ref) -> bool — caches action_is_valid results
     summary = []
     total_prs_created = 0
     total_prs_skipped = 0
@@ -374,13 +397,13 @@ def run():
                 new_ref, new_comment = update
 
                 # Verify action.yml exists and any declared runs.main entrypoint is present (skip reusable workflows)
-                if not re.search(r"/\\.github/workflows/[^/]+\\.ya?ml$", action) and not action_is_valid(
-                    action, new_ref, token
-                ):
-                    print(
-                        f"  ⚠️  Skipping {action}@{new_ref[:8]}... — action manifest or runs.main file missing at ref"
-                    )
-                    continue
+                if not re.search(r"/\.github/workflows/[^/]+\.ya?ml$", action):
+                    vkey = (action, new_ref)
+                    if vkey not in valid_cache:
+                        valid_cache[vkey] = action_is_valid(action, new_ref, token)
+                    if not valid_cache[vkey]:
+                        print(f"  ⚠️  Skipping {action}@{new_ref[:8]}... — action manifest or runs.main missing at ref")
+                        continue
                 key = ("/".join(action.split("/")[:2]), new_ref)
 
                 if key not in updates:
