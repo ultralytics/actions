@@ -149,8 +149,8 @@ REDIRECT_START_IGNORE_LIST = frozenset(
         ".git",
         "/raw/",  # GitHub images
         ".slack.com",  # Slack URLs to private channels
-        "https://maps.app.goo.gl/nxB8YygRQeXSS9G18", # Ultralytics Madrid office - Cra de San Jeronimo 15
-        "https://maps.app.goo.gl/9sdE3KrQVwc2shb86", # Ultralytics London office - 50 York Way
+        "https://maps.app.goo.gl/nxB8YygRQeXSS9G18",  # Ultralytics Madrid office - Cra de San Jeronimo 15
+        "https://maps.app.goo.gl/9sdE3KrQVwc2shb86",  # Ultralytics London office - 50 York Way
     }
     | URL_IGNORE_LIST
 )
