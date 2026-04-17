@@ -83,16 +83,9 @@ runs:
         fi
 
         # Validate numeric inputs are non-negative integers
-        for pair in "retries:$retries" "retry_delay_seconds:$retry_delay" "timeout_minutes:$timeout_mins"; do
-            name="${pair%%:*}"
-            value="${pair#*:}"
-            case "$value" in
-                ''|*[!0-9]*)
-                    echo "::error::Invalid $name '$value'; must be a non-negative integer"
-                    exit 1
-                    ;;
-            esac
-        done
+        case "$retries$retry_delay$timeout_mins" in
+            ''|*[!0-9]*) echo "::error::retries, retry_delay_seconds, timeout_minutes must be non-negative integers"; exit 1 ;;
+        esac
 
         # Create temporary script file with appropriate extension
         if [ "$shell_type" = "python" ]; then
@@ -169,12 +162,7 @@ runs:
 
             # Compute delay for the upcoming retry
             if [ "$backoff" = "exponential" ]; then
-                delay=$retry_delay
-                i=1
-                while [ "$i" -lt "$attempt" ]; do
-                    delay=$((delay * 2))
-                    i=$((i + 1))
-                done
+                delay=$((retry_delay * (2 ** (attempt - 1))))
             else
                 delay=$retry_delay
             fi
