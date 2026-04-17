@@ -4,8 +4,8 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from actions.dispatch_actions import (
-    RUN_DOCKER_KEYWORD,
     RUN_CI_KEYWORD,
+    RUN_DOCKER_KEYWORD,
     get_pr_branch,
     main,
     trigger_and_get_workflow_info,
@@ -201,7 +201,9 @@ def test_main_triggers_docker_only():
             with patch("actions.dispatch_actions.trigger_and_get_workflow_info") as mock_trigger:
                 with patch("actions.dispatch_actions.update_comment"):
                     mock_get_branch.return_value = ("feature-branch", None)
-                    mock_trigger.return_value = [{"name": "Docker", "file": "docker.yml", "url": "url", "run_number": 1}]
+                    mock_trigger.return_value = [
+                        {"name": "Docker", "file": "docker.yml", "url": "url", "run_number": 1}
+                    ]
                     main()
 
         mock_trigger.assert_called_once_with(mock_event, "feature-branch", ["docker.yml"], None)

@@ -70,7 +70,9 @@ def get_pr_branch(event) -> tuple[str, str | None]:
     return head.get("ref", "main"), None
 
 
-def trigger_and_get_workflow_info(event, branch: str, workflow_files: list[str], temp_branch: str | None = None) -> list[dict]:
+def trigger_and_get_workflow_info(
+    event, branch: str, workflow_files: list[str], temp_branch: str | None = None
+) -> list[dict]:
     """Triggers workflows and returns their information, deleting temp branch if provided."""
     repo = event.repository
     results = []
