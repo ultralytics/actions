@@ -75,10 +75,9 @@ jobs:
           retries: 3
           retry_delay_seconds: 2
           backoff: exponential
-          max_delay_seconds: 6
           jitter: false
           run: |
-            # Waits should be 2s, 4s, 6s (capped). Total ~12s between 4 attempts.
+            # Waits should be 2s, 4s, 8s. Total ~14s between 4 attempts.
             echo "Attempt at $(date +%s)"
             false
 

@@ -32,7 +32,6 @@ steps:
       timeout_minutes: 30 # Total timeout across all attempts
       retry_delay_seconds: 10 # Base delay between retries
       backoff: exponential # exponential (10s, 20s, 40s, ...) or fixed
-      max_delay_seconds: 300 # Cap for exponential backoff
       jitter: true # Randomize delay ±50% to avoid thundering herd
       shell: bash # Use python or bash shell
 ```
@@ -53,21 +52,20 @@ steps:
 
 ## 📋 Inputs
 
-| Input                 | Description                                                           | Required | Default         |
-| --------------------- | --------------------------------------------------------------------- | -------- | --------------- |
-| `run`                 | Command to run                                                        | Yes      | -               |
-| `retries`             | Number of retry attempts after initial run                            | No       | `3`             |
-| `timeout_minutes`     | Maximum total time in minutes for all attempts combined               | No       | `360`           |
-| `retry_delay_seconds` | Base delay between retries in seconds                                 | No       | `10`            |
-| `backoff`             | Backoff strategy: `exponential` (base \* 2^n, capped) or `fixed`      | No       | `exponential`   |
-| `max_delay_seconds`   | Maximum delay between retries in seconds (exponential backoff cap)    | No       | `300`           |
-| `jitter`              | Randomize delay ±50% to spread retries and avoid thundering herd      | No       | `true`          |
-| `shell`               | Shell to use (`bash` or `python`)                                     | No       | `bash`          |
+| Input                 | Description                                                       | Required | Default       |
+| --------------------- | ----------------------------------------------------------------- | -------- | ------------- |
+| `run`                 | Command to run                                                    | Yes      | -             |
+| `retries`             | Number of retry attempts after initial run                        | No       | `3`           |
+| `timeout_minutes`     | Maximum total time in minutes for all attempts combined           | No       | `360`         |
+| `retry_delay_seconds` | Base delay between retries in seconds                             | No       | `10`          |
+| `backoff`             | Backoff strategy: `exponential` (base \* 2^n) or `fixed`          | No       | `exponential` |
+| `jitter`              | Randomize delay ±50% to spread retries and avoid thundering herd  | No       | `true`        |
+| `shell`               | Shell to use (`bash` or `python`)                                 | No       | `bash`        |
 
 ## ✨ Features
 
 - Preserves environment variables and step context
-- Exponential backoff with configurable cap and equal jitter (best-practice defaults)
-- Configurable total timeout across all attempts
+- Exponential backoff with equal jitter (best-practice defaults)
+- Configurable total timeout across all attempts (individual sleeps auto-capped to remaining budget)
 - GitHub Actions grouping for retry attempts
 - Supports both Bash and Python shells

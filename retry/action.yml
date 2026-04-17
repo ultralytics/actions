@@ -19,7 +19,6 @@
 #       timeout_minutes: 30      # Total timeout for all attempts combined
 #       retry_delay_seconds: 10  # Base delay between retries in seconds
 #       backoff: exponential     # exponential (10s, 20s, 40s, ...) or fixed
-#       max_delay_seconds: 300   # Cap for exponential backoff
 #       jitter: true             # Randomize delay ±50% to avoid thundering herd
 #       shell: bash              # Use python or bash shell
 
@@ -39,13 +38,9 @@ inputs:
     required: false
     default: "10"
   backoff:
-    description: "Backoff strategy: exponential (base * 2^n, capped by max_delay_seconds) or fixed"
+    description: "Backoff strategy: exponential (base * 2^n) or fixed. Delays are bounded by timeout_minutes."
     required: false
     default: "exponential"
-  max_delay_seconds:
-    description: "Maximum delay between retries in seconds (exponential backoff cap)"
-    required: false
-    default: "300"
   jitter:
     description: "Randomize delay ±50% to spread retries and avoid thundering herd"
     required: false
@@ -75,7 +70,6 @@ runs:
         max_attempts=$(( 1 + ${{ inputs.retries }} ))  # Initial run + retries
         retries=${{ inputs.retries }}
         retry_delay=${{ inputs.retry_delay_seconds }}
-        max_delay=${{ inputs.max_delay_seconds }}
         backoff="${{ inputs.backoff }}"
         jitter="${{ inputs.jitter }}"
         timeout_mins=${{ inputs.timeout_minutes }}
@@ -165,11 +159,10 @@ runs:
             if [ "$backoff" = "exponential" ]; then
                 delay=$retry_delay
                 i=1
-                while [ "$i" -lt "$attempt" ] && [ "$delay" -lt "$max_delay" ]; do
+                while [ "$i" -lt "$attempt" ]; do
                     delay=$((delay * 2))
                     i=$((i + 1))
                 done
-                [ "$delay" -gt "$max_delay" ] && delay=$max_delay
             else
                 delay=$retry_delay
             fi
@@ -180,6 +173,11 @@ runs:
                 rand=$((RANDOM % (half + 1)))
                 delay=$((half + rand))
             fi
+
+            # Cap sleep at remaining timeout budget; no point sleeping past deadline
+            remaining=$((timeout_seconds - (current_time - start_time)))
+            [ "$delay" -gt "$remaining" ] && delay=$remaining
+            [ "$delay" -lt 0 ] && delay=0
 
             echo "Retrying in $delay seconds..."
             sleep "$delay"
