@@ -129,7 +129,7 @@ def update_comment(event, comment_body: str, command: str, triggered_actions: li
 {ACTIONS_CREDIT}
 
 GitHub Actions below triggered via workflow dispatch for this PR at {timestamp} with `{command}` command
-(`{RUN_ALL_KEYWORD}`, `{RUN_CI_KEYWORD}`, and `{RUN_DOCKER_KEYWORD}` are also available):
+(available commands are `{RUN_ALL_KEYWORD}`, `{RUN_CI_KEYWORD}`, and `{RUN_DOCKER_KEYWORD}`):
 
 """
 
