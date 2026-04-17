@@ -19,7 +19,7 @@ steps:
 
 ### Advanced Usage
 
-Full configuration with custom retries, timeout, and delay:
+Full configuration with custom retries, timeout, backoff, and jitter:
 
 ```yaml
 steps:
@@ -29,8 +29,10 @@ steps:
         python setup.py install
         pytest tests/
       retries: 2 # Retry twice after initial attempt (3 total runs)
-      timeout_minutes: 30 # Each attempt times out after 30 minutes
-      retry_delay_seconds: 60 # Wait 60 seconds between retries
+      timeout_minutes: 30 # Total timeout across all attempts
+      retry_delay_seconds: 10 # Base delay between retries
+      backoff: exponential # exponential (10s, 20s, 40s, ...) or fixed
+      jitter: true # Randomize delay to 80-120% to avoid thundering herd
       shell: bash # Use python or bash shell
 ```
 
@@ -50,18 +52,20 @@ steps:
 
 ## 📋 Inputs
 
-| Input                 | Description                              | Required | Default |
-| --------------------- | ---------------------------------------- | -------- | ------- |
-| `run`                 | Command to run                           | Yes      | -       |
-| `retries`             | Number of retry attempts after initial   | No       | `3`     |
-| `timeout_minutes`     | Maximum time in minutes for each attempt | No       | `60`    |
-| `retry_delay_seconds` | Delay between retries in seconds         | No       | `30`    |
-| `shell`               | Shell to use (bash or python)            | No       | `bash`  |
+| Input                 | Description                                                  | Required | Default       |
+| --------------------- | ------------------------------------------------------------ | -------- | ------------- |
+| `run`                 | Command to run                                               | Yes      | -             |
+| `retries`             | Number of retry attempts after initial run                   | No       | `3`           |
+| `timeout_minutes`     | Maximum total time in minutes for all attempts combined      | No       | `360`         |
+| `retry_delay_seconds` | Base delay between retries in seconds                        | No       | `10`          |
+| `backoff`             | Backoff strategy: `exponential` (base \* 2^n) or `fixed`     | No       | `exponential` |
+| `jitter`              | Randomize delay to 80-120% of value to avoid thundering herd | No       | `true`        |
+| `shell`               | Shell to use (`bash` or `python`)                            | No       | `bash`        |
 
 ## ✨ Features
 
 - Preserves environment variables and step context
-- Configurable timeout per attempt
-- Exponential backoff with retry delay
+- Exponential backoff with ±20% jitter (best-practice defaults)
+- Configurable total timeout across all attempts (individual sleeps auto-capped to remaining budget)
 - GitHub Actions grouping for retry attempts
 - Supports both Bash and Python shells
