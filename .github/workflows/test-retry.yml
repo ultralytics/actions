@@ -68,6 +68,48 @@ jobs:
             echo "Running line 2 with TEST_VAR=$TEST_VAR"
             false
 
+      - name: Test exponential backoff timing
+        uses: ./retry
+        continue-on-error: true
+        with:
+          retries: 3
+          retry_delay_seconds: 2
+          backoff: exponential
+          max_delay_seconds: 6
+          jitter: false
+          run: |
+            # Waits should be 2s, 4s, 6s (capped). Total ~12s between 4 attempts.
+            echo "Attempt at $(date +%s)"
+            false
+
+      - name: Test fixed backoff
+        uses: ./retry
+        continue-on-error: true
+        with:
+          retries: 2
+          retry_delay_seconds: 3
+          backoff: fixed
+          jitter: false
+          run: |
+            echo "Attempt at $(date +%s)"
+            false
+
+      - name: Test invalid backoff value rejected
+        uses: ./retry
+        continue-on-error: true
+        id: invalid_backoff
+        with:
+          retries: 0
+          backoff: linear
+          run: echo "should not run"
+
+      - name: Assert invalid backoff failed
+        run: |
+          if [ "${{ steps.invalid_backoff.outcome }}" != "failure" ]; then
+            echo "::error::Expected invalid backoff to fail, got ${{ steps.invalid_backoff.outcome }}"
+            exit 1
+          fi
+
   test-python:
     runs-on: ubuntu-latest
     steps:
