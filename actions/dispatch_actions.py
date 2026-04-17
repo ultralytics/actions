@@ -9,7 +9,7 @@ from datetime import datetime
 from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action
 
 # Configuration
-RUN_CI_KEYWORD = "@ultralytics/run-ci"  # and then to merge "@ultralytics/run-ci-and-merge"
+RUN_CI_KEYWORD = "@ultralytics/run-ci"
 RUN_ALL_KEYWORD = "@ultralytics/run-all"
 RUN_DOCKER_KEYWORD = "@ultralytics/run-docker"
 WORKFLOW_FILES = {
