@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 from actions.dispatch_actions import (
     RUN_ALL_KEYWORD,
-    RUN_DOCKER_KEYWORD,
     RUN_CI_KEYWORD,
+    RUN_DOCKER_KEYWORD,
     get_pr_branch,
     main,
     trigger_and_get_workflow_info,
