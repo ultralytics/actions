@@ -82,6 +82,18 @@ runs:
             exit 1
         fi
 
+        # Validate numeric inputs are non-negative integers
+        for pair in "retries:$retries" "retry_delay_seconds:$retry_delay" "timeout_minutes:$timeout_mins"; do
+            name="${pair%%:*}"
+            value="${pair#*:}"
+            case "$value" in
+                ''|*[!0-9]*)
+                    echo "::error::Invalid $name '$value'; must be a non-negative integer"
+                    exit 1
+                    ;;
+            esac
+        done
+
         # Create temporary script file with appropriate extension
         if [ "$shell_type" = "python" ]; then
             if ! TEMP_SCRIPT=$(mktemp --suffix=.py 2>/dev/null); then
@@ -172,6 +184,7 @@ runs:
                 half=$((delay / 2))
                 rand=$((RANDOM % (half + 1)))
                 delay=$((half + rand))
+                [ "$delay" -lt 1 ] && delay=1  # integer division floor; never collapse to 0
             fi
 
             # Cap sleep at remaining timeout budget; no point sleeping past deadline
