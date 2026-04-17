@@ -10,7 +10,11 @@ from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action
 
 # Configuration
 RUN_CI_KEYWORD = "@ultralytics/run-ci"  # and then to merge "@ultralytics/run-ci-and-merge"
-WORKFLOW_FILES = ["ci.yml", "docker.yml"]
+RUN_DOCKER_KEYWORD = "@ultralytics/run-docker"
+WORKFLOW_FILES = {
+    RUN_CI_KEYWORD: ["ci.yml", "docker.yml"],
+    RUN_DOCKER_KEYWORD: ["docker.yml"],
+}
 
 
 def get_pr_branch(event) -> tuple[str, str | None]:
@@ -66,21 +70,21 @@ def get_pr_branch(event) -> tuple[str, str | None]:
     return head.get("ref", "main"), None
 
 
-def trigger_and_get_workflow_info(event, branch: str, temp_branch: str | None = None) -> list[dict]:
+def trigger_and_get_workflow_info(event, branch: str, workflow_files: list[str], temp_branch: str | None = None) -> list[dict]:
     """Triggers workflows and returns their information, deleting temp branch if provided."""
     repo = event.repository
     results = []
 
     try:
         # Trigger all workflows
-        for file in WORKFLOW_FILES:
+        for file in workflow_files:
             event.post(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch})
 
         # Wait for workflows to be created and start
         time.sleep(60)
 
         # Collect information about all workflows
-        for file in WORKFLOW_FILES:
+        for file in workflow_files:
             # Get workflow name
             response = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}")
             name = file.replace(".yml", "").title()
@@ -108,7 +112,7 @@ def trigger_and_get_workflow_info(event, branch: str, temp_branch: str | None = 
     return results
 
 
-def update_comment(event, comment_body: str, triggered_actions: list[dict]):
+def update_comment(event, comment_body: str, command: str, triggered_actions: list[dict]):
     """Updates the comment with workflow information."""
     if not triggered_actions:
         return
@@ -120,7 +124,7 @@ def update_comment(event, comment_body: str, triggered_actions: list[dict]):
 
 {ACTIONS_CREDIT}
 
-GitHub Actions below triggered via workflow dispatch for this PR at {timestamp} with `{RUN_CI_KEYWORD}` command:
+GitHub Actions below triggered via workflow dispatch for this PR at {timestamp} with `{command}` command:
 
 """
 
@@ -128,7 +132,7 @@ GitHub Actions below triggered via workflow dispatch for this PR at {timestamp} 
         run_info = f" run {action['run_number']}" if action["run_number"] else ""
         summary += f"* ✅ [{action['name']}]({action['url']}): `{action['file']}`{run_info}\n"
 
-    new_body = comment_body.replace(RUN_CI_KEYWORD, summary).strip()
+    new_body = comment_body.replace(command, summary).strip()
     comment_id = event.event_data["comment"]["id"]
     event.patch(f"{GITHUB_API_URL}/repos/{event.repository}/issues/comments/{comment_id}", json={"body": new_body})
 
@@ -149,11 +153,15 @@ def main(*args, **kwargs):
     comment_body = event.event_data["comment"].get("body") or ""
     username = event.event_data["comment"]["user"]["login"]
 
-    # Check for keyword without surrounding backticks to avoid triggering on replies
-    has_keyword = RUN_CI_KEYWORD in comment_body and comment_body.count(RUN_CI_KEYWORD) > comment_body.count(
-        f"`{RUN_CI_KEYWORD}`"
+    command = next(
+        (
+            keyword
+            for keyword in WORKFLOW_FILES
+            if keyword in comment_body and comment_body.count(keyword) > comment_body.count(f"`{keyword}`")
+        ),
+        None,
     )
-    if not has_keyword or not event.is_org_member(username):
+    if not command or not event.is_org_member(username):
         return
 
     # Get branch, trigger workflows, and update comment
@@ -161,8 +169,8 @@ def main(*args, **kwargs):
     branch, temp_branch = get_pr_branch(event)
     print(f"Triggering workflows on branch: {branch}" + (" (temp)" if temp_branch else ""))
 
-    triggered_actions = trigger_and_get_workflow_info(event, branch, temp_branch)
-    update_comment(event, comment_body, triggered_actions)
+    triggered_actions = trigger_and_get_workflow_info(event, branch, WORKFLOW_FILES[command], temp_branch)
+    update_comment(event, comment_body, command, triggered_actions)
     event.toggle_eyes_reaction(False)
 
 

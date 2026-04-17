@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from actions.dispatch_actions import (
+    RUN_DOCKER_KEYWORD,
     RUN_CI_KEYWORD,
     get_pr_branch,
     main,
@@ -79,8 +80,8 @@ def test_trigger_and_get_workflow_info():
     mock_event.get.side_effect = get_side_effect
 
     # Use patch to skip time.sleep and limit to one workflow
-    with patch("time.sleep"), patch("actions.dispatch_actions.WORKFLOW_FILES", ["ci.yml"]):
-        results = trigger_and_get_workflow_info(mock_event, "feature-branch")
+    with patch("time.sleep"):
+        results = trigger_and_get_workflow_info(mock_event, "feature-branch", ["ci.yml"])
 
     # Check results
     assert len(results) == 1
@@ -113,8 +114,7 @@ def test_trigger_and_get_workflow_info_with_temp_branch():
     mock_event.get.side_effect = get_side_effect
 
     with patch("time.sleep"):
-        with patch("actions.dispatch_actions.WORKFLOW_FILES", ["ci.yml"]):
-            trigger_and_get_workflow_info(mock_event, "temp-ci-123-456", temp_branch="temp-ci-123-456")
+        trigger_and_get_workflow_info(mock_event, "temp-ci-123-456", ["ci.yml"], temp_branch="temp-ci-123-456")
 
     # Verify temp branch was deleted
     mock_event.delete.assert_called_once_with("https://api.github.com/repos/test/repo/git/refs/heads/temp-ci-123-456")
@@ -140,7 +140,7 @@ def test_update_comment_function():
     with patch("actions.dispatch_actions.datetime") as mock_datetime:
         mock_datetime.now.return_value = datetime(2023, 1, 1, 12, 0, 0)
         # Call without capturing return value
-        update_comment(mock_event, comment_body, triggered_actions)
+        update_comment(mock_event, comment_body, RUN_CI_KEYWORD, triggered_actions)
 
     # Check that patch was called with expected content
     mock_event.patch.assert_called_once()
@@ -181,7 +181,30 @@ def test_main_triggers_workflows():
         # Verify main component calls were made
         mock_event.is_org_member.assert_called_once_with("testuser")
         mock_get_branch.assert_called_once()
-        mock_trigger.assert_called_once()
+        mock_trigger.assert_called_once_with(mock_event, "feature-branch", ["ci.yml", "docker.yml"], None)
+
+
+def test_main_triggers_docker_only():
+    """Test main function triggers only docker workflow for docker command."""
+    with patch("actions.dispatch_actions.Action") as MockAction:
+        mock_event = MockAction.return_value
+        mock_event.event_name = "issue_comment"
+        mock_event.repository = "test/repo"
+        mock_event.event_data = {
+            "action": "created",
+            "issue": {"pull_request": {}},
+            "comment": {"body": f"Please run Docker {RUN_DOCKER_KEYWORD}", "user": {"login": "testuser"}, "id": 789},
+        }
+        mock_event.is_org_member.return_value = True
+
+        with patch("actions.dispatch_actions.get_pr_branch") as mock_get_branch:
+            with patch("actions.dispatch_actions.trigger_and_get_workflow_info") as mock_trigger:
+                with patch("actions.dispatch_actions.update_comment"):
+                    mock_get_branch.return_value = ("feature-branch", None)
+                    mock_trigger.return_value = [{"name": "Docker", "file": "docker.yml", "url": "url", "run_number": 1}]
+                    main()
+
+        mock_trigger.assert_called_once_with(mock_event, "feature-branch", ["docker.yml"], None)
 
 
 def test_main_skips_non_pr_comments():
