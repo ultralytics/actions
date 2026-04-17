@@ -115,13 +115,13 @@ Reusable composite actions for common CI/CD tasks. Each can be used independentl
 
 ### 1. Retry Action
 
-Retry failed commands with exponential backoff.
+Retry failed commands with exponential backoff and jitter.
 
 ```yaml
 - uses: ultralytics/actions/retry@main
   with:
-    command: npm install
-    max_attempts: 3
+    run: npm install
+    retries: 3
     timeout_minutes: 5
 ```
 
