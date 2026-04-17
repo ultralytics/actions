@@ -10,9 +10,11 @@ from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action
 
 # Configuration
 RUN_CI_KEYWORD = "@ultralytics/run-ci"  # and then to merge "@ultralytics/run-ci-and-merge"
+RUN_ALL_KEYWORD = "@ultralytics/run-all"
 RUN_DOCKER_KEYWORD = "@ultralytics/run-docker"
 WORKFLOW_FILES = {
-    RUN_CI_KEYWORD: ["ci.yml", "docker.yml"],
+    RUN_CI_KEYWORD: ["ci.yml"],
+    RUN_ALL_KEYWORD: ["ci.yml", "docker.yml"],
     RUN_DOCKER_KEYWORD: ["docker.yml"],
 }
 
@@ -127,6 +129,8 @@ def update_comment(event, comment_body: str, command: str, triggered_actions: li
 {ACTIONS_CREDIT}
 
 GitHub Actions below triggered via workflow dispatch for this PR at {timestamp} with `{command}` command:
+
+Available commands: `{RUN_CI_KEYWORD}` for CI, `{RUN_ALL_KEYWORD}` for CI + Docker, `{RUN_DOCKER_KEYWORD}` for Docker.
 
 """
 

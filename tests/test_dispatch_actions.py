@@ -4,8 +4,9 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from actions.dispatch_actions import (
-    RUN_CI_KEYWORD,
+    RUN_ALL_KEYWORD,
     RUN_DOCKER_KEYWORD,
+    RUN_CI_KEYWORD,
     get_pr_branch,
     main,
     trigger_and_get_workflow_info,
@@ -151,12 +152,12 @@ def test_update_comment_function():
     assert "Actions Trigger" in kwargs["json"]["body"]
     assert "CI Workflow" in kwargs["json"]["body"]
     assert "2023-01-01 12:00:00 UTC" in kwargs["json"]["body"]
+    assert RUN_ALL_KEYWORD in kwargs["json"]["body"]
 
 
-def test_main_triggers_workflows():
-    """Test main function when comment contains trigger keyword."""
+def test_main_triggers_ci_only():
+    """Test main function triggers only CI for the CI command."""
     with patch("actions.dispatch_actions.Action") as MockAction:
-        # Configure mock
         mock_event = MockAction.return_value
         mock_event.event_name = "issue_comment"
         mock_event.repository = "test/repo"
@@ -167,20 +168,36 @@ def test_main_triggers_workflows():
         }
         mock_event.is_org_member.return_value = True
 
-        # Create minimal patches for the functions called by main
         with patch("actions.dispatch_actions.get_pr_branch") as mock_get_branch:
             with patch("actions.dispatch_actions.trigger_and_get_workflow_info") as mock_trigger:
                 with patch("actions.dispatch_actions.update_comment"):
-                    # Set return values
                     mock_get_branch.return_value = ("feature-branch", None)
                     mock_trigger.return_value = [{"name": "CI", "file": "ci.yml", "url": "url", "run_number": 1}]
-
-                    # Call the function
                     main()
 
-        # Verify main component calls were made
-        mock_event.is_org_member.assert_called_once_with("testuser")
-        mock_get_branch.assert_called_once()
+        mock_trigger.assert_called_once_with(mock_event, "feature-branch", ["ci.yml"], None)
+
+
+def test_main_triggers_all_workflows():
+    """Test main function triggers CI and Docker for the all command."""
+    with patch("actions.dispatch_actions.Action") as MockAction:
+        mock_event = MockAction.return_value
+        mock_event.event_name = "issue_comment"
+        mock_event.repository = "test/repo"
+        mock_event.event_data = {
+            "action": "created",
+            "issue": {"pull_request": {}},
+            "comment": {"body": f"Please run all {RUN_ALL_KEYWORD}", "user": {"login": "testuser"}, "id": 789},
+        }
+        mock_event.is_org_member.return_value = True
+
+        with patch("actions.dispatch_actions.get_pr_branch") as mock_get_branch:
+            with patch("actions.dispatch_actions.trigger_and_get_workflow_info") as mock_trigger:
+                with patch("actions.dispatch_actions.update_comment"):
+                    mock_get_branch.return_value = ("feature-branch", None)
+                    mock_trigger.return_value = [{"name": "CI", "file": "ci.yml", "url": "url", "run_number": 1}]
+                    main()
+
         mock_trigger.assert_called_once_with(mock_event, "feature-branch", ["ci.yml", "docker.yml"], None)
 
 
