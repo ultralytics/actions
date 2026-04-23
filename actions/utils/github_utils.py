@@ -37,7 +37,14 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             author { login, __typename }
             reviews(first: 50) { nodes { author { login, __typename } } }
             comments(first: 50) { nodes { author { login, __typename } } }
-            commits(first: 100) { nodes { commit { author { user { login } }, committer { user { login } } } } }
+            commits(first: 100) {
+                nodes {
+                    commit {
+                        author { user { login, __typename } }
+                        committer { user { login, __typename } }
+                    }
+                }
+            }
         }
     }
 }
@@ -417,7 +424,7 @@ Thank you 🙏
                 commit_data = commit["commit"]
                 for user_type in ["author", "committer"]:
                     if user := commit_data[user_type].get("user"):
-                        if login := user.get("login"):
+                        if user["__typename"] != "Bot" and (login := user.get("login")):
                             contributors.add(login)
 
             contributors.discard(author)
