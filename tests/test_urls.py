@@ -2,6 +2,7 @@
 
 # Continuous Integration (CI) GitHub Actions tests
 
+from unittest.mock import patch
 
 import pytest
 
@@ -119,9 +120,18 @@ def test_urls_with_paths_and_queries(verbose):
 def test_urls_with_different_tlds(verbose):
     """Test URLs with various top-level domains (TLDs) to ensure correct identification and handling."""
     text = "Different TLDs: https://err.ml https://err.eu https://err.net https://err.io https://err.ai"
-    result, urls = check_links_in_string(text, verbose, return_bad=True)
+    valid_urls = {"https://err.net"}
+
+    def fake_is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
+        valid = url in valid_urls
+        return (valid, url) if return_url else valid
+
+    with patch("actions.utils.common_utils.is_url", side_effect=fake_is_url) as mock_is_url:
+        result, urls = check_links_in_string(text, verbose, return_bad=True)
+
     assert result is False
     assert set(urls) == {"https://err.ml", "https://err.eu", "https://err.io", "https://err.ai"}
+    assert mock_is_url.call_count == 5
 
 
 def test_case_sensitivity(verbose):
