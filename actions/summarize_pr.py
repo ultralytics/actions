@@ -19,12 +19,17 @@ def generate_merge_message(pr_summary, pr_credit, pr_url):
     messages = [
         {
             "role": "system",
-            "content": "You are an Ultralytics AI assistant. Generate inspiring, appreciative messages for GitHub contributors.",
+            "content": (
+                "You are an Ultralytics AI assistant. Your response is posted verbatim as a GitHub "
+                "comment on a merged PR. Respond with ONLY the final comment body, ready to post. "
+                "Do not include preambles (e.g. 'Absolutely', 'Sure', 'Here's a comment'), "
+                "explanations, sign-offs, or horizontal-rule separators ('---')."
+            ),
         },
         {
             "role": "user",
             "content": (
-                f"Write a warm thank-you comment for the merged PR {pr_url} by {pr_credit}. "
+                f"Compose the thank-you comment for the merged PR {pr_url} by {pr_credit}. "
                 f"Context:\n{pr_summary}\n\n"
                 f"Start with an enthusiastic note about the merge, incorporate a relevant inspirational quote from a historical "
                 f"figure, and connect it to the PR's impact. Keep it concise yet meaningful, ensuring contributors feel valued."
@@ -43,11 +48,16 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
     messages = [
         {
             "role": "system",
-            "content": "You are an Ultralytics AI assistant. Generate friendly GitHub issue comments. No @ mentions or direct addressing.",
+            "content": (
+                "You are an Ultralytics AI assistant. Your response is posted verbatim as a GitHub "
+                "issue comment. Respond with ONLY the final comment body, ready to post. Do not "
+                "include preambles (e.g. 'Absolutely', 'Sure', 'Here's a comment'), explanations, "
+                "sign-offs, or horizontal-rule separators ('---'). No @ mentions or direct addressing."
+            ),
         },
         {
             "role": "user",
-            "content": f"Write a GitHub issue comment announcing a potential fix for this issue is now merged in linked PR {pr_url} by {pr_credit}\n\n"
+            "content": f"Compose a GitHub issue comment announcing a potential fix for this issue is now merged in linked PR {pr_url} by {pr_credit}\n\n"
             f"PR Title: {pr_title}\n\n"
             f"Context from PR:\n{pr_summary}\n\n"
             f"Include:\n"
