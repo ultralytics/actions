@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock, patch
 
 from actions.utils.openai_utils import (
+    OPENAI_MODEL_DEFAULT,
     PR_REVIEW_MODEL_DEFAULT,
     _is_anthropic_model,
     get_response,
@@ -11,12 +12,18 @@ from actions.utils.openai_utils import (
 )
 
 
+def test_default_models():
+    """Test canonical default models."""
+    assert OPENAI_MODEL_DEFAULT == "gpt-5.4"
+    assert PR_REVIEW_MODEL_DEFAULT == "gpt-5.4"
+
+
 def test_is_anthropic_model():
     """Test model provider detection."""
     assert _is_anthropic_model("claude-sonnet-4-6") is True
     assert _is_anthropic_model("claude-haiku-4-5-20251001") is True
-    assert _is_anthropic_model("claude-opus-4-5-20251101") is True
-    assert _is_anthropic_model("gpt-5.4") is False
+    assert _is_anthropic_model("claude-opus-4-7") is True
+    assert _is_anthropic_model("gpt-5.5") is False
     assert _is_anthropic_model("gpt-5-mini-2025-08-07") is False
 
 
@@ -39,9 +46,9 @@ def test_remove_outer_codeblocks():
 
 def test_get_review_model_override():
     """Test review model override logic."""
-    with patch("actions.utils.openai_utils.REVIEW_MODEL", "claude-opus-4-5-20251101"):
-        with patch("actions.utils.openai_utils.MODEL", "gpt-5.4"):
-            assert get_review_model() == "claude-opus-4-5-20251101"
+    with patch("actions.utils.openai_utils.REVIEW_MODEL", "claude-opus-4-7"):
+        with patch("actions.utils.openai_utils.MODEL", "gpt-5.5"):
+            assert get_review_model() == "claude-opus-4-7"
 
 
 def test_get_review_model_fallback():

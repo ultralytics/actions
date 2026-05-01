@@ -30,15 +30,17 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "gpt-5.2-2025-12-11": (1.75, 14.00),
     "gpt-5.2-codex": (1.75, 14.00),
     "gpt-5.3-codex": (1.75, 14.00),
+    "gpt-5.5": (5.00, 30.00),
     "gpt-5.4": (2.50, 15.00),
     "gpt-5-nano-2025-08-07": (0.05, 0.40),
     "gpt-5-mini-2025-08-07": (0.25, 2.00),
-    # Anthropic Claude 4.5 models
+    # Anthropic Claude models
     "claude-sonnet-4-5-20250929": (3.00, 15.00),
     "claude-sonnet-4-6": (3.00, 15.00),
     "claude-haiku-4-5-20251001": (1.00, 5.00),
     "claude-opus-4-5-20251101": (5.00, 25.00),
     "claude-opus-4-6": (5.00, 25.00),
+    "claude-opus-4-7": (5.00, 25.00),
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v).
