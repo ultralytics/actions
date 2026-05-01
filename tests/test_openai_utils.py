@@ -3,12 +3,19 @@
 from unittest.mock import MagicMock, patch
 
 from actions.utils.openai_utils import (
+    OPENAI_MODEL_DEFAULT,
     PR_REVIEW_MODEL_DEFAULT,
     _is_anthropic_model,
     get_response,
     get_review_model,
     remove_outer_codeblocks,
 )
+
+
+def test_default_models():
+    """Test canonical default models."""
+    assert OPENAI_MODEL_DEFAULT == "gpt-5.4"
+    assert PR_REVIEW_MODEL_DEFAULT == "gpt-5.4"
 
 
 def test_is_anthropic_model():

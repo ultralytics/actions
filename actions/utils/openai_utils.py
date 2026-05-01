@@ -18,9 +18,9 @@ REVIEW_MODEL = os.getenv("REVIEW_MODEL")  # Optional override for PR reviews
 MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% of 128k context)
 
 # Default models (single source of truth)
-OPENAI_MODEL_DEFAULT = "gpt-5.5"
+OPENAI_MODEL_DEFAULT = "gpt-5.4"
 ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-4-6"
-PR_REVIEW_MODEL_DEFAULT = "gpt-5.5"
+PR_REVIEW_MODEL_DEFAULT = "gpt-5.4"
 
 MODEL_COSTS = {  # (input, output) per 1M tokens
     # OpenAI models
