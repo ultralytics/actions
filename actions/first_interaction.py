@@ -217,7 +217,7 @@ def main(*args, **kwargs):
         if AUTO_PR_REVIEW:
             print("Starting automatic PR review...")
             review_number = review_pr.dismiss_previous_reviews(event)
-            review_data = review_pr.generate_pr_review(event.repository, diff, title, summary)
+            review_data = review_pr.generate_pr_review(event.repository, diff, title, summary, event)
             review_pr.post_review_summary(event, review_data, review_number)
             print("PR review completed")
         return
