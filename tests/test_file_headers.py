@@ -115,11 +115,12 @@ def test_ignore_paths():
 
 def test_main_real_files():
     """Test main function on actual repository files."""
-    # Mock update_file to prevent actual file modifications during testing
     with patch("actions.update_file_headers.update_file", return_value=False) as mock_update:
-        main()
-        # Verify that update_file was called (indicates file processing occurred)
-        assert mock_update.call_count > 0
+        with patch("actions.update_file_headers.Action") as mock_action:
+            mock_action.return_value.repository = "ultralytics/actions"
+            mock_action.return_value.is_repo_private.return_value = False
+            main()
+            assert mock_update.call_count > 0
 
 
 def test_main_with_custom_header():
