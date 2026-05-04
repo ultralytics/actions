@@ -68,6 +68,116 @@ jobs:
             echo "Running line 2 with TEST_VAR=$TEST_VAR"
             false
 
+      - name: Record start (exponential)
+        id: start_exp
+        run: echo "t=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Test exponential backoff timing
+        uses: ./retry
+        continue-on-error: true
+        with:
+          retries: 3
+          retry_delay_seconds: 2
+          backoff: exponential
+          jitter: false
+          run: |
+            # Waits should be 2s, 4s, 8s. Total ~14s between 4 attempts.
+            echo "Attempt at $(date +%s)"
+            false
+
+      - name: Assert exponential timing (~14s expected)
+        run: |
+          elapsed=$(( $(date +%s) - ${{ steps.start_exp.outputs.t }} ))
+          # Expected waits: 2 + 4 + 8 = 14s (no jitter). Allow generous upper bound for runner overhead.
+          if [ "$elapsed" -lt 13 ] || [ "$elapsed" -gt 40 ]; then
+            echo "::error::Exponential timing off: ${elapsed}s, expected ~14s (13-40s range)"
+            exit 1
+          fi
+          echo "OK: ${elapsed}s elapsed (expected ~14s)"
+
+      - name: Record start (fixed)
+        id: start_fixed
+        run: echo "t=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Test fixed backoff
+        uses: ./retry
+        continue-on-error: true
+        with:
+          retries: 2
+          retry_delay_seconds: 3
+          backoff: fixed
+          jitter: false
+          run: |
+            echo "Attempt at $(date +%s)"
+            false
+
+      - name: Assert fixed timing (~6s expected)
+        run: |
+          elapsed=$(( $(date +%s) - ${{ steps.start_fixed.outputs.t }} ))
+          # Expected waits: 3 + 3 = 6s (no jitter). Allow runner overhead.
+          if [ "$elapsed" -lt 6 ] || [ "$elapsed" -gt 25 ]; then
+            echo "::error::Fixed timing off: ${elapsed}s, expected ~6s (6-25s range)"
+            exit 1
+          fi
+          echo "OK: ${elapsed}s elapsed (expected ~6s)"
+
+      - name: Record start (jitter floor)
+        id: start_jitter
+        run: echo "t=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Test jitter never collapses small delay to 0
+        uses: ./retry
+        continue-on-error: true
+        with:
+          retries: 4
+          retry_delay_seconds: 1
+          backoff: fixed
+          jitter: true
+          run: |
+            echo "Attempt at $(date +%s)"
+            false
+
+      - name: Assert jitter floor (>=4s for 4 retries of >=1s each)
+        run: |
+          elapsed=$(( $(date +%s) - ${{ steps.start_jitter.outputs.t }} ))
+          # Without the floor, jitter would round 1s to 0s and the 4 retries would run instantly.
+          if [ "$elapsed" -lt 4 ]; then
+            echo "::error::Jitter collapsed small delays: ${elapsed}s elapsed, expected >=4s"
+            exit 1
+          fi
+          echo "OK: ${elapsed}s elapsed (>=4s confirmed)"
+
+      - name: Test invalid backoff value rejected
+        uses: ./retry
+        continue-on-error: true
+        id: invalid_backoff
+        with:
+          retries: 0
+          backoff: linear
+          run: echo "should not run"
+
+      - name: Assert invalid backoff failed
+        run: |
+          if [ "${{ steps.invalid_backoff.outcome }}" != "failure" ]; then
+            echo "::error::Expected invalid backoff to fail, got ${{ steps.invalid_backoff.outcome }}"
+            exit 1
+          fi
+
+      - name: Test invalid numeric input rejected
+        uses: ./retry
+        continue-on-error: true
+        id: invalid_retries
+        with:
+          retries: "-1"
+          run: echo "should not run"
+
+      - name: Assert invalid numeric input failed
+        run: |
+          if [ "${{ steps.invalid_retries.outcome }}" != "failure" ]; then
+            echo "::error::Expected invalid retries to fail, got ${{ steps.invalid_retries.outcome }}"
+            exit 1
+          fi
+
   test-python:
     runs-on: ubuntu-latest
     steps:

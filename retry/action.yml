@@ -15,10 +15,12 @@
 #       run: |
 #         python setup.py install
 #         pytest tests/
-#       retries: 2             # Retry twice after initial attempt (3 total runs)
-#       timeout_minutes: 30    # Total timeout for all attempts combined
-#       retry_delay_seconds: 60 # Wait 60 seconds between retries
-#       shell: bash            # Use python or bash shell
+#       retries: 2               # Retry twice after initial attempt (3 total runs)
+#       timeout_minutes: 30      # Total timeout for all attempts combined
+#       retry_delay_seconds: 10  # Base delay between retries in seconds
+#       backoff: exponential     # exponential (10s, 20s, 40s, ...) or fixed
+#       jitter: true             # Randomize delay to 80-120% to avoid thundering herd
+#       shell: bash              # Use python or bash shell
 
 name: "Step-Level Retry"
 description: "Retries a step while preserving its full context"
@@ -32,9 +34,17 @@ inputs:
     required: false
     default: "3"
   retry_delay_seconds:
-    description: "Delay between retries in seconds"
+    description: "Base delay between retries in seconds"
     required: false
-    default: "30"
+    default: "10"
+  backoff:
+    description: "Backoff strategy: exponential (base * 2^n) or fixed. Delays are bounded by timeout_minutes."
+    required: false
+    default: "exponential"
+  jitter:
+    description: "Randomize delay to 80-120% of computed value to spread retries and avoid thundering herd"
+    required: false
+    default: "true"
   run:
     description: "Command to run"
     required: true
@@ -60,9 +70,22 @@ runs:
         max_attempts=$(( 1 + ${{ inputs.retries }} ))  # Initial run + retries
         retries=${{ inputs.retries }}
         retry_delay=${{ inputs.retry_delay_seconds }}
+        backoff="${{ inputs.backoff }}"
+        jitter="${{ inputs.jitter }}"
         timeout_mins=${{ inputs.timeout_minutes }}
         shell_type="${{ inputs.shell }}"
         exit_code=0
+
+        # Validate backoff strategy
+        if [ "$backoff" != "exponential" ] && [ "$backoff" != "fixed" ]; then
+            echo "::error::Invalid backoff '$backoff'; must be 'exponential' or 'fixed'"
+            exit 1
+        fi
+
+        # Validate numeric inputs are non-negative integers
+        case "$retries$retry_delay$timeout_mins" in
+            ''|*[!0-9]*) echo "::error::retries, retry_delay_seconds, timeout_minutes must be non-negative integers"; exit 1 ;;
+        esac
 
         # Create temporary script file with appropriate extension
         if [ "$shell_type" = "python" ]; then
@@ -137,7 +160,29 @@ runs:
                 exit "$exit_code"
             fi
 
-            echo "Retrying in $retry_delay seconds..."
-            sleep "$retry_delay"
+            # Compute delay for the upcoming retry
+            if [ "$backoff" = "exponential" ]; then
+                delay=$((retry_delay * (2 ** (attempt - 1))))
+            else
+                delay=$retry_delay
+            fi
+
+            # Apply jitter: random 80-120% of computed delay (±20%)
+            if [ "$jitter" = "true" ] && [ "$delay" -gt 0 ]; then
+                low=$((delay * 8 / 10))
+                span=$((delay * 4 / 10))
+                rand=$((RANDOM % (span + 1)))
+                delay=$((low + rand))
+                [ "$delay" -lt 1 ] && delay=1  # integer division floor; never collapse to 0
+            fi
+
+            # Cap sleep at remaining timeout budget; no point sleeping past deadline.
+            # Refresh timestamp — the attempt may have taken significant time.
+            remaining=$((timeout_seconds - ($(date +%s) - start_time)))
+            [ "$delay" -gt "$remaining" ] && delay=$remaining
+            [ "$delay" -lt 0 ] && delay=0
+
+            echo "Retrying in $delay seconds..."
+            sleep "$delay"
             attempt=$((attempt + 1))
         done
