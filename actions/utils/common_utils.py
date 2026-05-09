@@ -201,7 +201,8 @@ def remove_html_comments(body: str) -> str:
 
 def should_skip_file(path: str) -> bool:
     """Return True if file path matches a generated/minified skip pattern (lock files, images, etc.)."""
-    normalized = Path(path).as_posix().removeprefix("./")
+    normalized = Path(path).as_posix()
+    normalized = normalized[2:] if normalized.startswith("./") else normalized
     filename = normalized.rsplit("/", 1)[-1]
     return any(pattern.search(candidate) for pattern in SKIP_PATTERNS for candidate in (normalized, filename))
 
