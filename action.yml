@@ -343,14 +343,21 @@ runs:
       env:
         GITHUB_USERNAME: ${{ inputs.github_username }}
         GITHUB_EMAIL: ${{ inputs.github_email }}
+        GH_TOKEN: ${{ inputs.token }}
       run: |
         echo "::group::Commit and Push Changes"
         COMMIT_MSG="Auto-format by https://ultralytics.com/actions"
         # Skip when this workflow run was triggered by the bot itself to break recursive loops with sibling
-        # auto-commit workflows (Auto-format <-> Auto-update Docs). GITHUB_ACTOR / GITHUB_TRIGGERING_ACTOR are
-        # set by GitHub from the auth token used to push and cannot be spoofed via local git author fields.
-        if [ "$GITHUB_ACTOR" = "$GITHUB_USERNAME" ] || [ "$GITHUB_TRIGGERING_ACTOR" = "$GITHUB_USERNAME" ]; then
-          echo "Skipping commit: workflow triggered by $GITHUB_USERNAME (sibling bot push)"
+        # auto-commit workflows (Auto-format <-> Auto-update Docs). Derive the bot login from the token owner
+        # (single source of truth) so the guard works regardless of how callers configure github_username.
+        # GITHUB_ACTOR / GITHUB_TRIGGERING_ACTOR are set by GitHub from the push auth token and cannot be
+        # spoofed via local git author fields. Falls back to GITHUB_USERNAME if the API call fails.
+        BOT_LOGIN="$GITHUB_USERNAME"
+        if RESPONSE=$(gh api /user --jq '.login // empty' 2>/dev/null) && [ -n "$RESPONSE" ]; then
+          BOT_LOGIN="$RESPONSE"
+        fi
+        if [ "$GITHUB_ACTOR" = "$BOT_LOGIN" ] || [ "$GITHUB_TRIGGERING_ACTOR" = "$BOT_LOGIN" ]; then
+          echo "Skipping commit: workflow triggered by $BOT_LOGIN (sibling bot push)"
           echo "::endgroup::"
           exit 0
         fi
