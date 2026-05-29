@@ -343,21 +343,16 @@ runs:
       env:
         GITHUB_USERNAME: ${{ inputs.github_username }}
         GITHUB_EMAIL: ${{ inputs.github_email }}
-        GH_TOKEN: ${{ inputs.token }}
       run: |
         echo "::group::Commit and Push Changes"
         COMMIT_MSG="Auto-format by https://ultralytics.com/actions"
-        # Skip when this workflow run was triggered by the bot itself to break recursive loops with sibling
-        # auto-commit workflows (Auto-format <-> Auto-update Docs). Derive the bot login from the token owner
-        # (single source of truth) so the guard works regardless of how callers configure github_username.
-        # GITHUB_ACTOR / GITHUB_TRIGGERING_ACTOR are set by GitHub from the push auth token and cannot be
-        # spoofed via local git author fields. Falls back to GITHUB_USERNAME if the API call fails.
-        BOT_LOGIN="$GITHUB_USERNAME"
-        if RESPONSE=$(gh api /user --jq '.login // empty' 2>/dev/null) && [ -n "$RESPONSE" ]; then
-          BOT_LOGIN="$RESPONSE"
-        fi
-        if [ "$GITHUB_ACTOR" = "$BOT_LOGIN" ] || [ "$GITHUB_TRIGGERING_ACTOR" = "$BOT_LOGIN" ]; then
-          echo "Skipping commit: workflow triggered by $BOT_LOGIN (sibling bot push)"
+        # Skip when HEAD is this action's own auto-format commit. Narrow scope: only catches direct self-recursion
+        # of this step (e.g. manual re-run on a SHA we just pushed). Interleaving loops with sibling auto-commit
+        # workflows (e.g. Auto-update Docs) should be prevented at the caller's workflow `if:` level, since the
+        # set of sibling bots is consumer-specific.
+        HEAD_MSG=$(git log -1 --pretty=format:'%s' 2>/dev/null || echo "")
+        if [ "$HEAD_MSG" = "$COMMIT_MSG" ]; then
+          echo "Skipping commit: HEAD is already an auto-format commit"
           echo "::endgroup::"
           exit 0
         fi
