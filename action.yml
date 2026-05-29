@@ -339,23 +339,22 @@ runs:
 
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      # Skip when the triggering push came from the bot itself (a prior Auto-format push, or a sibling
+      # auto-commit workflow sharing the same token such as Auto-update Docs). github.actor is set by GitHub
+      # from the pushing token and cannot be spoofed via git config, so this breaks recursive auto-commit loops
+      # even when sibling bot commits or merge commits interleave between Auto-format pushes. Human pushes have a
+      # different actor and are always formatted. Default-GITHUB_TOKEN pushes never re-trigger workflows, so only
+      # PAT-authored bot pushes (actor == github_username) can recurse here.
+      if: |
+        (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') &&
+        (github.event.action == 'opened' || github.event.action == 'synchronize') &&
+        github.actor != inputs.github_username
       env:
         GITHUB_USERNAME: ${{ inputs.github_username }}
         GITHUB_EMAIL: ${{ inputs.github_email }}
       run: |
         echo "::group::Commit and Push Changes"
         COMMIT_MSG="Auto-format by https://ultralytics.com/actions"
-        # Skip when HEAD is this action's own auto-format commit. Narrow scope: only catches direct self-recursion
-        # of this step (e.g. manual re-run on a SHA we just pushed). Interleaving loops with sibling auto-commit
-        # workflows (e.g. Auto-update Docs) should be prevented at the caller's workflow `if:` level, since the
-        # set of sibling bots is consumer-specific.
-        HEAD_MSG=$(git log -1 --pretty=format:'%s' 2>/dev/null || echo "")
-        if [ "$HEAD_MSG" = "$COMMIT_MSG" ]; then
-          echo "Skipping commit: HEAD is already an auto-format commit"
-          echo "::endgroup::"
-          exit 0
-        fi
         git config --global user.name "$GITHUB_USERNAME"
         git config --global user.email "$GITHUB_EMAIL"
         git add .
