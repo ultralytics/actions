@@ -346,11 +346,11 @@ runs:
       run: |
         echo "::group::Commit and Push Changes"
         COMMIT_MSG="Auto-format by https://ultralytics.com/actions"
-        # Skip when HEAD was authored by the same bot to break recursive loops with sibling auto-commit workflows.
-        # Match name AND email so a contributor cannot spoof the bot identity by setting only --author name.
-        HEAD_AUTHOR=$(git log -1 --pretty=format:'%an|%ae' 2>/dev/null)
-        if [ "$HEAD_AUTHOR" = "$GITHUB_USERNAME|$GITHUB_EMAIL" ]; then
-          echo "Skipping commit: HEAD was authored by $GITHUB_USERNAME <$GITHUB_EMAIL>"
+        # Skip when this workflow run was triggered by the bot itself to break recursive loops with sibling
+        # auto-commit workflows (Auto-format <-> Auto-update Docs). GITHUB_ACTOR / GITHUB_TRIGGERING_ACTOR are
+        # set by GitHub from the auth token used to push and cannot be spoofed via local git author fields.
+        if [ "$GITHUB_ACTOR" = "$GITHUB_USERNAME" ] || [ "$GITHUB_TRIGGERING_ACTOR" = "$GITHUB_USERNAME" ]; then
+          echo "Skipping commit: workflow triggered by $GITHUB_USERNAME (sibling bot push)"
           echo "::endgroup::"
           exit 0
         fi
