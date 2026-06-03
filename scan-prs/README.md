@@ -27,7 +27,7 @@ jobs:
     steps:
       - uses: ultralytics/actions/scan-prs@main
         with:
-          token: ${{ secrets._GITHUB_TOKEN }} # PAT with access to org repos (default GITHUB_TOKEN is limited to the current repo)
+          token: ${{ secrets.GITHUB_TOKEN }}
           org: ultralytics # Optional: defaults to ultralytics
           visibility: private,internal # Optional: public, private, internal, all, or comma-separated
 ```
