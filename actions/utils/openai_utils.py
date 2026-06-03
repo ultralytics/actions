@@ -75,7 +75,7 @@ def remove_outer_codeblocks(string):
 
 
 def filter_labels(available_labels: dict, current_labels: list | None = None, is_pr: bool = False) -> dict:
-    """Filters labels by removing manually-assigned and mutually exclusive labels."""
+    """Filters labels by removing manually-assigned and mutually exclusive labels, adding an Alert label if absent."""
     current_labels = current_labels or []
     filtered = available_labels.copy()
 

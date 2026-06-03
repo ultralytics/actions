@@ -113,7 +113,7 @@ runs:
         GITHUB_REF: ${{ github.ref }}
       run: |
         echo "::group::Install Dependencies"
-        # Install from git branch if testing in ultralytics/actions repo, otherwise from PyPI
+        # Install from current git branch if testing in ultralytics/actions repo, otherwise from GitHub main branch
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
           echo "Installing from git branch: $GITHUB_REF"
           packages="git+https://github.com/ultralytics/actions@${GITHUB_REF#refs/heads/}"
@@ -375,6 +375,7 @@ runs:
       uses: lycheeverse/lychee-action@v2.8.0
       with:
         # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:
+        #   - 401(generic, "unauthorized")
         #   - 403(OpenVINO, "forbidden")
         #   - 429(Instagram, "too many requests")
         #   - 500(Zenodo, "cached")

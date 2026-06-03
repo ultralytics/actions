@@ -157,7 +157,7 @@ def generate_temp_filename(file_path, index, code_type):
 
 
 def process_markdown_file(file_path, temp_dir, process_python=True, process_bash=True, verbose=False):
-    """Processes a Markdown file, extracting code blocks for formatting and updating the original file."""
+    """Processes a Markdown file, extracting code blocks into temp files and returning the content and file info."""
     try:
         markdown_content = Path(file_path).read_text(encoding="utf-8")
         code_blocks_by_type = extract_code_blocks(markdown_content)
