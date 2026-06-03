@@ -159,7 +159,7 @@ def _get_default_model() -> str:
 
 
 def get_review_model() -> str:
-    """Get model for PR reviews, using REVIEW_MODEL if set, otherwise default model."""
+    """Get model for PR reviews, using REVIEW_MODEL if set, otherwise PR_REVIEW_MODEL_DEFAULT."""
     return REVIEW_MODEL or PR_REVIEW_MODEL_DEFAULT
 
 

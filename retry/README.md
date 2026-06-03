@@ -56,7 +56,7 @@ steps:
 | --------------------- | ------------------------------------------------------------ | -------- | ------------- |
 | `run`                 | Command to run                                               | Yes      | -             |
 | `retries`             | Number of retry attempts after initial run                   | No       | `3`           |
-| `timeout_minutes`     | Maximum total time in minutes for all attempts combined      | No       | `360`         |
+| `timeout_minutes`     | Maximum total time in minutes, checked between attempts      | No       | `360`         |
 | `retry_delay_seconds` | Base delay between retries in seconds                        | No       | `10`          |
 | `backoff`             | Backoff strategy: `exponential` (base \* 2^n) or `fixed`     | No       | `exponential` |
 | `jitter`              | Randomize delay to 80-120% of value to avoid thundering herd | No       | `true`        |
