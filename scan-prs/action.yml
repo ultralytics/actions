@@ -2,7 +2,7 @@
 
 name: "Scan PRs"
 author: "Ultralytics"
-description: "List open PRs and auto-merge eligible Dependabot PRs across organization"
+description: "List open PRs and auto-merge eligible GitHub Actions update PRs across organization"
 branding:
   icon: "git-pull-request"
   color: "blue"

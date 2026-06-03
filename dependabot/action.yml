@@ -2,7 +2,7 @@
 
 name: "Dependabot"
 author: "Ultralytics"
-description: "Update GitHub Actions versions across organization repos with cached lookups. Designed for private repos where GitHub Dependabot is not available."
+description: "Update GitHub Actions versions across organization repos with cached lookups. A centralized alternative to per-repo Dependabot configuration."
 branding:
   icon: "refresh-cw"
   color: "blue"

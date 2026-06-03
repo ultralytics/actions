@@ -69,7 +69,7 @@ def get_status_checks(rollup):
 
 
 def run():
-    """List open PRs across organization and auto-merge eligible Dependabot PRs."""
+    """List open PRs across organization and auto-merge eligible GitHub Actions update PRs."""
     org = os.getenv("ORG", "ultralytics")
     visibility_list = parse_visibility(os.getenv("VISIBILITY", "public"), os.getenv("REPO_VISIBILITY", "public"))
     filter_config = get_repo_filter(visibility_list)
