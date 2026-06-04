@@ -26,7 +26,7 @@ name: "Step-Level Retry"
 description: "Retries a step while preserving its full context"
 inputs:
   timeout_minutes:
-    description: "Maximum total time in minutes for all attempts"
+    description: "Maximum total time in minutes for all attempts (checked between attempts; does not interrupt a running attempt)"
     required: false
     default: "360"
   retries:

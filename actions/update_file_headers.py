@@ -176,7 +176,7 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
 
 
 def main(*args, **kwargs):
-    """Automates file header updates for all files in the specified directory."""
+    """Automates file header updates for supported file types under the current working directory."""
     event = Action(*args, **kwargs)
     current_year = datetime.now().year
     repository = (event.repository or "").lower()

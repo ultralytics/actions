@@ -11,7 +11,7 @@ from urllib import parse
 
 import requests
 
-# Common directories to exclude when traversing file trees (used by docstring formatter, header updater, etc.)
+# Common directories to exclude when traversing file trees (used by the Python docstring formatter)
 COMMON_EXCLUDED_DIRS = frozenset(
     {
         ".git",
@@ -274,7 +274,7 @@ def clean_url(url):
 
 
 def allow_redirect(start="", end=""):
-    """Check if URL should be skipped based on simple rules."""
+    """Check if a redirect target should be applied based on simple allow rules."""
     start_lower = start.lower()
     end_lower = end.lower()
     return (
