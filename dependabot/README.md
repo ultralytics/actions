@@ -17,7 +17,7 @@ jobs:
     steps:
       - uses: ultralytics/actions/dependabot@main
         with:
-          token: ${{ secrets._GITHUB_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
 ## Inputs

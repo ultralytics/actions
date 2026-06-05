@@ -4,7 +4,7 @@
 
 # 🚀 Ultralytics Actions
 
-Welcome to [Ultralytics Actions](https://github.com/ultralytics/actions) - a collection of GitHub Actions for automating code quality, PR management, and CI/CD workflows across Ultralytics projects.
+欢迎使用 [Ultralytics Actions](https://github.com/ultralytics/actions) - 这是一组 GitHub Actions，用于在 Ultralytics 项目中自动化代码质量、PR 管理和 CI/CD 工作流。
 
 [![GitHub Actions Marketplace](https://img.shields.io/badge/Marketplace-Ultralytics_Actions-blue?style=flat&logo=github)](https://github.com/marketplace/actions/ultralytics-actions)
 
@@ -17,54 +17,54 @@ Welcome to [Ultralytics Actions](https://github.com/ultralytics/actions) - a col
 [![Ultralytics Forums](https://img.shields.io/discourse/users?server=https%3A%2F%2Fcommunity.ultralytics.com&logo=discourse&label=Forums&color=blue)](https://community.ultralytics.com/)
 [![Ultralytics Reddit](https://img.shields.io/reddit/subreddit-subscribers/ultralytics?style=flat&logo=reddit&logoColor=white&label=Reddit&color=blue)](https://reddit.com/r/ultralytics)
 
-## 📦 Repository Contents
+## 📦 仓库内容
 
-This repository provides three main components:
+本仓库提供三个主要组成部分：
 
-1. **[Ultralytics Actions](#ultralytics-actions-main-action)** - Main GitHub Action for AI-powered code formatting, PR summaries, and auto-labeling
-2. **[Standalone Actions](#standalone-actions)** - Reusable composite actions for common CI/CD tasks
-3. **[Python Package](#python-package)** - `ultralytics-actions` package for programmatic use
+1. **[Ultralytics Actions](#ultralytics-actions-主-action)** - 用于 AI 代码格式化、PR 摘要和自动标签的主 GitHub Action
+2. **[独立 Actions](#独立-actions)** - 可在常见 CI/CD 任务中复用的 composite actions
+3. **[Python 包](#python-包)** - 可编程使用的 `ultralytics-actions` 包
 
-## Ultralytics Actions (Main Action)
+## Ultralytics Actions 主 Action
 
-AI-powered formatting, labeling, and PR summaries for Python, Swift, and Markdown files.
+面向 Python、Swift、Dart 和 Markdown 文件的 AI 驱动格式化、标签和 PR 摘要工具。
 
-### 📄 Features
+### 📄 功能
 
-- **Python Code:** Formatted using [Ruff](https://github.com/astral-sh/ruff), an extremely fast Python linter and formatter
-- **Python Docstrings:** Google-style formatting enforced with Ultralytics Python docstring formatter (optional)
-- **JavaScript/TypeScript:** Formatted with [Biome](https://biomejs.dev/), an extremely fast formatter for JS, TS, JSX, TSX, and JSON (optional, auto-detected via `biome.json`)
-- **Web and Docs Files:** Styled with [Prettier](https://github.com/prettier/prettier) for JS, TS, CSS, HTML, JSON, YAML, Markdown, and shell scripts
-- **Swift Code:** Formatted with [`swift-format`](https://github.com/swiftlang/swift-format) _(requires `macos-latest` runner)_
-- **Dart Code:** Formatted with [`dart format`](https://dart.dev/tools/dart-format) for Dart and Flutter projects
-- **Spell Check:** Common misspellings caught using [codespell](https://github.com/codespell-project/codespell)
-- **Broken Links Check:** Broken links identified using [Lychee](https://github.com/lycheeverse/lychee)
-- **PR Summary:** Concise Pull Request summaries generated using AI
-- **PR Review:** AI-powered code reviews identify critical bugs, security issues, and quality concerns with suggested fixes
-- **Auto-labeling:** Applies relevant labels to issues, PRs, and discussions via AI
+- **Python 代码：** 使用极快的 Python linter 和 formatter [Ruff](https://github.com/astral-sh/ruff) 格式化
+- **Python Docstrings：** 使用 Ultralytics Python docstring formatter 强制 Google 风格格式（可选）
+- **JavaScript/TypeScript：** 使用极快的 JS、TS、JSX、TSX 和 JSON formatter [Biome](https://biomejs.dev/) 格式化（可选，通过 `biome.json` 自动检测）
+- **Web 和文档文件：** 使用 [Prettier](https://github.com/prettier/prettier) 格式化 JS、TS、CSS、HTML、JSON、YAML、Markdown 和 shell 脚本
+- **Swift 代码：** 使用 [`swift-format`](https://github.com/swiftlang/swift-format) 格式化（需要 `macos-latest` runner）
+- **Dart 代码：** 使用 [`dart format`](https://dart.dev/tools/dart-format) 格式化 Dart 和 Flutter 项目
+- **拼写检查：** 使用 [codespell](https://github.com/codespell-project/codespell) 捕获常见拼写错误
+- **断链检查：** 使用 [Lychee](https://github.com/lycheeverse/lychee) 识别无效链接
+- **PR 摘要：** 使用 AI 生成简洁的 Pull Request 摘要
+- **PR Review：** AI 代码审查可识别关键 bug、安全问题和质量问题，并给出修复建议
+- **自动标签：** 使用 AI 为 issues、PRs 和 discussions 应用相关标签
 
-### 🤖 Supported AI Providers
+### 🤖 支持的 AI 提供商
 
-Choose between [OpenAI](https://openai.com/) or [Anthropic](https://www.anthropic.com/) for AI-powered features:
+可选择 [OpenAI](https://openai.com/) 或 [Anthropic](https://www.anthropic.com/) 启用 AI 功能：
 
-| Provider  | Default Model       | API Key             |
+| 提供商    | 默认模型            | API Key             |
 | --------- | ------------------- | ------------------- |
 | OpenAI    | `gpt-5.4`           | `openai_api_key`    |
 | Anthropic | `claude-sonnet-4-6` | `anthropic_api_key` |
 
-The model is auto-detected based on which API key you provide. Override with the `model` input, for example `gpt-5.5`, or use `review_model` to override PR review only.
+模型会根据提供的 API key 自动检测。可通过 `model` 输入覆盖默认模型，例如 `gpt-5.5`；也可使用 `review_model` 仅覆盖 PR review 模型。
 
-### 🛠️ How It Works
+### 🛠️ 工作方式
 
-Triggers on GitHub events to streamline workflows:
+通过 GitHub 事件触发并简化工作流：
 
-- **Pull Requests:** Ensures formatting standards, generates summaries, provides AI reviews, and applies labels
-- **Issues:** Automatically applies relevant labels using AI
-- **Discussions:** Automatically applies relevant labels using AI
+- **Pull Requests：** 确保格式标准、生成摘要、提供 AI review，并应用标签
+- **Issues：** 使用 AI 自动应用相关标签
+- **Discussions：** 使用 AI 自动应用相关标签
 
-### 🔧 Setup
+### 🔧 设置
 
-Create `.github/workflows/ultralytics-actions.yml`:
+创建 `.github/workflows/ultralytics-actions.yml`：
 
 ```yaml
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
@@ -98,7 +98,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }} # Auto-generated token
           labels: true # Auto-label issues/PRs using AI
-          python-version: "3.13" # Optional: set up a specific Python version
           python: true # Format Python with Ruff
           python_docstrings: true # Format Python docstrings (default: true)
           biome: true # Format JS/TS with Biome (auto-detected via biome.json)
@@ -116,13 +115,13 @@ jobs:
           brave_api_key: ${{ secrets.BRAVE_API_KEY }} # Used for broken link resolution
 ```
 
-## Standalone Actions
+## 独立 Actions
 
-Reusable composite actions for common CI/CD tasks. Each can be used independently in your workflows.
+这些可复用 composite actions 可在工作流中独立使用。
 
 ### 1. Retry Action
 
-Retry failed commands with exponential backoff and jitter.
+使用指数退避和 jitter 重试失败命令。
 
 ```yaml
 - uses: ultralytics/actions/retry@main
@@ -132,21 +131,21 @@ Retry failed commands with exponential backoff and jitter.
     timeout_minutes: 5
 ```
 
-[**📖 Full Documentation →**](retry/README.md)
+[**📖 完整文档 →**](retry/README.md)
 
 ### 2. Cleanup Disk Action
 
-Free up disk space on GitHub runners by removing unnecessary packages and files.
+通过删除不必要的软件包和文件释放 GitHub runners 的磁盘空间。
 
 ```yaml
 - uses: ultralytics/actions/cleanup-disk@main
 ```
 
-[**📖 Full Documentation →**](cleanup-disk/README.md)
+[**📖 完整文档 →**](cleanup-disk/README.md)
 
 ### 3. Scan PRs Action
 
-List open PRs across an organization and auto-merge eligible GitHub Actions update PRs.
+列出组织中的开放 PR，并自动合并符合条件的 GitHub Actions 更新 PR。
 
 ```yaml
 - uses: ultralytics/actions/scan-prs@main
@@ -156,11 +155,11 @@ List open PRs across an organization and auto-merge eligible GitHub Actions upda
     visibility: private,internal # Optional: public, private, internal, all, or comma-separated
 ```
 
-[**📖 Full Documentation →**](scan-prs/README.md)
+[**📖 完整文档 →**](scan-prs/README.md)
 
 ### 4. Dependabot Action
 
-Update GitHub Actions versions across organization repositories with cached release resolution.
+使用缓存的 release 解析，批量更新组织仓库中的 GitHub Actions 版本。
 
 ```yaml
 - uses: ultralytics/actions/dependabot@main
@@ -168,11 +167,11 @@ Update GitHub Actions versions across organization repositories with cached rele
     token: ${{ secrets.GITHUB_TOKEN }}
 ```
 
-[**📖 Full Documentation →**](dependabot/README.md)
+[**📖 完整文档 →**](dependabot/README.md)
 
-## Python Package
+## Python 包
 
-Install `ultralytics-actions` for programmatic access to action utilities.
+安装 `ultralytics-actions` 以便通过代码使用 action 工具。
 
 [![PyPI - Version](https://img.shields.io/pypi/v/ultralytics-actions?logo=pypi&logoColor=white)](https://pypi.org/project/ultralytics-actions/)
 [![Ultralytics Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://clickpy.clickhouse.com/dashboard/ultralytics-actions)
@@ -182,30 +181,30 @@ Install `ultralytics-actions` for programmatic access to action utilities.
 pip install ultralytics-actions
 ```
 
-**Available Modules:**
+**可用模块：**
 
-- `actions.review_pr` - AI-powered PR review
-- `actions.summarize_pr` - Generate PR summaries
-- `actions.scan_prs` - Scan and manage organization PRs
-- `actions.first_interaction` - Welcome message for new contributors
-- And more in `actions/` directory
+- `actions.review_pr` - AI 驱动的 PR review
+- `actions.summarize_pr` - 生成 PR 摘要
+- `actions.scan_prs` - 扫描并管理组织 PRs
+- `actions.first_interaction` - 为新贡献者生成欢迎消息
+- 更多模块见 `actions/` 目录
 
-## 💡 Contribute
+## 💡 贡献
 
-Ultralytics thrives on community collaboration, and we deeply value your contributions! Please see our [Contributing Guide](https://docs.ultralytics.com/help/contributing/) for details on how you can get involved. We also encourage you to share your feedback through our [Survey](https://www.ultralytics.com/survey?utm_source=github&utm_medium=social&utm_campaign=Survey). A huge thank you 🙏 to all our contributors!
+Ultralytics 依靠社区协作不断发展，我们非常重视您的贡献！请查看[贡献指南](https://docs.ultralytics.com/help/contributing/)了解如何参与。也欢迎通过我们的[调查问卷](https://www.ultralytics.com/survey?utm_source=github&utm_medium=social&utm_campaign=Survey)分享反馈。衷心感谢 🙏 每一位贡献者！
 
 [![Ultralytics open-source contributors](https://raw.githubusercontent.com/ultralytics/assets/main/im/image-contributors.png)](https://github.com/ultralytics/ultralytics/graphs/contributors)
 
-## 📄 License
+## 📄 许可证
 
-Ultralytics offers two licensing options:
+Ultralytics 提供两种许可选项：
 
-- **AGPL-3.0 License**: An [OSI-approved](https://opensource.org/license/agpl-3.0) open-source license ideal for students, researchers, and enthusiasts who value open collaboration. See the [LICENSE](https://github.com/ultralytics/actions/blob/main/LICENSE) file for details.
-- **Enterprise License**: Designed for commercial use, this license allows integrating Ultralytics software and AI models into commercial products without AGPL-3.0's open-source requirements. For enterprise solutions, contact [Ultralytics Licensing](https://www.ultralytics.com/license).
+- **AGPL-3.0 许可证：** 经 [OSI 批准](https://opensource.org/license/agpl-3.0)的开源许可证，适合重视开放协作的学生、研究人员和爱好者。详情请参阅 [LICENSE](https://github.com/ultralytics/actions/blob/main/LICENSE) 文件。
+- **企业许可证：** 面向商业用途，可将 Ultralytics 软件和 AI 模型集成到商业产品中，而不受 AGPL-3.0 开源要求限制。如需企业方案，请联系 [Ultralytics Licensing](https://www.ultralytics.com/license)。
 
-## 📫 Contact
+## 📫 联系
 
-For bug reports or feature suggestions related to Ultralytics Actions, please submit an issue via [GitHub Issues](https://github.com/ultralytics/actions/issues). Join our [Discord](https://discord.com/invite/ultralytics) community for discussions and support!
+如需报告 Ultralytics Actions 相关 bug 或提出功能建议，请通过 [GitHub Issues](https://github.com/ultralytics/actions/issues) 提交。欢迎加入我们的 [Discord](https://discord.com/invite/ultralytics) 社区参与讨论并获取支持！
 
 <br>
 <div align="center">
