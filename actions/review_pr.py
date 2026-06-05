@@ -268,6 +268,7 @@ def generate_pr_review(
                 }
             ],
             retries=0,
+            background=True,
         )
 
         # Sanitize leaked tool-citation tokens from model output
@@ -429,7 +430,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     comments = review_data.get("comments", [])
     summary = review_data.get("summary") or ""
 
-    # Don't approve if error occurred, inline comments exist, or critical/high severity issues
+    # Don't approve if error occurred, inline comments exist, or medium-or-higher severity issues
     has_error = not summary or ERROR_MARKER in summary
     has_inline_comments = review_data.get("comments_before_filtering", 0) > 0
     has_issues = any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments)

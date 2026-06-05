@@ -75,7 +75,7 @@ def remove_outer_codeblocks(string):
 
 
 def filter_labels(available_labels: dict, current_labels: list | None = None, is_pr: bool = False) -> dict:
-    """Filters labels by removing manually-assigned and mutually exclusive labels."""
+    """Filters labels by removing manually-assigned and mutually exclusive labels, adding an Alert label if absent."""
     current_labels = current_labels or []
     filtered = available_labels.copy()
 
@@ -159,8 +159,30 @@ def _get_default_model() -> str:
 
 
 def get_review_model() -> str:
-    """Get model for PR reviews, using REVIEW_MODEL if set, otherwise default model."""
+    """Get model for PR reviews, using REVIEW_MODEL if set, otherwise PR_REVIEW_MODEL_DEFAULT."""
     return REVIEW_MODEL or PR_REVIEW_MODEL_DEFAULT
+
+
+def _poll_openai_response(response_json: dict, headers: dict, timeout: int = 900) -> dict:
+    """Poll a background OpenAI response until it reaches a terminal state."""
+    response_id = response_json.get("id")
+    deadline = time.time() + timeout
+    while response_id and response_json.get("status") in {"queued", "in_progress"}:
+        if time.time() > deadline:
+            raise TimeoutError(f"OpenAI background response {response_id} did not complete within {timeout}s")
+        print(f"OpenAI response {response_id} is {response_json.get('status')}; polling...")
+        time.sleep(2)
+        try:
+            r = requests.get(f"https://api.openai.com/v1/responses/{response_id}", headers=headers, timeout=(30, 60))
+            r.raise_for_status()
+            response_json = r.json()
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            print(f"OpenAI poll failed with {e.__class__.__name__}; continuing...")
+
+    if response_id and response_json.get("status") != "completed":
+        error = response_json.get("error") or response_json.get("incomplete_details") or response_json.get("status")
+        raise RuntimeError(f"OpenAI background response {response_id} ended with {error}")
+    return response_json
 
 
 def get_response(
@@ -173,10 +195,12 @@ def get_response(
     model: str | None = None,
     tools: list[dict] | None = None,
     retries: int = 2,
+    background: bool = False,
 ) -> str | dict:
     """Generates a completion using OpenAI or Anthropic API with retry logic."""
     model = model or _get_default_model()
     is_anthropic = _is_anthropic_model(model)
+    background = background and not is_anthropic
 
     # Validate API key
     if is_anthropic:
@@ -219,7 +243,9 @@ def get_response(
                 json_instruction = f"\n\nRespond ONLY with valid JSON matching this schema:\n{json.dumps(schema)}"
                 data["system"] = (data.get("system") or "") + json_instruction
         else:
-            data = {"model": model, "input": messages, "store": False, "temperature": temperature}
+            data = {"model": model, "input": messages, "store": background, "temperature": temperature}
+            if background:
+                data["background"] = True
             if "gpt-5" in model:
                 data["reasoning"] = {"effort": reasoning_effort or "low"}
             if text_format:
@@ -228,6 +254,7 @@ def get_response(
                 data["tools"] = tools
 
         try:
+            started = time.time()
             r = requests.post(url, json=data, headers=headers, timeout=(30, 900))
             elapsed = r.elapsed.total_seconds()
             success = r.status_code == 200
@@ -248,6 +275,9 @@ def get_response(
 
             # Parse response
             response_json = r.json()
+            if background:
+                response_json = _poll_openai_response(response_json, headers)
+                elapsed = time.time() - started
             if is_anthropic:
                 content = ""
                 for block in response_json.get("content", []):

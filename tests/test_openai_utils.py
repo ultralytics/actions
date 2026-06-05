@@ -133,7 +133,7 @@ def test_get_response_anthropic(mock_post):
 
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}, clear=False):
         with patch("actions.utils.openai_utils.ANTHROPIC_API_KEY", "test-key"):
-            result = get_response(messages, check_links=False, model="claude-sonnet-4-6")
+            result = get_response(messages, check_links=False, model="claude-sonnet-4-6", background=True)
 
     assert result == "Test response from Claude"
     mock_post.assert_called_once()

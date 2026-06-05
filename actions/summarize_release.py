@@ -43,7 +43,7 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
 
     prs = []
     for pr_number in sorted(pr_numbers):  # earliest to latest
-        time.sleep(1)  # Rate limit: GitHub search API has strict limits
+        time.sleep(1)  # Rate limit: space out GitHub REST API requests
         pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}"
         pr_response = event.get(pr_url)
         if pr_response.status_code == 200:

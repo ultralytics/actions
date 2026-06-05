@@ -69,7 +69,7 @@ def get_status_checks(rollup):
 
 
 def run():
-    """List open PRs across organization and auto-merge eligible Dependabot PRs."""
+    """List open PRs across organization and auto-merge eligible GitHub Actions update PRs."""
     org = os.getenv("ORG", "ultralytics")
     visibility_list = parse_visibility(os.getenv("VISIBILITY", "public"), os.getenv("REPO_VISIBILITY", "public"))
     filter_config = get_repo_filter(visibility_list)
@@ -267,7 +267,7 @@ def run():
                 total_skipped += 1
 
     summary.append(f"\n**Summary:** Found {total_found} | Merged {total_merged} | Skipped {total_skipped}")
-    print(f"\n📊 Dependabot Summary: Found {total_found} | Merged {total_merged} | Skipped {total_skipped}")
+    print(f"\n📊 Auto-Merge Summary: Found {total_found} | Merged {total_merged} | Skipped {total_skipped}")
 
     if summary_file := os.getenv("GITHUB_STEP_SUMMARY"):
         with open(summary_file, "a") as f:

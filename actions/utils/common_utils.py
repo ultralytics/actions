@@ -11,7 +11,7 @@ from urllib import parse
 
 import requests
 
-# Common directories to exclude when traversing file trees (used by docstring formatter, header updater, etc.)
+# Common directories to exclude when traversing file trees (used by the Python docstring formatter)
 COMMON_EXCLUDED_DIRS = frozenset(
     {
         ".git",
@@ -201,7 +201,8 @@ def remove_html_comments(body: str) -> str:
 
 def should_skip_file(path: str) -> bool:
     """Return True if file path matches a generated/minified skip pattern (lock files, images, etc.)."""
-    normalized = Path(path).as_posix().removeprefix("./")
+    normalized = Path(path).as_posix()
+    normalized = normalized[2:] if normalized.startswith("./") else normalized
     filename = normalized.rsplit("/", 1)[-1]
     return any(pattern.search(candidate) for pattern in SKIP_PATTERNS for candidate in (normalized, filename))
 
@@ -273,7 +274,7 @@ def clean_url(url):
 
 
 def allow_redirect(start="", end=""):
-    """Check if URL should be skipped based on simple rules."""
+    """Check if a redirect target should be applied based on simple allow rules."""
     start_lower = start.lower()
     end_lower = end.lower()
     return (
