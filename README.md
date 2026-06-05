@@ -2,7 +2,7 @@
 
 # 🚀 Ultralytics Actions
 
-Welcome to [Ultralytics Actions](https://github.com/ultralytics/actions) - a collection of GitHub Actions and Python tools for automating code quality, PR management, and CI/CD workflows across Ultralytics projects.
+Welcome to [Ultralytics Actions](https://github.com/ultralytics/actions) - a collection of GitHub Actions for automating code quality, PR management, and CI/CD workflows across Ultralytics projects.
 
 [![GitHub Actions Marketplace](https://img.shields.io/badge/Marketplace-Ultralytics_Actions-blue?style=flat&logo=github)](https://github.com/marketplace/actions/ultralytics-actions)
 
@@ -31,21 +31,33 @@ AI-powered formatting, labeling, and PR summaries for Python, Swift, and Markdow
 
 - **Python Code:** Formatted using [Ruff](https://github.com/astral-sh/ruff), an extremely fast Python linter and formatter
 - **Python Docstrings:** Google-style formatting enforced with Ultralytics Python docstring formatter (optional)
+- **JavaScript/TypeScript:** Formatted with [Biome](https://biomejs.dev/), an extremely fast formatter for JS, TS, JSX, TSX, and JSON (optional, auto-detected via `biome.json`)
 - **Markdown Files:** Styled with [Prettier](https://github.com/prettier/prettier) to ensure consistent documentation appearance
 - **Swift Code:** Formatted with [`swift-format`](https://github.com/swiftlang/swift-format) _(requires `macos-latest` runner)_
 - **Spell Check:** Common misspellings caught using [codespell](https://github.com/codespell-project/codespell)
 - **Broken Links Check:** Broken links identified using [Lychee](https://github.com/lycheeverse/lychee)
-- **PR Summary:** Concise Pull Request summaries generated using [OpenAI](https://openai.com/) GPT-5
+- **PR Summary:** Concise Pull Request summaries generated using AI
 - **PR Review:** AI-powered code reviews identify critical bugs, security issues, and quality concerns with suggested fixes
-- **Auto-labeling:** Applies relevant labels to issues and PRs via [OpenAI](https://openai.com/) GPT-5
+- **Auto-labeling:** Applies relevant labels to issues, PRs, and discussions via AI
+
+### 🤖 Supported AI Providers
+
+Choose between [OpenAI](https://openai.com/) or [Anthropic](https://www.anthropic.com/) for AI-powered features:
+
+| Provider  | Default Model       | API Key             |
+| --------- | ------------------- | ------------------- |
+| OpenAI    | `gpt-5.4`           | `openai_api_key`    |
+| Anthropic | `claude-sonnet-4-6` | `anthropic_api_key` |
+
+The model is auto-detected based on which API key you provide. Override with the `model` input, for example `gpt-5.5`, or use `review_model` to override PR review only.
 
 ### 🛠️ How It Works
 
 Triggers on GitHub events to streamline workflows:
 
-- **Push Events:** Automatically formats code when changes are pushed to `main`
 - **Pull Requests:** Ensures formatting standards, generates summaries, provides AI reviews, and applies labels
-- **Issues:** Automatically applies relevant labels using GPT-5
+- **Issues:** Automatically applies relevant labels using AI
+- **Discussions:** Automatically applies relevant labels using AI
 
 ### 🔧 Setup
 
@@ -62,6 +74,8 @@ name: Ultralytics Actions
 on:
   issues:
     types: [opened]
+  discussion:
+    types: [created]
   pull_request:
     branches: [main]
     types: [opened, closed, synchronize, review_requested]
@@ -70,6 +84,7 @@ permissions:
   contents: write # Modify code in PRs
   pull-requests: write # Add comments and labels to PRs
   issues: write # Add comments and labels to issues
+  discussions: write # Add labels to discussions
 
 jobs:
   actions:
@@ -81,14 +96,19 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }} # Auto-generated token
           labels: true # Auto-label issues/PRs using AI
           python: true # Format Python with Ruff
-          python_docstrings: false # Format Python docstrings (default: false)
+          python_docstrings: true # Format Python docstrings (default: true)
+          biome: true # Format JS/TS with Biome (auto-detected via biome.json)
           prettier: true # Format YAML, JSON, Markdown, CSS
           swift: false # Format Swift (requires macos-latest)
           dart: false # Format Dart/Flutter
           spelling: true # Check spelling with codespell
           links: true # Check broken links with Lychee
           summary: true # Generate AI-powered PR summaries
-          openai_api_key: ${{ secrets.OPENAI_API_KEY }} # Powers PR summaries, labels and reviews
+          # AI API keys - provide OpenAI OR Anthropic (model auto-detected from key)
+          openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+          # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # model: gpt-5.5  # Optional: override default model
+          # review_model: claude-opus-4-7  # Optional: override PR review model
           brave_api_key: ${{ secrets.BRAVE_API_KEY }} # Used for broken link resolution
 ```
 
@@ -98,13 +118,13 @@ Reusable composite actions for common CI/CD tasks. Each can be used independentl
 
 ### 1. Retry Action
 
-Retry failed commands with exponential backoff.
+Retry failed commands with exponential backoff and jitter.
 
 ```yaml
 - uses: ultralytics/actions/retry@main
   with:
-    command: npm install
-    max_attempts: 3
+    run: npm install
+    retries: 3
     timeout_minutes: 5
 ```
 
@@ -122,7 +142,7 @@ Free up disk space on GitHub runners by removing unnecessary packages and files.
 
 ### 3. Scan PRs Action
 
-List open PRs across an organization and auto-merge eligible Dependabot PRs.
+List open PRs across an organization and auto-merge eligible GitHub Actions update PRs.
 
 ```yaml
 - uses: ultralytics/actions/scan-prs@main
@@ -164,7 +184,7 @@ Ultralytics thrives on community collaboration, and we deeply value your contrib
 
 Ultralytics offers two licensing options:
 
-- **AGPL-3.0 License**: An [OSI-approved](https://opensource.org/license/agpl-v3) open-source license ideal for students, researchers, and enthusiasts who value open collaboration. See the [LICENSE](https://github.com/ultralytics/ultralytics/blob/main/LICENSE) file for details.
+- **AGPL-3.0 License**: An [OSI-approved](https://opensource.org/license/agpl-3.0) open-source license ideal for students, researchers, and enthusiasts who value open collaboration. See the [LICENSE](https://github.com/ultralytics/actions/blob/main/LICENSE) file for details.
 - **Enterprise License**: Designed for commercial use, this license allows integrating Ultralytics software and AI models into commercial products without AGPL-3.0's open-source requirements. For enterprise solutions, contact [Ultralytics Licensing](https://www.ultralytics.com/license).
 
 ## 📫 Contact
@@ -179,7 +199,7 @@ For bug reports or feature suggestions related to Ultralytics Actions, please su
   <img src="https://raw.githubusercontent.com/ultralytics/assets/main/social/logo-transparent.png" width="3%" alt="space">
   <a href="https://twitter.com/ultralytics"><img src="https://raw.githubusercontent.com/ultralytics/assets/main/social/logo-social-twitter.png" width="3%" alt="Ultralytics Twitter"></a>
   <img src="https://raw.githubusercontent.com/ultralytics/assets/main/social/logo-transparent.png" width="3%" alt="space">
-  <a href="https://youtube.com/ultralytics"><img src="https://raw.githubusercontent.com/ultralytics/assets/main/social/logo-social-youtube.png" width="3%" alt="Ultralytics YouTube"></a>
+  <a href="https://www.youtube.com/ultralytics"><img src="https://raw.githubusercontent.com/ultralytics/assets/main/social/logo-social-youtube.png" width="3%" alt="Ultralytics YouTube"></a>
   <img src="https://raw.githubusercontent.com/ultralytics/assets/main/social/logo-transparent.png" width="3%" alt="space">
   <a href="https://www.tiktok.com/@ultralytics"><img src="https://raw.githubusercontent.com/ultralytics/assets/main/social/logo-social-tiktok.png" width="3%" alt="Ultralytics TikTok"></a>
   <img src="https://raw.githubusercontent.com/ultralytics/assets/main/social/logo-transparent.png" width="3%" alt="space">

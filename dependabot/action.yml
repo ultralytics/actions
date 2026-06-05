@@ -1,23 +1,31 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-name: "Scan PRs"
+name: "Dependabot"
 author: "Ultralytics"
-description: "List open PRs and auto-merge eligible GitHub Actions update PRs across organization"
+description: "Update GitHub Actions versions across organization repos with cached lookups. A centralized alternative to per-repo Dependabot configuration."
 branding:
-  icon: "git-pull-request"
+  icon: "refresh-cw"
   color: "blue"
 inputs:
   token:
-    description: "GitHub token with admin permissions for merging"
+    description: "GitHub token with contents:write, pull-requests:write, and workflow permissions"
     required: true
   org:
     description: "GitHub organization name"
     required: false
     default: "ultralytics"
-  visibility:
-    description: "Repository visibility to scan: public, private, internal, all, or comma-separated (e.g., 'private,internal')"
+  public:
+    description: "Scan public repositories"
     required: false
-    default: "public"
+    default: "true"
+  private:
+    description: "Scan private repositories"
+    required: false
+    default: "true"
+  internal:
+    description: "Scan internal repositories"
+    required: false
+    default: "true"
 runs:
   using: "composite"
   steps:
@@ -33,7 +41,6 @@ runs:
         GITHUB_SHA: ${{ github.sha }}
       run: |
         echo "::group::Install ultralytics-actions"
-        # Install from git commit if testing in ultralytics/actions repo, otherwise from main
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
           echo "Installing from commit: $GITHUB_SHA"
           packages="git+https://github.com/ultralytics/actions@${GITHUB_SHA}"
@@ -48,14 +55,15 @@ runs:
         echo "::endgroup::"
       shell: bash
 
-    - name: Scan PRs
+    - name: Dependabot
       env:
         GH_TOKEN: ${{ inputs.token }}
         ORG: ${{ inputs.org }}
-        VISIBILITY: ${{ inputs.visibility }}
-        REPO_VISIBILITY: ${{ github.event.repository.visibility }}
+        PUBLIC: ${{ inputs.public }}
+        PRIVATE: ${{ inputs.private }}
+        INTERNAL: ${{ inputs.internal }}
       run: |
-        echo "::group::Scan PRs"
-        python -m actions.scan_prs
+        echo "::group::Dependabot"
+        python -m actions.dependabot
         echo "::endgroup::"
       shell: bash

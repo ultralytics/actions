@@ -26,6 +26,10 @@ inputs:
     description: "Run Markdown formatting (deprecated in favor of prettier)"
     required: false
     default: "false"
+  biome:
+    description: "Run Biome formatting"
+    required: false
+    default: "false"
   prettier:
     description: "Run Prettier formatting for JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML"
     required: false
@@ -64,16 +68,25 @@ inputs:
   openai_api_key:
     description: "OpenAI API Key"
     required: false
-  openai_model:
-    description: "OpenAI Model"
+  anthropic_api_key:
+    description: "Anthropic API Key"
     required: false
-    default: "gpt-5-2025-08-07"
+  model:
+    description: "AI Model - defaults to GPT-5.4 or Sonnet 4.6 based on API key"
+    required: false
+  review_model:
+    description: "AI Model for PR reviews (optional, defaults to gpt-5.4)"
+    required: false
   first_issue_response:
     description: "Example response to a new issue"
     required: false
   first_pr_response:
     description: "Example response to a new PR"
     required: false
+  bun_update:
+    description: "Run bun update to update bun.lock if bun project detected"
+    required: false
+    default: "false"
   github_username:
     description: "GitHub username for commits"
     required: false
@@ -99,7 +112,8 @@ runs:
         GITHUB_REPOSITORY: ${{ github.repository }}
         GITHUB_REF: ${{ github.ref }}
       run: |
-        # Install from git branch if testing in ultralytics/actions repo, otherwise from PyPI
+        echo "::group::Install Dependencies"
+        # Install from current git branch if testing in ultralytics/actions repo, otherwise from GitHub main branch
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
           echo "Installing from git branch: $GITHUB_REF"
           packages="git+https://github.com/ultralytics/actions@${GITHUB_REF#refs/heads/}"
@@ -118,12 +132,13 @@ runs:
           sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
         fi
         ultralytics-actions-info
+        echo "::endgroup::"
       shell: bash
 
     # Checkout Repository ----------------------------------------------------------------------------------------------
     - name: Checkout Repository
       if: github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.action == 'review_requested'
-      uses: actions/checkout@v5
+      uses: actions/checkout@v6
       with:
         repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
         token: ${{ inputs.token }}
@@ -155,6 +170,7 @@ runs:
     - name: Run Python
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.python == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
+        echo "::group::Run Python"
         ruff check \
         --fix \
         --unsafe-fixes \
@@ -168,6 +184,23 @@ runs:
         if [ "${{ inputs.python_docstrings }}" = "true" ]; then
           ultralytics-actions-format-python-docstrings . || true
         fi
+        echo "::endgroup::"
+      shell: bash
+      continue-on-error: true
+
+    # Biome (JavaScript, TypeScript, JSON, JSX, TSX) ------------------------------------------------------------------
+    - name: Run Biome
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.biome == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      run: |
+        echo "::group::Run Biome"
+        if [ -f "biome.json" ] || [ -f "biome.jsonc" ]; then
+          npm install -g @biomejs/biome@latest
+          npx biome --version
+          npx biome check --write --line-width=120 --max-diagnostics=1000 --diagnostic-level=error --unsafe .
+        else
+          echo "⚠️  No biome.json found - skipping Biome formatting. Add biome.json to enable."
+        fi
+        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
@@ -175,18 +208,20 @@ runs:
     - name: Run Prettier
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (inputs.prettier == 'true' || inputs.markdown == 'true') && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
-        npm install --global prettier@3.6.2 prettier-plugin-sh
+        echo "::group::Run Prettier"
+        npm install -g prettier@3.6.2 prettier-plugin-sh
         ultralytics-actions-update-markdown-code-blocks
-        npx prettier --write --list-different "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json'
+        npx prettier --write --list-different --print-width 120 "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
         # Bash file format
         if find . -name "*.sh" -type f | grep -q .; then
-          npx prettier --write --list-different --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs "**/*.sh"
+          npx prettier --write --list-different --print-width 120 --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs "**/*.sh"
         fi
         # Handle Markdown separately
-        find . -name "*.md" ! -path "*/docs/*" -exec npx prettier --write --list-different {} +
+        find . -name "*.md" ! -path "*/docs/*" -exec npx prettier --write --list-different --print-width 120 {} +
         if [ -d "./docs" ]; then
-          find ./docs -name "*.md" ! -path "*/reference/*" -exec npx prettier --tab-width 4 --write --list-different {} +
+          find ./docs -name "*.md" ! -path "*/reference/*" -exec npx prettier --tab-width 4 --print-width 120 --write --list-different {} +
         fi
+        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
@@ -194,8 +229,10 @@ runs:
     - name: Run Swift Formatter
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.swift == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
+        echo "::group::Run Swift Formatter"
         brew install swift-format
         swift-format --in-place --recursive .
+        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
@@ -214,43 +251,19 @@ runs:
       continue-on-error: true # Important so that commit step can pick up changes
 
     # Spelling ---------------------------------------------------------------------------------------------------------
+    # --ignore-regex '\b[a-z]+[A-Z][a-zA-Z]*\b' ignores camelCase words (e.g. repoRes, dateA) to prevent false positives
     - name: Run Codespell
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.spelling == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
+        echo "::group::Run Codespell"
         codespell \
           --builtin clear,rare,informal,en-GB_to_en-US \
           --write-changes \
           --uri-ignore-words-list * \
-          --ignore-words-list "grey,writeable,finalY,RepResNet,Idenfy,WIT,Smoot,EHR,ROUGE,ALS,iTerm,Carmel,FPR,Hach,Calle,ore,COO,MOT,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall,skelton,goin" \
-          --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,*lock*,__pycache__*,*.ico,*.jpg,*.png,*.webp,*.avif,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml"
-      shell: bash
-      continue-on-error: true
-
-    # Commit Changes ---------------------------------------------------------------------------------------------------
-    - name: Commit and Push Changes
-      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (github.event.action == 'opened' || github.event.action == 'synchronize')
-      env:
-        GITHUB_USERNAME: ${{ inputs.github_username }}
-        GITHUB_EMAIL: ${{ inputs.github_email }}
-      run: |
-        COMMIT_MSG="Auto-format by https://ultralytics.com/actions"
-        # Check if last two commits were both auto-format to prevent recursive loops
-        LAST_TWO=$(git log -2 --pretty=format:'%s' 2>/dev/null || echo "")
-        MATCH_COUNT=$(printf '%s\n' "$LAST_TWO" | grep -Fxc "$COMMIT_MSG" || true)
-        if [ "$MATCH_COUNT" -ge 2 ]; then
-          echo "Skipping commit: last two commits were auto-format"
-          exit 0
-        fi
-        git config --global user.name "$GITHUB_USERNAME"
-        git config --global user.email "$GITHUB_EMAIL"
-        git add .
-        git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
-        if ! git diff --staged --quiet; then
-          git commit -m "$COMMIT_MSG"
-          git push
-        else
-          echo "No changes to commit"
-        fi
+          --ignore-regex '\b[a-z]+[A-Z][a-zA-Z]*\b' \
+          --ignore-words-list "nin,cancelled,MapPin,couldn,grey,writeable,RepResNet,Idenfy,WIT,Smoot,EHR,ROUGE,ALS,Carmel,FPR,Hach,Calle,ore,COO,MOT,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall,skelton,goin,cann,CANN" \
+          --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,*lock*,__pycache__*,*.ico,*.jpg,*.png,*.webp,*.avif,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml,action.yml"
+        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
@@ -261,7 +274,8 @@ runs:
         GITHUB_TOKEN: ${{ inputs.token }}
         BRAVE_API_KEY: ${{ inputs.brave_api_key }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
-        OPENAI_MODEL: ${{ inputs.openai_model }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        MODEL: ${{ inputs.model }}
       run: ultralytics-actions-summarize-pr
       shell: bash
       continue-on-error: true
@@ -275,7 +289,9 @@ runs:
         FIRST_PR_RESPONSE: ${{ inputs.first_pr_response }}
         BRAVE_API_KEY: ${{ inputs.brave_api_key }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
-        OPENAI_MODEL: ${{ inputs.openai_model }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        MODEL: ${{ inputs.model }}
+        REVIEW_MODEL: ${{ inputs.review_model }}
         REVIEW: ${{ inputs.review }}
       run: ultralytics-actions-first-interaction
       shell: bash
@@ -290,17 +306,76 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
-        OPENAI_MODEL: ${{ inputs.openai_model }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        MODEL: ${{ inputs.model }}
+        REVIEW_MODEL: ${{ inputs.review_model }}
       run: ultralytics-actions-review-pr
+      shell: bash
+      continue-on-error: true
+
+    # Bun Update ---------------------------------------------------------------------------------------------------------
+    - name: Bun Update
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.bun_update == 'true' && github.event.action == 'opened'
+      run: |
+        echo "::group::Bun Update"
+        if [ -f "bun.lock" ] || [ -f "bun.lockb" ]; then
+          npm install -g bun
+          echo "Updating root..."
+          bun update --latest
+          for pkg in apps/*/package.json packages/*/package.json; do
+            [ -f "$pkg" ] || continue
+            dir=$(dirname "$pkg")
+            echo "Updating $dir..."
+            (cd "$dir" && bun update --latest)
+          done
+          echo "Resolving bun.lock versions..."
+          bun update
+        else
+          echo "No bun.lock found - skipping Bun update"
+        fi
+        echo "::endgroup::"
+      shell: bash
+      continue-on-error: true
+
+    # Commit Changes ---------------------------------------------------------------------------------------------------
+    - name: Commit and Push Changes
+      # Skip when the triggering push came from the bot itself (a prior Auto-format push, or a sibling
+      # auto-commit workflow sharing the same token such as Auto-update Docs). github.actor is set by GitHub
+      # from the pushing token and cannot be spoofed via git config, so this breaks recursive auto-commit loops
+      # even when sibling bot commits or merge commits interleave between Auto-format pushes. Human pushes have a
+      # different actor and are always formatted. Default-GITHUB_TOKEN pushes never re-trigger workflows, so only
+      # PAT-authored bot pushes (actor == github_username) can recurse here.
+      if: |
+        (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') &&
+        (github.event.action == 'opened' || github.event.action == 'synchronize') &&
+        github.actor != inputs.github_username
+      env:
+        GITHUB_USERNAME: ${{ inputs.github_username }}
+        GITHUB_EMAIL: ${{ inputs.github_email }}
+      run: |
+        echo "::group::Commit and Push Changes"
+        COMMIT_MSG="Auto-format by https://ultralytics.com/actions"
+        git config --global user.name "$GITHUB_USERNAME"
+        git config --global user.email "$GITHUB_EMAIL"
+        git add .
+        git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
+        if ! git diff --staged --quiet; then
+          git commit -m "$COMMIT_MSG"
+          git push
+        else
+          echo "No changes to commit"
+        fi
+        echo "::endgroup::"
       shell: bash
       continue-on-error: true
 
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
       if: inputs.links == 'true' && github.event.action != 'closed'
-      uses: lycheeverse/lychee-action@v2.7.0
+      uses: lycheeverse/lychee-action@v2.8.0
       with:
         # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:
+        #   - 401(generic, "unauthorized")
         #   - 403(OpenVINO, "forbidden")
         #   - 429(Instagram, "too many requests")
         #   - 500(Zenodo, "cached")

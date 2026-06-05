@@ -1,11 +1,11 @@
 # Scan PRs Action
 
-List open PRs across an organization and auto-merge eligible Dependabot PRs.
+List open PRs across an organization and auto-merge eligible GitHub Actions update PRs.
 
 ## Features
 
 - **PR Overview**: Lists all open PRs with age-based categorization (New, Green ≤7d, Yellow ≤30d, Red >30d)
-- **Auto-merge**: Automatically merges Dependabot PRs that update GitHub Actions workflows when all checks pass
+- **Auto-merge**: Automatically merges Dependabot and UltralyticsAssistant PRs that update GitHub Actions when no checks have failed
 - **Console Logging**: Detailed output showing which PRs were found, merged, or skipped with reasons
 
 ## Usage
@@ -44,12 +44,14 @@ jobs:
 
 ## Auto-merge Criteria
 
-Dependabot PRs are automatically merged if they meet ALL criteria:
+GitHub Actions update PRs are automatically merged if they meet ALL criteria:
 
-1. Update files in `.github/workflows/` only
-2. PR is mergeable (no conflicts)
-3. All status checks passed (SUCCESS, SKIPPED, or NEUTRAL)
-4. Maximum 1 PR merged per repository per run
+1. Authored by Dependabot or UltralyticsAssistant
+2. Title contains `bump` and `/.github/workflows` (a GitHub Actions version bump)
+3. Update at least one GitHub Actions file (in `.github/workflows/`, or an `action.yml`/`action.yaml`)
+4. PR is mergeable (no conflicts)
+5. No status checks in a failed state (`FAILURE`, `ERROR`, `CANCELLED`, `TIMED_OUT`, `ACTION_REQUIRED`, `STARTUP_FAILURE`); pending or absent checks do not block merging
+6. Maximum 1 PR merged per repository per run
 
 ## Output
 
@@ -58,4 +60,4 @@ The action generates a GitHub step summary with:
 - Total PR count across all repos
 - PR breakdown by phase (New, Green, Yellow, Red)
 - Detailed list of PRs per repository
-- Summary of Dependabot PRs found, merged, and skipped
+- Summary of GitHub Actions update PRs found, merged, and skipped

@@ -1,0 +1,61 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+name: ❓ Question
+description: Ask an Ultralytics Actions question
+# title: " "
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thank you for asking an Ultralytics Actions ❓ Question! The [README](https://github.com/ultralytics/actions#readme) contains detailed setup steps for the main Action, standalone actions, and the Python package—please review it before posting.
+
+  - type: checkboxes
+    attributes:
+      label: Search before asking
+      description: >
+        I have reviewed the README and Docs and searched the Ultralytics [issues](https://github.com/ultralytics/actions/issues) and [discussions](https://github.com/orgs/ultralytics/discussions) with no similar questions.
+      options:
+        - label: >
+            I have reviewed the README and searched the Ultralytics [issues](https://github.com/ultralytics/actions/issues) and [discussions](https://github.com/orgs/ultralytics/discussions) with no similar questions.
+          required: true
+
+  - type: dropdown
+    attributes:
+      label: Ultralytics Actions area
+      description: Select the area you need help with.
+      multiple: true
+      options:
+        - "Ultralytics Actions workflow (ultralytics/actions@main)"
+        - "Retry Action"
+        - "Cleanup Disk Action"
+        - "Scan PRs Action"
+        - "Python package (`ultralytics-actions`)"
+        - "Repository documentation / README"
+        - "Other"
+
+  - type: textarea
+    attributes:
+      label: Question
+      description: Provide details about what you're trying to accomplish, referencing README sections or workflow snippets where possible. Include the action configuration, command, or Python usage plus any logs. Use [Markdown](https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax) for clarity.
+      placeholder: |
+        💡 ProTip! Include as much information as possible (logs, tracebacks, screenshots etc.) to receive the most helpful response.
+    validations:
+      required: true
+
+  - type: textarea
+    attributes:
+      label: Workflow or command context
+      description: Paste the relevant GitHub workflow step, CLI command, or Python snippet that illustrates your question.
+      placeholder: |
+        ```yaml
+        - uses: ultralytics/actions@main
+          with:
+            labels: true
+            summary: true
+        ```
+
+  - type: textarea
+    attributes:
+      label: Additional
+      description: Anything else you would like to share?
