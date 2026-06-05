@@ -18,6 +18,10 @@ inputs:
     description: "Run Python formatting"
     required: false
     default: "false"
+  python-version:
+    description: "Python version to set up before running Python tooling"
+    required: false
+    default: ""
   python_docstrings:
     description: "Run Python docstring formatting"
     required: false
@@ -100,6 +104,12 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Setup Python
+      if: inputs.python-version != ''
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ inputs.python-version }}
+
     - uses: astral-sh/setup-uv@v7
       with:
         ignore-empty-workdir: true
