@@ -98,6 +98,9 @@ def format_code_with_ruff(temp_dir):
 
 def format_bash_with_prettier(temp_dir):
     """Formats bash script files in the specified directory using prettier."""
+    if not next(Path(temp_dir).rglob("*.sh"), None):
+        return
+
     try:
         # Run prettier with explicit config path
         result = subprocess.run(
