@@ -98,7 +98,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }} # Auto-generated token
           labels: true # Auto-label issues/PRs using AI
-          python-version: "3.13" # Optional: set up a specific Python version
+          python-version: "3.14" # Optional: set up a specific Python version
           python: true # Format Python with Ruff
           python_docstrings: true # Format Python docstrings (default: true)
           biome: true # Format JS/TS with Biome (auto-detected via biome.json)
@@ -172,11 +172,9 @@ Update GitHub Actions versions across organization repositories with cached rele
 
 ## Python Package
 
-Install `ultralytics-actions` for programmatic access to action utilities.
+Install the `ultralytics-actions` package for programmatic access to action utilities, including all [requirements](https://github.com/ultralytics/actions/blob/main/pyproject.toml), in a [**Python>=3.8**](https://www.python.org/) environment.
 
-[![PyPI - Version](https://img.shields.io/pypi/v/ultralytics-actions?logo=pypi&logoColor=white)](https://pypi.org/project/ultralytics-actions/)
-[![Ultralytics Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://clickpy.clickhouse.com/dashboard/ultralytics-actions)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ultralytics-actions?logo=python&logoColor=gold)](https://pypi.org/project/ultralytics-actions/)
+[![PyPI - Version](https://img.shields.io/pypi/v/ultralytics-actions?logo=pypi&logoColor=white)](https://pypi.org/project/ultralytics-actions/) [![Ultralytics Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://clickpy.clickhouse.com/dashboard/ultralytics-actions) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ultralytics-actions?logo=python&logoColor=gold)](https://pypi.org/project/ultralytics-actions/)
 
 ```bash
 pip install ultralytics-actions
