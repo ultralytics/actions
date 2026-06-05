@@ -64,7 +64,7 @@ def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
 def get_relevant_labels(
     issue_type: str, title: str, body: str, available_labels: dict, current_labels: list
 ) -> list[str]:
-    """Determines relevant labels for GitHub issues/discussions using OpenAI."""
+    """Determines relevant labels for GitHub issues/discussions using AI."""
     filtered_labels = filter_labels(available_labels, current_labels, is_pr=(issue_type == "pull request"))
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
 

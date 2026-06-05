@@ -75,7 +75,7 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
 
 
 def generate_pr_summary(repository, diff_text):
-    """Generates a concise, professional summary of a PR using OpenAI's API."""
+    """Generates a concise, professional summary of a PR using the OpenAI or Anthropic API."""
     prompt, is_large, skipped_files = get_pr_summary_prompt(repository, diff_text)
 
     messages = [

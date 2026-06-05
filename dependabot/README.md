@@ -1,6 +1,6 @@
 # Dependabot Action
 
-Update GitHub Actions versions across organization repos with cached version resolution. Designed for private/internal repos where GitHub's built-in Dependabot is not available.
+Update GitHub Actions versions across organization repos with cached version resolution. Provides centralized, org-wide updates (including private/internal repos) without per-repo Dependabot configuration.
 
 ## Usage
 

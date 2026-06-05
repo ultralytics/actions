@@ -38,7 +38,7 @@ AI-powered formatting, labeling, and PR summaries for Python, Swift, and Markdow
 - **Broken Links Check:** Broken links identified using [Lychee](https://github.com/lycheeverse/lychee)
 - **PR Summary:** Concise Pull Request summaries generated using AI
 - **PR Review:** AI-powered code reviews identify critical bugs, security issues, and quality concerns with suggested fixes
-- **Auto-labeling:** Applies relevant labels to issues and PRs via AI
+- **Auto-labeling:** Applies relevant labels to issues, PRs, and discussions via AI
 
 ### 🤖 Supported AI Providers
 
@@ -55,9 +55,9 @@ The model is auto-detected based on which API key you provide. Override with the
 
 Triggers on GitHub events to streamline workflows:
 
-- **Push Events:** Automatically formats code when changes are pushed to `main`
 - **Pull Requests:** Ensures formatting standards, generates summaries, provides AI reviews, and applies labels
 - **Issues:** Automatically applies relevant labels using AI
+- **Discussions:** Automatically applies relevant labels using AI
 
 ### 🔧 Setup
 
@@ -74,6 +74,8 @@ name: Ultralytics Actions
 on:
   issues:
     types: [opened]
+  discussion:
+    types: [created]
   pull_request:
     branches: [main]
     types: [opened, closed, synchronize, review_requested]
@@ -82,6 +84,7 @@ permissions:
   contents: write # Modify code in PRs
   pull-requests: write # Add comments and labels to PRs
   issues: write # Add comments and labels to issues
+  discussions: write # Add labels to discussions
 
 jobs:
   actions:
@@ -94,7 +97,7 @@ jobs:
           labels: true # Auto-label issues/PRs using AI
           python-version: "3.13" # Optional: set up a specific Python version
           python: true # Format Python with Ruff
-          python_docstrings: false # Format Python docstrings (default: false)
+          python_docstrings: true # Format Python docstrings (default: true)
           biome: true # Format JS/TS with Biome (auto-detected via biome.json)
           prettier: true # Format YAML, JSON, Markdown, CSS
           swift: false # Format Swift (requires macos-latest)
@@ -140,7 +143,7 @@ Free up disk space on GitHub runners by removing unnecessary packages and files.
 
 ### 3. Scan PRs Action
 
-List open PRs across an organization and auto-merge eligible Dependabot PRs.
+List open PRs across an organization and auto-merge eligible GitHub Actions update PRs.
 
 ```yaml
 - uses: ultralytics/actions/scan-prs@main
@@ -182,7 +185,7 @@ Ultralytics thrives on community collaboration, and we deeply value your contrib
 
 Ultralytics offers two licensing options:
 
-- **AGPL-3.0 License**: An [OSI-approved](https://opensource.org/license/agpl-3.0) open-source license ideal for students, researchers, and enthusiasts who value open collaboration. See the [LICENSE](https://github.com/ultralytics/ultralytics/blob/main/LICENSE) file for details.
+- **AGPL-3.0 License**: An [OSI-approved](https://opensource.org/license/agpl-3.0) open-source license ideal for students, researchers, and enthusiasts who value open collaboration. See the [LICENSE](https://github.com/ultralytics/actions/blob/main/LICENSE) file for details.
 - **Enterprise License**: Designed for commercial use, this license allows integrating Ultralytics software and AI models into commercial products without AGPL-3.0's open-source requirements. For enterprise solutions, contact [Ultralytics Licensing](https://www.ultralytics.com/license).
 
 ## 📫 Contact
