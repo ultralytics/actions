@@ -7,6 +7,7 @@ from unittest.mock import mock_open, patch
 from actions.update_markdown_code_blocks import (
     add_indentation,
     extract_code_blocks,
+    format_bash_with_prettier,
     generate_temp_filename,
     main,
     process_markdown_file,
@@ -106,6 +107,16 @@ def test():
     assert len(temp_files) == 1
     assert temp_files[0][1] == "def test():\n    return True"
     mock_file.assert_called_once()
+
+
+def test_format_bash_skips_when_no_shell_files(tmp_path):
+    """Test bash formatter skips Prettier when no shell snippets were extracted."""
+    (tmp_path / "snippet.py").write_text("print('ok')", encoding="utf-8")
+
+    with patch("subprocess.run") as mock_run:
+        format_bash_with_prettier(tmp_path)
+
+    mock_run.assert_not_called()
 
 
 def test_main_real_files():
