@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import re
+from datetime import datetime
 from pathlib import Path
 
 from actions.utils import Action
@@ -127,11 +129,7 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
 
     # Find existing header
     header_index = next(
-        (
-            i
-            for i in range(start_idx, end_idx)
-            if any(x in lines[i] for x in {"© 2014-", "AGPL-3.0", "CONFIDENTIAL", "Ultralytics 🚀"})
-        ),
+        (i for i in range(start_idx, end_idx) if re.search(r"AGPL-3.0|CONFIDENTIAL|Ultralytics|©\s*\d{4}", lines[i])),
         -1,
     )
 
@@ -178,14 +176,15 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
 
 
 def main(*args, **kwargs):
-    """Automates file header updates for all files in the specified directory."""
+    """Automates file header updates for supported file types under the current working directory."""
     event = Action(*args, **kwargs)
+    current_year = datetime.now().year
+    repository = (event.repository or "").lower()
 
-    if "ultralytics" in event.repository.lower():
-        if event.is_repo_private() and event.repository.startswith("ultralytics/"):
-            from datetime import datetime
-
-            notice = f"© 2014-{datetime.now().year} Ultralytics Inc. 🚀"
+    # Only process repos owned by the Ultralytics organization
+    if repository.startswith("ultralytics/"):
+        if event.is_repo_private():
+            notice = f"© 2014-{current_year} Ultralytics Inc. 🚀"
             header = f"{notice} All rights reserved. CONFIDENTIAL: Unauthorized use or distribution prohibited."
         else:
             header = "Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license"
@@ -194,13 +193,16 @@ def main(*args, **kwargs):
     else:
         return
 
+    # Update any year range to current year (handles both - and en-dash)
+    header = re.sub(r"(\d{4}[–-])\d{4}", rf"\g<1>{current_year}", header)
+
     directory = Path.cwd()
     total = changed = unchanged = 0
     for ext, comment_style in COMMENT_MAP.items():
         prefix, block_start, block_end = comment_style
 
         for file_path in directory.rglob(f"*{ext}"):
-            if any(part in str(file_path) for part in IGNORE_PATHS):
+            if not file_path.is_file() or any(part in str(file_path) for part in IGNORE_PATHS):
                 continue
 
             total += 1

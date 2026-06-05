@@ -9,17 +9,20 @@ runs:
     - name: Cleanup disk space
       shell: bash
       run: |
-        echo "Free space before deletion:"
+        echo "::group::Disk Space Before Cleanup"
         df -h /
+        echo "::endgroup::"
 
+        echo "::group::Remove Tool Cache and Swap"
         # Remove tool cache to free up ~15GB of space per https://github.com/ultralytics/ultralytics/pull/15848
         rm -rf /opt/hostedtoolcache || true
-
         # Remove swap space to free up ~4GB
         if [ -f /swapfile ]; then
           sudo swapoff -a
           sudo rm -f /swapfile
         fi
+        echo "::endgroup::"
 
-        echo "Free space after deletion:"
+        echo "::group::Disk Space After Cleanup"
         df -h /
+        echo "::endgroup::"

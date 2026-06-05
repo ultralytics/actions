@@ -53,6 +53,40 @@ def test_action_request_methods():
         mock_get.assert_called_once()
 
 
+def test_get_pr_contributors_excludes_bots():
+    """Test PR contributor credit excludes bot commit users."""
+    action = Action(
+        token="test-token",
+        event_data={"repository": {"full_name": "test/repo"}, "pull_request": {"number": 123}},
+    )
+    data = {
+        "author": {"login": "pr-author", "__typename": "User"},
+        "reviews": {"nodes": []},
+        "comments": {"nodes": []},
+        "commits": {
+            "nodes": [
+                {
+                    "commit": {
+                        "author": {"user": {"login": "github-actions[bot]", "__typename": "Bot"}},
+                        "committer": {"user": {"login": "teammate", "__typename": "User"}},
+                    }
+                },
+            ]
+        },
+    }
+    pr_response = MagicMock(
+        status_code=200,
+        json=lambda: {"data": {"repository": {"pullRequest": data}}},
+    )
+
+    with patch.object(action, "post", return_value=pr_response), patch.object(
+        action, "get_username", return_value="actions-user"
+    ):
+        pr_credit, _ = action.get_pr_contributors()
+
+    assert pr_credit == "@pr-author with contributions from @teammate"
+
+
 def test_load_event_data():
     """Test loading event data from file."""
     with patch("pathlib.Path.exists", return_value=True):

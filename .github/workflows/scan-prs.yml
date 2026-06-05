@@ -1,6 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-# List Open PRs across Ultralytics repositories and auto-merge eligible Dependabot PRs
+# List Open PRs across Ultralytics repositories and auto-merge eligible GitHub Actions update PRs
 
 name: Scan PRs
 

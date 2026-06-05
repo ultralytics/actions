@@ -10,6 +10,8 @@ import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 
+from actions.utils import COMMON_EXCLUDED_DIRS
+
 URLS = {"https", "http", "ftp"}
 SECTIONS = (
     "Args",
@@ -48,26 +50,8 @@ GOOGLE_SECTION_RX = re.compile(
 )
 NON_GOOGLE = {"numpy", "rest", "epydoc"}
 
-# Default directories to skip when discovering Python files
-EXCLUDED_DIR_NAMES = {
-    "venv",
-    ".venv",
-    "env",
-    ".env",
-    "build",
-    "dist",
-    "__pycache__",
-    ".mypy_cache",
-    ".pytest_cache",
-    ".tox",
-    ".nox",
-    ".git",
-    "site-packages",
-    ".eggs",
-    "eggs",
-    ".idea",
-    ".vscode",
-}
+# Default directories to skip when discovering Python files (uses shared constant)
+EXCLUDED_DIR_NAMES = COMMON_EXCLUDED_DIRS
 
 
 def wrap_words(words: list[str], width: int, indent: int, min_words_per_line: int = 1) -> list[str]:

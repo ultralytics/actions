@@ -37,7 +37,14 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             author { login, __typename }
             reviews(first: 50) { nodes { author { login, __typename } } }
             comments(first: 50) { nodes { author { login, __typename } } }
-            commits(first: 100) { nodes { commit { author { user { login } }, committer { user { login } } } } }
+            commits(first: 100) {
+                nodes {
+                    commit {
+                        author { user { login, __typename } }
+                        committer { user { login, __typename } }
+                    }
+                }
+            }
         }
     }
 }
@@ -228,7 +235,7 @@ class Action:
         return json.loads(Path(event_path).read_text()) if event_path and Path(event_path).exists() else {}
 
     def is_repo_private(self) -> bool:
-        """Checks if the repository is public using event data."""
+        """Checks if the repository is private using event data."""
         return self.event_data.get("repository", {}).get("private", False)
 
     def get_username(self) -> str | None:
@@ -269,12 +276,12 @@ class Action:
         head_repo = self.pr.get("head", {}).get("repo", {}).get("full_name")
         return bool(head_repo) and head_repo != self.repository
 
-    def should_skip_openai(self) -> bool:
-        """Check if OpenAI operations should be skipped."""
-        from actions.utils.openai_utils import OPENAI_API_KEY
+    def should_skip_llm(self) -> bool:
+        """Check if LLM operations should be skipped (no API key found)."""
+        from actions.utils.openai_utils import ANTHROPIC_API_KEY, OPENAI_API_KEY
 
-        if not OPENAI_API_KEY:
-            print("⚠️ Skipping LLM operations (OPENAI_API_KEY not found)")
+        if not OPENAI_API_KEY and not ANTHROPIC_API_KEY:
+            print("⚠️ Skipping LLM operations (no OPENAI_API_KEY or ANTHROPIC_API_KEY found)")
             return True
         return False
 
@@ -534,7 +541,7 @@ Thank you 🙏
                 commit_data = commit["commit"]
                 for user_type in ["author", "committer"]:
                     if user := commit_data[user_type].get("user"):
-                        if login := user.get("login"):
+                        if user["__typename"] != "Bot" and (login := user.get("login")):
                             contributors.add(login)
 
             contributors.discard(author)

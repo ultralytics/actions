@@ -11,11 +11,13 @@
 # │   │   ├── __init__.py
 # │   │   ├── github_utils.py
 # │   │   ├── openai_utils.py
-# │   │   └── common_utils.py
+# │   │   ├── common_utils.py
+# │   │   └── version_utils.py
 # │   ├── dispatch_actions.py
 # │   ├── first_interaction.py
 # │   ├── review_pr.py
 # │   ├── scan_prs.py
+# │   ├── dependabot.py
 # │   ├── summarize_pr.py
 # │   ├── summarize_release.py
 # │   ├── format_python_docstrings.py
@@ -27,4 +29,4 @@
 #     ├── test_summarize_pr.py
 #     └── ...
 
-__version__ = "0.2.8"
+__version__ = "0.2.15"

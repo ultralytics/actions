@@ -7,6 +7,7 @@ from .utils import (
     GITHUB_API_URL,
     GRAPHQL_LABEL_AND_COMMENT_ISSUE,
     Action,
+    format_skipped_files_dropdown,
     get_pr_summary_prompt,
     get_response,
 )
@@ -19,12 +20,17 @@ def generate_merge_message(pr_summary, pr_credit, pr_url):
     messages = [
         {
             "role": "system",
-            "content": "You are an Ultralytics AI assistant. Generate inspiring, appreciative messages for GitHub contributors.",
+            "content": (
+                "You are an Ultralytics AI assistant. Your response is posted verbatim as a GitHub "
+                "comment on a merged PR. Respond with ONLY the final comment body, ready to post. "
+                "Do not include preambles (e.g. 'Absolutely', 'Sure', 'Here's a comment'), "
+                "explanations, sign-offs, or horizontal-rule separators ('---')."
+            ),
         },
         {
             "role": "user",
             "content": (
-                f"Write a warm thank-you comment for the merged PR {pr_url} by {pr_credit}. "
+                f"Compose the thank-you comment for the merged PR {pr_url} by {pr_credit}. "
                 f"Context:\n{pr_summary}\n\n"
                 f"Start with an enthusiastic note about the merge, incorporate a relevant inspirational quote from a historical "
                 f"figure, and connect it to the PR's impact. Keep it concise yet meaningful, ensuring contributors feel valued."
@@ -43,11 +49,16 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
     messages = [
         {
             "role": "system",
-            "content": "You are an Ultralytics AI assistant. Generate friendly GitHub issue comments. No @ mentions or direct addressing.",
+            "content": (
+                "You are an Ultralytics AI assistant. Your response is posted verbatim as a GitHub "
+                "issue comment. Respond with ONLY the final comment body, ready to post. Do not "
+                "include preambles (e.g. 'Absolutely', 'Sure', 'Here's a comment'), explanations, "
+                "sign-offs, or horizontal-rule separators ('---'). No @ mentions or direct addressing."
+            ),
         },
         {
             "role": "user",
-            "content": f"Write a GitHub issue comment announcing a potential fix for this issue is now merged in linked PR {pr_url} by {pr_credit}\n\n"
+            "content": f"Compose a GitHub issue comment announcing a potential fix for this issue is now merged in linked PR {pr_url} by {pr_credit}\n\n"
             f"PR Title: {pr_title}\n\n"
             f"Context from PR:\n{pr_summary}\n\n"
             f"Include:\n"
@@ -65,8 +76,8 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
 
 
 def generate_pr_summary(repository, diff_text):
-    """Generates a concise, professional summary of a PR using OpenAI's API."""
-    prompt, is_large = get_pr_summary_prompt(repository, diff_text)
+    """Generates a concise, professional summary of a PR using the OpenAI or Anthropic API."""
+    prompt, is_large, skipped_files = get_pr_summary_prompt(repository, diff_text)
 
     messages = [
         {
@@ -79,7 +90,10 @@ def generate_pr_summary(repository, diff_text):
     if is_large:
         reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
 
-    return f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{reply}"
+    # Add skipped files dropdown if any files were filtered
+    skipped_dropdown = format_skipped_files_dropdown(skipped_files)
+
+    return f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{reply}{skipped_dropdown}"
 
 
 def label_fixed_issues(event, pr_summary):
@@ -119,7 +133,7 @@ def main(*args, **kwargs):
     if action == "opened":
         print("Skipping PR open - handled by first_interaction.py with unified API call")
         return
-    if event.should_skip_openai():
+    if event.should_skip_llm():
         return
 
     print(f"Retrieving diff for PR {event.pr['number']}")

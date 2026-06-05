@@ -7,7 +7,15 @@ import time
 
 from . import review_pr
 from .summarize_pr import SUMMARY_MARKER
-from .utils import ACTIONS_CREDIT, Action, filter_labels, get_pr_open_response, get_response, remove_html_comments
+from .utils import (
+    ACTIONS_CREDIT,
+    Action,
+    filter_labels,
+    format_skipped_files_dropdown,
+    get_pr_open_response,
+    get_response,
+    remove_html_comments,
+)
 
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 AUTO_PR_REVIEW = os.getenv("REVIEW", "true").lower() == "true"
@@ -55,7 +63,7 @@ def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
 def get_relevant_labels(
     issue_type: str, title: str, body: str, available_labels: dict, current_labels: list
 ) -> list[str]:
-    """Determines relevant labels for GitHub issues/discussions using OpenAI."""
+    """Determines relevant labels for GitHub issues/discussions using AI."""
     filtered_labels = filter_labels(available_labels, current_labels, is_pr=(issue_type == "pull request"))
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
 
@@ -173,7 +181,7 @@ YOUR {issue_type.upper()} RESPONSE:
 def main(*args, **kwargs):
     """Executes auto-labeling and custom response generation for new GitHub issues, PRs, and discussions."""
     event = Action(*args, **kwargs)
-    if event.should_skip_openai():
+    if event.should_skip_llm():
         return
 
     number, node_id, title, body, username, issue_type, action = get_event_content(event)
@@ -195,8 +203,9 @@ def main(*args, **kwargs):
 
         if summary := response.get("summary"):
             print("Updating PR description with summary...")
+            skipped_dropdown = format_skipped_files_dropdown(response.get("skipped_files", []))
             event.update_pr_description(
-                number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}", pr_data.get("body")
+                number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}{skipped_dropdown}", pr_data.get("body")
             )
         else:
             summary = body
@@ -213,7 +222,7 @@ def main(*args, **kwargs):
         if AUTO_PR_REVIEW:
             print("Starting automatic PR review...")
             review_number = review_pr.dismiss_previous_reviews(event)
-            review_data = review_pr.generate_pr_review(event.repository, diff, title, summary)
+            review_data = review_pr.generate_pr_review(event.repository, diff, title, summary, event)
             review_pr.post_review_summary(event, review_data, review_number)
             print("PR review completed")
         return

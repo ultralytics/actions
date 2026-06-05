@@ -63,11 +63,13 @@ def get_repo_filter(visibility_list):
 def get_status_checks(rollup):
     """Extract and validate status checks from rollup, return failed checks."""
     checks = rollup if isinstance(rollup, list) else rollup.get("contexts", []) if isinstance(rollup, dict) else []
-    return [c for c in checks if c.get("conclusion") not in ["SUCCESS", "SKIPPED", "NEUTRAL"]]
+    # Only flag explicit failures, not pending/stale/expected/in-progress states
+    failed = {"FAILURE", "ERROR", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE"}
+    return [c for c in checks if (c.get("conclusion") or c.get("state") or "").upper() in failed]
 
 
 def run():
-    """List open PRs across organization and auto-merge eligible Dependabot PRs."""
+    """List open PRs across organization and auto-merge eligible GitHub Actions update PRs."""
     org = os.getenv("ORG", "ultralytics")
     visibility_list = parse_visibility(os.getenv("VISIBILITY", "public"), os.getenv("REPO_VISIBILITY", "public"))
     filter_config = get_repo_filter(visibility_list)
@@ -155,74 +157,117 @@ def run():
             summary.append(f"- ... {len(repo_prs) - 30} more PRs")
         summary.append("")
 
-    # Auto-merge Dependabot GitHub Actions PRs
-    print("\n🤖 Checking for Dependabot PRs to auto-merge...")
-    summary.append("\n# 🤖 Auto-Merge Dependabot GitHub Actions PRs\n")
+    # Auto-merge GitHub Actions update PRs
+    print("\n🤖 Checking for GitHub Actions update PRs to auto-merge...")
+    summary.append("\n# 🤖 Auto-Merge GitHub Actions Update PRs\n")
     total_found = total_merged = total_skipped = 0
+    approved_authors = ["app/dependabot", "UltralyticsAssistant"]
 
     for repo_name in repos:
-        result = subprocess.run(
-            [
-                "gh",
-                "pr",
-                "list",
-                "--repo",
-                f"{org}/{repo_name}",
-                "--author",
-                "app/dependabot",
-                "--state",
-                "open",
-                "--json",
-                "number,title,files,mergeable,statusCheckRollup",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if result.returncode != 0:
-            continue
+        # Query PRs once per approved author to avoid fetching all open PRs
+        all_prs = []
+        for author in approved_authors:
+            pr_list = subprocess.run(
+                [
+                    "gh",
+                    "pr",
+                    "list",
+                    "--repo",
+                    f"{org}/{repo_name}",
+                    "--author",
+                    author,
+                    "--state",
+                    "open",
+                    "--json",
+                    "number,title,url,files,mergeable,statusCheckRollup",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            if pr_list.returncode == 0:
+                all_prs.extend(json.loads(pr_list.stdout))
 
         merged = 0
-        for pr in json.loads(result.stdout):
-            if not all(f["path"].startswith(".github/workflows/") for f in pr["files"]):
+        for pr in all_prs:
+            # Filter by title: must be a GitHub Actions bump PR
+            title = pr.get("title", "").lower()
+            if "bump" not in title or "/.github/workflows" not in title:
+                continue
+
+            # Require at least one workflow/action file
+            paths = [f["path"] for f in (pr.get("files") or [])]
+            if not any(p.startswith(".github/workflows/") or p.endswith(("action.yml", "action.yaml")) for p in paths):
+                print("    ⏭️  Skipped (non-action files)")
                 continue
 
             total_found += 1
+            pr_link = pr.get("url", f"https://github.com/{org}/{repo_name}/pull/{pr['number']}")
             pr_ref = f"{org}/{repo_name}#{pr['number']}"
-            print(f"  Found: {pr_ref} - {pr['title']}")
+            print(f"  Found: {pr_link} - {pr['title']}")
+
+            # Log status checks to help troubleshoot merge decisions
+            rollup = pr.get("statusCheckRollup") or []
+            checks = rollup if isinstance(rollup, list) else rollup.get("contexts", [])
+            if checks:
+                print("    ℹ️  Status checks:")
+                for check in checks:
+                    name = check.get("name") or check.get("context") or "unknown"
+                    status = check.get("conclusion") or check.get("state") or ""
+                    print(f"      - {name}: {status}")
+            else:
+                print("    ℹ️  No status checks found")
 
             if merged >= 1:
                 print(f"    ⏭️  Skipped (already merged 1 PR in {repo_name})")
                 total_skipped += 1
                 continue
 
-            if pr["mergeable"] != "MERGEABLE":
-                print(f"    ❌ Skipped (not mergeable: {pr['mergeable']})")
+            # Skip PRs with merge conflicts
+            mergeable = pr.get("mergeable", "UNKNOWN")
+            if mergeable == "CONFLICTING":
+                print("    ❌ Skipped (merge conflicts)")
+                summary.append(f"- ❌ {pr_ref}: merge conflicts")
                 total_skipped += 1
                 continue
 
+            # Skip PRs with explicitly failed checks
             if failed := get_status_checks(pr.get("statusCheckRollup")):
-                for check in failed:
-                    print(f"    ❌ Failing check: {check.get('name', 'unknown')} = {check.get('conclusion')}")
+                names = ", ".join(c.get("name") or c.get("context") or "?" for c in failed)
+                print(f"    ❌ Skipped (failed checks: {names})")
+                summary.append(f"- ❌ {pr_ref}: failed checks ({names})")
                 total_skipped += 1
                 continue
 
-            print("    ✅ All checks passed, merging...")
-            result = subprocess.run(
-                ["gh", "pr", "merge", str(pr["number"]), "--repo", f"{org}/{repo_name}", "--squash", "--admin"],
+            # Attempt merge with admin bypass
+            print(f"    🔀 Merging (mergeable={mergeable})...")
+            merge_result = subprocess.run(
+                [
+                    "gh",
+                    "pr",
+                    "merge",
+                    str(pr["number"]),
+                    "--repo",
+                    f"{org}/{repo_name}",
+                    "--squash",
+                    "--admin",
+                    "--delete-branch",
+                ],
                 capture_output=True,
                 text=True,
             )
-            if result.returncode == 0:
-                print(f"    ✅ Successfully merged {pr_ref}")
+            if merge_result.returncode == 0:
+                print(f"    ✅ Merged {pr_ref}")
                 summary.append(f"- ✅ Merged {pr_ref}")
                 total_merged += 1
                 merged += 1
             else:
-                print(f"    ❌ Merge failed: {result.stderr.strip()}")
+                error = merge_result.stderr.strip()
+                print(f"    ❌ Merge failed: {error}")
+                summary.append(f"- ❌ {pr_ref}: {error[:80]}")
                 total_skipped += 1
 
     summary.append(f"\n**Summary:** Found {total_found} | Merged {total_merged} | Skipped {total_skipped}")
-    print(f"\n📊 Dependabot Summary: Found {total_found} | Merged {total_merged} | Skipped {total_skipped}")
+    print(f"\n📊 Auto-Merge Summary: Found {total_found} | Merged {total_merged} | Skipped {total_skipped}")
 
     if summary_file := os.getenv("GITHUB_STEP_SUMMARY"):
         with open(summary_file, "a") as f:

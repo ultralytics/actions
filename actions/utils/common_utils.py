@@ -6,9 +6,69 @@ import os
 import re
 import time
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from urllib import parse
 
 import requests
+
+# Common directories to exclude when traversing file trees (used by the Python docstring formatter)
+COMMON_EXCLUDED_DIRS = frozenset(
+    {
+        ".git",
+        ".venv",
+        "venv",
+        "env",
+        ".env",
+        "__pycache__",
+        ".mypy_cache",
+        ".pytest_cache",
+        ".tox",
+        ".nox",
+        ".eggs",
+        "eggs",
+        ".idea",
+        ".vscode",
+        "node_modules",
+        "site-packages",
+        "build",
+        "dist",
+    }
+)
+
+# Patterns for files that should be skipped in PR summaries and reviews (lock files, generated, minified, etc.)
+SKIP_PATTERN_STRINGS = [
+    r"\.lock$",  # Lock files
+    r"-lock\.(json|yaml|yml)$",
+    r"\.min\.(js|css)$",  # Minified
+    r"\.bundle\.(js|css)$",
+    r"(^|/)dist/",  # Generated/vendored directories
+    r"(^|/)build/",
+    r"(^|/)vendor/",
+    r"(^|/)node_modules/",
+    r"(^|/)coverage/",  # Coverage reports
+    r"\.pb\.py$",  # Proto generated
+    r"_pb2\.py$",
+    r"_pb2_grpc\.py$",
+    r"^package-lock\.json$",  # Package locks
+    r"^yarn\.lock$",
+    r"^poetry\.lock$",
+    r"^Pipfile\.lock$",
+    r"^uv\.lock$",
+    r"\.(svg|png|jpe?g|gif|ico|webp|avif|heic|heif|tiff?|bmp|eps|raw|cr2|nef|arw|dng|psd|ai|xcf)$",  # Images
+    r"\.(woff2?|ttf|eot|otf)$",  # Fonts
+    r"\.(mp4|webm|mov|avi|mkv|wmv|flv|m4v|3gp|mpeg|mpg|ogv|mts)$",  # Videos
+    r"\.(mp3|wav|ogg|flac|aac|m4a|wma|opus|aiff?)$",  # Audio
+    r"\.(pdf|doc|docx|xls|xlsx|ppt|pptx|odt|ods|odp|rtf|epub)$",  # Documents
+    r"\.(zip|tar|gz|tgz|bz2|xz|rar|7z|cab|iso|dmg)$",  # Archives
+    r"\.(exe|dll|so|dylib|bin|o|a|lib|pyc|pyo|class|jar|war|whl|egg)$",  # Binaries
+    r"\.(db|sqlite|sqlite3|mdb|pkl|pickle|npy|npz|h5|hdf5|parquet|arrow|feather)$",  # Data/Database
+    r"\.(pt|pth|onnx|pb|tflite|mlmodel|safetensors|ckpt|weights|model)$",  # ML Models
+    r"\.generated\.",  # Common generated file pattern
+]
+SKIP_PATTERNS = tuple(re.compile(pattern) for pattern in SKIP_PATTERN_STRINGS)
+
+# Regex to extract file path from git diff header (handles quoted paths with spaces/renames)
+DIFF_FILE_PATTERN = re.compile(r' "?b/(.+?)"?$')
 
 REQUESTS_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36",
@@ -36,7 +96,7 @@ BAD_HTTP_CODES = frozenset(
         502,  # Bad Gateway - upstream server sent invalid response
         503,  # Service Unavailable - server temporarily unable to handle request
         504,  # Gateway Timeout - upstream server didn't respond in time
-        525,  # Cloudfare handshake error
+        525,  # Cloudflare handshake error
     }
 )
 
@@ -82,13 +142,15 @@ REDIRECT_START_IGNORE_LIST = frozenset(
         "ultralytics.com/actions",
         "ultralytics.com/bilibili",
         "ultralytics.com/images",
-        "ultralytics.com/license",
+        "ultralytics.com/app-install",
         "ultralytics.com/assets",
         "app.gong.io/call?",
         "docs.openvino.ai",
         ".git",
         "/raw/",  # GitHub images
         ".slack.com",  # Slack URLs to private channels
+        "https://maps.app.goo.gl/nxB8YygRQeXSS9G18",  # Ultralytics Madrid office - Cra de San Jeronimo 15
+        "https://maps.app.goo.gl/9sdE3KrQVwc2shb86",  # Ultralytics London office - 50 York Way
     }
     | URL_IGNORE_LIST
 )
@@ -137,6 +199,72 @@ def remove_html_comments(body: str) -> str:
     return re.sub(r"<!--.*?-->", "", body, flags=re.DOTALL).strip() if body else ""
 
 
+def should_skip_file(path: str) -> bool:
+    """Return True if file path matches a generated/minified skip pattern (lock files, images, etc.)."""
+    normalized = Path(path).as_posix()
+    normalized = normalized[2:] if normalized.startswith("./") else normalized
+    filename = normalized.rsplit("/", 1)[-1]
+    return any(pattern.search(candidate) for pattern in SKIP_PATTERNS for candidate in (normalized, filename))
+
+
+def filter_diff_text(diff_text: str) -> tuple[str, list[str]]:
+    """Filter diff text to exclude lock files and other generated files.
+
+    Returns:
+        tuple: (filtered_diff_text, list of skipped file paths)
+    """
+    if not diff_text or diff_text.startswith("ERROR"):
+        return diff_text, []
+
+    filtered_lines = []
+    skipped_files = set()
+    current_file = None
+    skip_current = False
+
+    for line in diff_text.split("\n"):
+        if line.startswith("diff --git"):
+            # Extract file path from diff header using shared pattern
+            if match := DIFF_FILE_PATTERN.search(line):
+                current_file = match.group(1).rstrip('"')
+            else:
+                current_file = None
+            skip_current = current_file and should_skip_file(current_file)
+
+            if skip_current and current_file:
+                skipped_files.add(current_file)
+            else:
+                filtered_lines.append(line)
+        elif skip_current:
+            continue
+        else:
+            filtered_lines.append(line)
+
+    return "\n".join(filtered_lines), sorted(skipped_files)
+
+
+def format_skipped_files_dropdown(skipped_files: list[str], max_files: int = 100) -> str:
+    """Format skipped files as a collapsible HTML details dropdown for GitHub Markdown."""
+    if not skipped_files:
+        return ""
+    count = len(skipped_files)
+    summary = f"📋 Skipped {count} file{'s' if count != 1 else ''} (lock files, generated, images, etc.)"
+    file_list = "\n".join(f"- `{f}`" for f in sorted(skipped_files)[:max_files])
+    if count > max_files:
+        file_list += f"\n- ... and {count - max_files} more"
+    return f"\n<details><summary>{summary}</summary>\n\n{file_list}\n</details>\n"
+
+
+def format_skipped_files_note(skipped_files: list[str], max_files: int = 10) -> str:
+    """Format skipped files as a brief inline note for AI prompts."""
+    if not skipped_files:
+        return ""
+    note = "\n\nNote: The following auto-generated/lock files were also modified but diff details omitted: "
+    note += ", ".join(f"`{f}`" for f in skipped_files[:max_files])
+    if len(skipped_files) > max_files:
+        note += f" and {len(skipped_files) - max_files} more"
+    return note
+
+
 def clean_url(url):
     """Remove extra characters from URL strings."""
     url = str(url).strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
@@ -146,7 +274,7 @@ def clean_url(url):
 
 
 def allow_redirect(start="", end=""):
-    """Check if URL should be skipped based on simple rules."""
+    """Check if a redirect target should be applied based on simple allow rules."""
     start_lower = start.lower()
     end_lower = end.lower()
     return (
