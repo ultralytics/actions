@@ -33,7 +33,7 @@ jobs:
 ## How It Works
 
 1. Lists all active repos in the org (filtered by visibility)
-2. Fetches workflow files (`.github/workflows/*.yml` and `action.yml`) from each repo
+2. Fetches GitHub Actions files (`.github/workflows/*.yml`/`*.yaml` and `action.yml`/`action.yaml`) from each repo
 3. Parses `uses:` lines and resolves the latest release for each action
 4. Creates one PR per outdated action per repo, updating all files that reference it
 5. Skips PRs that already exist (matches by title)

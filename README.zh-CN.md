@@ -98,6 +98,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }} # Auto-generated token
           labels: true # Auto-label issues/PRs using AI
+          python-version: "3.14" # Optional: set up a specific Python version
           python: true # Format Python with Ruff
           python_docstrings: true # Format Python docstrings (default: true)
           biome: true # Format JS/TS with Biome (auto-detected via biome.json)
@@ -171,11 +172,9 @@ jobs:
 
 ## Python 包
 
-安装 `ultralytics-actions` 以便通过代码使用 action 工具。
+在 [**Python>=3.8**](https://www.python.org/) 环境中安装 `ultralytics-actions` 包及其全部[依赖项](https://github.com/ultralytics/actions/blob/main/pyproject.toml)，以便通过代码使用 action 工具。
 
-[![PyPI - Version](https://img.shields.io/pypi/v/ultralytics-actions?logo=pypi&logoColor=white)](https://pypi.org/project/ultralytics-actions/)
-[![Ultralytics Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://clickpy.clickhouse.com/dashboard/ultralytics-actions)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ultralytics-actions?logo=python&logoColor=gold)](https://pypi.org/project/ultralytics-actions/)
+[![PyPI - Version](https://img.shields.io/pypi/v/ultralytics-actions?logo=pypi&logoColor=white)](https://pypi.org/project/ultralytics-actions/) [![Ultralytics Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://clickpy.clickhouse.com/dashboard/ultralytics-actions) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ultralytics-actions?logo=python&logoColor=gold)](https://pypi.org/project/ultralytics-actions/)
 
 ```bash
 pip install ultralytics-actions
