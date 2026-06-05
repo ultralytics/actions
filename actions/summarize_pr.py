@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 from .utils import (
     ACTIONS_CREDIT,
     GITHUB_API_URL,
@@ -43,10 +45,11 @@ def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
     """Generates personalized issue comment based on PR context."""
     # pr_url is the GraphQL PullRequest.url HTML URL (https://github.com/owner/repo/pull/N) in production;
     # REST API URLs (https://api.github.com/repos/owner/repo/pulls/N) are also supported
+    parsed = urlparse(pr_url)
     if "/repos/" in pr_url and "/pulls/" in pr_url:
         repo_parts = pr_url.split("/repos/", 1)[1].split("/pulls/", 1)[0]
-    elif "github.com/" in pr_url and "/pull/" in pr_url:
-        repo_parts = pr_url.split("github.com/", 1)[1].split("/pull/", 1)[0]
+    elif parsed.hostname == "github.com" and "/pull/" in parsed.path:
+        repo_parts = parsed.path.lstrip("/").split("/pull/", 1)[0]
     else:
         repo_parts = ""
     owner_repo = repo_parts.split("/")
