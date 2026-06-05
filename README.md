@@ -27,7 +27,7 @@ This repository provides three main components:
 
 ## Ultralytics Actions (Main Action)
 
-AI-powered formatting, labeling, and PR summaries for Python, Swift, and Markdown files.
+AI-powered formatting, labeling, and PR summaries for Python, Swift, Dart, and Markdown files.
 
 ### 📄 Features
 
