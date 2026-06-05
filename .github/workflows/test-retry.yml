@@ -14,18 +14,20 @@ jobs:
   test-bash:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+
+      - name: Cleanup any leftover test files
+        run: rm -f /tmp/retry_attempt /tmp/retry_attempt_py
 
       - name: Test successful command
-        uses: ultralytics/actions/retry@main
+        uses: ./retry
         with:
           run: |
             echo "This should succeed first try"
             true
 
       - name: Test retry with eventual success
-        uses: ultralytics/actions/retry@main
-        continue-on-error: true
+        uses: ./retry
         env:
           TEST_VAR: "hello"
         with:
@@ -33,10 +35,28 @@ jobs:
           retry_delay_seconds: 5
           run: |
             echo "Running attempt with TEST_VAR=$TEST_VAR"
-            exit 1
+            # Validate env var is passed correctly
+            if [ "$TEST_VAR" != "hello" ]; then
+              echo "ERROR: TEST_VAR not passed correctly, got '$TEST_VAR'"
+              exit 1
+            fi
+            # Fail first two times, succeed on third attempt
+            if [ ! -f /tmp/retry_attempt ]; then
+              echo "1" > /tmp/retry_attempt
+              echo "First attempt - failing"
+              exit 1
+            fi
+            count=$(cat /tmp/retry_attempt)
+            if [ "$count" -lt 2 ]; then
+              echo "$((count + 1))" > /tmp/retry_attempt
+              echo "Attempt $((count + 1)) - failing"
+              exit 1
+            fi
+            rm -f /tmp/retry_attempt
+            echo "Success on attempt $((count + 1))!"
 
       - name: Test multi-line failure
-        uses: ultralytics/actions/retry@main
+        uses: ./retry
         continue-on-error: true
         env:
           TEST_VAR: "hello"
@@ -48,21 +68,133 @@ jobs:
             echo "Running line 2 with TEST_VAR=$TEST_VAR"
             false
 
+      - name: Record start (exponential)
+        id: start_exp
+        run: echo "t=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Test exponential backoff timing
+        uses: ./retry
+        continue-on-error: true
+        with:
+          retries: 3
+          retry_delay_seconds: 2
+          backoff: exponential
+          jitter: false
+          run: |
+            # Waits should be 2s, 4s, 8s. Total ~14s between 4 attempts.
+            echo "Attempt at $(date +%s)"
+            false
+
+      - name: Assert exponential timing (~14s expected)
+        run: |
+          elapsed=$(( $(date +%s) - ${{ steps.start_exp.outputs.t }} ))
+          # Expected waits: 2 + 4 + 8 = 14s (no jitter). Allow generous upper bound for runner overhead.
+          if [ "$elapsed" -lt 13 ] || [ "$elapsed" -gt 40 ]; then
+            echo "::error::Exponential timing off: ${elapsed}s, expected ~14s (13-40s range)"
+            exit 1
+          fi
+          echo "OK: ${elapsed}s elapsed (expected ~14s)"
+
+      - name: Record start (fixed)
+        id: start_fixed
+        run: echo "t=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Test fixed backoff
+        uses: ./retry
+        continue-on-error: true
+        with:
+          retries: 2
+          retry_delay_seconds: 3
+          backoff: fixed
+          jitter: false
+          run: |
+            echo "Attempt at $(date +%s)"
+            false
+
+      - name: Assert fixed timing (~6s expected)
+        run: |
+          elapsed=$(( $(date +%s) - ${{ steps.start_fixed.outputs.t }} ))
+          # Expected waits: 3 + 3 = 6s (no jitter). Allow runner overhead.
+          if [ "$elapsed" -lt 6 ] || [ "$elapsed" -gt 25 ]; then
+            echo "::error::Fixed timing off: ${elapsed}s, expected ~6s (6-25s range)"
+            exit 1
+          fi
+          echo "OK: ${elapsed}s elapsed (expected ~6s)"
+
+      - name: Record start (jitter floor)
+        id: start_jitter
+        run: echo "t=$(date +%s)" >> "$GITHUB_OUTPUT"
+
+      - name: Test jitter never collapses small delay to 0
+        uses: ./retry
+        continue-on-error: true
+        with:
+          retries: 4
+          retry_delay_seconds: 1
+          backoff: fixed
+          jitter: true
+          run: |
+            echo "Attempt at $(date +%s)"
+            false
+
+      - name: Assert jitter floor (>=4s for 4 retries of >=1s each)
+        run: |
+          elapsed=$(( $(date +%s) - ${{ steps.start_jitter.outputs.t }} ))
+          # Without the floor, jitter would round 1s to 0s and the 4 retries would run instantly.
+          if [ "$elapsed" -lt 4 ]; then
+            echo "::error::Jitter collapsed small delays: ${elapsed}s elapsed, expected >=4s"
+            exit 1
+          fi
+          echo "OK: ${elapsed}s elapsed (>=4s confirmed)"
+
+      - name: Test invalid backoff value rejected
+        uses: ./retry
+        continue-on-error: true
+        id: invalid_backoff
+        with:
+          retries: 0
+          backoff: linear
+          run: echo "should not run"
+
+      - name: Assert invalid backoff failed
+        run: |
+          if [ "${{ steps.invalid_backoff.outcome }}" != "failure" ]; then
+            echo "::error::Expected invalid backoff to fail, got ${{ steps.invalid_backoff.outcome }}"
+            exit 1
+          fi
+
+      - name: Test invalid numeric input rejected
+        uses: ./retry
+        continue-on-error: true
+        id: invalid_retries
+        with:
+          retries: "-1"
+          run: echo "should not run"
+
+      - name: Assert invalid numeric input failed
+        run: |
+          if [ "${{ steps.invalid_retries.outcome }}" != "failure" ]; then
+            echo "::error::Expected invalid retries to fail, got ${{ steps.invalid_retries.outcome }}"
+            exit 1
+          fi
+
   test-python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
+
+      - name: Cleanup any leftover test files
+        run: rm -f /tmp/retry_attempt /tmp/retry_attempt_py
 
       - name: Test successful Python command
-        uses: ultralytics/actions/retry@main
+        uses: ./retry
         with:
           shell: python
           run: |
             print("This should succeed first try")
 
       - name: Test Python retry with eventual success
-        uses: ultralytics/actions/retry@main
-        continue-on-error: true
+        uses: ./retry
         env:
           TEST_VAR: "hello"
         with:
@@ -71,11 +203,27 @@ jobs:
           retry_delay_seconds: 5
           run: |
             import os
+            from pathlib import Path
             print(f"Running attempt with TEST_VAR={os.environ.get('TEST_VAR')}")
-            raise Exception("Forced failure")
+            # Validate env var is passed correctly
+            if os.environ.get('TEST_VAR') != 'hello':
+                raise Exception(f"TEST_VAR not passed correctly, got '{os.environ.get('TEST_VAR')}'")
+            # Fail first two times, succeed on third attempt
+            counter_file = Path("/tmp/retry_attempt_py")
+            if not counter_file.exists():
+                counter_file.write_text("1")
+                print("First attempt - failing")
+                raise Exception("Intentional failure")
+            count = int(counter_file.read_text())
+            if count < 2:
+                counter_file.write_text(str(count + 1))
+                print(f"Attempt {count + 1} - failing")
+                raise Exception("Intentional failure")
+            counter_file.unlink()
+            print(f"Success on attempt {count + 1}!")
 
       - name: Test Python multi-line failure
-        uses: ultralytics/actions/retry@main
+        uses: ./retry
         continue-on-error: true
         env:
           TEST_VAR: "hello"

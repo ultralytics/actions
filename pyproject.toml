@@ -91,6 +91,7 @@ ultralytics-actions-summarize-release = "actions.summarize_release:main"
 ultralytics-actions-update-markdown-code-blocks = "actions.update_markdown_code_blocks:main"
 ultralytics-actions-headers = "actions.update_file_headers:main"
 ultralytics-actions-format-python-docstrings = "actions.format_python_docstrings:main"
+ultralytics-actions-dependabot = "actions.dependabot:run"
 ultralytics-actions-info = "actions.utils:ultralytics_actions_info"
 ultralytics-actions-check-cla = "actions.check_cla:main"
 
@@ -103,6 +104,22 @@ version = { attr = "actions.__version__" }
 [tool.pytest.ini_options]
 addopts = "--doctest-modules --durations=30 --color=yes"
 norecursedirs = [".git", "dist", "build"]
+
+[tool.coverage.run]
+omit = [
+    "actions/dependabot.py",
+    "actions/first_interaction.py",
+    "actions/format_python_docstrings.py",
+    "actions/review_pr.py",
+    "actions/scan_prs.py",
+    "actions/summarize_pr.py",
+    "actions/summarize_release.py",
+    "actions/update_markdown_code_blocks.py",
+    "actions/utils/common_utils.py",
+    "actions/utils/github_utils.py",
+    "actions/utils/openai_utils.py",
+    "actions/utils/version_utils.py",
+]
 
 [tool.ruff]
 line-length = 120

@@ -4,33 +4,66 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import time
 
 import requests
 
-from actions.utils.common_utils import check_links_in_string
+from actions.utils.common_utils import check_links_in_string, filter_diff_text, format_skipped_files_note
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-OPENAI_MODEL = os.getenv("OPENAI_MODEL", "gpt-5-2025-08-07")
+ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
+MODEL = os.getenv("MODEL")  # Auto-detected from API keys if not set
+REVIEW_MODEL = os.getenv("REVIEW_MODEL")  # Optional override for PR reviews
 MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% of 128k context)
-MODEL_COSTS = {
+
+# Default models (single source of truth)
+OPENAI_MODEL_DEFAULT = "gpt-5.4"
+ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-4-6"
+PR_REVIEW_MODEL_DEFAULT = "gpt-5.4"
+
+MODEL_COSTS = {  # (input, output) per 1M tokens
+    # OpenAI models
     "gpt-5-codex": (1.25, 10.00),
-    "gpt-5-2025-08-07": (1.25, 10.00),
+    "gpt-5.1-codex": (1.25, 10.00),
+    "gpt-5.1-2025-11-13": (1.25, 10.00),
+    "gpt-5.2-2025-12-11": (1.75, 14.00),
+    "gpt-5.2-codex": (1.75, 14.00),
+    "gpt-5.3-codex": (1.75, 14.00),
+    "gpt-5.5": (5.00, 30.00),
+    "gpt-5.4": (2.50, 15.00),
     "gpt-5-nano-2025-08-07": (0.05, 0.40),
     "gpt-5-mini-2025-08-07": (0.25, 2.00),
+    # Anthropic Claude models
+    "claude-sonnet-4-5-20250929": (3.00, 15.00),
+    "claude-sonnet-4-6": (3.00, 15.00),
+    "claude-haiku-4-5-20251001": (1.00, 5.00),
+    "claude-opus-4-5-20251101": (5.00, 25.00),
+    "claude-opus-4-6": (5.00, 25.00),
+    "claude-opus-4-7": (5.00, 25.00),
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
-  - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v). Always capitalize "HUB" in "Ultralytics HUB"; use "Ultralytics HUB", not "The Ultralytics HUB". 
+  - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v).
+  - YOLO26: Latest stable and recommended Ultralytics model for all use cases. See https://docs.ultralytics.com/models/yolo26/ for details.
+  - Ultralytics Platform: The simplest way to annotate datasets, train and deploy YOLO models at https://platform.ultralytics.com.
   - Avoid Equations: Do not include equations or mathematical notations.
   - Markdown: Reply in Markdown format.
   - Links: Use descriptive anchor text for all URLs.
-  - Code: 
+  - Code:
     - Provide minimal code examples if helpful.
     - Enclose code in backticks: `pip install ultralytics` for inline code or e.g. ```python for larger code blocks.
     - Think and verify the argument names, methods, class and files used in your code examples for accuracy.
   - Use the "@" symbol to refer to GitHub users, e.g. @glenn-jocher.
   - Tone: Adopt a professional, friendly, and concise tone.
 """
+_CITATION_PATTERN = re.compile(
+    r"[\uE000-\uF8FF]*\bcite[\uE000-\uF8FF]*(turn\d+(?:search|view)\d+|[\w\d]+)[\uE000-\uF8FF]*"
+)
+
+
+def sanitize_ai_text(s: str) -> str:
+    """Strip private-use citation tokens (for example, ``cite...`` markers)."""
+    return _CITATION_PATTERN.sub("", s) if s else ""
 
 
 def remove_outer_codeblocks(string):
@@ -42,7 +75,7 @@ def remove_outer_codeblocks(string):
 
 
 def filter_labels(available_labels: dict, current_labels: list | None = None, is_pr: bool = False) -> dict:
-    """Filters labels by removing manually-assigned and mutually exclusive labels."""
+    """Filters labels by removing manually-assigned and mutually exclusive labels, adding an Alert label if absent."""
     current_labels = current_labels or []
     filtered = available_labels.copy()
 
@@ -76,7 +109,7 @@ def filter_labels(available_labels: dict, current_labels: list | None = None, is
 
 def get_pr_summary_guidelines() -> str:
     """Returns PR summary formatting guidelines (used by both unified PR open and PR update/merge)."""
-    return """Summarize this PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Your response must include all 3 sections below with their markdown headers:
+    return """Summarize this PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Your response must include all 3 sections below with their H3 Markdown headers (do not use H1 or H2 headers):
 
 ### 🌟 Summary
 (single-line synopsis)
@@ -88,10 +121,12 @@ def get_pr_summary_guidelines() -> str:
 - (bullet points explaining benefits and potential impact to users)"""
 
 
-def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool]:
-    """Returns the complete PR summary generation prompt with diff (used by PR update/merge)."""
-    prompt = f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{diff_text[:MAX_PROMPT_CHARS]}"
-    return prompt, len(diff_text) > MAX_PROMPT_CHARS
+def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool, list[str]]:
+    """Returns the complete PR summary generation prompt with filtered diff (used by PR update/merge)."""
+    filtered_diff, skipped_files = filter_diff_text(diff_text)
+    prompt = f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{filtered_diff[:MAX_PROMPT_CHARS]}"
+    prompt += format_skipped_files_note(skipped_files)
+    return prompt, len(filtered_diff) > MAX_PROMPT_CHARS, skipped_files
 
 
 def get_pr_first_comment_template(repository: str, username: str) -> str:
@@ -109,6 +144,47 @@ def get_pr_first_comment_template(repository: str, username: str) -> str:
 For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing/). Don't hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀"""
 
 
+def _is_anthropic_model(model: str) -> bool:
+    """Check if the model is an Anthropic model."""
+    return model.startswith("claude")
+
+
+def _get_default_model() -> str:
+    """Get default model based on available API keys."""
+    if MODEL:
+        return MODEL
+    if ANTHROPIC_API_KEY:
+        return ANTHROPIC_MODEL_DEFAULT
+    return OPENAI_MODEL_DEFAULT
+
+
+def get_review_model() -> str:
+    """Get model for PR reviews, using REVIEW_MODEL if set, otherwise PR_REVIEW_MODEL_DEFAULT."""
+    return REVIEW_MODEL or PR_REVIEW_MODEL_DEFAULT
+
+
+def _poll_openai_response(response_json: dict, headers: dict, timeout: int = 900) -> dict:
+    """Poll a background OpenAI response until it reaches a terminal state."""
+    response_id = response_json.get("id")
+    deadline = time.time() + timeout
+    while response_id and response_json.get("status") in {"queued", "in_progress"}:
+        if time.time() > deadline:
+            raise TimeoutError(f"OpenAI background response {response_id} did not complete within {timeout}s")
+        print(f"OpenAI response {response_id} is {response_json.get('status')}; polling...")
+        time.sleep(2)
+        try:
+            r = requests.get(f"https://api.openai.com/v1/responses/{response_id}", headers=headers, timeout=(30, 60))
+            r.raise_for_status()
+            response_json = r.json()
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            print(f"OpenAI poll failed with {e.__class__.__name__}; continuing...")
+
+    if response_id and response_json.get("status") != "completed":
+        error = response_json.get("error") or response_json.get("incomplete_details") or response_json.get("status")
+        raise RuntimeError(f"OpenAI background response {response_id} ended with {error}")
+    return response_json
+
+
 def get_response(
     messages: list[dict[str, str]],
     check_links: bool = True,
@@ -116,71 +192,130 @@ def get_response(
     temperature: float = 1.0,
     reasoning_effort: str | None = None,
     text_format: dict | None = None,
-    model: str = OPENAI_MODEL,
+    model: str | None = None,
     tools: list[dict] | None = None,
+    retries: int = 2,
+    background: bool = False,
 ) -> str | dict:
-    """Generates a completion using OpenAI's Responses API with retry logic."""
-    assert OPENAI_API_KEY, "OpenAI API key is required."
-    url = "https://api.openai.com/v1/responses"
-    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
-    if messages and messages[0].get("role") == "system":
-        messages[0]["content"] += "\n\n" + SYSTEM_PROMPT_ADDITION
+    """Generates a completion using OpenAI or Anthropic API with retry logic."""
+    model = model or _get_default_model()
+    is_anthropic = _is_anthropic_model(model)
+    background = background and not is_anthropic
 
-    for attempt in range(3):
-        data = {"model": model, "input": messages, "store": False, "temperature": temperature}
-        if "gpt-5" in model:
-            data["reasoning"] = {"effort": reasoning_effort or "low"}
-        if text_format:
-            data["text"] = text_format
-        if tools:
-            data["tools"] = tools
+    # Validate API key
+    if is_anthropic:
+        assert ANTHROPIC_API_KEY, "Anthropic API key is required for Claude models."
+        url = "https://api.anthropic.com/v1/messages"
+        headers = {
+            "x-api-key": ANTHROPIC_API_KEY,
+            "anthropic-version": "2023-06-01",
+            "Content-Type": "application/json",
+        }
+    else:
+        assert OPENAI_API_KEY, "OpenAI API key is required."
+        url = "https://api.openai.com/v1/responses"
+        headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+
+    # Extract system message and append guidance
+    system_content = ""
+    user_messages = messages.copy()
+    if user_messages and user_messages[0].get("role") == "system":
+        system_content = user_messages.pop(0)["content"] + "\n\n" + SYSTEM_PROMPT_ADDITION
+        if not is_anthropic:
+            # For OpenAI, keep system message in messages list with addition
+            messages = [{"role": "system", "content": system_content}, *user_messages]
+
+    for attempt in range(retries + 1):
+        if is_anthropic:
+            data = {
+                "model": model,
+                "max_tokens": 8192,
+                "temperature": temperature,
+                "messages": user_messages,
+            }
+            if system_content:
+                data["system"] = system_content
+            # Skip web_search for Anthropic when using JSON schema (causes empty responses)
+            # Handle structured JSON output for Anthropic
+            if text_format and text_format.get("format", {}).get("type") == "json_schema":
+                schema = text_format["format"].get("schema", {})
+                # Add JSON instruction to system prompt
+                json_instruction = f"\n\nRespond ONLY with valid JSON matching this schema:\n{json.dumps(schema)}"
+                data["system"] = (data.get("system") or "") + json_instruction
+        else:
+            data = {"model": model, "input": messages, "store": background, "temperature": temperature}
+            if background:
+                data["background"] = True
+            if "gpt-5" in model:
+                data["reasoning"] = {"effort": reasoning_effort or "low"}
+            if text_format:
+                data["text"] = text_format
+            if tools:
+                data["tools"] = tools
 
         try:
+            started = time.time()
             r = requests.post(url, json=data, headers=headers, timeout=(30, 900))
             elapsed = r.elapsed.total_seconds()
             success = r.status_code == 200
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
 
             # Retry server errors
-            if attempt < 2 and r.status_code >= 500:
-                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/3)...")
+            if attempt < retries and r.status_code >= 500:
+                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
                 time.sleep(2**attempt)
                 continue
 
             if r.status_code >= 400:
                 error_body = r.text
                 print(f"API Error {r.status_code}: {error_body}")
-                r.reason = f"{r.reason}\n{error_body}"  # Add error body to exception message
+                r.reason = f"{r.reason}\n{error_body}"
 
             r.raise_for_status()
 
             # Parse response
             response_json = r.json()
-            content = ""
-            for item in response_json.get("output", []):
-                if item.get("type") == "message":
-                    for c in item.get("content", []):
-                        if c.get("type") == "output_text":
-                            content += c.get("text") or ""
-            content = content.strip()
+            if background:
+                response_json = _poll_openai_response(response_json, headers)
+                elapsed = time.time() - started
+            if is_anthropic:
+                content = ""
+                for block in response_json.get("content", []):
+                    if block.get("type") == "text":
+                        content += block.get("text") or ""
+                content = content.strip()
 
-            # Extract and print token usage
-            if usage := response_json.get("usage"):
-                input_tokens = usage.get("input_tokens", 0)
-                output_tokens = usage.get("output_tokens", 0)
-                thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
+                # Extract usage
+                if usage := response_json.get("usage"):
+                    input_tokens = usage.get("input_tokens", 0)
+                    output_tokens = usage.get("output_tokens", 0)
+                    costs = MODEL_COSTS.get(model, (0.0, 0.0))
+                    cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
+                    print(
+                        f"{model} ({input_tokens}→{output_tokens} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)"
+                    )
+            else:
+                content = ""
+                for item in response_json.get("output", []):
+                    if item.get("type") == "message":
+                        for c in item.get("content", []):
+                            if c.get("type") == "output_text":
+                                content += c.get("text") or ""
+                content = content.strip()
 
-                # Calculate cost
-                costs = MODEL_COSTS.get(model, (0.0, 0.0))
-                cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
-
-                # Format summary
-                token_str = f"{input_tokens}→{output_tokens - thinking_tokens}"
-                if thinking_tokens:
-                    token_str += f" (+{thinking_tokens} thinking)"
-                print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)")
+                if usage := response_json.get("usage"):
+                    input_tokens = usage.get("input_tokens", 0)
+                    output_tokens = usage.get("output_tokens", 0)
+                    thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
+                    costs = MODEL_COSTS.get(model, (0.0, 0.0))
+                    cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
+                    token_str = f"{input_tokens}→{output_tokens - thinking_tokens}"
+                    if thinking_tokens:
+                        token_str += f" (+{thinking_tokens} thinking)"
+                    print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)")
 
             if text_format and text_format.get("format", {}).get("type") in ["json_object", "json_schema"]:
+                content = remove_outer_codeblocks(content)
                 return json.loads(content)
 
             content = remove_outer_codeblocks(content)
@@ -188,19 +323,19 @@ def get_response(
                 content = content.replace(x, "")
 
             # Retry on bad links
-            if attempt < 2 and check_links and not check_links_in_string(content):
+            if attempt < retries and check_links and not check_links_in_string(content):
                 print("Bad URLs detected, retrying")
                 continue
 
             return content
 
         except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError) as e:
-            if attempt < 2:
-                print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/3)...")
+            if attempt < retries:
+                print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
                 time.sleep(2**attempt)
                 continue
             raise
-        except requests.exceptions.HTTPError:  # 4xx errors
+        except requests.exceptions.HTTPError:
             raise
 
     return content
@@ -208,7 +343,8 @@ def get_response(
 
 def get_pr_open_response(repository: str, diff_text: str, title: str, username: str, available_labels: dict) -> dict:
     """Generates unified PR response with summary, labels, and first comment in a single API call."""
-    is_large = len(diff_text) > MAX_PROMPT_CHARS
+    filtered_diff, skipped_files = filter_diff_text(diff_text)
+    is_large = len(filtered_diff) > MAX_PROMPT_CHARS
 
     filtered_labels = filter_labels(available_labels, is_pr=True)
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
@@ -216,7 +352,7 @@ def get_pr_open_response(repository: str, diff_text: str, title: str, username: 
     prompt = f"""You are processing a new GitHub PR by @{username} for the {repository} repository.
 
 Generate 3 outputs in a single JSON response for the PR titled '{title}' with the following diff:
-{diff_text[:MAX_PROMPT_CHARS]}
+{filtered_diff[:MAX_PROMPT_CHARS]}{format_skipped_files_note(skipped_files)}
 
 
 --- FIRST JSON OUTPUT (PR SUMMARY) ---
@@ -263,13 +399,14 @@ Example comment template (adapt as needed, keep all links):
         result["summary"] = (
             "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + result["summary"]
         )
+    result["skipped_files"] = skipped_files
     return result
 
 
 if __name__ == "__main__":
     messages = [
         {"role": "system", "content": "You are a helpful AI assistant."},
-        {"role": "user", "content": "Explain how to export a YOLO11 model to CoreML."},
+        {"role": "user", "content": "Explain how to export a YOLO26 model to CoreML."},
     ]
     response = get_response(messages)
     print(response)

@@ -37,7 +37,14 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             author { login, __typename }
             reviews(first: 50) { nodes { author { login, __typename } } }
             comments(first: 50) { nodes { author { login, __typename } } }
-            commits(first: 100) { nodes { commit { author { user { login } }, committer { user { login } } } } }
+            commits(first: 100) {
+                nodes {
+                    commit {
+                        author { user { login, __typename } }
+                        committer { user { login, __typename } }
+                    }
+                }
+            }
         }
     }
 }
@@ -114,12 +121,12 @@ class Action:
         self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
         self.pr = self.event_data.get("pull_request", {})
         self.repository = self.event_data.get("repository", {}).get("full_name")
+        self.owner, self.repo_name = self.repository.split("/") if self.repository else (None, None)
         self.headers = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json"}
         self.headers_diff = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github.v3.diff"}
         self.verbose = verbose
         self.eyes_reaction_id = None
         self._pr_diff_cache = None
-        self._pr_summary_cache = None
         self._username_cache = None
         self._default_status = {
             "get": [200, 204],
@@ -133,7 +140,8 @@ class Action:
         """Unified request handler with error checking."""
         r = getattr(requests, method)(url, headers=headers or self.headers, **kwargs)
         expected = expected_status or self._default_status[method]
-        success = r.status_code in expected
+        status_expected = r.status_code in expected
+        success = status_expected and r.status_code < 400
 
         if self.verbose:
             elapsed = r.elapsed.total_seconds()
@@ -147,7 +155,7 @@ class Action:
                 except Exception:
                     print(f"  ❌ Error: {r.text[:1000]}")
 
-        if not success and hard:
+        if not status_expected and hard:
             r.raise_for_status()
         return r
 
@@ -177,7 +185,7 @@ class Action:
         return json.loads(Path(event_path).read_text()) if event_path and Path(event_path).exists() else {}
 
     def is_repo_private(self) -> bool:
-        """Checks if the repository is public using event data."""
+        """Checks if the repository is private using event data."""
         return self.event_data.get("repository", {}).get("private", False)
 
     def get_username(self) -> str | None:
@@ -195,7 +203,7 @@ class Action:
 
     def is_org_member(self, username: str) -> bool:
         """Checks if a user is a member of the organization."""
-        return self.get(f"{GITHUB_API_URL}/orgs/{self.repository.split('/')[0]}/members/{username}").status_code == 204
+        return self.get(f"{GITHUB_API_URL}/orgs/{self.owner}/members/{username}").status_code == 204
 
     def should_skip_pr_author(self) -> bool:
         """Checks if PR should be skipped based on author (self-authored or bot PRs)."""
@@ -218,12 +226,12 @@ class Action:
         head_repo = self.pr.get("head", {}).get("repo", {}).get("full_name")
         return bool(head_repo) and head_repo != self.repository
 
-    def should_skip_openai(self) -> bool:
-        """Check if OpenAI operations should be skipped."""
-        from actions.utils.openai_utils import OPENAI_API_KEY
+    def should_skip_llm(self) -> bool:
+        """Check if LLM operations should be skipped (no API key found)."""
+        from actions.utils.openai_utils import ANTHROPIC_API_KEY, OPENAI_API_KEY
 
-        if not OPENAI_API_KEY:
-            print("⚠️ Skipping LLM operations (OPENAI_API_KEY not found)")
+        if not OPENAI_API_KEY and not ANTHROPIC_API_KEY:
+            print("⚠️ Skipping LLM operations (no OPENAI_API_KEY or ANTHROPIC_API_KEY found)")
             return True
         return False
 
@@ -296,12 +304,10 @@ class Action:
             updated_description = (description.rstrip() + "\n\n" + new_summary) if description.strip() else new_summary
 
         self.patch(url, json={"body": updated_description})
-        self._pr_summary_cache = new_summary
 
     def get_label_ids(self, labels: list[str]) -> list[str]:
         """Retrieves GitHub label IDs for a list of label names using the GraphQL API."""
-        owner, repo = self.repository.split("/")
-        result = self.graphql_request(GRAPHQL_REPO_LABELS, variables={"owner": owner, "name": repo})
+        result = self.graphql_request(GRAPHQL_REPO_LABELS, variables={"owner": self.owner, "name": self.repo_name})
         if "data" in result and "repository" in result["data"]:
             all_labels = result["data"]["repository"]["labels"]["nodes"]
             label_map = {label["name"].lower(): label["id"] for label in all_labels}
@@ -378,8 +384,7 @@ class Action:
 
     def block_user(self, username: str):
         """Blocks a user from the organization."""
-        url = f"{GITHUB_API_URL}/orgs/{self.repository.split('/')[0]}/blocks/{username}"
-        self.put(url)
+        self.put(f"{GITHUB_API_URL}/orgs/{self.owner}/blocks/{username}")
 
     def handle_alert(self, number: int, node_id: str, issue_type: str, username: str, block: bool = False):
         """Handles content flagged as alert: updates content, locks, optionally closes and blocks user."""
@@ -402,8 +407,7 @@ Thank you 🙏
 
     def get_pr_contributors(self) -> tuple[str | None, dict]:
         """Gets PR contributors and closing issues, returns (pr_credit_string, pr_data)."""
-        owner, repo = self.repository.split("/")
-        variables = {"owner": owner, "repo": repo, "pr_number": self.pr["number"]}
+        variables = {"owner": self.owner, "repo": self.repo_name, "pr_number": self.pr["number"]}
         response = self.post(GITHUB_GRAPHQL_URL, json={"query": GRAPHQL_PR_CONTRIBUTORS, "variables": variables})
         if response.status_code != 200:
             return None, {}
@@ -420,7 +424,7 @@ Thank you 🙏
                 commit_data = commit["commit"]
                 for user_type in ["author", "committer"]:
                     if user := commit_data[user_type].get("user"):
-                        if login := user.get("login"):
+                        if user["__typename"] != "Bot" and (login := user.get("login")):
                             contributors.add(login)
 
             contributors.discard(author)
