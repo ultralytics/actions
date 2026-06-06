@@ -34,12 +34,17 @@ def test_generate_issue_comment(mock_get_response):
     """Test generating issue comments about PR fixes."""
     mock_get_response.return_value = "This issue is fixed in PR #123"
 
-    comment = generate_issue_comment(
-        pr_url="https://api.github.com/repos/owner/repo/pulls/123",
-        pr_summary="Fixed bug",
-        pr_credit="@testuser",
-        pr_title="Bug fix PR",
-    )
+    for pr_url in ("https://github.com/owner/repo/pull/123", "https://api.github.com/repos/owner/repo/pulls/123"):
+        comment = generate_issue_comment(
+            pr_url=pr_url,
+            pr_summary="Fixed bug",
+            pr_credit="@testuser",
+            pr_title="Bug fix PR",
+        )
 
-    assert comment == "This issue is fixed in PR #123"
-    mock_get_response.assert_called_once()
+        assert comment == "This issue is fixed in PR #123"
+        prompt = mock_get_response.call_args[0][0][1]["content"]
+        assert "pip install -U repo>=VERSION" in prompt
+        assert "pip install git+https://github.com/owner/repo.git@main" in prompt
+
+    assert mock_get_response.call_count == 2
