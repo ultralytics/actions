@@ -235,7 +235,7 @@ def get_response(
             }
             if system_content:
                 data["system"] = system_content
-            # Skip web_search for Anthropic when using JSON schema (causes empty responses)
+            # Tools (web_search) are not forwarded to Anthropic (caused empty responses with JSON schema)
             # Handle structured JSON output for Anthropic
             if text_format and text_format.get("format", {}).get("type") == "json_schema":
                 schema = text_format["format"].get("schema", {})

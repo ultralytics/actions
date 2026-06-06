@@ -30,6 +30,7 @@ body:
         - "Retry Action"
         - "Cleanup Disk Action"
         - "Scan PRs Action"
+        - "Dependabot Action"
         - "Python package (`ultralytics-actions`)"
         - "Repository documentation / README"
         - "Other"
