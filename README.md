@@ -99,7 +99,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }} # Auto-generated token
           labels: true # Auto-label issues/PRs using AI
           python: true # Format Python with Ruff
-          # python-version: "3.15" # Optional: override default Python version
+          # python-version: "3.14" # Optional: set up a specific Python version (default: runner Python)
           python_docstrings: true # Format Python docstrings (default: true)
           biome: true # Format JS/TS with Biome (auto-detected via biome.json)
           prettier: true # Format YAML, JSON, Markdown, CSS

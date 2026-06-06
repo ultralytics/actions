@@ -19,9 +19,9 @@ inputs:
     required: false
     default: "false"
   python-version:
-    description: "Python version to set up before running Python tooling"
+    description: "Python version to set up before running Python tooling (empty = runner default)"
     required: false
-    default: "3.14"
+    default: ""
   python_docstrings:
     description: "Run Python docstring formatting"
     required: false
