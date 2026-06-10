@@ -14,12 +14,19 @@ runs:
         echo "::endgroup::"
 
         echo "::group::Remove Tool Cache and Swap"
-        # Remove tool cache to free up ~15GB of space per https://github.com/ultralytics/ultralytics/pull/15848
-        rm -rf /opt/hostedtoolcache || true
+        toolcache_pid=""
+        if [ -e /opt/hostedtoolcache ]; then
+          # Remove tool cache to free up ~15GB of space per https://github.com/ultralytics/ultralytics/pull/15848
+          rm -rf /opt/hostedtoolcache &
+          toolcache_pid=$!
+        fi
         # Remove swap space to free up ~4GB
         if [ -f /swapfile ]; then
           sudo swapoff -a
           sudo rm -f /swapfile
+        fi
+        if [ -n "$toolcache_pid" ]; then
+          wait "$toolcache_pid" || true
         fi
         echo "::endgroup::"
 
