@@ -11,7 +11,7 @@
 [![Actions CI](https://github.com/ultralytics/actions/actions/workflows/ci.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/ci.yml)
 [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
 [![Scan PRs](https://github.com/ultralytics/actions/actions/workflows/scan-prs.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/scan-prs.yml)
-[![codecov](https://codecov.io/github/ultralytics/actions/graph/badge.svg?token=DoizJ1WS6j)](https://codecov.io/github/ultralytics/actions)
+[![codecov](https://codecov.io/github/ultralytics/actions/branch/main/graph/badge.svg)](https://app.codecov.io/github/ultralytics/actions)
 
 [![Ultralytics Discord](https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue)](https://discord.com/invite/ultralytics)
 [![Ultralytics Forums](https://img.shields.io/discourse/users?server=https%3A%2F%2Fcommunity.ultralytics.com&logo=discourse&label=Forums&color=blue)](https://community.ultralytics.com/)
@@ -45,7 +45,7 @@
 
 ### 🤖 支持的 AI 提供商
 
-可选择 [OpenAI](https://openai.com/) 或 [Anthropic](https://www.anthropic.com/) 启用 AI 功能：
+可选择 [OpenAI](https://developers.openai.com/) 或 [Anthropic](https://www.anthropic.com/) 启用 AI 功能：
 
 | 提供商    | 默认模型            | API Key             |
 | --------- | ------------------- | ------------------- |
@@ -98,8 +98,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }} # Auto-generated token
           labels: true # Auto-label issues/PRs using AI
-          python-version: "3.14" # Optional: set up a specific Python version
           python: true # Format Python with Ruff
+          # python-version: "3.14" # Optional: set up a specific Python version (default: runner Python)
           python_docstrings: true # Format Python docstrings (default: true)
           biome: true # Format JS/TS with Biome (auto-detected via biome.json)
           prettier: true # Format YAML, JSON, Markdown, CSS
