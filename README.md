@@ -45,7 +45,7 @@ AI-powered formatting, labeling, and PR summaries for Python, Swift, Dart, and M
 
 ### 🤖 Supported AI Providers
 
-Choose between [OpenAI](https://openai.com/) or [Anthropic](https://www.anthropic.com/) for AI-powered features:
+Choose between [OpenAI](https://developers.openai.com/) or [Anthropic](https://www.anthropic.com/) for AI-powered features:
 
 | Provider  | Default Model       | API Key             |
 | --------- | ------------------- | ------------------- |
