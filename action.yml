@@ -345,16 +345,13 @@ runs:
 
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
-      # Skip when the triggering push came from the bot itself (a prior Auto-format push, or a sibling
-      # auto-commit workflow sharing the same token such as Auto-update Docs). github.actor is set by GitHub
-      # from the pushing token and cannot be spoofed via git config, so this breaks recursive auto-commit loops
-      # even when sibling bot commits or merge commits interleave between Auto-format pushes. Human pushes have a
-      # different actor and are always formatted. Default-GITHUB_TOKEN pushes never re-trigger workflows, so only
-      # PAT-authored bot pushes (actor == github_username) can recurse here.
+      # Generated PRs may be opened by github_username (for example analytics data updates) and still need one
+      # Auto-format commit on the opened event. The recursion risk starts after that commit pushes a synchronize
+      # event as github_username, so keep the bot guard only for synchronize events.
       if: |
         (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') &&
         (github.event.action == 'opened' || github.event.action == 'synchronize') &&
-        github.actor != inputs.github_username
+        (github.event.action == 'opened' || github.actor != inputs.github_username)
       env:
         GITHUB_USERNAME: ${{ inputs.github_username }}
         GITHUB_EMAIL: ${{ inputs.github_email }}
