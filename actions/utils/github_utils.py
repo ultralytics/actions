@@ -391,8 +391,8 @@ class Action:
         new_title = "Content Under Review"
         new_body = """This post has been flagged for review by [Ultralytics Actions](https://www.ultralytics.com/actions) due to possible spam, abuse, or off-topic content. For more information please see our:
 
-- [Code of Conduct](https://docs.ultralytics.com/help/code-of-conduct/)
-- [Security Policy](https://docs.ultralytics.com/help/security/)
+- [Code of Conduct](https://docs.ultralytics.com/help/code-of-conduct)
+- [Security Policy](https://docs.ultralytics.com/help/security)
 
 For questions or bug reports related to this action please visit https://github.com/ultralytics/actions.
 
