@@ -190,7 +190,7 @@ pip install ultralytics-actions
 
 ## 💡 贡献
 
-Ultralytics 依靠社区协作不断发展，我们非常重视您的贡献！请查看[贡献指南](https://docs.ultralytics.com/help/contributing/)了解如何参与。也欢迎通过我们的[调查问卷](https://www.ultralytics.com/survey?utm_source=github&utm_medium=social&utm_campaign=Survey)分享反馈。衷心感谢 🙏 每一位贡献者！
+Ultralytics 依靠社区协作不断发展，我们非常重视您的贡献！请查看[贡献指南](https://docs.ultralytics.com/help/contributing)了解如何参与。也欢迎通过我们的[调查问卷](https://www.ultralytics.com/survey?utm_source=github&utm_medium=social&utm_campaign=Survey)分享反馈。衷心感谢 🙏 每一位贡献者！
 
 [![Ultralytics open-source contributors](https://raw.githubusercontent.com/ultralytics/assets/main/im/image-contributors.png)](https://github.com/ultralytics/ultralytics/graphs/contributors)
 
