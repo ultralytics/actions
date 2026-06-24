@@ -20,7 +20,7 @@ MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% o
 # Default models (single source of truth)
 OPENAI_MODEL_DEFAULT = "gpt-5.4"
 ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-4-6"
-PR_REVIEW_MODEL_DEFAULT = "gpt-5.4"
+PR_REVIEW_MODEL_DEFAULT = "claude-opus-4-8"
 
 MODEL_COSTS = {  # (input, output) per 1M tokens
     # OpenAI models
@@ -41,6 +41,7 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "claude-opus-4-5-20251101": (5.00, 25.00),
     "claude-opus-4-6": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
+    "claude-opus-4-8": (5.00, 25.00),
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v).
@@ -227,12 +228,21 @@ def get_response(
 
     for attempt in range(retries + 1):
         if is_anthropic:
+            # Opus 4.7+ and Fable/Mythos reject sampling params (temperature) and use adaptive thinking instead.
+            adaptive = any(
+                model.startswith(p) for p in ("claude-opus-4-7", "claude-opus-4-8", "claude-fable", "claude-mythos")
+            )
             data = {
                 "model": model,
-                "max_tokens": 8192,
-                "temperature": temperature,
+                "max_tokens": 16000 if adaptive else 8192,
                 "messages": user_messages,
             }
+            if adaptive:
+                data["thinking"] = {"type": "adaptive"}
+                effort = reasoning_effort if reasoning_effort in {"low", "medium", "high", "xhigh", "max"} else "high"
+                data["output_config"] = {"effort": effort}
+            else:
+                data["temperature"] = temperature
             if system_content:
                 data["system"] = system_content
             # Tools (web_search) are not forwarded to Anthropic (caused empty responses with JSON schema)
