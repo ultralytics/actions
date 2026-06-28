@@ -78,6 +78,7 @@ def trigger_and_get_workflow_info(
     """Triggers workflows and returns their information, deleting temp branch if provided."""
     repo = event.repository
     results = []
+    failed = {}
 
     try:
         # Trigger all workflows
@@ -85,23 +86,27 @@ def trigger_and_get_workflow_info(
             response = event.post(
                 f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch}
             )
-            if response.status_code == 422:
+            if response.status_code != 204:
+                failed[file] = response.json().get("message", "workflow dispatch failed")
+
+        # Wait for workflows to be created and start
+        if len(failed) < len(workflow_files):
+            time.sleep(60)
+
+        # Collect information about all workflows
+        for file in workflow_files:
+            if file in failed:
                 results.append(
                     {
                         "name": file.replace(".yml", "").title(),
                         "file": file,
                         "url": f"https://github.com/{repo}/actions/workflows/{file}",
                         "run_number": None,
-                        "error": response.json().get("message", "workflow dispatch failed"),
+                        "error": failed[file],
                     }
                 )
-                return results
+                continue
 
-        # Wait for workflows to be created and start
-        time.sleep(60)
-
-        # Collect information about all workflows
-        for file in workflow_files:
             # Get workflow name
             response = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}")
             name = file.replace(".yml", "").title()
@@ -152,10 +157,14 @@ def update_comment(event, comment_body: str, command: str, triggered_actions: li
 
     for action in triggered_actions:
         if error := action.get("error"):
-            summary += (
-                f"* ❌ [{action['name']}]({action['url']}): `{action['file']}` failed because `{error}`. "
+            guidance = (
                 f"If the PR branch was deleted, restore it or open a new PR from an existing branch, "
-                f"then run `{command}` again.\n"
+                f"then run `{command}` again."
+                if "no ref found" in error.lower()
+                else f"Check the workflow dispatch configuration and permissions, then run `{command}` again."
+            )
+            summary += (
+                f"* ❌ [{action['name']}]({action['url']}): `{action['file']}` failed because `{error}`. {guidance}\n"
             )
         else:
             run_info = f" run {action['run_number']}" if action["run_number"] else ""

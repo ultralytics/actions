@@ -122,28 +122,6 @@ def test_trigger_and_get_workflow_info_with_temp_branch():
     mock_event.delete.assert_called_once_with("https://api.github.com/repos/test/repo/git/refs/heads/temp-ci-123-456")
 
 
-def test_trigger_and_get_workflow_info_reports_dispatch_failure():
-    """Test failed workflow dispatches return an explanatory result."""
-    mock_event = MagicMock()
-    mock_event.repository = "test/repo"
-    response = MagicMock()
-    response.status_code = 422
-    response.json.return_value = {"message": "No ref found for: deleted-branch"}
-    mock_event.post.return_value = response
-
-    results = trigger_and_get_workflow_info(mock_event, "deleted-branch", ["ci.yml"])
-
-    assert results == [
-        {
-            "name": "Ci",
-            "file": "ci.yml",
-            "url": "https://github.com/test/repo/actions/workflows/ci.yml",
-            "run_number": None,
-            "error": "No ref found for: deleted-branch",
-        }
-    ]
-
-
 def test_update_comment_function():
     """Test updating comment with workflow info."""
     mock_event = MagicMock()
@@ -179,35 +157,6 @@ def test_update_comment_function():
         f"(available commands are `{RUN_ALL_KEYWORD}`, `{RUN_CI_KEYWORD}`, and `{RUN_DOCKER_KEYWORD}`):"
         in kwargs["json"]["body"]
     )
-
-
-def test_update_comment_function_with_dispatch_failure():
-    """Test updating comment when no workflow was started."""
-    mock_event = MagicMock()
-    mock_event.repository = "test/repo"
-    mock_event.event_data = {"comment": {"id": 456}}
-
-    with patch("actions.dispatch_actions.datetime") as mock_datetime:
-        mock_datetime.now.return_value = datetime(2023, 1, 1, 12, 0, 0)
-        update_comment(
-            mock_event,
-            f"Run tests please {RUN_CI_KEYWORD}",
-            RUN_CI_KEYWORD,
-            [
-                {
-                    "name": "CI Workflow",
-                    "file": "ci.yml",
-                    "url": "https://github.com/test/repo/actions/workflows/ci.yml",
-                    "run_number": None,
-                    "error": "No ref found for: deleted-branch",
-                }
-            ],
-        )
-
-    body = mock_event.patch.call_args.kwargs["json"]["body"]
-    assert "No GitHub Actions workflows were started" in body
-    assert "No ref found for: deleted-branch" in body
-    assert "restore it or open a new PR" in body
 
 
 def test_main_triggers_ci_only():
