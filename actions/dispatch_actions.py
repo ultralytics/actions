@@ -82,7 +82,20 @@ def trigger_and_get_workflow_info(
     try:
         # Trigger all workflows
         for file in workflow_files:
-            event.post(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch})
+            response = event.post(
+                f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch}
+            )
+            if response.status_code == 422:
+                results.append(
+                    {
+                        "name": file.replace(".yml", "").title(),
+                        "file": file,
+                        "url": f"https://github.com/{repo}/actions/workflows/{file}",
+                        "run_number": None,
+                        "error": response.json().get("message", "workflow dispatch failed"),
+                    }
+                )
+                return results
 
         # Wait for workflows to be created and start
         time.sleep(60)
@@ -122,20 +135,31 @@ def update_comment(event, comment_body: str, command: str, triggered_actions: li
         return
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    failed = all(action.get("error") for action in triggered_actions)
+    status = (
+        "No GitHub Actions workflows were started" if failed else "GitHub Actions below triggered via workflow dispatch"
+    )
     summary = f"""
 
 ## ⚡ Actions Trigger
 
 {ACTIONS_CREDIT}
 
-GitHub Actions below triggered via workflow dispatch for this PR at {timestamp} with `{command}` command
+{status} for this PR at {timestamp} with `{command}` command
 (available commands are `{RUN_ALL_KEYWORD}`, `{RUN_CI_KEYWORD}`, and `{RUN_DOCKER_KEYWORD}`):
 
 """
 
     for action in triggered_actions:
-        run_info = f" run {action['run_number']}" if action["run_number"] else ""
-        summary += f"* ✅ [{action['name']}]({action['url']}): `{action['file']}`{run_info}\n"
+        if error := action.get("error"):
+            summary += (
+                f"* ❌ [{action['name']}]({action['url']}): `{action['file']}` failed because `{error}`. "
+                f"If the PR branch was deleted, restore it or open a new PR from an existing branch, "
+                f"then run `{command}` again.\n"
+            )
+        else:
+            run_info = f" run {action['run_number']}" if action["run_number"] else ""
+            summary += f"* ✅ [{action['name']}]({action['url']}): `{action['file']}`{run_info}\n"
 
     new_body = comment_body.replace(command, summary).strip()
     comment_id = event.event_data["comment"]["id"]
