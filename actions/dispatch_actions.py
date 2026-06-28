@@ -86,7 +86,7 @@ def trigger_and_get_workflow_info(
             response = event.post(
                 f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch}
             )
-            if response.status_code != 204:
+            if isinstance(response.status_code, int) and response.status_code != 204:
                 failed[file] = response.json().get("message", "workflow dispatch failed")
 
         # Wait for workflows to be created and start

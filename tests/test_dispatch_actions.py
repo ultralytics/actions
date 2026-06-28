@@ -55,7 +55,6 @@ def test_trigger_and_get_workflow_info():
     """Test triggering workflows and getting info."""
     mock_event = MagicMock()
     mock_event.repository = "test/repo"
-    mock_event.post.return_value.status_code = 204
 
     # Mock the workflow and runs responses separately
     workflow_response = MagicMock()
