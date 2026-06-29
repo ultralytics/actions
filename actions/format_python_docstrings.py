@@ -377,12 +377,7 @@ def format_docstring(
     text = content.strip()
     has_section = any(f"{s}:" in text for s in SECTIONS)
     has_list = any(is_list_item(line) for line in text.splitlines())
-    single_ok = (
-        ("\n" not in text)
-        and not has_section
-        and not has_list
-        and (indent + len(prefix) + len(quotes) * 2 + len(text) <= width)
-    )
+    single_ok = ("\n" not in text) and not has_section and not has_list
     if single_ok:
         words = text.split()
         if words and not words[0].startswith(("http://", "https://")) and not words[0][0].isupper():
