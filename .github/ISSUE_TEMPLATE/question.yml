@@ -29,7 +29,7 @@ body:
         - "Ultralytics Actions workflow (ultralytics/actions@main)"
         - "Retry Action"
         - "Cleanup Disk Action"
-        - "Scan PRs Action"
+        - "GitHub Report Action"
         - "Dependabot Action"
         - "Python package (`ultralytics-actions`)"
         - "Repository documentation / README"

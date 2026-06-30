@@ -16,7 +16,6 @@
 # │   ├── dispatch_actions.py
 # │   ├── first_interaction.py
 # │   ├── review_pr.py
-# │   ├── scan_prs.py
 # │   ├── dependabot.py
 # │   ├── summarize_pr.py
 # │   ├── summarize_release.py
@@ -29,4 +28,4 @@
 #     ├── test_summarize_pr.py
 #     └── ...
 
-__version__ = "0.2.16"
+__version__ = "0.2.17"

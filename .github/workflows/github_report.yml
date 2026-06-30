@@ -1,0 +1,30 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+# Summarize failed default-branch GitHub Actions across Ultralytics repositories
+
+name: GitHub Report
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Past days to include"
+        required: false
+        type: number
+        default: 1
+  schedule:
+    - cron: "0 6 * * *" # daily at 06:00 UTC
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  github-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ultralytics/actions/github-report@main
+        with:
+          token: ${{ secrets._GITHUB_TOKEN }}
+          visibility: public
+          days: ${{ inputs.days || 1 }}

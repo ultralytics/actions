@@ -10,8 +10,8 @@
 
 [![Actions CI](https://github.com/ultralytics/actions/actions/workflows/ci.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/ci.yml)
 [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
-[![Scan PRs](https://github.com/ultralytics/actions/actions/workflows/scan-prs.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/scan-prs.yml)
-[![codecov](https://codecov.io/github/ultralytics/actions/graph/badge.svg?token=DoizJ1WS6j)](https://codecov.io/github/ultralytics/actions)
+[![GitHub Report](https://github.com/ultralytics/actions/actions/workflows/github_report.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/github_report.yml)
+[![codecov](https://codecov.io/github/ultralytics/actions/branch/main/graph/badge.svg)](https://app.codecov.io/github/ultralytics/actions)
 
 [![Ultralytics Discord](https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue)](https://discord.com/invite/ultralytics)
 [![Ultralytics Forums](https://img.shields.io/discourse/users?server=https%3A%2F%2Fcommunity.ultralytics.com&logo=discourse&label=Forums&color=blue)](https://community.ultralytics.com/)
@@ -45,7 +45,7 @@
 
 ### 🤖 支持的 AI 提供商
 
-可选择 [OpenAI](https://openai.com/) 或 [Anthropic](https://www.anthropic.com/) 启用 AI 功能：
+可选择 [OpenAI](https://developers.openai.com/) 或 [Anthropic](https://www.anthropic.com/) 启用 AI 功能：
 
 | 提供商    | 默认模型            | API Key             |
 | --------- | ------------------- | ------------------- |
@@ -98,8 +98,8 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }} # Auto-generated token
           labels: true # Auto-label issues/PRs using AI
-          python-version: "3.14" # Optional: set up a specific Python version
           python: true # Format Python with Ruff
+          # python-version: "3.14" # Optional: set up a specific Python version (default: runner Python)
           python_docstrings: true # Format Python docstrings (default: true)
           biome: true # Format JS/TS with Biome (auto-detected via biome.json)
           prettier: true # Format YAML, JSON, Markdown, CSS
@@ -144,19 +144,19 @@ jobs:
 
 [**📖 完整文档 →**](cleanup-disk/README.md)
 
-### 3. Scan PRs Action
+### 3. GitHub Report Action
 
-列出组织中的开放 PR，并自动合并符合条件的 GitHub Actions 更新 PR。
+汇总组织仓库默认分支上失败的 GitHub Actions。
 
 ```yaml
-- uses: ultralytics/actions/scan-prs@main
+- uses: ultralytics/actions/github-report@main
   with:
     token: ${{ secrets.GITHUB_TOKEN }}
     org: ultralytics # Optional: defaults to ultralytics
-    visibility: private,internal # Optional: public, private, internal, all, or comma-separated
+    visibility: all # Optional: public, private, internal, all, or comma-separated
 ```
 
-[**📖 完整文档 →**](scan-prs/README.md)
+[**📖 完整文档 →**](github-report/README.md)
 
 ### 4. Dependabot Action
 
@@ -184,13 +184,13 @@ pip install ultralytics-actions
 
 - `actions.review_pr` - AI 驱动的 PR review
 - `actions.summarize_pr` - 生成 PR 摘要
-- `actions.scan_prs` - 扫描并管理组织 PRs
+- `actions.github_report` - 生成 GitHub 组织报告
 - `actions.first_interaction` - 为新贡献者生成欢迎消息
 - 更多模块见 `actions/` 目录
 
 ## 💡 贡献
 
-Ultralytics 依靠社区协作不断发展，我们非常重视您的贡献！请查看[贡献指南](https://docs.ultralytics.com/help/contributing/)了解如何参与。也欢迎通过我们的[调查问卷](https://www.ultralytics.com/survey?utm_source=github&utm_medium=social&utm_campaign=Survey)分享反馈。衷心感谢 🙏 每一位贡献者！
+Ultralytics 依靠社区协作不断发展，我们非常重视您的贡献！请查看[贡献指南](https://docs.ultralytics.com/help/contributing)了解如何参与。也欢迎通过我们的[调查问卷](https://www.ultralytics.com/survey?utm_source=github&utm_medium=social&utm_campaign=Survey)分享反馈。衷心感谢 🙏 每一位贡献者！
 
 [![Ultralytics open-source contributors](https://raw.githubusercontent.com/ultralytics/assets/main/im/image-contributors.png)](https://github.com/ultralytics/ultralytics/graphs/contributors)
 

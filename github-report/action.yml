@@ -1,23 +1,39 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-name: "Scan PRs"
+name: "GitHub Report"
 author: "Ultralytics"
-description: "List open PRs and auto-merge eligible GitHub Actions update PRs across organization"
+description: "Summarize failed default-branch GitHub Actions across organization repositories"
 branding:
-  icon: "git-pull-request"
+  icon: "activity"
   color: "blue"
 inputs:
   token:
-    description: "GitHub token with admin permissions for merging"
+    description: "GitHub token with access to organization repositories"
     required: true
   org:
     description: "GitHub organization name"
     required: false
     default: "ultralytics"
   visibility:
-    description: "Repository visibility to scan: public, private, internal, all, or comma-separated (e.g., 'private,internal')"
+    description: "Repository visibility: public, private, internal, all, or comma-separated"
     required: false
     default: "public"
+  failed_actions:
+    description: "Include failed default-branch Actions summary"
+    required: false
+    default: ""
+  failed_scheduled_actions:
+    description: "Deprecated alias for failed_actions"
+    required: false
+    default: ""
+  max_run_pages:
+    description: "Pages of workflow runs to inspect per repository"
+    required: false
+    default: "3"
+  days:
+    description: "Days of workflow history to include"
+    required: false
+    default: "1"
 runs:
   using: "composite"
   steps:
@@ -33,7 +49,6 @@ runs:
         GITHUB_SHA: ${{ github.sha }}
       run: |
         echo "::group::Install ultralytics-actions"
-        # Install from git commit if testing in ultralytics/actions repo, otherwise from main
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
           echo "Installing from commit: $GITHUB_SHA"
           packages="git+https://github.com/ultralytics/actions@${GITHUB_SHA}"
@@ -48,14 +63,18 @@ runs:
         echo "::endgroup::"
       shell: bash
 
-    - name: Scan PRs
+    - name: GitHub Report
       env:
         GH_TOKEN: ${{ inputs.token }}
         ORG: ${{ inputs.org }}
         VISIBILITY: ${{ inputs.visibility }}
         REPO_VISIBILITY: ${{ github.event.repository.visibility }}
+        REPORT_FAILED_ACTIONS: ${{ inputs.failed_actions }}
+        REPORT_FAILED_SCHEDULED_ACTIONS: ${{ inputs.failed_scheduled_actions }}
+        MAX_RUN_PAGES: ${{ inputs.max_run_pages }}
+        REPORT_DAYS: ${{ inputs.days }}
       run: |
-        echo "::group::Scan PRs"
-        python -m actions.scan_prs
+        echo "::group::GitHub Report"
+        python -m actions.github_report
         echo "::endgroup::"
       shell: bash

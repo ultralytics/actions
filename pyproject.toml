@@ -92,6 +92,9 @@ ultralytics-actions-update-markdown-code-blocks = "actions.update_markdown_code_
 ultralytics-actions-headers = "actions.update_file_headers:main"
 ultralytics-actions-format-python-docstrings = "actions.format_python_docstrings:main"
 ultralytics-actions-dependabot = "actions.dependabot:run"
+ultralytics-actions-failed-actions = "actions.failed_scheduled_actions:run"
+ultralytics-actions-failed-scheduled-actions = "actions.failed_scheduled_actions:run"
+ultralytics-actions-github-report = "actions.github_report:run"
 ultralytics-actions-info = "actions.utils:ultralytics_actions_info"
 
 [tool.setuptools]
@@ -110,7 +113,6 @@ omit = [
     "actions/first_interaction.py",
     "actions/format_python_docstrings.py",
     "actions/review_pr.py",
-    "actions/scan_prs.py",
     "actions/summarize_pr.py",
     "actions/summarize_release.py",
     "actions/update_markdown_code_blocks.py",
