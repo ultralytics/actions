@@ -29,15 +29,15 @@ jobs:
 
 ## Inputs
 
-| Input                      | Description                                                                   | Required | Default       |
-| -------------------------- | ----------------------------------------------------------------------------- | -------- | ------------- |
-| `token`                    | GitHub token with access to organization repositories                         | Yes      | -             |
-| `org`                      | GitHub organization name                                                      | No       | `ultralytics` |
-| `visibility`               | Repository visibility: `public`, `private`, `internal`, `all`                 | No       | `public`      |
-| `failed_actions`           | Include failed default-branch Actions summary                                 | No       | `true`        |
-| `failed_scheduled_actions` | Deprecated alias for `failed_actions`                                         | No       | -             |
-| `max_run_pages`            | Pages of workflow runs to inspect per repository                              | No       | `3`           |
-| `days`                     | Days of workflow history to include                                           | No       | `1`           |
+| Input                      | Description                                                   | Required | Default       |
+| -------------------------- | ------------------------------------------------------------- | -------- | ------------- |
+| `token`                    | GitHub token with access to organization repositories         | Yes      | -             |
+| `org`                      | GitHub organization name                                      | No       | `ultralytics` |
+| `visibility`               | Repository visibility: `public`, `private`, `internal`, `all` | No       | `public`      |
+| `failed_actions`           | Include failed default-branch Actions summary                 | No       | `true`        |
+| `failed_scheduled_actions` | Deprecated alias for `failed_actions`                         | No       | -             |
+| `max_run_pages`            | Pages of workflow runs to inspect per repository              | No       | `3`           |
+| `days`                     | Days of workflow history to include                           | No       | `1`           |
 
 ## Output
 
