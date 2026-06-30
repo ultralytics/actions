@@ -60,6 +60,11 @@ def get_repo_filter(visibility_list):
     }
 
 
+def format_repo_heading(repo_name, repo_url, detail):
+    """Format a repository section heading for GitHub report Markdown."""
+    return f"## 📦 [{repo_name}]({repo_url}) - {detail}"
+
+
 def get_status_checks(rollup):
     """Extract and validate status checks from rollup, return failed checks."""
     checks = rollup if isinstance(rollup, list) else rollup.get("contexts", []) if isinstance(rollup, dict) else []
@@ -147,7 +152,9 @@ def run():
     for repo_name in sorted({pr["repository"]["name"] for pr in all_prs}):
         repo_prs = [pr for pr in all_prs if pr["repository"]["name"] == repo_name]
         summary.append(
-            f"## 📦 [{repo_name}]({repos[repo_name]}) - {len(repo_prs)} open PR{'s' if len(repo_prs) > 1 else ''}"
+            format_repo_heading(
+                repo_name, repos[repo_name], f"{len(repo_prs)} open PR{'s' if len(repo_prs) > 1 else ''}"
+            )
         )
 
         for pr in repo_prs[:30]:
