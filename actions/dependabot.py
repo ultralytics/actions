@@ -96,28 +96,75 @@ def get_latest_release(action, token, cache):
     return cache[repo]
 
 
-def _parse_runs_block(text):
-    """Extract using and main values from an action manifest's runs block."""
-    inline = re.search(r"runs:\s*\{([^}]*)\}", text, re.MULTILINE)
-    if inline:
-        body = inline.group(1)
-        using_m = re.search(r"using:\s*([^,}]+)", body)
-        main_m = re.search(r"main:\s*([^,}]+)", body)
-        using = using_m.group(1).strip(" \"'") if using_m else None
-        main = main_m.group(1).strip(" \"'") if main_m else None
-        return using, main
+def _clean_yaml_value(value):
+    """Return a simple YAML scalar value without wrapping quotes or inline comments."""
+    quote = None
+    for i, char in enumerate(value):
+        if char in {"'", '"'}:
+            quote = None if quote == char else char if quote is None else quote
+        elif char == "#" and quote is None:
+            value = value[:i]
+            break
+    return value.strip().strip("\"'")
 
-    block_match = re.search(r"^runs:\s*$", text, re.MULTILINE)
-    if not block_match:
-        return None, None
-    tail = text[block_match.end() :]
-    next_top = re.search(r"^\S", tail, re.MULTILINE)
-    block = tail[: next_top.start()] if next_top else tail
-    using_m = re.search(r"^[ \t]+using:\s*(\S+)", block, re.MULTILINE)
-    main_m = re.search(r"^[ \t]+main:\s*(\S+)", block, re.MULTILINE)
-    using = using_m.group(1).strip("\"'") if using_m else None
-    main = main_m.group(1).strip("\"'") if main_m else None
+
+def _split_inline_mapping(body):
+    """Split a one-line YAML mapping body on commas outside quotes."""
+    parts, start, quote = [], 0, None
+    for i, char in enumerate(body):
+        if char in {"'", '"'}:
+            quote = None if quote == char else char if quote is None else quote
+        elif char == "," and quote is None:
+            parts.append(body[start:i])
+            start = i + 1
+    parts.append(body[start:])
+    return parts
+
+
+def parse_runs(text):
+    """Extract using and main values from an action manifest's runs section."""
+    inline = re.search(r"(?m)^runs:\s*\{([^}]*)\}\s*(?:#.*)?$", text)
+    if inline:
+        values = {}
+        for item in _split_inline_mapping(inline.group(1)):
+            if ":" in item:
+                key, value = item.split(":", 1)
+                values[key.strip()] = _clean_yaml_value(value)
+        return values.get("using"), values.get("main")
+
+    using = main = None
+    lines = text.splitlines()
+    for i, line in enumerate(lines):
+        match = re.match(r"^runs:\s*(?:#.*)?$", line)
+        if not match:
+            continue
+
+        base_indent = 0
+        direct_indent = None
+        for child in lines[i + 1 :]:
+            stripped = child.strip()
+            if not stripped or stripped.startswith("#"):
+                continue
+            indent = len(child) - len(child.lstrip())
+            if indent <= base_indent:
+                break
+            direct_indent = direct_indent or indent
+            if indent != direct_indent:
+                continue
+            if ":" not in stripped:
+                continue
+            key, value = stripped.split(":", 1)
+            if key == "using":
+                using = _clean_yaml_value(value)
+            elif key == "main":
+                main = _clean_yaml_value(value)
+        break
     return using, main
+
+
+def is_reusable_workflow(action):
+    """Return whether a uses target points at a reusable workflow instead of an action manifest."""
+    return bool(re.search(r"/\.github/workflows/[^/]+\.ya?ml$", action))
 
 
 def action_is_valid(action, ref, token):
@@ -137,7 +184,7 @@ def action_is_valid(action, ref, token):
         if raw.status_code != 200:
             continue
 
-        using, main = _parse_runs_block(raw.text)
+        using, main = parse_runs(raw.text)
 
         # JavaScript actions (using: node*) must declare runs.main
         if using and using.startswith("node") and not main:
@@ -398,8 +445,8 @@ def run():
 
                 new_ref, new_comment = update
 
-                # Verify action.yml exists and any declared runs.main entrypoint is present (skip reusable workflows)
-                if not re.search(r"/\.github/workflows/[^/]+\.ya?ml$", action):
+                # Verify action.yml exists and any declared runs.main entrypoint is present.
+                if not is_reusable_workflow(action):
                     vkey = (action, new_ref)
                     if vkey not in valid_cache:
                         valid_cache[vkey] = action_is_valid(action, new_ref, token)
