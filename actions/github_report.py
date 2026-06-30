@@ -1,7 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 """Generate GitHub organization reports."""
 
-from actions import failed_scheduled_actions, scan_prs
+from actions import failed_scheduled_actions
 
 
 def enabled(value):
@@ -18,8 +18,6 @@ def run():
     """Run enabled GitHub report sections."""
     import os
 
-    if enabled(os.getenv("REPORT_PRS", "true")):
-        scan_prs.run()
     if enabled_any(os.getenv("REPORT_FAILED_ACTIONS"), os.getenv("REPORT_FAILED_SCHEDULED_ACTIONS")):
         failed_scheduled_actions.run()
 

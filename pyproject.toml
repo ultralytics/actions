@@ -113,7 +113,6 @@ omit = [
     "actions/first_interaction.py",
     "actions/format_python_docstrings.py",
     "actions/review_pr.py",
-    "actions/scan_prs.py",
     "actions/summarize_pr.py",
     "actions/summarize_release.py",
     "actions/update_markdown_code_blocks.py",

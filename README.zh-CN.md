@@ -146,7 +146,7 @@ jobs:
 
 ### 3. GitHub Report Action
 
-汇总组织仓库中的开放 PR 和默认分支上失败的 GitHub Actions。
+汇总组织仓库默认分支上失败的 GitHub Actions。
 
 ```yaml
 - uses: ultralytics/actions/github-report@main
@@ -185,7 +185,6 @@ pip install ultralytics-actions
 - `actions.review_pr` - AI 驱动的 PR review
 - `actions.summarize_pr` - 生成 PR 摘要
 - `actions.github_report` - 生成 GitHub 组织报告
-- `actions.scan_prs` - 扫描并管理组织 PRs
 - `actions.first_interaction` - 为新贡献者生成欢迎消息
 - 更多模块见 `actions/` 目录
 
