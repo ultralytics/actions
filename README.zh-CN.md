@@ -10,7 +10,7 @@
 
 [![Actions CI](https://github.com/ultralytics/actions/actions/workflows/ci.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/ci.yml)
 [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
-[![Scan PRs](https://github.com/ultralytics/actions/actions/workflows/scan-prs.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/scan-prs.yml)
+[![GitHub Report](https://github.com/ultralytics/actions/actions/workflows/github_report.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/github_report.yml)
 [![codecov](https://codecov.io/github/ultralytics/actions/branch/main/graph/badge.svg)](https://app.codecov.io/github/ultralytics/actions)
 
 [![Ultralytics Discord](https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue)](https://discord.com/invite/ultralytics)

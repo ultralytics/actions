@@ -1,0 +1,30 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+# Summarize open PRs and failed scheduled GitHub Actions across public Ultralytics repositories
+
+name: GitHub Report
+
+on:
+  workflow_dispatch:
+    inputs:
+      days:
+        description: "Days of scheduled workflow history to include"
+        required: false
+        type: number
+        default: 1
+  schedule:
+    - cron: "0 6 * * *" # daily at 06:00 UTC
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  github-report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ultralytics/actions/github-report@main
+        with:
+          token: ${{ secrets._GITHUB_TOKEN }}
+          visibility: public
+          days: ${{ inputs.days || 1 }}

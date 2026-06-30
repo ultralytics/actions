@@ -10,11 +10,17 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections import defaultdict
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from actions.scan_prs import get_repo_filter, parse_visibility
 
 FAILED_CONCLUSIONS = {"failure", "timed_out", "action_required", "startup_failure", "cancelled"}
+
+
+def run_time(run):
+    """Return the scheduled run timestamp used for recency filtering and latest-run selection."""
+    value = run.get("run_started_at") or run.get("created_at") or ""
+    return datetime.fromisoformat(value.replace("Z", "+00:00")) if value else datetime.min.replace(tzinfo=timezone.utc)
 
 
 def github_get(path, params=None, token=None, allow_skip=False):
@@ -62,9 +68,10 @@ def paginate(path, params=None, key=None, max_pages=100, token=None, allow_skip=
 
 
 def collect_failed_scheduled_actions(
-    org="ultralytics", visibility="public", repo_visibility="public", max_run_pages=3, token=None
+    org="ultralytics", visibility="public", repo_visibility="public", max_run_pages=3, days=1, token=None
 ):
     """Collect latest failed scheduled workflow runs on each non-archived repo's default branch."""
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days) if days else None
     filter_config = get_repo_filter(parse_visibility(visibility, repo_visibility))
     repos = [
         r
@@ -87,13 +94,11 @@ def collect_failed_scheduled_actions(
         for run in runs:
             key = run.get("workflow_id") or run.get("name")
             current = latest.get(key)
-            started = run.get("run_started_at") or run.get("created_at") or ""
-            current_started = (current or {}).get("run_started_at") or (current or {}).get("created_at") or ""
-            if not current or started > current_started:
+            if not current or run_time(run) > run_time(current):
                 latest[key] = run
 
         for run in latest.values():
-            if run.get("conclusion") in FAILED_CONCLUSIONS:
+            if run.get("conclusion") in FAILED_CONCLUSIONS and (not cutoff or run_time(run) >= cutoff):
                 failures.append(
                     {
                         "repo": full_name,
@@ -146,12 +151,14 @@ def run():
     """Write failed scheduled Actions report to stdout and the GitHub step summary."""
     org = os.getenv("ORG", "ultralytics")
     max_run_pages = int(os.getenv("MAX_RUN_PAGES", "3"))
+    days = int(os.getenv("REPORT_DAYS", "1"))
     report = format_report(
         collect_failed_scheduled_actions(
             org,
             visibility=os.getenv("VISIBILITY", "public"),
             repo_visibility=os.getenv("REPO_VISIBILITY", "public"),
             max_run_pages=max_run_pages,
+            days=days,
         ),
         org,
     )
