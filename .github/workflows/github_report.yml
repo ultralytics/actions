@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
     inputs:
       days:
-        description: "Days of workflow history to include"
+        description: "Past days to include"
         required: false
         type: number
         default: 1
