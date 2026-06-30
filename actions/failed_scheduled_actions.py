@@ -12,7 +12,7 @@ import urllib.request
 from collections import defaultdict
 from datetime import datetime, timedelta, timezone
 
-from actions.scan_prs import get_repo_filter, parse_visibility
+from actions.scan_prs import format_repo_heading, get_repo_filter, parse_visibility
 
 FAILED_CONCLUSIONS = {"failure", "timed_out", "action_required", "startup_failure", "cancelled"}
 
@@ -102,6 +102,7 @@ def collect_failed_scheduled_actions(
                 failures.append(
                     {
                         "repo": full_name,
+                        "repo_url": repo.get("html_url") or f"https://github.com/{full_name}",
                         "visibility": repo.get("visibility", "private" if repo.get("private") else "public"),
                         "workflow": run.get("name") or run.get("display_title") or "Workflow",
                         "branch": branch,
@@ -129,13 +130,25 @@ def format_report(failures, org="ultralytics"):
         return "\n".join(lines) + "\n"
 
     repo_count = len({failure["repo"] for failure in failures})
-    lines.append(f"**{len(failures)} failing scheduled workflow runs** across **{repo_count} repositories**.")
+    run_word = "run" if len(failures) == 1 else "runs"
+    repo_word = "repository" if repo_count == 1 else "repositories"
+    lines.append(f"**{len(failures)} failing scheduled workflow {run_word}** across **{repo_count} {repo_word}**.")
     grouped = defaultdict(list)
     for failure in failures:
         grouped[failure["repo"]].append(failure)
 
     for repo, repo_failures in grouped.items():
-        lines.extend(["", f"## `{repo}` ({repo_failures[0]['visibility']})"])
+        count = len(repo_failures)
+        lines.extend(
+            [
+                "",
+                format_repo_heading(
+                    repo,
+                    repo_failures[0].get("repo_url") or f"https://github.com/{repo}",
+                    f"{count} failed run{'s' if count != 1 else ''}",
+                ),
+            ]
+        )
         for failure in repo_failures:
             failed_at = failure["failed_at"].replace("T", " ").replace("Z", " UTC")
             details = f" @ `{failure['sha']}`" if failure["sha"] else ""

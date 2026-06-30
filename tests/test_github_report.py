@@ -33,6 +33,7 @@ def test_collect_failed_scheduled_actions_latest_run_per_workflow(monkeypatch):
             return [
                 {
                     "full_name": "ultralytics/private-repo",
+                    "html_url": "https://github.com/ultralytics/private-repo",
                     "default_branch": "main",
                     "visibility": "private",
                     "archived": False,
@@ -158,6 +159,7 @@ def test_format_report_links_failures():
         [
             {
                 "repo": "ultralytics/private-repo",
+                "repo_url": "https://github.com/ultralytics/private-repo",
                 "visibility": "private",
                 "workflow": "Nightly",
                 "branch": "main",
@@ -171,6 +173,9 @@ def test_format_report_links_failures():
     )
 
     assert "# Failed Scheduled Actions" in report
+    assert "**1 failing scheduled workflow run** across **1 repository**." in report
+    assert "## 📦 [ultralytics/private-repo](https://github.com/ultralytics/private-repo) - 1 failed run" in report
+    assert "(private)" not in report
     assert "**Nightly** on `main` failed at 2026-06-30 01:02:03 UTC" in report
     assert "[Run #7](https://github.com/ultralytics/private-repo/actions/runs/7)" in report
 
