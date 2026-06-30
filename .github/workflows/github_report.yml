@@ -1,6 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-# Summarize open PRs and failed default-branch GitHub Actions across Ultralytics repositories
+# Summarize failed default-branch GitHub Actions across Ultralytics repositories
 
 name: GitHub Report
 
@@ -17,7 +17,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
+  actions: read
 
 jobs:
   github-report:

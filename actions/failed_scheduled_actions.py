@@ -12,9 +12,42 @@ import urllib.request
 from collections import Counter, defaultdict
 from datetime import datetime, timedelta, timezone
 
-from actions.scan_prs import format_repo_heading, get_repo_filter, parse_visibility
-
 FAILED_CONCLUSIONS = {"failure", "timed_out", "action_required", "startup_failure", "cancelled"}
+
+
+def parse_visibility(visibility_input, repo_visibility):
+    """Parse and validate repository visibility settings."""
+    valid = {"public", "private", "internal", "all"}
+    stripped = [v.strip() for v in visibility_input.lower().split(",") if v.strip()]
+    repo_visibility = (repo_visibility or "").lower()
+
+    if invalid := [v for v in stripped if v not in valid]:
+        print(f"⚠️  Invalid visibility values: {', '.join(invalid)} - ignoring")
+
+    visibility_list = [v for v in stripped if v in valid]
+    if not visibility_list:
+        print("⚠️  No valid visibility values, defaulting to 'public'")
+        return ["public"]
+
+    if repo_visibility == "public" and visibility_list != ["public"]:
+        print("⚠️  Security: Public repo cannot inspect non-public repos. Restricting to public only.")
+        return ["public"]
+
+    return visibility_list
+
+
+def get_repo_filter(visibility_list):
+    """Return filtering strategy for repository visibility."""
+    if len(visibility_list) == 1 and visibility_list[0] != "all":
+        return {"filter": None, "str": visibility_list[0]}
+
+    filter_set = {"public", "private", "internal"} if "all" in visibility_list else set(visibility_list)
+    return {"filter": filter_set, "str": "all" if "all" in visibility_list else ", ".join(sorted(visibility_list))}
+
+
+def format_repo_heading(repo_name, repo_url):
+    """Format a repository section heading for GitHub report Markdown."""
+    return f"## 📦 [{repo_name.rsplit('/', 1)[-1]}]({repo_url})"
 
 
 def run_time(run):

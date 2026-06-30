@@ -185,25 +185,20 @@ def test_format_report_links_failures():
     assert "[Run #7](https://github.com/ultralytics/private-repo/actions/runs/7)" in report
 
 
-def test_github_report_runs_enabled_sections(monkeypatch):
-    """The shared report driver gates PR and failed Actions sections by env flags."""
+def test_github_report_runs_failed_actions_section(monkeypatch):
+    """The shared report driver runs the failed Actions section by default."""
     calls = []
-    monkeypatch.setenv("REPORT_PRS", "true")
-    monkeypatch.setenv("REPORT_FAILED_ACTIONS", "false")
-    monkeypatch.setattr(github_report.scan_prs, "run", lambda: calls.append("prs"))
     monkeypatch.setattr(github_report.failed_scheduled_actions, "run", lambda: calls.append("actions"))
 
     github_report.run()
 
-    assert calls == ["prs"]
+    assert calls == ["actions"]
 
 
 def test_github_report_keeps_failed_scheduled_actions_alias(monkeypatch):
     """The old failed_scheduled_actions input remains a compatibility alias."""
     calls = []
-    monkeypatch.setenv("REPORT_PRS", "false")
     monkeypatch.setenv("REPORT_FAILED_SCHEDULED_ACTIONS", "false")
-    monkeypatch.setattr(github_report.scan_prs, "run", lambda: calls.append("prs"))
     monkeypatch.setattr(github_report.failed_scheduled_actions, "run", lambda: calls.append("actions"))
 
     github_report.run()
@@ -212,7 +207,7 @@ def test_github_report_keeps_failed_scheduled_actions_alias(monkeypatch):
 
 
 def test_failed_scheduled_actions_summary_appends_section_break(tmp_path, monkeypatch):
-    """Appending after the PR section should not concatenate Markdown headings."""
+    """Appending after existing summary content should not concatenate Markdown headings."""
     summary = tmp_path / "summary.md"
     summary.write_text("**Summary:** Found 0 | Merged 0 | Skipped 0\n")
     monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))

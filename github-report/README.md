@@ -1,6 +1,6 @@
 # GitHub Report Action
 
-Summarize open pull requests and failed default-branch GitHub Actions across organization repositories.
+Summarize failed default-branch GitHub Actions across organization repositories.
 
 ## Usage
 
@@ -13,7 +13,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  actions: read
 
 jobs:
   github-report:
@@ -31,13 +31,11 @@ jobs:
 
 | Input                      | Description                                                                   | Required | Default       |
 | -------------------------- | ----------------------------------------------------------------------------- | -------- | ------------- |
-| `token`                    | GitHub token with access to scanned repositories                              | Yes      | -             |
+| `token`                    | GitHub token with access to organization repositories                         | Yes      | -             |
 | `org`                      | GitHub organization name                                                      | No       | `ultralytics` |
-| `visibility`               | Repository visibility for PR scanning: `public`, `private`, `internal`, `all` | No       | `public`      |
-| `prs`                      | Include open PR summary                                                       | No       | `true`        |
+| `visibility`               | Repository visibility: `public`, `private`, `internal`, `all`                 | No       | `public`      |
 | `failed_actions`           | Include failed default-branch Actions summary                                 | No       | `true`        |
 | `failed_scheduled_actions` | Deprecated alias for `failed_actions`                                         | No       | -             |
-| `auto_merge_actions_prs`   | Auto-merge eligible GitHub Actions update PRs in the PR section               | No       | `false`       |
 | `max_run_pages`            | Pages of workflow runs to inspect per repository                              | No       | `3`           |
 | `days`                     | Days of workflow history to include                                           | No       | `1`           |
 
@@ -45,6 +43,4 @@ jobs:
 
 The action writes a GitHub step summary with:
 
-- Open PR totals and age buckets
-- Eligible GitHub Actions update PR merge results
 - Latest failed workflow runs on each repository's default branch, grouped by event
