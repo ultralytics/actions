@@ -35,8 +35,8 @@ jobs:
 | `org`                      | GitHub organization name                                                      | No       | `ultralytics` |
 | `visibility`               | Repository visibility for PR scanning: `public`, `private`, `internal`, `all` | No       | `public`      |
 | `prs`                      | Include open PR summary                                                       | No       | `true`        |
-| `failed_actions`           | Include failed default-branch Actions summary                                | No       | `true`        |
-| `failed_scheduled_actions` | Deprecated alias for `failed_actions`                                        | No       | -             |
+| `failed_actions`           | Include failed default-branch Actions summary                                 | No       | `true`        |
+| `failed_scheduled_actions` | Deprecated alias for `failed_actions`                                         | No       | -             |
 | `auto_merge_actions_prs`   | Auto-merge eligible GitHub Actions update PRs in the PR section               | No       | `false`       |
 | `max_run_pages`            | Pages of workflow runs to inspect per repository                              | No       | `3`           |
 | `days`                     | Days of workflow history to include                                           | No       | `1`           |
