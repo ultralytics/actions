@@ -57,7 +57,9 @@ def paginate(path, params=None, key=None, max_pages=100, token=None):
     return items
 
 
-def collect_failed_scheduled_actions(org="ultralytics", visibility="public", repo_visibility="public", max_run_pages=3, token=None):
+def collect_failed_scheduled_actions(
+    org="ultralytics", visibility="public", repo_visibility="public", max_run_pages=3, token=None
+):
     """Collect latest failed scheduled workflow runs on each non-archived repo's default branch."""
     filter_config = get_repo_filter(parse_visibility(visibility, repo_visibility))
     repos = [
