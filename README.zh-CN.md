@@ -158,7 +158,21 @@ jobs:
 
 [**📖 完整文档 →**](scan-prs/README.md)
 
-### 4. Dependabot Action
+### 4. GitHub Report Action
+
+汇总组织仓库中的开放 PR 和失败的定时 GitHub Actions。
+
+```yaml
+- uses: ultralytics/actions/github-report@main
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
+    org: ultralytics # Optional: defaults to ultralytics
+    visibility: all # Optional: public, private, internal, all, or comma-separated
+```
+
+[**📖 完整文档 →**](github-report/README.md)
+
+### 5. Dependabot Action
 
 使用缓存的 release 解析，批量更新组织仓库中的 GitHub Actions 版本。
 

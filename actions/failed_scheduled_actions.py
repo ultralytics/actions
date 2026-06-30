@@ -1,0 +1,165 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+"""Report failed scheduled GitHub Actions on default branches across an organization."""
+
+from __future__ import annotations
+
+import json
+import os
+import time
+import urllib.error
+import urllib.parse
+import urllib.request
+from collections import defaultdict
+from datetime import datetime, timezone
+
+from actions.scan_prs import get_repo_filter, parse_visibility
+
+FAILED_CONCLUSIONS = {"failure", "timed_out", "action_required", "startup_failure", "cancelled"}
+
+
+def github_get(path, params=None, token=None, allow_skip=False):
+    """Fetch JSON from the GitHub REST API."""
+    token = token or os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
+    if not token:
+        raise RuntimeError("GH_TOKEN or GITHUB_TOKEN is required")
+
+    url = f"https://api.github.com{path}"
+    if params:
+        url += "?" + urllib.parse.urlencode(params)
+    request = urllib.request.Request(
+        url,
+        headers={
+            "Accept": "application/vnd.github+json",
+            "Authorization": f"Bearer {token}",
+            "X-GitHub-Api-Version": "2022-11-28",
+        },
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=60) as response:
+            return json.loads(response.read())
+    except urllib.error.HTTPError as e:
+        body = e.read().decode(errors="ignore").lower()
+        rate_limited = e.code == 403 and (e.headers.get("X-RateLimit-Remaining") == "0" or "rate limit" in body)
+        if allow_skip and e.code in {403, 404} and not rate_limited:
+            print(f"Skipping {path}: {e.code}")
+            return None
+        raise
+
+
+def paginate(path, params=None, key=None, max_pages=100, token=None, allow_skip=False):
+    """Collect paginated GitHub API results."""
+    items = []
+    for page in range(1, max_pages + 1):
+        data = github_get(path, {**(params or {}), "per_page": 100, "page": page}, token=token, allow_skip=allow_skip)
+        if not data:
+            break
+        page_items = data[key] if key else data
+        items.extend(page_items)
+        if len(page_items) < 100:
+            break
+        time.sleep(0.2)
+    return items
+
+
+def collect_failed_scheduled_actions(
+    org="ultralytics", visibility="public", repo_visibility="public", max_run_pages=3, token=None
+):
+    """Collect latest failed scheduled workflow runs on each non-archived repo's default branch."""
+    filter_config = get_repo_filter(parse_visibility(visibility, repo_visibility))
+    repos = [
+        r
+        for r in paginate(f"/orgs/{org}/repos", {"type": "all"}, token=token)
+        if not r.get("archived") and (not filter_config["filter"] or r["visibility"].lower() in filter_config["filter"])
+    ]
+    failures = []
+    for repo in repos:
+        full_name = repo["full_name"]
+        branch = repo.get("default_branch") or "main"
+        runs = paginate(
+            f"/repos/{full_name}/actions/runs",
+            {"event": "schedule", "branch": branch},
+            key="workflow_runs",
+            max_pages=max_run_pages,
+            token=token,
+            allow_skip=True,
+        )
+        latest = {}
+        for run in runs:
+            key = run.get("workflow_id") or run.get("name")
+            current = latest.get(key)
+            started = run.get("run_started_at") or run.get("created_at") or ""
+            current_started = (current or {}).get("run_started_at") or (current or {}).get("created_at") or ""
+            if not current or started > current_started:
+                latest[key] = run
+
+        for run in latest.values():
+            if run.get("conclusion") in FAILED_CONCLUSIONS:
+                failures.append(
+                    {
+                        "repo": full_name,
+                        "visibility": repo.get("visibility", "private" if repo.get("private") else "public"),
+                        "workflow": run.get("name") or run.get("display_title") or "Workflow",
+                        "branch": branch,
+                        "run_number": run.get("run_number"),
+                        "failed_at": run.get("updated_at") or run.get("created_at") or "",
+                        "sha": (run.get("head_sha") or "")[:7],
+                        "title": run.get("display_title") or "",
+                        "url": run.get("html_url"),
+                    }
+                )
+    return sorted(failures, key=lambda x: (x["repo"].lower(), x["workflow"].lower()))
+
+
+def format_report(failures, org="ultralytics"):
+    """Format failed scheduled workflow runs as Markdown."""
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    lines = [
+        "# Failed Scheduled Actions",
+        "",
+        f"Failed scheduled workflow runs on default branches for `{org}` repositories as of {now}.",
+        "",
+    ]
+    if not failures:
+        lines.append("No failed scheduled workflow runs found.")
+        return "\n".join(lines) + "\n"
+
+    repo_count = len({failure["repo"] for failure in failures})
+    lines.append(f"**{len(failures)} failing scheduled workflow runs** across **{repo_count} repositories**.")
+    grouped = defaultdict(list)
+    for failure in failures:
+        grouped[failure["repo"]].append(failure)
+
+    for repo, repo_failures in grouped.items():
+        lines.extend(["", f"## `{repo}` ({repo_failures[0]['visibility']})"])
+        for failure in repo_failures:
+            failed_at = failure["failed_at"].replace("T", " ").replace("Z", " UTC")
+            details = f" @ `{failure['sha']}`" if failure["sha"] else ""
+            details += f" - {failure['title']}" if failure["title"] else ""
+            lines.append(
+                f"- **{failure['workflow']}** on `{failure['branch']}` failed at {failed_at}{details}. "
+                f"[Run #{failure['run_number']}]({failure['url']})"
+            )
+    return "\n".join(lines) + "\n"
+
+
+def run():
+    """Write failed scheduled Actions report to stdout and the GitHub step summary."""
+    org = os.getenv("ORG", "ultralytics")
+    max_run_pages = int(os.getenv("MAX_RUN_PAGES", "3"))
+    report = format_report(
+        collect_failed_scheduled_actions(
+            org,
+            visibility=os.getenv("VISIBILITY", "public"),
+            repo_visibility=os.getenv("REPO_VISIBILITY", "public"),
+            max_run_pages=max_run_pages,
+        ),
+        org,
+    )
+    print(report)
+    if summary_file := os.getenv("GITHUB_STEP_SUMMARY"):
+        with open(summary_file, "a") as f:
+            f.write("\n" + report)
+
+
+if __name__ == "__main__":
+    run()
