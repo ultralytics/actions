@@ -73,6 +73,7 @@ def run():
     org = os.getenv("ORG", "ultralytics")
     visibility_list = parse_visibility(os.getenv("VISIBILITY", "public"), os.getenv("REPO_VISIBILITY", "public"))
     filter_config = get_repo_filter(visibility_list)
+    auto_merge = os.getenv("AUTO_MERGE_ACTIONS_PRS", "true").lower() == "true"
 
     print(f"🔍 Scanning {filter_config['str']} repositories in {org} organization...")
 
@@ -156,6 +157,13 @@ def run():
         if len(repo_prs) > 30:
             summary.append(f"- ... {len(repo_prs) - 30} more PRs")
         summary.append("")
+
+    if not auto_merge:
+        summary.append("\n# 🤖 Auto-Merge GitHub Actions Update PRs\n\nAuto-merge disabled for this run.")
+        if summary_file := os.getenv("GITHUB_STEP_SUMMARY"):
+            with open(summary_file, "a") as f:
+                f.write("\n".join(summary))
+        return
 
     # Auto-merge GitHub Actions update PRs
     print("\n🤖 Checking for GitHub Actions update PRs to auto-merge...")

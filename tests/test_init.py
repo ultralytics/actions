@@ -56,6 +56,8 @@ def test_all_modules_importable():
         "actions.summarize_release",
         "actions.update_markdown_code_blocks",
         "actions.dispatch_actions",
+        "actions.failed_scheduled_actions",
+        "actions.github_report",
     ]
 
     for module_name in modules:
@@ -77,6 +79,7 @@ def test_cli_entry_points():
         "ultralytics-actions-summarize-pr",
         "ultralytics-actions-summarize-release",
         "ultralytics-actions-update-markdown-code-blocks",
+        "ultralytics-actions-github-report",
         "ultralytics-actions-info",
     ]
 

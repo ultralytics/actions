@@ -158,7 +158,21 @@ List open PRs across an organization and auto-merge eligible GitHub Actions upda
 
 [**📖 Full Documentation →**](scan-prs/README.md)
 
-### 4. Dependabot Action
+### 4. GitHub Report Action
+
+Summarize open PRs and failed scheduled GitHub Actions across organization repositories.
+
+```yaml
+- uses: ultralytics/actions/github-report@main
+  with:
+    token: ${{ secrets.GITHUB_TOKEN }}
+    org: ultralytics # Optional: defaults to ultralytics
+    visibility: all # Optional: public, private, internal, all, or comma-separated
+```
+
+[**📖 Full Documentation →**](github-report/README.md)
+
+### 5. Dependabot Action
 
 Update GitHub Actions versions across organization repositories with cached release resolution.
 
