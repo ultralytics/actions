@@ -14,7 +14,7 @@ jobs:
   test-bash:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Cleanup any leftover test files
         run: rm -f /tmp/retry_attempt /tmp/retry_attempt_py
@@ -181,7 +181,7 @@ jobs:
   test-python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Cleanup any leftover test files
         run: rm -f /tmp/retry_attempt /tmp/retry_attempt_py

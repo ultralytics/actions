@@ -1,0 +1,26 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+"""Generate GitHub organization reports."""
+
+from actions import failed_scheduled_actions
+
+
+def enabled(value):
+    """Return whether a string environment-style value is enabled."""
+    return str(value).lower() == "true"
+
+
+def enabled_any(*values, default="true"):
+    """Return the first explicitly set boolean value, otherwise the default."""
+    return enabled(next((value for value in values if value not in {None, ""}), default))
+
+
+def run():
+    """Run enabled GitHub report sections."""
+    import os
+
+    if enabled_any(os.getenv("REPORT_FAILED_ACTIONS"), os.getenv("REPORT_FAILED_SCHEDULED_ACTIONS")):
+        failed_scheduled_actions.run()
+
+
+if __name__ == "__main__":
+    run()

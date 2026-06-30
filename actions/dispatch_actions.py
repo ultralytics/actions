@@ -78,17 +78,35 @@ def trigger_and_get_workflow_info(
     """Triggers workflows and returns their information, deleting temp branch if provided."""
     repo = event.repository
     results = []
+    failed = {}
 
     try:
         # Trigger all workflows
         for file in workflow_files:
-            event.post(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch})
+            response = event.post(
+                f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch}
+            )
+            if isinstance(response.status_code, int) and response.status_code != 204:
+                failed[file] = response.json().get("message", "workflow dispatch failed")
 
         # Wait for workflows to be created and start
-        time.sleep(60)
+        if len(failed) < len(workflow_files):
+            time.sleep(60)
 
         # Collect information about all workflows
         for file in workflow_files:
+            if file in failed:
+                results.append(
+                    {
+                        "name": file.replace(".yml", "").title(),
+                        "file": file,
+                        "url": f"https://github.com/{repo}/actions/workflows/{file}",
+                        "run_number": None,
+                        "error": failed[file],
+                    }
+                )
+                continue
+
             # Get workflow name
             response = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}")
             name = file.replace(".yml", "").title()
@@ -122,20 +140,35 @@ def update_comment(event, comment_body: str, command: str, triggered_actions: li
         return
 
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    failed = all(action.get("error") for action in triggered_actions)
+    status = (
+        "No GitHub Actions workflows were started" if failed else "GitHub Actions below triggered via workflow dispatch"
+    )
     summary = f"""
 
 ## ⚡ Actions Trigger
 
 {ACTIONS_CREDIT}
 
-GitHub Actions below triggered via workflow dispatch for this PR at {timestamp} with `{command}` command
+{status} for this PR at {timestamp} with `{command}` command
 (available commands are `{RUN_ALL_KEYWORD}`, `{RUN_CI_KEYWORD}`, and `{RUN_DOCKER_KEYWORD}`):
 
 """
 
     for action in triggered_actions:
-        run_info = f" run {action['run_number']}" if action["run_number"] else ""
-        summary += f"* ✅ [{action['name']}]({action['url']}): `{action['file']}`{run_info}\n"
+        if error := action.get("error"):
+            guidance = (
+                f"If the PR branch was deleted, restore it or open a new PR from an existing branch, "
+                f"then run `{command}` again."
+                if "no ref found" in error.lower()
+                else f"Check the workflow dispatch configuration and permissions, then run `{command}` again."
+            )
+            summary += (
+                f"* ❌ [{action['name']}]({action['url']}): `{action['file']}` failed because `{error}`. {guidance}\n"
+            )
+        else:
+            run_info = f" run {action['run_number']}" if action["run_number"] else ""
+            summary += f"* ✅ [{action['name']}]({action['url']}): `{action['file']}`{run_info}\n"
 
     new_body = comment_body.replace(command, summary).strip()
     comment_id = event.event_data["comment"]["id"]

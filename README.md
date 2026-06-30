@@ -10,8 +10,8 @@ Welcome to [Ultralytics Actions](https://github.com/ultralytics/actions) - a col
 
 [![Actions CI](https://github.com/ultralytics/actions/actions/workflows/ci.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/ci.yml)
 [![Ultralytics Actions](https://github.com/ultralytics/actions/actions/workflows/format.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/format.yml)
-[![Scan PRs](https://github.com/ultralytics/actions/actions/workflows/scan-prs.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/scan-prs.yml)
-[![codecov](https://codecov.io/github/ultralytics/actions/graph/badge.svg?token=DoizJ1WS6j)](https://codecov.io/github/ultralytics/actions)
+[![GitHub Report](https://github.com/ultralytics/actions/actions/workflows/github_report.yml/badge.svg)](https://github.com/ultralytics/actions/actions/workflows/github_report.yml)
+[![codecov](https://codecov.io/github/ultralytics/actions/branch/main/graph/badge.svg)](https://app.codecov.io/github/ultralytics/actions)
 
 [![Ultralytics Discord](https://img.shields.io/discord/1089800235347353640?logo=discord&logoColor=white&label=Discord&color=blue)](https://discord.com/invite/ultralytics)
 [![Ultralytics Forums](https://img.shields.io/discourse/users?server=https%3A%2F%2Fcommunity.ultralytics.com&logo=discourse&label=Forums&color=blue)](https://community.ultralytics.com/)
@@ -45,7 +45,7 @@ AI-powered formatting, labeling, and PR summaries for Python, Swift, Dart, and M
 
 ### 🤖 Supported AI Providers
 
-Choose between [OpenAI](https://openai.com/) or [Anthropic](https://www.anthropic.com/) for AI-powered features:
+Choose between [OpenAI](https://developers.openai.com/) or [Anthropic](https://www.anthropic.com/) for AI-powered features:
 
 | Provider  | Default Model       | API Key             |
 | --------- | ------------------- | ------------------- |
@@ -99,7 +99,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }} # Auto-generated token
           labels: true # Auto-label issues/PRs using AI
           python: true # Format Python with Ruff
-          # python-version: "3.15" # Optional: override default Python version
+          # python-version: "3.14" # Optional: set up a specific Python version (default: runner Python)
           python_docstrings: true # Format Python docstrings (default: true)
           biome: true # Format JS/TS with Biome (auto-detected via biome.json)
           prettier: true # Format YAML, JSON, Markdown, CSS
@@ -144,19 +144,19 @@ Free up disk space on GitHub runners by removing unnecessary packages and files.
 
 [**📖 Full Documentation →**](cleanup-disk/README.md)
 
-### 3. Scan PRs Action
+### 3. GitHub Report Action
 
-List open PRs across an organization and auto-merge eligible GitHub Actions update PRs.
+Summarize failed default-branch GitHub Actions across organization repositories.
 
 ```yaml
-- uses: ultralytics/actions/scan-prs@main
+- uses: ultralytics/actions/github-report@main
   with:
     token: ${{ secrets.GITHUB_TOKEN }}
     org: ultralytics # Optional: defaults to ultralytics
-    visibility: private,internal # Optional: public, private, internal, all, or comma-separated
+    visibility: all # Optional: public, private, internal, all, or comma-separated
 ```
 
-[**📖 Full Documentation →**](scan-prs/README.md)
+[**📖 Full Documentation →**](github-report/README.md)
 
 ### 4. Dependabot Action
 
@@ -184,13 +184,13 @@ pip install ultralytics-actions
 
 - `actions.review_pr` - AI-powered PR review
 - `actions.summarize_pr` - Generate PR summaries
-- `actions.scan_prs` - Scan and manage organization PRs
+- `actions.github_report` - Generate GitHub organization reports
 - `actions.first_interaction` - Welcome message for new contributors
 - And more in `actions/` directory
 
 ## 💡 Contribute
 
-Ultralytics thrives on community collaboration, and we deeply value your contributions! Please see our [Contributing Guide](https://docs.ultralytics.com/help/contributing/) for details on how you can get involved. We also encourage you to share your feedback through our [Survey](https://www.ultralytics.com/survey?utm_source=github&utm_medium=social&utm_campaign=Survey). A huge thank you 🙏 to all our contributors!
+Ultralytics thrives on community collaboration, and we deeply value your contributions! Please see our [Contributing Guide](https://docs.ultralytics.com/help/contributing) for details on how you can get involved. We also encourage you to share your feedback through our [Survey](https://www.ultralytics.com/survey?utm_source=github&utm_medium=social&utm_campaign=Survey). A huge thank you 🙏 to all our contributors!
 
 [![Ultralytics open-source contributors](https://raw.githubusercontent.com/ultralytics/assets/main/im/image-contributors.png)](https://github.com/ultralytics/ultralytics/graphs/contributors)
 

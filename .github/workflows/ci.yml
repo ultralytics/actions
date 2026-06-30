@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read # Read code in PRs
+  id-token: write # Required for Codecov OIDC uploads
 
 jobs:
   Test:
@@ -25,7 +26,7 @@ jobs:
         python-version: ["3.8", "3.14"]
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - uses: actions/setup-python@v6
         with:
@@ -51,9 +52,10 @@ jobs:
           ultralytics-actions-info
 
       - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           disable_search: true
           plugins: noop
-          token: ${{ secrets.CODECOV_TOKEN }}
+          use_oidc: true
+          fail_ci_if_error: true
