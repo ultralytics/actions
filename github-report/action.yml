@@ -34,6 +34,10 @@ inputs:
     description: "Pages of scheduled workflow runs to inspect per repository"
     required: false
     default: "3"
+  days:
+    description: "Days of scheduled workflow history to include"
+    required: false
+    default: "1"
 runs:
   using: "composite"
   steps:
@@ -73,6 +77,7 @@ runs:
         REPORT_FAILED_SCHEDULED_ACTIONS: ${{ inputs.failed_scheduled_actions }}
         AUTO_MERGE_ACTIONS_PRS: ${{ inputs.auto_merge_actions_prs }}
         MAX_RUN_PAGES: ${{ inputs.max_run_pages }}
+        REPORT_DAYS: ${{ inputs.days }}
       run: |
         echo "::group::GitHub Report"
         python -m actions.github_report

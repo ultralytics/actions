@@ -6,8 +6,14 @@ name: GitHub Report
 
 on:
   workflow_dispatch:
+    inputs:
+      days:
+        description: "Days of scheduled workflow history to include"
+        required: false
+        type: number
+        default: 1
   schedule:
-    - cron: "30 6 * * *" # daily at 06:30 UTC
+    - cron: "0 6 * * *" # daily at 06:00 UTC
 
 permissions:
   contents: read
@@ -21,3 +27,4 @@ jobs:
         with:
           token: ${{ secrets._GITHUB_TOKEN }}
           visibility: public
+          days: ${{ inputs.days || 1 }}

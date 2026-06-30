@@ -1,5 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+from datetime import datetime, timedelta, timezone
+
 from actions import failed_scheduled_actions, github_report
 
 
@@ -117,6 +119,37 @@ def test_collect_failed_scheduled_actions_ignores_latest_success(monkeypatch):
     monkeypatch.setattr(failed_scheduled_actions, "paginate", fake_paginate)
 
     assert failed_scheduled_actions.collect_failed_scheduled_actions(token="token") == []
+
+
+def test_collect_failed_scheduled_actions_respects_days_window(monkeypatch):
+    """Failed scheduled runs older than the requested window should be omitted."""
+    old_date = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    def fake_paginate(path, params=None, key=None, max_pages=100, token=None, allow_skip=False):
+        if path == "/orgs/ultralytics/repos":
+            return [
+                {
+                    "full_name": "ultralytics/repo",
+                    "default_branch": "main",
+                    "visibility": "public",
+                    "archived": False,
+                }
+            ]
+        if path == "/repos/ultralytics/repo/actions/runs":
+            return [
+                {
+                    "workflow_id": 1,
+                    "name": "Nightly",
+                    "conclusion": "failure",
+                    "run_started_at": old_date,
+                }
+            ]
+        raise AssertionError(path)
+
+    monkeypatch.setattr(failed_scheduled_actions, "paginate", fake_paginate)
+
+    assert failed_scheduled_actions.collect_failed_scheduled_actions(days=1, token="token") == []
+    assert failed_scheduled_actions.collect_failed_scheduled_actions(days=3, token="token")
 
 
 def test_format_report_links_failures():
