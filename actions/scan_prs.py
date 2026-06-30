@@ -60,9 +60,10 @@ def get_repo_filter(visibility_list):
     }
 
 
-def format_repo_heading(repo_name, repo_url, detail):
+def format_repo_heading(repo_name, repo_url, detail=None):
     """Format a repository section heading for GitHub report Markdown."""
-    return f"## 📦 [{repo_name}]({repo_url}) - {detail}"
+    heading = f"## 📦 [{repo_name.rsplit('/', 1)[-1]}]({repo_url})"
+    return f"{heading} - {detail}" if detail else heading
 
 
 def get_status_checks(rollup):

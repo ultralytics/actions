@@ -145,14 +145,12 @@ def format_report(failures, org="ultralytics"):
         grouped[failure["repo"]].append(failure)
 
     for repo, repo_failures in grouped.items():
-        count = len(repo_failures)
         lines.extend(
             [
                 "",
                 format_repo_heading(
                     repo,
                     repo_failures[0].get("repo_url") or f"https://github.com/{repo}",
-                    f"{count} failed run{'s' if count != 1 else ''}",
                 ),
             ]
         )

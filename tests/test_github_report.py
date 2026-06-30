@@ -178,7 +178,8 @@ def test_format_report_links_failures():
     assert "# Failed Default Branch Actions" in report
     assert "**1 failing default-branch workflow run** across **1 repository**." in report
     assert "**By Event:** `push` 1" in report
-    assert "## 📦 [ultralytics/private-repo](https://github.com/ultralytics/private-repo) - 1 failed run" in report
+    assert "## 📦 [private-repo](https://github.com/ultralytics/private-repo)" in report
+    assert "failed run" not in report
     assert "(private)" not in report
     assert "**Nightly** (`push`) on `main` failed at 2026-06-30 01:02:03 UTC" in report
     assert "[Run #7](https://github.com/ultralytics/private-repo/actions/runs/7)" in report
