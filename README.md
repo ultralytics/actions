@@ -144,23 +144,9 @@ Free up disk space on GitHub runners by removing unnecessary packages and files.
 
 [**📖 Full Documentation →**](cleanup-disk/README.md)
 
-### 3. Scan PRs Action
+### 3. GitHub Report Action
 
-List open PRs across an organization and auto-merge eligible GitHub Actions update PRs.
-
-```yaml
-- uses: ultralytics/actions/scan-prs@main
-  with:
-    token: ${{ secrets.GITHUB_TOKEN }}
-    org: ultralytics # Optional: defaults to ultralytics
-    visibility: private,internal # Optional: public, private, internal, all, or comma-separated
-```
-
-[**📖 Full Documentation →**](scan-prs/README.md)
-
-### 4. GitHub Report Action
-
-Summarize open PRs and failed scheduled GitHub Actions across organization repositories.
+Summarize open PRs and failed default-branch GitHub Actions across organization repositories.
 
 ```yaml
 - uses: ultralytics/actions/github-report@main
@@ -172,7 +158,7 @@ Summarize open PRs and failed scheduled GitHub Actions across organization repos
 
 [**📖 Full Documentation →**](github-report/README.md)
 
-### 5. Dependabot Action
+### 4. Dependabot Action
 
 Update GitHub Actions versions across organization repositories with cached release resolution.
 
@@ -198,6 +184,7 @@ pip install ultralytics-actions
 
 - `actions.review_pr` - AI-powered PR review
 - `actions.summarize_pr` - Generate PR summaries
+- `actions.github_report` - Generate GitHub organization reports
 - `actions.scan_prs` - Scan and manage organization PRs
 - `actions.first_interaction` - Welcome message for new contributors
 - And more in `actions/` directory

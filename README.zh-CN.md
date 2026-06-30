@@ -144,23 +144,9 @@ jobs:
 
 [**📖 完整文档 →**](cleanup-disk/README.md)
 
-### 3. Scan PRs Action
+### 3. GitHub Report Action
 
-列出组织中的开放 PR，并自动合并符合条件的 GitHub Actions 更新 PR。
-
-```yaml
-- uses: ultralytics/actions/scan-prs@main
-  with:
-    token: ${{ secrets.GITHUB_TOKEN }}
-    org: ultralytics # Optional: defaults to ultralytics
-    visibility: private,internal # Optional: public, private, internal, all, or comma-separated
-```
-
-[**📖 完整文档 →**](scan-prs/README.md)
-
-### 4. GitHub Report Action
-
-汇总组织仓库中的开放 PR 和失败的定时 GitHub Actions。
+汇总组织仓库中的开放 PR 和默认分支上失败的 GitHub Actions。
 
 ```yaml
 - uses: ultralytics/actions/github-report@main
@@ -172,7 +158,7 @@ jobs:
 
 [**📖 完整文档 →**](github-report/README.md)
 
-### 5. Dependabot Action
+### 4. Dependabot Action
 
 使用缓存的 release 解析，批量更新组织仓库中的 GitHub Actions 版本。
 
@@ -198,6 +184,7 @@ pip install ultralytics-actions
 
 - `actions.review_pr` - AI 驱动的 PR review
 - `actions.summarize_pr` - 生成 PR 摘要
+- `actions.github_report` - 生成 GitHub 组织报告
 - `actions.scan_prs` - 扫描并管理组织 PRs
 - `actions.first_interaction` - 为新贡献者生成欢迎消息
 - 更多模块见 `actions/` 目录

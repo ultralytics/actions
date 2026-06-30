@@ -25,8 +25,8 @@ def test_paginate_only_skips_http_errors_when_allowed(monkeypatch):
         raise AssertionError("Expected org listing failure to raise")
 
 
-def test_collect_failed_scheduled_actions_latest_run_per_workflow(monkeypatch):
-    """Only the latest scheduled run for each workflow should determine whether it is reported."""
+def test_collect_failed_actions_latest_run_per_workflow(monkeypatch):
+    """Only the latest default-branch run for each workflow should determine whether it is reported."""
 
     def fake_paginate(path, params=None, key=None, max_pages=100, token=None, allow_skip=False):
         if path == "/orgs/ultralytics/repos":
@@ -62,6 +62,7 @@ def test_collect_failed_scheduled_actions_latest_run_per_workflow(monkeypatch):
                 {
                     "workflow_id": 2,
                     "name": "Links",
+                    "event": "push",
                     "conclusion": "timed_out",
                     "run_started_at": "2026-06-30T04:00:00Z",
                     "run_number": 42,
@@ -77,18 +78,19 @@ def test_collect_failed_scheduled_actions_latest_run_per_workflow(monkeypatch):
 
     monkeypatch.setattr(failed_scheduled_actions, "paginate", fake_paginate)
 
-    failures = failed_scheduled_actions.collect_failed_scheduled_actions(
+    failures = failed_scheduled_actions.collect_failed_actions(
         visibility="all", repo_visibility="private", token="token"
     )
 
     assert len(failures) == 1
     assert failures[0]["repo"] == "ultralytics/private-repo"
     assert failures[0]["workflow"] == "Links"
+    assert failures[0]["event"] == "push"
     assert failures[0]["sha"] == "abcdef1"
 
 
-def test_collect_failed_scheduled_actions_ignores_latest_success(monkeypatch):
-    """Older failed scheduled runs should not be reported after a newer success."""
+def test_collect_failed_actions_ignores_latest_success(monkeypatch):
+    """Older failed runs should not be reported after a newer success."""
 
     def fake_paginate(path, params=None, key=None, max_pages=100, token=None, allow_skip=False):
         if path == "/orgs/ultralytics/repos":
@@ -119,11 +121,11 @@ def test_collect_failed_scheduled_actions_ignores_latest_success(monkeypatch):
 
     monkeypatch.setattr(failed_scheduled_actions, "paginate", fake_paginate)
 
-    assert failed_scheduled_actions.collect_failed_scheduled_actions(token="token") == []
+    assert failed_scheduled_actions.collect_failed_actions(token="token") == []
 
 
-def test_collect_failed_scheduled_actions_respects_days_window(monkeypatch):
-    """Failed scheduled runs older than the requested window should be omitted."""
+def test_collect_failed_actions_respects_days_window(monkeypatch):
+    """Failed runs older than the requested window should be omitted."""
     old_date = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     def fake_paginate(path, params=None, key=None, max_pages=100, token=None, allow_skip=False):
@@ -149,8 +151,8 @@ def test_collect_failed_scheduled_actions_respects_days_window(monkeypatch):
 
     monkeypatch.setattr(failed_scheduled_actions, "paginate", fake_paginate)
 
-    assert failed_scheduled_actions.collect_failed_scheduled_actions(days=1, token="token") == []
-    assert failed_scheduled_actions.collect_failed_scheduled_actions(days=3, token="token")
+    assert failed_scheduled_actions.collect_failed_actions(days=1, token="token") == []
+    assert failed_scheduled_actions.collect_failed_actions(days=3, token="token")
 
 
 def test_format_report_links_failures():
@@ -162,6 +164,7 @@ def test_format_report_links_failures():
                 "repo_url": "https://github.com/ultralytics/private-repo",
                 "visibility": "private",
                 "workflow": "Nightly",
+                "event": "push",
                 "branch": "main",
                 "run_number": 7,
                 "failed_at": "2026-06-30T01:02:03Z",
@@ -172,19 +175,20 @@ def test_format_report_links_failures():
         ]
     )
 
-    assert "# Failed Scheduled Actions" in report
-    assert "**1 failing scheduled workflow run** across **1 repository**." in report
+    assert "# Failed Default Branch Actions" in report
+    assert "**1 failing default-branch workflow run** across **1 repository**." in report
+    assert "**By Event:** `push` 1" in report
     assert "## 📦 [ultralytics/private-repo](https://github.com/ultralytics/private-repo) - 1 failed run" in report
     assert "(private)" not in report
-    assert "**Nightly** on `main` failed at 2026-06-30 01:02:03 UTC" in report
+    assert "**Nightly** (`push`) on `main` failed at 2026-06-30 01:02:03 UTC" in report
     assert "[Run #7](https://github.com/ultralytics/private-repo/actions/runs/7)" in report
 
 
 def test_github_report_runs_enabled_sections(monkeypatch):
-    """The shared report driver gates PR and failed scheduled Actions sections by env flags."""
+    """The shared report driver gates PR and failed Actions sections by env flags."""
     calls = []
     monkeypatch.setenv("REPORT_PRS", "true")
-    monkeypatch.setenv("REPORT_FAILED_SCHEDULED_ACTIONS", "false")
+    monkeypatch.setenv("REPORT_FAILED_ACTIONS", "false")
     monkeypatch.setattr(github_report.scan_prs, "run", lambda: calls.append("prs"))
     monkeypatch.setattr(github_report.failed_scheduled_actions, "run", lambda: calls.append("actions"))
 
@@ -193,13 +197,26 @@ def test_github_report_runs_enabled_sections(monkeypatch):
     assert calls == ["prs"]
 
 
+def test_github_report_keeps_failed_scheduled_actions_alias(monkeypatch):
+    """The old failed_scheduled_actions input remains a compatibility alias."""
+    calls = []
+    monkeypatch.setenv("REPORT_PRS", "false")
+    monkeypatch.setenv("REPORT_FAILED_SCHEDULED_ACTIONS", "false")
+    monkeypatch.setattr(github_report.scan_prs, "run", lambda: calls.append("prs"))
+    monkeypatch.setattr(github_report.failed_scheduled_actions, "run", lambda: calls.append("actions"))
+
+    github_report.run()
+
+    assert calls == []
+
+
 def test_failed_scheduled_actions_summary_appends_section_break(tmp_path, monkeypatch):
     """Appending after the PR section should not concatenate Markdown headings."""
     summary = tmp_path / "summary.md"
     summary.write_text("**Summary:** Found 0 | Merged 0 | Skipped 0\n")
     monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
-    monkeypatch.setattr(failed_scheduled_actions, "collect_failed_scheduled_actions", lambda *args, **kwargs: [])
+    monkeypatch.setattr(failed_scheduled_actions, "collect_failed_actions", lambda *args, **kwargs: [])
 
     failed_scheduled_actions.run()
 
-    assert "Skipped 0\n\n# Failed Scheduled Actions" in summary.read_text()
+    assert "Skipped 0\n\n# Failed Default Branch Actions" in summary.read_text()

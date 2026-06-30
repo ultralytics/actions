@@ -9,13 +9,18 @@ def enabled(value):
     return str(value).lower() == "true"
 
 
+def enabled_any(*values, default="true"):
+    """Return the first explicitly set boolean value, otherwise the default."""
+    return enabled(next((value for value in values if value not in {None, ""}), default))
+
+
 def run():
     """Run enabled GitHub report sections."""
     import os
 
     if enabled(os.getenv("REPORT_PRS", "true")):
         scan_prs.run()
-    if enabled(os.getenv("REPORT_FAILED_SCHEDULED_ACTIONS", "true")):
+    if enabled_any(os.getenv("REPORT_FAILED_ACTIONS"), os.getenv("REPORT_FAILED_SCHEDULED_ACTIONS")):
         failed_scheduled_actions.run()
 
 
