@@ -29,7 +29,7 @@ inputs:
   auto_merge_actions_prs:
     description: "Auto-merge eligible GitHub Actions update PRs in the PR section"
     required: false
-    default: "true"
+    default: "false"
   max_run_pages:
     description: "Pages of scheduled workflow runs to inspect per repository"
     required: false

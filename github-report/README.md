@@ -35,7 +35,7 @@ jobs:
 | `visibility`               | Repository visibility for PR scanning: `public`, `private`, `internal`, `all` | No       | `public`      |
 | `prs`                      | Include open PR summary                                                       | No       | `true`        |
 | `failed_scheduled_actions` | Include failed scheduled Actions summary                                      | No       | `true`        |
-| `auto_merge_actions_prs`   | Auto-merge eligible GitHub Actions update PRs in the PR section               | No       | `true`        |
+| `auto_merge_actions_prs`   | Auto-merge eligible GitHub Actions update PRs in the PR section               | No       | `false`       |
 | `max_run_pages`            | Pages of scheduled workflow runs to inspect per repository                    | No       | `3`           |
 
 ## Output

@@ -14,8 +14,10 @@ from datetime import datetime, timezone
 
 from actions.scan_prs import get_repo_filter, parse_visibility
 
+FAILED_CONCLUSIONS = {"failure", "timed_out", "action_required", "startup_failure", "cancelled"}
 
-def github_get(path, params=None, token=None):
+
+def github_get(path, params=None, token=None, allow_skip=False):
     """Fetch JSON from the GitHub REST API."""
     token = token or os.getenv("GH_TOKEN") or os.getenv("GITHUB_TOKEN")
     if not token:
@@ -36,17 +38,19 @@ def github_get(path, params=None, token=None):
         with urllib.request.urlopen(request, timeout=60) as response:
             return json.loads(response.read())
     except urllib.error.HTTPError as e:
-        if e.code in {403, 404}:
+        body = e.read().decode(errors="ignore").lower()
+        rate_limited = e.code == 403 and (e.headers.get("X-RateLimit-Remaining") == "0" or "rate limit" in body)
+        if allow_skip and e.code in {403, 404} and not rate_limited:
             print(f"Skipping {path}: {e.code}")
             return None
         raise
 
 
-def paginate(path, params=None, key=None, max_pages=100, token=None):
+def paginate(path, params=None, key=None, max_pages=100, token=None, allow_skip=False):
     """Collect paginated GitHub API results."""
     items = []
     for page in range(1, max_pages + 1):
-        data = github_get(path, {**(params or {}), "per_page": 100, "page": page}, token=token)
+        data = github_get(path, {**(params or {}), "per_page": 100, "page": page}, token=token, allow_skip=allow_skip)
         if not data:
             break
         page_items = data[key] if key else data
@@ -77,6 +81,7 @@ def collect_failed_scheduled_actions(
             key="workflow_runs",
             max_pages=max_run_pages,
             token=token,
+            allow_skip=True,
         )
         latest = {}
         for run in runs:
@@ -88,7 +93,7 @@ def collect_failed_scheduled_actions(
                 latest[key] = run
 
         for run in latest.values():
-            if run.get("conclusion") == "failure":
+            if run.get("conclusion") in FAILED_CONCLUSIONS:
                 failures.append(
                     {
                         "repo": full_name,
@@ -153,7 +158,7 @@ def run():
     print(report)
     if summary_file := os.getenv("GITHUB_STEP_SUMMARY"):
         with open(summary_file, "a") as f:
-            f.write(report)
+            f.write("\n" + report)
 
 
 if __name__ == "__main__":

@@ -162,7 +162,7 @@ def run():
         summary.append("\n# 🤖 Auto-Merge GitHub Actions Update PRs\n\nAuto-merge disabled for this run.")
         if summary_file := os.getenv("GITHUB_STEP_SUMMARY"):
             with open(summary_file, "a") as f:
-                f.write("\n".join(summary))
+                f.write("\n".join(summary) + "\n")
         return
 
     # Auto-merge GitHub Actions update PRs
@@ -279,7 +279,7 @@ def run():
 
     if summary_file := os.getenv("GITHUB_STEP_SUMMARY"):
         with open(summary_file, "a") as f:
-            f.write("\n".join(summary))
+            f.write("\n".join(summary) + "\n")
 
 
 if __name__ == "__main__":
