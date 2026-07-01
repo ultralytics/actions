@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from actions import failed_scheduled_actions
 
-PASSING_CHECK_STATES = {"SUCCESS", "NEUTRAL", "SKIPPED"}
+PASSING_CHECK_STATES = {"SUCCESS"}
 
 
 def enabled(value):
@@ -63,11 +63,14 @@ def collect_repos(org, visibility="public", repo_visibility="public"):
     visibility_list = failed_scheduled_actions.parse_visibility(visibility, repo_visibility)
     filter_config = failed_scheduled_actions.get_repo_filter(visibility_list)
     repos = gh_json(["repo", "list", org, "--limit", "1000", "--json", "name,url,isArchived,visibility"])
+    if len(visibility_list) == 1 and visibility_list[0] != "all":
+        allowed = {visibility_list[0]}
+    else:
+        allowed = filter_config["filter"]
     return {
         repo["name"]: repo["url"]
         for repo in repos
-        if not repo["isArchived"]
-        and (not filter_config["filter"] or repo["visibility"].lower() in filter_config["filter"])
+        if not repo["isArchived"] and (not allowed or repo["visibility"].lower() in allowed)
     }, filter_config["str"]
 
 

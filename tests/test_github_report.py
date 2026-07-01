@@ -209,6 +209,39 @@ def test_format_pr_report_lists_open_prs(monkeypatch):
     assert "[#9](https://github.com/ultralytics/private-repo/pull/9)" in report
 
 
+def test_collect_repos_filters_single_visibility(monkeypatch):
+    """A single visibility input should not include other accessible repository types."""
+    monkeypatch.setattr(
+        github_report,
+        "gh_json",
+        lambda args: [
+            {
+                "name": "public-repo",
+                "url": "https://github.com/ultralytics/public-repo",
+                "visibility": "public",
+                "isArchived": False,
+            },
+            {
+                "name": "private-repo",
+                "url": "https://github.com/ultralytics/private-repo",
+                "visibility": "private",
+                "isArchived": False,
+            },
+            {
+                "name": "archived-repo",
+                "url": "https://github.com/ultralytics/archived-repo",
+                "visibility": "public",
+                "isArchived": True,
+            },
+        ],
+    )
+
+    repos, visibility = github_report.collect_repos("ultralytics", "public", "public")
+
+    assert visibility == "public"
+    assert repos == {"public-repo": "https://github.com/ultralytics/public-repo"}
+
+
 def test_github_report_runs_enabled_sections(monkeypatch):
     """The shared report driver runs PR and failed Actions sections by default."""
     calls = []
@@ -271,7 +304,7 @@ def test_auto_merge_actions_prs_merges_eligible_update(monkeypatch):
 
 
 def test_auto_merge_actions_prs_skips_without_passing_checks(monkeypatch):
-    """Empty or pending status checks should not be auto-merged."""
+    """Empty, pending, skipped, or neutral status checks should not be auto-merged."""
     commands = []
 
     def fake_run(cmd, capture_output=True, text=True, check=False):
@@ -293,7 +326,17 @@ def test_auto_merge_actions_prs_skips_without_passing_checks(monkeypatch):
                         '"url": "https://github.com/ultralytics/repo/pull/10", '
                         '"files": [{"path": ".github/workflows/ci.yml"}], '
                         '"mergeable": "MERGEABLE", '
-                        '"statusCheckRollup": [{"name": "CI", "conclusion": null, "state": "PENDING"}]}]'
+                        '"statusCheckRollup": [{"name": "CI", "conclusion": null, "state": "PENDING"}]}, '
+                        '{"number": 11, "title": "Bump actions/cache in /.github/workflows/ci.yml", '
+                        '"url": "https://github.com/ultralytics/repo/pull/11", '
+                        '"files": [{"path": ".github/workflows/ci.yml"}], '
+                        '"mergeable": "MERGEABLE", '
+                        '"statusCheckRollup": [{"name": "CI", "conclusion": "SKIPPED"}]}, '
+                        '{"number": 12, "title": "Bump actions/cache in /.github/workflows/ci.yml", '
+                        '"url": "https://github.com/ultralytics/repo/pull/12", '
+                        '"files": [{"path": ".github/workflows/ci.yml"}], '
+                        '"mergeable": "MERGEABLE", '
+                        '"statusCheckRollup": [{"name": "CI", "conclusion": "NEUTRAL"}]}]'
                     ),
                     "stderr": "",
                 },
@@ -308,7 +351,9 @@ def test_auto_merge_actions_prs_skips_without_passing_checks(monkeypatch):
 
     assert "- ❌ ultralytics/repo#9: no status checks found" in report
     assert "- ❌ ultralytics/repo#10: checks not passing (CI)" in report
-    assert "**Summary:** Found 2 | Merged 0 | Skipped 2" in report
+    assert "- ❌ ultralytics/repo#11: checks not passing (CI)" in report
+    assert "- ❌ ultralytics/repo#12: checks not passing (CI)" in report
+    assert "**Summary:** Found 4 | Merged 0 | Skipped 4" in report
     assert not any(command[:3] == ["gh", "pr", "merge"] for command in commands)
 
 
