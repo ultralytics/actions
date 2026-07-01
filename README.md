@@ -146,7 +146,7 @@ Free up disk space on GitHub runners by removing unnecessary packages and files.
 
 ### 3. GitHub Report Action
 
-Summarize failed default-branch GitHub Actions across organization repositories.
+Summarize open PRs and failed default-branch GitHub Actions across organization repositories.
 
 ```yaml
 - uses: ultralytics/actions/github-report@main
@@ -154,6 +154,7 @@ Summarize failed default-branch GitHub Actions across organization repositories.
     token: ${{ secrets.GITHUB_TOKEN }}
     org: ultralytics # Optional: defaults to ultralytics
     visibility: all # Optional: public, private, internal, all, or comma-separated
+    auto_merge_actions_prs: true # Optional: auto-merge eligible GitHub Actions update PRs
 ```
 
 [**📖 Full Documentation →**](github-report/README.md)

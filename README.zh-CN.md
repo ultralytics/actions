@@ -146,7 +146,7 @@ jobs:
 
 ### 3. GitHub Report Action
 
-汇总组织仓库默认分支上失败的 GitHub Actions。
+汇总组织仓库中的 open PR 以及默认分支上失败的 GitHub Actions。
 
 ```yaml
 - uses: ultralytics/actions/github-report@main
@@ -154,6 +154,7 @@ jobs:
     token: ${{ secrets.GITHUB_TOKEN }}
     org: ultralytics # Optional: defaults to ultralytics
     visibility: all # Optional: public, private, internal, all, or comma-separated
+    auto_merge_actions_prs: true # Optional: auto-merge eligible GitHub Actions update PRs
 ```
 
 [**📖 完整文档 →**](github-report/README.md)
