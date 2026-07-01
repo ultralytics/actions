@@ -16,8 +16,9 @@ on:
     - cron: "0 6 * * *" # daily at 06:00 UTC
 
 permissions:
-  contents: read
+  contents: write
   actions: read
+  pull-requests: write
 
 jobs:
   github-report:
@@ -28,3 +29,4 @@ jobs:
           token: ${{ secrets._GITHUB_TOKEN }}
           visibility: public
           days: ${{ inputs.days || 1 }}
+          auto_merge_actions_prs: true

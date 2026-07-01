@@ -2,13 +2,13 @@
 
 name: "GitHub Report"
 author: "Ultralytics"
-description: "Summarize failed default-branch GitHub Actions across organization repositories"
+description: "Summarize open PRs and failed default-branch GitHub Actions across organization repositories"
 branding:
   icon: "activity"
   color: "blue"
 inputs:
   token:
-    description: "GitHub token with access to organization repositories"
+    description: "GitHub token with access to scanned repositories"
     required: true
   org:
     description: "GitHub organization name"
@@ -18,6 +18,10 @@ inputs:
     description: "Repository visibility: public, private, internal, all, or comma-separated"
     required: false
     default: "public"
+  prs:
+    description: "Include open PR summary"
+    required: false
+    default: "true"
   failed_actions:
     description: "Include failed default-branch Actions summary"
     required: false
@@ -26,6 +30,10 @@ inputs:
     description: "Deprecated alias for failed_actions"
     required: false
     default: ""
+  auto_merge_actions_prs:
+    description: "Auto-merge eligible GitHub Actions update PRs in the PR section"
+    required: false
+    default: "true"
   max_run_pages:
     description: "Pages of workflow runs to inspect per repository"
     required: false
@@ -69,8 +77,10 @@ runs:
         ORG: ${{ inputs.org }}
         VISIBILITY: ${{ inputs.visibility }}
         REPO_VISIBILITY: ${{ github.event.repository.visibility }}
+        REPORT_PRS: ${{ inputs.prs }}
         REPORT_FAILED_ACTIONS: ${{ inputs.failed_actions }}
         REPORT_FAILED_SCHEDULED_ACTIONS: ${{ inputs.failed_scheduled_actions }}
+        AUTO_MERGE_ACTIONS_PRS: ${{ inputs.auto_merge_actions_prs }}
         MAX_RUN_PAGES: ${{ inputs.max_run_pages }}
         REPORT_DAYS: ${{ inputs.days }}
       run: |
