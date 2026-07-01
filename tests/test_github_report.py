@@ -234,7 +234,7 @@ def test_github_report_keeps_failed_scheduled_actions_alias(monkeypatch):
 
 
 def test_auto_merge_actions_prs_merges_eligible_update(monkeypatch):
-    """Eligible GitHub Actions update PRs are merged with the old scan-prs criteria."""
+    """Eligible GitHub Actions update PRs are merged when checks pass."""
     commands = []
 
     def fake_run(cmd, capture_output=True, text=True, check=False):
@@ -251,7 +251,8 @@ def test_auto_merge_actions_prs_merges_eligible_update(monkeypatch):
                         '[{"number": 9, "title": "Bump actions/cache in /.github/workflows/ci.yml", '
                         '"url": "https://github.com/ultralytics/repo/pull/9", '
                         '"files": [{"path": ".github/workflows/ci.yml"}], '
-                        '"mergeable": "MERGEABLE", "statusCheckRollup": []}]'
+                        '"mergeable": "MERGEABLE", '
+                        '"statusCheckRollup": [{"name": "CI", "conclusion": "SUCCESS"}]}]'
                     ),
                     "stderr": "",
                 },
@@ -267,6 +268,85 @@ def test_auto_merge_actions_prs_merges_eligible_update(monkeypatch):
     assert "- ✅ Merged ultralytics/repo#9" in report
     assert "**Summary:** Found 1 | Merged 1 | Skipped 0" in report
     assert any(command[:3] == ["gh", "pr", "merge"] for command in commands)
+
+
+def test_auto_merge_actions_prs_skips_without_passing_checks(monkeypatch):
+    """Empty or pending status checks should not be auto-merged."""
+    commands = []
+
+    def fake_run(cmd, capture_output=True, text=True, check=False):
+        commands.append(cmd)
+        if cmd[:4] == ["gh", "pr", "list", "--repo"]:
+            if "app/dependabot" not in cmd:
+                return type("Result", (), {"returncode": 0, "stdout": "[]", "stderr": ""})
+            return type(
+                "Result",
+                (),
+                {
+                    "returncode": 0,
+                    "stdout": (
+                        '[{"number": 9, "title": "Bump actions/cache in /.github/workflows/ci.yml", '
+                        '"url": "https://github.com/ultralytics/repo/pull/9", '
+                        '"files": [{"path": ".github/workflows/ci.yml"}], '
+                        '"mergeable": "MERGEABLE", "statusCheckRollup": []}, '
+                        '{"number": 10, "title": "Bump actions/cache in /.github/workflows/ci.yml", '
+                        '"url": "https://github.com/ultralytics/repo/pull/10", '
+                        '"files": [{"path": ".github/workflows/ci.yml"}], '
+                        '"mergeable": "MERGEABLE", '
+                        '"statusCheckRollup": [{"name": "CI", "conclusion": null, "state": "PENDING"}]}]'
+                    ),
+                    "stderr": "",
+                },
+            )
+        if cmd[:3] == ["gh", "pr", "merge"]:
+            raise AssertionError("Unexpected merge")
+        raise AssertionError(cmd)
+
+    monkeypatch.setattr(github_report.subprocess, "run", fake_run)
+
+    report = github_report.auto_merge_actions_prs("ultralytics", {"repo": "https://github.com/ultralytics/repo"})
+
+    assert "- ❌ ultralytics/repo#9: no status checks found" in report
+    assert "- ❌ ultralytics/repo#10: checks not passing (CI)" in report
+    assert "**Summary:** Found 2 | Merged 0 | Skipped 2" in report
+    assert not any(command[:3] == ["gh", "pr", "merge"] for command in commands)
+
+
+def test_auto_merge_actions_prs_skips_mixed_files(monkeypatch):
+    """GitHub Actions update PRs with unrelated files should not be auto-merged."""
+    commands = []
+
+    def fake_run(cmd, capture_output=True, text=True, check=False):
+        commands.append(cmd)
+        if cmd[:4] == ["gh", "pr", "list", "--repo"]:
+            if "app/dependabot" not in cmd:
+                return type("Result", (), {"returncode": 0, "stdout": "[]", "stderr": ""})
+            return type(
+                "Result",
+                (),
+                {
+                    "returncode": 0,
+                    "stdout": (
+                        '[{"number": 9, "title": "Bump actions/cache in /.github/workflows/ci.yml", '
+                        '"url": "https://github.com/ultralytics/repo/pull/9", '
+                        '"files": [{"path": ".github/workflows/ci.yml"}, {"path": "actions/github_report.py"}], '
+                        '"mergeable": "MERGEABLE", '
+                        '"statusCheckRollup": [{"name": "CI", "conclusion": "SUCCESS"}]}]'
+                    ),
+                    "stderr": "",
+                },
+            )
+        if cmd[:3] == ["gh", "pr", "merge"]:
+            raise AssertionError("Unexpected merge")
+        raise AssertionError(cmd)
+
+    monkeypatch.setattr(github_report.subprocess, "run", fake_run)
+
+    report = github_report.auto_merge_actions_prs("ultralytics", {"repo": "https://github.com/ultralytics/repo"})
+
+    assert "- ❌ ultralytics/repo#9: mixed or non-action files" in report
+    assert "**Summary:** Found 1 | Merged 0 | Skipped 1" in report
+    assert not any(command[:3] == ["gh", "pr", "merge"] for command in commands)
 
 
 def test_failed_scheduled_actions_summary_appends_section_break(tmp_path, monkeypatch):

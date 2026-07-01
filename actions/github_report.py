@@ -8,7 +8,7 @@ from datetime import datetime, timezone
 
 from actions import failed_scheduled_actions
 
-FAILED_CHECK_STATES = {"FAILURE", "ERROR", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STARTUP_FAILURE"}
+PASSING_CHECK_STATES = {"SUCCESS", "NEUTRAL", "SKIPPED"}
 
 
 def enabled(value):
@@ -38,12 +38,17 @@ def get_phase_emoji(age_days):
 
 
 def get_status_checks(rollup):
-    """Return failed status checks from a GitHub statusCheckRollup value."""
-    checks = rollup if isinstance(rollup, list) else rollup.get("contexts", []) if isinstance(rollup, dict) else []
+    """Return status checks from a GitHub statusCheckRollup value."""
+    return rollup if isinstance(rollup, list) else rollup.get("contexts", []) if isinstance(rollup, dict) else []
+
+
+def get_unpassed_status_checks(rollup):
+    """Return status checks that are not complete and passing."""
+    checks = get_status_checks(rollup)
     return [
         check
         for check in checks
-        if (check.get("conclusion") or check.get("state") or "").upper() in FAILED_CHECK_STATES
+        if (check.get("conclusion") or check.get("state") or "").upper() not in PASSING_CHECK_STATES
     ]
 
 
@@ -160,20 +165,22 @@ def auto_merge_actions_prs(org, repos):
             if "bump" not in title or "/.github/workflows" not in title:
                 continue
 
-            paths = [file["path"] for file in (pr.get("files") or [])]
-            if not any(
-                path.startswith(".github/workflows/") or path.endswith(("action.yml", "action.yaml")) for path in paths
-            ):
-                print("    ⏭️  Skipped (non-action files)")
-                continue
-
             total_found += 1
             pr_ref = f"{org}/{repo_name}#{pr['number']}"
+            paths = [file["path"] for file in (pr.get("files") or [])]
+            if not paths or any(
+                not (path.startswith(".github/workflows/") or path.endswith(("action.yml", "action.yaml")))
+                for path in paths
+            ):
+                print("    ⏭️  Skipped (mixed or non-action files)")
+                lines.append(f"- ❌ {pr_ref}: mixed or non-action files")
+                total_skipped += 1
+                continue
+
             pr_url = pr.get("url") or f"https://github.com/{org}/{repo_name}/pull/{pr['number']}"
             print(f"  Found: {pr_url} - {pr['title']}")
 
-            checks = pr.get("statusCheckRollup") or []
-            checks = checks if isinstance(checks, list) else checks.get("contexts", [])
+            checks = get_status_checks(pr.get("statusCheckRollup"))
             if checks:
                 print("    ℹ️  Status checks:")
                 for check in checks:
@@ -181,7 +188,10 @@ def auto_merge_actions_prs(org, repos):
                     status = check.get("conclusion") or check.get("state") or ""
                     print(f"      - {name}: {status}")
             else:
-                print("    ℹ️  No status checks found")
+                print("    ❌ Skipped (no status checks found)")
+                lines.append(f"- ❌ {pr_ref}: no status checks found")
+                total_skipped += 1
+                continue
 
             if merged >= 1:
                 print(f"    ⏭️  Skipped (already merged 1 PR in {repo_name})")
@@ -195,10 +205,10 @@ def auto_merge_actions_prs(org, repos):
                 total_skipped += 1
                 continue
 
-            if failed := get_status_checks(pr.get("statusCheckRollup")):
-                names = ", ".join(check.get("name") or check.get("context") or "?" for check in failed)
-                print(f"    ❌ Skipped (failed checks: {names})")
-                lines.append(f"- ❌ {pr_ref}: failed checks ({names})")
+            if unpassed := get_unpassed_status_checks(pr.get("statusCheckRollup")):
+                names = ", ".join(check.get("name") or check.get("context") or "?" for check in unpassed)
+                print(f"    ❌ Skipped (checks not passing: {names})")
+                lines.append(f"- ❌ {pr_ref}: checks not passing ({names})")
                 total_skipped += 1
                 continue
 
