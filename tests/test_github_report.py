@@ -1,5 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import urllib.error
 from datetime import datetime, timedelta, timezone
 
 from actions import failed_scheduled_actions, github_report
@@ -23,6 +24,115 @@ def test_paginate_only_skips_http_errors_when_allowed(monkeypatch):
         assert str(e) == "/orgs/ultralytics/repos"
     else:
         raise AssertionError("Expected org listing failure to raise")
+
+
+def test_failed_scheduled_actions_visibility_guards(capsys):
+    """Invalid and unsafe visibility inputs fall back to public repositories."""
+    assert failed_scheduled_actions.parse_visibility("public,invalid", "private") == ["public"]
+    assert failed_scheduled_actions.parse_visibility("invalid", "private") == ["public"]
+    assert failed_scheduled_actions.parse_visibility("private", "public") == ["public"]
+
+    output = capsys.readouterr().out
+    assert "Invalid visibility values: invalid" in output
+    assert "No valid visibility values" in output
+    assert "Restricting to public only" in output
+
+
+def test_github_get_requires_token(monkeypatch):
+    """GitHub API calls require an auth token."""
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+
+    try:
+        failed_scheduled_actions.github_get("/user")
+    except RuntimeError as e:
+        assert str(e) == "GH_TOKEN or GITHUB_TOKEN is required"
+    else:
+        raise AssertionError("Expected missing token to raise")
+
+
+def test_github_get_fetches_json(monkeypatch):
+    """GitHub API responses are decoded from the requested URL."""
+    requests = []
+
+    class Response:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, traceback):
+            return False
+
+        def read(self):
+            return b'{"ok": true}'
+
+    def fake_urlopen(request, timeout):
+        requests.append((request.full_url, timeout, request.headers["Authorization"]))
+        return Response()
+
+    monkeypatch.setenv("GH_TOKEN", "token")
+    monkeypatch.setattr(failed_scheduled_actions.urllib.request, "urlopen", fake_urlopen)
+
+    assert failed_scheduled_actions.github_get("/repos/ultralytics/actions", {"page": 1}) == {"ok": True}
+    assert requests == [("https://api.github.com/repos/ultralytics/actions?page=1", 60, "Bearer token")]
+
+
+def test_github_get_skips_allowed_repo_errors(monkeypatch, capsys):
+    """Allowed per-repo 403/404 API misses are skipped unless they are rate limits."""
+
+    class Body:
+        def __init__(self, text):
+            self.text = text
+
+        def read(self):
+            return self.text
+
+        def close(self):
+            pass
+
+    monkeypatch.setenv("GH_TOKEN", "token")
+    monkeypatch.setattr(
+        failed_scheduled_actions.urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            urllib.error.HTTPError("url", 404, "Not Found", {"X-RateLimit-Remaining": "1"}, Body(b"missing"))
+        ),
+    )
+
+    assert failed_scheduled_actions.github_get("/repos/missing/actions/runs", allow_skip=True) is None
+    assert "Skipping /repos/missing/actions/runs: 404" in capsys.readouterr().out
+
+    monkeypatch.setattr(
+        failed_scheduled_actions.urllib.request,
+        "urlopen",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            urllib.error.HTTPError("url", 403, "Forbidden", {"X-RateLimit-Remaining": "0"}, Body(b"rate limit"))
+        ),
+    )
+    try:
+        failed_scheduled_actions.github_get("/orgs/ultralytics/repos", allow_skip=True)
+    except urllib.error.HTTPError as e:
+        assert e.code == 403
+    else:
+        raise AssertionError("Expected rate limit to raise")
+
+
+def test_paginate_collects_until_short_page(monkeypatch):
+    """Pagination stops after the first short page and sleeps between full pages."""
+    pages = [
+        [{"id": i} for i in range(100)],
+        [{"id": 100}],
+    ]
+    sleeps = []
+
+    def fake_get(path, params=None, token=None, allow_skip=False):
+        assert path == "/items"
+        return pages[params["page"] - 1]
+
+    monkeypatch.setattr(failed_scheduled_actions, "github_get", fake_get)
+    monkeypatch.setattr(failed_scheduled_actions.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    assert len(failed_scheduled_actions.paginate("/items")) == 101
+    assert sleeps == [0.2]
 
 
 def test_collect_failed_actions_latest_run_per_workflow(monkeypatch):

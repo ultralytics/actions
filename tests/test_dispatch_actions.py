@@ -51,6 +51,47 @@ def test_get_pr_branch_fork():
     assert mock_run.call_count == 4  # clone, remote add, fetch, push
 
 
+def test_get_pr_branch_fork_requires_token():
+    """Fork PRs need a token to push the temporary branch."""
+    mock_event = MagicMock()
+    mock_event.event_data = {"issue": {"number": 456}}
+    mock_event.get_repo_data.return_value = {
+        "head": {"ref": "fork-branch", "repo": {"id": 2, "full_name": "fork/repo"}},
+        "base": {"repo": {"id": 1}},
+    }
+
+    try:
+        with patch("os.environ.get", return_value=None):
+            get_pr_branch(mock_event)
+    except ValueError as e:
+        assert str(e) == "GITHUB_TOKEN environment variable is not set"
+    else:
+        raise AssertionError("Expected missing token to raise")
+
+
+def test_get_pr_branch_fork_sanitizes_git_errors():
+    """Git errors should not leak the GitHub token."""
+    import subprocess
+
+    mock_event = MagicMock()
+    mock_event.event_data = {"issue": {"number": 456}}
+    mock_event.repository = "base/repo"
+    mock_event.get_repo_data.return_value = {
+        "head": {"ref": "fork-branch", "repo": {"id": 2, "full_name": "fork/repo"}},
+        "base": {"repo": {"id": 1}},
+    }
+    error = subprocess.CalledProcessError(128, ["git"], stderr=b"https://x-access-token:test-token@github.com")
+
+    try:
+        with patch("subprocess.run", side_effect=error), patch("os.environ.get", return_value="test-token"):
+            get_pr_branch(mock_event)
+    except RuntimeError as e:
+        assert "test-token" not in str(e)
+        assert "***TOKEN***" in str(e)
+    else:
+        raise AssertionError("Expected git failure to raise")
+
+
 def test_trigger_and_get_workflow_info():
     """Test triggering workflows and getting info."""
     mock_event = MagicMock()
@@ -88,6 +129,31 @@ def test_trigger_and_get_workflow_info():
     assert len(results) == 1
     assert results[0]["name"] == "CI Workflow"
     assert results[0]["run_number"] == 42
+
+
+def test_trigger_and_get_workflow_info_reports_dispatch_failures():
+    """Failed workflow dispatches are returned without polling for runs."""
+    mock_event = MagicMock()
+    mock_event.repository = "test/repo"
+    response = MagicMock()
+    response.status_code = 422
+    response.json.return_value = {"message": "No ref found for: deleted-branch"}
+    mock_event.post.return_value = response
+
+    with patch("time.sleep") as mock_sleep:
+        results = trigger_and_get_workflow_info(mock_event, "deleted-branch", ["ci.yml"])
+
+    assert results == [
+        {
+            "name": "Ci",
+            "file": "ci.yml",
+            "url": "https://github.com/test/repo/actions/workflows/ci.yml",
+            "run_number": None,
+            "error": "No ref found for: deleted-branch",
+        }
+    ]
+    mock_sleep.assert_not_called()
+    mock_event.get.assert_not_called()
 
 
 def test_trigger_and_get_workflow_info_with_temp_branch():
@@ -156,6 +222,41 @@ def test_update_comment_function():
         f"(available commands are `{RUN_ALL_KEYWORD}`, `{RUN_CI_KEYWORD}`, and `{RUN_DOCKER_KEYWORD}`):"
         in kwargs["json"]["body"]
     )
+
+
+def test_update_comment_skips_empty_actions():
+    """No comment update is needed if no workflow was triggered."""
+    mock_event = MagicMock()
+
+    update_comment(mock_event, f"Run tests {RUN_CI_KEYWORD}", RUN_CI_KEYWORD, [])
+
+    mock_event.patch.assert_not_called()
+
+
+def test_update_comment_reports_failed_action_guidance():
+    """Failed dispatch comments include deleted-branch guidance from the GitHub error."""
+    mock_event = MagicMock()
+    mock_event.repository = "test/repo"
+    mock_event.event_data = {"comment": {"id": 456}}
+
+    update_comment(
+        mock_event,
+        f"Run tests {RUN_CI_KEYWORD}",
+        RUN_CI_KEYWORD,
+        [
+            {
+                "name": "CI",
+                "file": "ci.yml",
+                "url": "https://github.com/test/repo/actions/workflows/ci.yml",
+                "run_number": None,
+                "error": "No ref found for: deleted-branch",
+            }
+        ],
+    )
+
+    body = mock_event.patch.call_args.kwargs["json"]["body"]
+    assert "No GitHub Actions workflows were started" in body
+    assert "restore it or open a new PR from an existing branch" in body
 
 
 def test_main_triggers_ci_only():
@@ -244,4 +345,21 @@ def test_main_skips_non_pr_comments():
         main()
 
         # Verify toggle_eyes_reaction was not called
+        mock_event.toggle_eyes_reaction.assert_not_called()
+
+
+def test_main_skips_unauthorized_comments():
+    """Only org members can trigger workflows from PR comments."""
+    with patch("actions.dispatch_actions.Action") as MockAction:
+        mock_event = MockAction.return_value
+        mock_event.event_name = "issue_comment"
+        mock_event.event_data = {
+            "action": "created",
+            "issue": {"pull_request": {}},
+            "comment": {"body": f"Please run CI {RUN_CI_KEYWORD}", "user": {"login": "external"}},
+        }
+        mock_event.is_org_member.return_value = False
+
+        main()
+
         mock_event.toggle_eyes_reaction.assert_not_called()
