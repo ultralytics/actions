@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+from actions import review_pr
 from actions.first_interaction import get_event_content, get_first_interaction_response, get_relevant_labels
 
 
@@ -96,3 +97,24 @@ def test_get_first_interaction_response(mock_get_response):
 
     assert response == "Thank you for your issue"
     mock_get_response.assert_called_once()
+
+
+@patch("actions.review_pr.get_response")
+def test_generate_pr_review_uses_synchronous_response(mock_get_response):
+    """Test PR reviews avoid background polling for code diffs."""
+    mock_get_response.return_value = {"comments": [], "summary": "LGTM"}
+    diff = """diff --git a/test.py b/test.py
+--- a/test.py
++++ b/test.py
+@@ -1 +1 @@
+-old = True
++old = False
+"""
+
+    review = review_pr.generate_pr_review("ultralytics/actions", diff, "Test PR", "")
+
+    assert review["summary"] == "LGTM"
+    mock_get_response.assert_called_once()
+    kwargs = mock_get_response.call_args.kwargs
+    assert "background" not in kwargs
+    assert kwargs["tools"][0]["type"] == "web_search"

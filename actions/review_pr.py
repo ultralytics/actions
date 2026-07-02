@@ -267,7 +267,8 @@ def generate_pr_review(
                 }
             ],
             retries=0,
-            background=True,
+            # Keep reviews synchronous; background responses can stay queued until the 900s poll timeout.
+            # background=True,
         )
 
         # Sanitize leaked tool-citation tokens from model output
