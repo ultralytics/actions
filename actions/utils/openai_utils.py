@@ -6,6 +6,7 @@ import json
 import os
 import re
 import time
+from collections.abc import Callable
 
 import requests
 
@@ -185,6 +186,214 @@ def _poll_openai_response(response_json: dict, headers: dict, timeout: int = 900
     return response_json
 
 
+def _openai_response_text(response_json: dict) -> str:
+    """Extract assistant text from an OpenAI Responses API response."""
+    content = ""
+    for item in response_json.get("output", []):
+        if item.get("type") == "message":
+            for c in item.get("content", []):
+                if c.get("type") == "output_text":
+                    content += c.get("text") or ""
+    return content.strip()
+
+
+def _count_response_tool_calls(output_items: list[dict]) -> int:
+    """Count Responses API tool-call output items, including hosted tools."""
+    return sum(1 for item in output_items if (item.get("type") or "").endswith("_call"))
+
+
+def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | None:
+    """Add one Responses API usage block into a cumulative usage block."""
+    usage = response_json.get("usage")
+    if not usage:
+        return total_usage
+
+    total_usage = total_usage or {
+        "input_tokens": 0,
+        "output_tokens": 0,
+        "output_tokens_details": {"reasoning_tokens": 0},
+    }
+    total_usage["input_tokens"] += usage.get("input_tokens", 0)
+    total_usage["output_tokens"] += usage.get("output_tokens", 0)
+    total_usage["output_tokens_details"]["reasoning_tokens"] += (usage.get("output_tokens_details") or {}).get(
+        "reasoning_tokens", 0
+    )
+    return total_usage
+
+
+def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadata: str = "") -> None:
+    """Print Responses API token/cost telemetry."""
+    if usage := response_json.get("usage"):
+        input_tokens = usage.get("input_tokens", 0)
+        output_tokens = usage.get("output_tokens", 0)
+        thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
+        costs = MODEL_COSTS.get(model, (0.0, 0.0))
+        cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
+        token_str = f"{input_tokens}→{output_tokens - thinking_tokens}"
+        if thinking_tokens:
+            token_str += f" (+{thinking_tokens} thinking)"
+        metadata = f", {metadata}" if metadata else ""
+        print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s{metadata})")
+
+
+def _post_openai_response(
+    data: dict, headers: dict, retries: int, request_timeout: tuple[int, int]
+) -> tuple[dict, float]:
+    """Post to the Responses API with the same transient retry policy as get_response()."""
+    url = "https://api.openai.com/v1/responses"
+    for attempt in range(retries + 1):
+        try:
+            r = requests.post(url, json=data, headers=headers, timeout=request_timeout)
+            elapsed = r.elapsed.total_seconds()
+            success = r.status_code == 200
+            print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
+
+            if attempt < retries and r.status_code >= 500:
+                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
+                time.sleep(2**attempt)
+                continue
+
+            if r.status_code >= 400:
+                error_body = r.text
+                print(f"API Error {r.status_code}: {error_body}")
+                r.reason = f"{r.reason}\n{error_body}"
+
+            r.raise_for_status()
+            return r.json(), elapsed
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError):
+            if attempt < retries:
+                print(f"Retrying API request in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
+                time.sleep(2**attempt)
+                continue
+            raise
+
+    raise RuntimeError("OpenAI response failed without returning an HTTP response")
+
+
+def _parse_tool_arguments(call: dict) -> dict:
+    """Parse a Responses API function call argument payload."""
+    arguments = call.get("arguments") or "{}"
+    parsed = json.loads(arguments)
+    if not isinstance(parsed, dict):
+        raise TypeError("function call arguments must decode to an object")
+    return parsed
+
+
+def _handle_function_call(call: dict, tool_handlers: dict[str, Callable]) -> dict:
+    """Execute one model-requested function call and return a Responses API output item."""
+    name = call.get("name")
+    call_id = call.get("call_id")
+    try:
+        if name not in tool_handlers:
+            raise KeyError(f"Unknown tool: {name}")
+        output = tool_handlers[name](**_parse_tool_arguments(call))
+        if not isinstance(output, str):
+            output = json.dumps(output)
+    except Exception as e:
+        output = f"{name or 'tool'} failed: {type(e).__name__}: {e}"
+    return {"type": "function_call_output", "call_id": call_id, "output": output}
+
+
+def get_agent_response(
+    messages: list[dict[str, str]],
+    tools: list[dict],
+    tool_handlers: dict[str, Callable],
+    text_format: dict | None = None,
+    model: str | None = None,
+    temperature: float = 1.0,
+    reasoning_effort: str | None = None,
+    max_turns: int = 6,
+    retries: int = 2,
+    request_timeout: tuple[int, int] = (30, 120),
+) -> str | dict:
+    """Run an iterative OpenAI Responses API agent with application-managed function tools."""
+    model = model or _get_default_model()
+    if _is_anthropic_model(model):
+        print("Anthropic review model selected; falling back to single-shot response without local agent tools")
+        return get_response(
+            messages,
+            temperature=temperature,
+            reasoning_effort=reasoning_effort,
+            text_format=text_format,
+            model=model,
+            tools=[t for t in tools if t.get("type") != "function"],
+            retries=retries,
+        )
+
+    assert OPENAI_API_KEY, "OpenAI API key is required."
+    headers = {"Authorization": f"Bearer {OPENAI_API_KEY}", "Content-Type": "application/json"}
+
+    conversation = [m.copy() for m in messages]
+    if conversation and conversation[0].get("role") == "system":
+        conversation[0]["content"] += "\n\n" + SYSTEM_PROMPT_ADDITION
+
+    base_data = {
+        "model": model,
+        "store": False,
+        "temperature": temperature,
+        "tools": tools,
+        "tool_choice": "auto",
+        "parallel_tool_calls": False,
+    }
+    if "gpt-5" in model:
+        base_data["reasoning"] = {"effort": reasoning_effort or "low"}
+        base_data["include"] = ["reasoning.encrypted_content"]
+    if text_format:
+        base_data["text"] = text_format
+
+    tool_calls = 0
+    total_elapsed = 0.0
+    total_usage = None
+    for turn in range(max_turns):
+        response_json, elapsed = _post_openai_response(
+            {**base_data, "input": [*conversation]}, headers, retries, request_timeout
+        )
+        total_elapsed += elapsed
+        total_usage = _add_openai_usage(total_usage, response_json)
+        output_items = response_json.get("output", [])
+        tool_calls += _count_response_tool_calls(output_items)
+        _print_openai_usage(response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, tool calls {tool_calls}")
+        conversation.extend(output_items)
+        function_calls = [item for item in output_items if item.get("type") == "function_call"]
+
+        if not function_calls:
+            _print_openai_usage(
+                {"usage": total_usage}, model, total_elapsed, f"agent total, turns {turn + 1}, tool calls {tool_calls}"
+            )
+            content = remove_outer_codeblocks(_openai_response_text(response_json))
+            if text_format and text_format.get("format", {}).get("type") in ["json_object", "json_schema"]:
+                return json.loads(content)
+            return content
+
+        print(f"Agent tool turn {turn + 1}: {', '.join(c.get('name', 'unknown') for c in function_calls)}")
+        conversation.extend(_handle_function_call(call, tool_handlers) for call in function_calls)
+
+    final_instruction = {
+        "role": "user",
+        "content": (
+            "You have used all available tool-calling steps. Do not call tools. Synthesize the gathered tool results "
+            "and return the best final answer now in the required response format. If the gathered context is "
+            "incomplete, say so in the final answer instead of dumping raw tool output."
+        ),
+    }
+    response_json, elapsed = _post_openai_response(
+        {**base_data, "input": [*conversation, final_instruction], "tools": [], "tool_choice": "none"},
+        headers,
+        max(retries, 2),
+        request_timeout,
+    )
+    total_elapsed += elapsed
+    total_usage = _add_openai_usage(total_usage, response_json)
+    _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, tool calls {tool_calls}")
+    _print_openai_usage(
+        {"usage": total_usage}, model, total_elapsed, f"agent total, turns {max_turns + 1}, tool calls {tool_calls}"
+    )
+    content = remove_outer_codeblocks(_openai_response_text(response_json))
+    if text_format and text_format.get("format", {}).get("type") in ["json_object", "json_schema"]:
+        return json.loads(content)
+    return content
+
+
 def get_response(
     messages: list[dict[str, str]],
     check_links: bool = True,
@@ -295,24 +504,8 @@ def get_response(
                         f"{model} ({input_tokens}→{output_tokens} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)"
                     )
             else:
-                content = ""
-                for item in response_json.get("output", []):
-                    if item.get("type") == "message":
-                        for c in item.get("content", []):
-                            if c.get("type") == "output_text":
-                                content += c.get("text") or ""
-                content = content.strip()
-
-                if usage := response_json.get("usage"):
-                    input_tokens = usage.get("input_tokens", 0)
-                    output_tokens = usage.get("output_tokens", 0)
-                    thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
-                    costs = MODEL_COSTS.get(model, (0.0, 0.0))
-                    cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
-                    token_str = f"{input_tokens}→{output_tokens - thinking_tokens}"
-                    if thinking_tokens:
-                        token_str += f" (+{thinking_tokens} thinking)"
-                    print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)")
+                content = _openai_response_text(response_json)
+                _print_openai_usage(response_json, model, elapsed)
 
             if text_format and text_format.get("format", {}).get("type") in ["json_object", "json_schema"]:
                 content = remove_outer_codeblocks(content)

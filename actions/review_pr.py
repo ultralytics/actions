@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from fnmatch import fnmatch
 from pathlib import Path
 
 from .utils import (
@@ -13,7 +14,7 @@ from .utils import (
     MAX_PROMPT_CHARS,
     Action,
     format_skipped_files_dropdown,
-    get_response,
+    get_agent_response,
     get_review_model,
     remove_html_comments,
     sanitize_ai_text,
@@ -25,7 +26,154 @@ ERROR_MARKER = "⚠️ Review generation encountered an error"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
 MAX_CONTEXT_FILE_CHARS = 5000
 MAX_REVIEW_COMMENTS = 8
+MAX_TOOL_OUTPUT_CHARS = 20000
+MAX_TOOL_FILE_LINES = 240
+MAX_AGENT_TURNS = 8
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
+
+
+def _clip_tool_output(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
+    """Limit model-facing tool output size."""
+    return text if len(text) <= limit else f"{text[:limit].rstrip()}\n... (truncated)"
+
+
+def _resolve_repo_path(path: str) -> Path:
+    """Resolve a repo-relative path without allowing access outside the checkout."""
+    root = Path.cwd().resolve()
+    candidate = Path(path or ".")
+    target = (candidate if candidate.is_absolute() else root / candidate).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError as e:
+        raise ValueError(f"path must stay inside repository: {path}") from e
+    return target
+
+
+def read_file(path: str, start_line=None, end_line=None) -> str:
+    """Read a bounded range from a repository file for agent review context."""
+    try:
+        target = _resolve_repo_path(path)
+    except ValueError as e:
+        return str(e)
+    rel = str(target.relative_to(Path.cwd().resolve()))
+    if not target.is_file():
+        return f"{path} is not a file."
+    if should_skip_file(rel) or target.stat().st_size > 500_000:
+        return f"{path} is skipped because it is generated, vendored, or too large."
+
+    lines = target.read_text(encoding="utf-8", errors="ignore").splitlines()
+    start = max(1, int(start_line or 1))
+    end = min(len(lines), int(end_line or min(len(lines), start + MAX_TOOL_FILE_LINES - 1)))
+    if end < start:
+        return f"{path} has no lines in requested range {start}-{end}."
+    if end - start + 1 > MAX_TOOL_FILE_LINES:
+        end = start + MAX_TOOL_FILE_LINES - 1
+    numbered = "\n".join(f"{i:>5}: {lines[i - 1]}" for i in range(start, end + 1))
+    return _clip_tool_output(f"{rel}:{start}-{end}\n{numbered}")
+
+
+def _iter_repo_files(path_glob=None):
+    """Yield repository files, including hidden files, without following paths outside the checkout."""
+    root = Path.cwd().resolve()
+    for path in root.rglob("*"):
+        if ".git" in path.parts:
+            continue
+        try:
+            target = path.resolve()
+            target.relative_to(root)
+        except ValueError:
+            continue
+        rel = path.relative_to(root).as_posix()
+        if not target.is_file() or (path_glob and not fnmatch(rel, path_glob)):
+            continue
+        yield target, rel
+
+
+def list_files(path_glob=None) -> str:
+    """List repository files matching an optional glob."""
+    files = [rel for _, rel in _iter_repo_files(path_glob)]
+    if not files:
+        return "No matching files found."
+    return _clip_tool_output("\n".join(sorted(files)[:300]))
+
+
+def search_repo(query: str, path_glob=None) -> str:
+    """Search repository text for agent review context."""
+    if not query:
+        return "query is required."
+    matches = []
+    for target, rel in _iter_repo_files(path_glob):
+        if should_skip_file(rel) or target.stat().st_size > 500_000:
+            continue
+        for line_no, line in enumerate(target.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+            if query in line:
+                matches.append(f"{rel}:{line_no}:{line}")
+                if len(matches) >= 200:
+                    return _clip_tool_output("\n".join(matches))
+    return _clip_tool_output("\n".join(matches)) if matches else "No matches found."
+
+
+def build_review_agent_tools() -> tuple[list[dict], dict]:
+    """Build read-only tools for the PR review agent."""
+    tools = [
+        {
+            "type": "web_search",
+        },
+        {
+            "type": "function",
+            "name": "read_file",
+            "description": (
+                "Read a bounded line range from a repository file in the checked-out PR head, including unchanged "
+                "files such as pyproject.toml, tests, configs, and shared helpers. Use this to verify changed code or "
+                "nearby definitions before making a review finding."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Repository-relative file path."},
+                    "start_line": {"type": ["integer", "null"], "description": "1-based first line, or null."},
+                    "end_line": {"type": ["integer", "null"], "description": "1-based last line, or null."},
+                },
+                "required": ["path", "start_line", "end_line"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+        {
+            "type": "function",
+            "name": "search_repo",
+            "description": (
+                "Search the checked-out repository. Use focused literal strings to find related "
+                "definitions, dependencies, tests, config, or prior patterns before deciding whether a diff hunk is "
+                "wrong."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Literal string to search for."},
+                    "path_glob": {"type": ["string", "null"], "description": "Optional glob, or null."},
+                },
+                "required": ["query", "path_glob"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+        {
+            "type": "function",
+            "name": "list_files",
+            "description": "List repository files matching an optional glob when you need to locate related files.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path_glob": {"type": ["string", "null"], "description": "Optional glob, or null."},
+                },
+                "required": ["path_glob"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+    ]
+    return tools, {"read_file": read_file, "search_repo": search_repo, "list_files": list_files}
 
 
 def get_repo_guidelines(model: str = "") -> str:
@@ -155,6 +303,19 @@ def generate_pr_review(
     # Calculate remaining budget for diff and check if truncation needed
     diff_budget = max(1000, MAX_PROMPT_CHARS - len(guidelines_section) - len(full_files_section))
     diff_truncated = len(augmented_diff) > diff_budget
+    local_tools_section = (
+        ""
+        if "claude" in review_model.lower()
+        else (
+            "AVAILABLE TOOLS:\n"
+            "- read_file: inspect bounded line ranges from repository files, including unchanged files\n"
+            "- search_repo: find related definitions, dependencies, tests, config, or existing patterns across the checkout\n"
+            "- list_files: locate repository files by glob\n"
+            "- web_search: verify current public docs, package docs, release notes, issues, or vendor behavior when a "
+            "review finding depends on external behavior\n"
+            "- Do not quote large tool output. Use tools only to verify concise, actionable review findings.\n\n"
+        )
+    )
 
     content = (
         "You are an expert code reviewer for Ultralytics. Review code changes and provide inline comments ONLY for genuine issues.\n\n"
@@ -170,11 +331,12 @@ def generate_pr_review(
         "- 'Consider using X' without clear benefit\n"
         "- Issues in unchanged context lines\n\n"
         "LIMITED VISIBILITY - IMPORTANT:\n"
-        "- You can only see the diff and partial file contents, not the full codebase\n"
-        "- Assume the author is knowledgeable about: new package versions, imports to functions defined elsewhere, dependencies, and codebase architecture\n"
+        "- Start from the diff, then use tools to inspect full files or related code when context affects a finding\n"
+        "- Assume the author is knowledgeable about: new package versions, imports to functions defined elsewhere, dependencies, and codebase architecture unless tool evidence proves otherwise\n"
         "- Do NOT flag: version updates, new imports that appear unused in the diff, or references to code outside the diff\n"
         "- If unsure whether something is an error, assume the author knows what they're doing\n"
         "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
+        f"{local_tools_section}"
         "QUALITY OVER QUANTITY:\n"
         "- Zero comments is valid for clean PRs - don't invent issues\n"
         "- Each comment must be actionable with clear reasoning\n"
@@ -250,22 +412,15 @@ def generate_pr_review(
             "additionalProperties": False,
         }
 
-        response = get_response(
+        tools, tool_handlers = build_review_agent_tools()
+        response = get_agent_response(
             messages,
             text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
             model=review_model,
-            tools=[
-                {
-                    "type": "web_search",
-                    "filters": {
-                        "allowed_domains": [
-                            "ultralytics.com",
-                            "github.com",
-                            "stackoverflow.com",
-                        ]
-                    },
-                }
-            ],
+            tools=tools,
+            tool_handlers=tool_handlers,
+            max_turns=MAX_AGENT_TURNS,
+            request_timeout=(30, 120),
             retries=0,
             # Do not pass background=True; queued background reviews can consume the full 900s poll timeout.
         )

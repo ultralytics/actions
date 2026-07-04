@@ -2,10 +2,14 @@
 
 from unittest.mock import MagicMock, patch
 
+import requests
+
 from actions.utils.openai_utils import (
     OPENAI_MODEL_DEFAULT,
     PR_REVIEW_MODEL_DEFAULT,
+    _count_response_tool_calls,
     _is_anthropic_model,
+    get_agent_response,
     get_response,
     get_review_model,
     remove_outer_codeblocks,
@@ -25,6 +29,17 @@ def test_is_anthropic_model():
     assert _is_anthropic_model("claude-opus-4-7") is True
     assert _is_anthropic_model("gpt-5.5") is False
     assert _is_anthropic_model("gpt-5-mini-2025-08-07") is False
+
+
+def test_count_response_tool_calls():
+    """Test Responses API tool-call item counting."""
+    output_items = [
+        {"type": "function_call"},
+        {"type": "web_search_call"},
+        {"type": "message"},
+        {"type": "function_call_output"},
+    ]
+    assert _count_response_tool_calls(output_items) == 2
 
 
 def test_remove_outer_codeblocks():
@@ -114,6 +129,163 @@ def test_get_response_with_link_check(mock_check_links, mock_post):
 
     assert result == "Response with https://example.com link"
     mock_check_links.assert_called_once()
+
+
+@patch("requests.post")
+def test_get_agent_response_calls_function_tools(mock_post):
+    """Test iterative Responses API agent calls local tools and returns structured output."""
+    first_response = MagicMock()
+    first_response.status_code = 200
+    first_response.elapsed.total_seconds.return_value = 1.0
+    first_response.json.return_value = {
+        "output": [
+            {
+                "type": "function_call",
+                "call_id": "call_123",
+                "name": "lookup_value",
+                "arguments": '{"value": "abc"}',
+            }
+        ],
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+    second_response = MagicMock()
+    second_response.status_code = 200
+    second_response.elapsed.total_seconds.return_value = 1.0
+    second_response.json.return_value = {
+        "output": [
+            {
+                "type": "message",
+                "content": [{"type": "output_text", "text": '{"comments": [], "summary": "done"}'}],
+            }
+        ],
+        "usage": {"input_tokens": 20, "output_tokens": 7},
+    }
+    mock_post.side_effect = [first_response, second_response]
+
+    schema = {
+        "type": "object",
+        "properties": {"comments": {"type": "array"}, "summary": {"type": "string"}},
+        "required": ["comments", "summary"],
+        "additionalProperties": False,
+    }
+    tools = [
+        {
+            "type": "function",
+            "name": "lookup_value",
+            "description": "Lookup a value.",
+            "parameters": {
+                "type": "object",
+                "properties": {"value": {"type": "string"}},
+                "required": ["value"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        }
+    ]
+
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
+        with patch("builtins.print") as mock_print:
+            result = get_agent_response(
+                [{"role": "user", "content": "review"}],
+                tools=tools,
+                tool_handlers={"lookup_value": lambda value: {"found": value}},
+                text_format={"format": {"type": "json_schema", "name": "review", "strict": True, "schema": schema}},
+                retries=0,
+            )
+
+    assert result == {"comments": [], "summary": "done"}
+    assert mock_post.call_count == 2
+    assert mock_post.call_args_list[0].kwargs["json"]["store"] is False
+    assert mock_post.call_args_list[0].kwargs["json"]["include"] == ["reasoning.encrypted_content"]
+    second_input = mock_post.call_args_list[1].kwargs["json"]["input"]
+    assert second_input[-2]["type"] == "function_call"
+    assert second_input[-1] == {
+        "type": "function_call_output",
+        "call_id": "call_123",
+        "output": '{"found": "abc"}',
+    }
+    printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "turn 1/6, tool calls 1" in printed
+    assert "turn 2/6, tool calls 1" in printed
+    assert "30→12 = 42 tokens" in printed
+    assert "agent total, turns 2, tool calls 1" in printed
+
+
+@patch("requests.post")
+def test_get_agent_response_summarizes_after_max_turns(mock_post):
+    """Test max-turn exhaustion makes a final no-tool synthesis call."""
+    tool_response = MagicMock()
+    tool_response.status_code = 200
+    tool_response.elapsed.total_seconds.return_value = 1.0
+    tool_response.json.return_value = {
+        "output": [
+            {
+                "type": "function_call",
+                "call_id": "call_123",
+                "name": "lookup_value",
+                "arguments": '{"value": "abc"}',
+            }
+        ],
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+    final_response = MagicMock()
+    final_response.status_code = 200
+    final_response.elapsed.total_seconds.return_value = 1.0
+    final_response.json.return_value = {
+        "output": [
+            {
+                "type": "message",
+                "content": [{"type": "output_text", "text": '{"comments": [], "summary": "synthesized"}'}],
+            }
+        ],
+        "usage": {"input_tokens": 20, "output_tokens": 7},
+    }
+    mock_post.side_effect = [tool_response, requests.exceptions.Timeout(), final_response]
+
+    schema = {
+        "type": "object",
+        "properties": {"comments": {"type": "array"}, "summary": {"type": "string"}},
+        "required": ["comments", "summary"],
+        "additionalProperties": False,
+    }
+    tools = [
+        {
+            "type": "function",
+            "name": "lookup_value",
+            "description": "Lookup a value.",
+            "parameters": {
+                "type": "object",
+                "properties": {"value": {"type": "string"}},
+                "required": ["value"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        }
+    ]
+
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
+        with patch("actions.utils.openai_utils.time.sleep") as mock_sleep:
+            result = get_agent_response(
+                [{"role": "user", "content": "review"}],
+                tools=tools,
+                tool_handlers={"lookup_value": lambda value: f"raw tool output for {value}"},
+                text_format={"format": {"type": "json_schema", "name": "review", "strict": True, "schema": schema}},
+                max_turns=1,
+                retries=0,
+            )
+
+    assert result == {"comments": [], "summary": "synthesized"}
+    assert mock_post.call_count == 3
+    mock_sleep.assert_called_once_with(1)
+    final_payload = mock_post.call_args_list[2].kwargs["json"]
+    assert final_payload["tools"] == []
+    assert final_payload["tool_choice"] == "none"
+    assert final_payload["input"][-2] == {
+        "type": "function_call_output",
+        "call_id": "call_123",
+        "output": "raw tool output for abc",
+    }
+    assert "Synthesize the gathered tool results" in final_payload["input"][-1]["content"]
 
 
 @patch("requests.post")
