@@ -30,8 +30,7 @@ MAX_CONTEXT_FILE_CHARS = 5000
 MAX_REVIEW_COMMENTS = 8
 MAX_TOOL_OUTPUT_CHARS = 20000
 MAX_TOOL_FILE_LINES = 240
-MAX_AGENT_TURNS = 8
-MAX_AGENT_TURNS_LARGE = 24  # large/truncated PRs need more tool turns to cover all files, bounded by MAX_REVIEW_COST
+MAX_AGENT_TURNS = 16
 MAX_REVIEW_COST = 2.00  # USD ceiling per review across all agent turns
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
 
@@ -524,7 +523,7 @@ def generate_pr_review(
             model=review_model,
             tools=tools,
             tool_handlers=tool_handlers,
-            max_turns=MAX_AGENT_TURNS_LARGE if is_large_pr else MAX_AGENT_TURNS,
+            max_turns=MAX_AGENT_TURNS,
             max_cost=MAX_REVIEW_COST,
             request_timeout=(30, 120),
             retries=1,  # one transient failure on any of the sequential turns would otherwise abort the whole review
