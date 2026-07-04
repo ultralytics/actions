@@ -100,8 +100,10 @@ def test_get_first_interaction_response(mock_get_response):
 
 
 @patch("actions.review_pr.get_agent_response")
-def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response):
+def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, tmp_path, monkeypatch):
     """Test PR reviews avoid background polling for code diffs."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "test.py").write_text("old = False\n", encoding="utf-8")
     mock_get_agent_response.return_value = {"comments": [], "summary": "LGTM"}
     diff = """diff --git a/test.py b/test.py
 --- a/test.py
@@ -111,7 +113,7 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response):
 +old = False
 """
 
-    review = review_pr.generate_pr_review("ultralytics/actions", diff, "Test PR", "")
+    review = review_pr.generate_pr_review("ultralytics/actions", diff, "Test PR", "", event=MagicMock())
 
     assert review["summary"] == "LGTM"
     mock_get_agent_response.assert_called_once()
@@ -126,6 +128,7 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response):
     }
     assert kwargs["max_turns"] == review_pr.MAX_AGENT_TURNS
     assert kwargs["request_timeout"] == (30, 120)
+    assert "FULL FILE CONTENTS" not in mock_get_agent_response.call_args.args[0][1]["content"]
 
 
 def test_review_agent_tools_can_read_repo_but_not_outside(tmp_path, monkeypatch):

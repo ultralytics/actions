@@ -270,6 +270,14 @@ def _post_openai_response(
     raise RuntimeError("OpenAI response failed without returning an HTTP response")
 
 
+def _finalize_response_content(response_json: dict, text_format: dict | None) -> str | dict:
+    """Extract assistant text, strip code fences, and decode structured JSON output when requested."""
+    content = remove_outer_codeblocks(_openai_response_text(response_json))
+    if text_format and text_format.get("format", {}).get("type") in ["json_object", "json_schema"]:
+        return json.loads(content)
+    return content
+
+
 def _parse_tool_arguments(call: dict) -> dict:
     """Parse a Responses API function call argument payload."""
     arguments = call.get("arguments") or "{}"
@@ -329,7 +337,7 @@ def get_agent_response(
 
     base_data = {
         "model": model,
-        "store": False,
+        "store": True,
         "temperature": temperature,
         "tools": tools,
         "tool_choice": "auto",
@@ -337,36 +345,38 @@ def get_agent_response(
     }
     if "gpt-5" in model:
         base_data["reasoning"] = {"effort": reasoning_effort or "low"}
-        base_data["include"] = ["reasoning.encrypted_content"]
     if text_format:
         base_data["text"] = text_format
 
     tool_calls = 0
     total_elapsed = 0.0
     total_usage = None
+    previous_response_id = None
+    next_input = conversation
     for turn in range(max_turns):
-        response_json, elapsed = _post_openai_response(
-            {**base_data, "input": [*conversation]}, headers, retries, request_timeout
-        )
+        data = {**base_data, "input": next_input}
+        if previous_response_id:
+            data["previous_response_id"] = previous_response_id
+        response_json, elapsed = _post_openai_response(data, headers, retries, request_timeout)
         total_elapsed += elapsed
         total_usage = _add_openai_usage(total_usage, response_json)
+        previous_response_id = response_json.get("id")
         output_items = response_json.get("output", [])
-        tool_calls += _count_response_tool_calls(output_items)
-        _print_openai_usage(response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, tool calls {tool_calls}")
-        conversation.extend(output_items)
+        turn_tool_calls = _count_response_tool_calls(output_items)
+        tool_calls += turn_tool_calls
+        _print_openai_usage(response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, tools {turn_tool_calls}")
         function_calls = [item for item in output_items if item.get("type") == "function_call"]
 
         if not function_calls:
             _print_openai_usage(
-                {"usage": total_usage}, model, total_elapsed, f"agent total, turns {turn + 1}, tool calls {tool_calls}"
+                {"usage": total_usage}, model, total_elapsed, f"agent total, turns {turn + 1}, tools {tool_calls}"
             )
-            content = remove_outer_codeblocks(_openai_response_text(response_json))
-            if text_format and text_format.get("format", {}).get("type") in ["json_object", "json_schema"]:
-                return json.loads(content)
-            return content
+            return _finalize_response_content(response_json, text_format)
 
         print(f"Agent tool turn {turn + 1}: {', '.join(c.get('name', 'unknown') for c in function_calls)}")
-        conversation.extend(_handle_function_call(call, tool_handlers) for call in function_calls)
+        if not previous_response_id:
+            raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
+        next_input = [_handle_function_call(call, tool_handlers) for call in function_calls]
 
     final_instruction = {
         "role": "user",
@@ -376,22 +386,17 @@ def get_agent_response(
             "incomplete, say so in the final answer instead of dumping raw tool output."
         ),
     }
-    response_json, elapsed = _post_openai_response(
-        {**base_data, "input": [*conversation, final_instruction], "tools": [], "tool_choice": "none"},
-        headers,
-        max(retries, 2),
-        request_timeout,
-    )
+    data = {**base_data, "input": [*next_input, final_instruction], "tool_choice": "none"}
+    if previous_response_id:
+        data["previous_response_id"] = previous_response_id
+    response_json, elapsed = _post_openai_response(data, headers, max(retries, 2), request_timeout)
     total_elapsed += elapsed
     total_usage = _add_openai_usage(total_usage, response_json)
-    _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, tool calls {tool_calls}")
+    _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, tools 0")
     _print_openai_usage(
-        {"usage": total_usage}, model, total_elapsed, f"agent total, turns {max_turns + 1}, tool calls {tool_calls}"
+        {"usage": total_usage}, model, total_elapsed, f"agent total, turns {max_turns + 1}, tools {tool_calls}"
     )
-    content = remove_outer_codeblocks(_openai_response_text(response_json))
-    if text_format and text_format.get("format", {}).get("type") in ["json_object", "json_schema"]:
-        return json.loads(content)
-    return content
+    return _finalize_response_content(response_json, text_format)
 
 
 def get_response(

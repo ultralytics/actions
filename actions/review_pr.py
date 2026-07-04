@@ -9,6 +9,7 @@ from pathlib import Path
 
 from .utils import (
     ACTIONS_CREDIT,
+    COMMON_EXCLUDED_DIRS,
     DIFF_FILE_PATTERN,
     GITHUB_API_URL,
     MAX_PROMPT_CHARS,
@@ -20,6 +21,7 @@ from .utils import (
     sanitize_ai_text,
     should_skip_file,
 )
+from .utils.openai_utils import _is_anthropic_model
 
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
@@ -40,8 +42,7 @@ def _clip_tool_output(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
 def _resolve_repo_path(path: str) -> Path:
     """Resolve a repo-relative path without allowing access outside the checkout."""
     root = Path.cwd().resolve()
-    candidate = Path(path or ".")
-    target = (candidate if candidate.is_absolute() else root / candidate).resolve()
+    target = (root / (path or ".")).resolve()
     try:
         target.relative_to(root)
     except ValueError as e:
@@ -55,7 +56,7 @@ def read_file(path: str, start_line=None, end_line=None) -> str:
         target = _resolve_repo_path(path)
     except ValueError as e:
         return str(e)
-    rel = str(target.relative_to(Path.cwd().resolve()))
+    rel = target.relative_to(Path.cwd().resolve()).as_posix()
     if not target.is_file():
         return f"{path} is not a file."
     if should_skip_file(rel) or target.stat().st_size > 500_000:
@@ -63,30 +64,37 @@ def read_file(path: str, start_line=None, end_line=None) -> str:
 
     lines = target.read_text(encoding="utf-8", errors="ignore").splitlines()
     start = max(1, int(start_line or 1))
-    end = min(len(lines), int(end_line or min(len(lines), start + MAX_TOOL_FILE_LINES - 1)))
+    end = min(len(lines), int(end_line or len(lines)), start + MAX_TOOL_FILE_LINES - 1)
     if end < start:
         return f"{path} has no lines in requested range {start}-{end}."
-    if end - start + 1 > MAX_TOOL_FILE_LINES:
-        end = start + MAX_TOOL_FILE_LINES - 1
     numbered = "\n".join(f"{i:>5}: {lines[i - 1]}" for i in range(start, end + 1))
     return _clip_tool_output(f"{rel}:{start}-{end}\n{numbered}")
 
 
 def _iter_repo_files(path_glob=None):
-    """Yield repository files, including hidden files, without following paths outside the checkout."""
+    """Yield repository files, including hidden files, pruning vendored dirs and paths outside the checkout."""
     root = Path.cwd().resolve()
-    for path in root.rglob("*"):
-        if ".git" in path.parts:
-            continue
+    stack = [root]
+    while stack:
         try:
-            target = path.resolve()
-            target.relative_to(root)
-        except ValueError:
+            children = list(stack.pop().iterdir())
+        except OSError:
             continue
-        rel = path.relative_to(root).as_posix()
-        if not target.is_file() or (path_glob and not fnmatch(rel, path_glob)):
-            continue
-        yield target, rel
+        for path in children:
+            if path.is_dir():
+                if path.name not in COMMON_EXCLUDED_DIRS and not path.is_symlink():
+                    stack.append(path)
+                continue
+            rel = path.relative_to(root).as_posix()
+            if (path_glob and not fnmatch(rel, path_glob)) or should_skip_file(rel):
+                continue
+            try:
+                target = path.resolve()
+                target.relative_to(root)
+            except (OSError, ValueError):
+                continue
+            if target.is_file():
+                yield target, rel
 
 
 def list_files(path_glob=None) -> str:
@@ -103,7 +111,7 @@ def search_repo(query: str, path_glob=None) -> str:
         return "query is required."
     matches = []
     for target, rel in _iter_repo_files(path_glob):
-        if should_skip_file(rel) or target.stat().st_size > 500_000:
+        if target.stat().st_size > 500_000:
             continue
         for line_no, line in enumerate(target.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
             if query in line:
@@ -116,9 +124,7 @@ def search_repo(query: str, path_glob=None) -> str:
 def build_review_agent_tools() -> tuple[list[dict], dict]:
     """Build read-only tools for the PR review agent."""
     tools = [
-        {
-            "type": "web_search",
-        },
+        {"type": "web_search"},
         {
             "type": "function",
             "name": "read_file",
@@ -269,11 +275,12 @@ def generate_pr_review(
 
     # Read model-appropriate guidelines from repo root for project-specific review context
     review_model = get_review_model()
+    is_agent_review_model = not _is_anthropic_model(review_model)
     guidelines_section = get_repo_guidelines(review_model)
 
     # Fetch full file contents for better context if within token budget
     full_files_section = ""
-    if event and len(file_list) <= 10:  # Reasonable file count limit
+    if event and not is_agent_review_model and len(file_list) <= 10:  # Reasonable file count limit
         file_contents, total_chars = [], len(augmented_diff) + len(guidelines_section)
         for file_path in file_list:
             try:
@@ -305,7 +312,7 @@ def generate_pr_review(
     diff_truncated = len(augmented_diff) > diff_budget
     local_tools_section = (
         ""
-        if "claude" in review_model.lower()
+        if not is_agent_review_model  # must match the get_agent_response fallback gate
         else (
             "AVAILABLE TOOLS:\n"
             "- read_file: inspect bounded line ranges from repository files, including unchanged files\n"
@@ -421,7 +428,7 @@ def generate_pr_review(
             tool_handlers=tool_handlers,
             max_turns=MAX_AGENT_TURNS,
             request_timeout=(30, 120),
-            retries=0,
+            retries=1,  # one transient failure on any of the sequential turns would otherwise abort the whole review
             # Do not pass background=True; queued background reviews can consume the full 900s poll timeout.
         )
 

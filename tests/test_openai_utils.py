@@ -138,6 +138,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
     first_response.status_code = 200
     first_response.elapsed.total_seconds.return_value = 1.0
     first_response.json.return_value = {
+        "id": "resp_first",
         "output": [
             {
                 "type": "function_call",
@@ -152,6 +153,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
     second_response.status_code = 200
     second_response.elapsed.total_seconds.return_value = 1.0
     second_response.json.return_value = {
+        "id": "resp_second",
         "output": [
             {
                 "type": "message",
@@ -195,20 +197,25 @@ def test_get_agent_response_calls_function_tools(mock_post):
 
     assert result == {"comments": [], "summary": "done"}
     assert mock_post.call_count == 2
-    assert mock_post.call_args_list[0].kwargs["json"]["store"] is False
-    assert mock_post.call_args_list[0].kwargs["json"]["include"] == ["reasoning.encrypted_content"]
+    first_payload = mock_post.call_args_list[0].kwargs["json"]
+    assert first_payload["store"] is True
+    assert "include" not in first_payload
+    assert "previous_response_id" not in first_payload
+    assert first_payload["input"] == [{"role": "user", "content": "review"}]
+    assert mock_post.call_args_list[1].kwargs["json"]["previous_response_id"] == "resp_first"
     second_input = mock_post.call_args_list[1].kwargs["json"]["input"]
-    assert second_input[-2]["type"] == "function_call"
-    assert second_input[-1] == {
-        "type": "function_call_output",
-        "call_id": "call_123",
-        "output": '{"found": "abc"}',
-    }
+    assert second_input == [
+        {
+            "type": "function_call_output",
+            "call_id": "call_123",
+            "output": '{"found": "abc"}',
+        }
+    ]
     printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
-    assert "turn 1/6, tool calls 1" in printed
-    assert "turn 2/6, tool calls 1" in printed
+    assert "turn 1/6, tools 1" in printed
+    assert "turn 2/6, tools 0" in printed
     assert "30→12 = 42 tokens" in printed
-    assert "agent total, turns 2, tool calls 1" in printed
+    assert "agent total, turns 2, tools 1" in printed
 
 
 @patch("requests.post")
@@ -218,6 +225,7 @@ def test_get_agent_response_summarizes_after_max_turns(mock_post):
     tool_response.status_code = 200
     tool_response.elapsed.total_seconds.return_value = 1.0
     tool_response.json.return_value = {
+        "id": "resp_tool",
         "output": [
             {
                 "type": "function_call",
@@ -232,6 +240,7 @@ def test_get_agent_response_summarizes_after_max_turns(mock_post):
     final_response.status_code = 200
     final_response.elapsed.total_seconds.return_value = 1.0
     final_response.json.return_value = {
+        "id": "resp_final",
         "output": [
             {
                 "type": "message",
@@ -278,9 +287,10 @@ def test_get_agent_response_summarizes_after_max_turns(mock_post):
     assert mock_post.call_count == 3
     mock_sleep.assert_called_once_with(1)
     final_payload = mock_post.call_args_list[2].kwargs["json"]
-    assert final_payload["tools"] == []
+    assert final_payload["tools"] == tools
     assert final_payload["tool_choice"] == "none"
-    assert final_payload["input"][-2] == {
+    assert final_payload["previous_response_id"] == "resp_tool"
+    assert final_payload["input"][0] == {
         "type": "function_call_output",
         "call_id": "call_123",
         "output": "raw tool output for abc",
