@@ -322,3 +322,85 @@ def test_get_response_anthropic(mock_post):
     # Verify Anthropic endpoint was called
     call_args = mock_post.call_args
     assert call_args[0][0] == "https://api.anthropic.com/v1/messages"
+
+
+@patch("requests.post")
+def test_get_agent_response_stops_at_cost_budget(mock_post):
+    """Test the cost budget skips remaining tool turns and forces final synthesis with stub tool outputs."""
+    tool_response = MagicMock()
+    tool_response.status_code = 200
+    tool_response.elapsed.total_seconds.return_value = 1.0
+    tool_response.json.return_value = {
+        "id": "resp_tool",
+        "output": [
+            {
+                "type": "function_call",
+                "call_id": "call_123",
+                "name": "lookup_value",
+                "arguments": '{"value": "abc"}',
+            }
+        ],
+        "usage": {"input_tokens": 1_000_000, "output_tokens": 0},  # $5.00 for gpt-5.5, over any small budget
+    }
+    final_response = MagicMock()
+    final_response.status_code = 200
+    final_response.elapsed.total_seconds.return_value = 1.0
+    final_response.json.return_value = {
+        "id": "resp_final",
+        "output": [
+            {
+                "type": "message",
+                "content": [{"type": "output_text", "text": '{"comments": [], "summary": "budget"}'}],
+            }
+        ],
+        "usage": {"input_tokens": 20, "output_tokens": 7},
+    }
+    mock_post.side_effect = [tool_response, final_response]
+
+    schema = {
+        "type": "object",
+        "properties": {"comments": {"type": "array"}, "summary": {"type": "string"}},
+        "required": ["comments", "summary"],
+        "additionalProperties": False,
+    }
+    tools = [
+        {
+            "type": "function",
+            "name": "lookup_value",
+            "description": "Lookup a value.",
+            "parameters": {
+                "type": "object",
+                "properties": {"value": {"type": "string"}},
+                "required": ["value"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        }
+    ]
+
+    def forbidden_handler(value):
+        raise AssertionError("tool handlers must not run once the cost budget is reached")
+
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
+        result = get_agent_response(
+            [{"role": "user", "content": "review"}],
+            tools=tools,
+            tool_handlers={"lookup_value": forbidden_handler},
+            text_format={"format": {"type": "json_schema", "name": "review", "strict": True, "schema": schema}},
+            model="gpt-5.5",
+            max_turns=8,
+            max_cost=1.00,
+            retries=0,
+        )
+
+    assert result == {"comments": [], "summary": "budget"}
+    assert mock_post.call_count == 2  # budget reached on turn 1, remaining turns skipped
+    final_payload = mock_post.call_args_list[1].kwargs["json"]
+    assert final_payload["tool_choice"] == "none"
+    assert final_payload["previous_response_id"] == "resp_tool"
+    assert final_payload["input"][0] == {
+        "type": "function_call_output",
+        "call_id": "call_123",
+        "output": "Tool budget exhausted.",
+    }
+    assert "Synthesize the gathered tool results" in final_payload["input"][-1]["content"]

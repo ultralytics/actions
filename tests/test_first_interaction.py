@@ -129,6 +129,7 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, t
         "search_repo",
     }
     assert kwargs["max_turns"] == review_pr.MAX_AGENT_TURNS
+    assert kwargs["max_cost"] == review_pr.MAX_REVIEW_COST
     assert kwargs["request_timeout"] == (30, 120)
     assert "FULL FILE CONTENTS" not in mock_get_agent_response.call_args.args[0][1]["content"]
 

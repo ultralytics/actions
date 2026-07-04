@@ -225,6 +225,14 @@ def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | N
     return total_usage
 
 
+def _openai_usage_cost(usage: dict, model: str) -> float:
+    """Compute billed USD cost for a Responses API usage block (cached input billed at 10% of the input rate)."""
+    costs = MODEL_COSTS.get(model, (0.0, 0.0))
+    input_tokens = usage.get("input_tokens", 0)
+    cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0)
+    return ((input_tokens - cached_tokens * 0.9) * costs[0] + usage.get("output_tokens", 0) * costs[1]) / 1e6
+
+
 def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadata: str = "") -> None:
     """Print Responses API token/cost telemetry."""
     if usage := response_json.get("usage"):
@@ -232,9 +240,7 @@ def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadat
         output_tokens = usage.get("output_tokens", 0)
         cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0)
         thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
-        costs = MODEL_COSTS.get(model, (0.0, 0.0))
-        # Cached input tokens are billed at 10% of the input rate
-        cost = ((input_tokens - cached_tokens * 0.9) * costs[0] + output_tokens * costs[1]) / 1e6
+        cost = _openai_usage_cost(usage, model)
         cached_str = f" ({cached_tokens} cached)" if cached_tokens else ""
         token_str = f"{input_tokens}{cached_str}→{output_tokens - thinking_tokens}"
         if thinking_tokens:
@@ -318,10 +324,15 @@ def get_agent_response(
     temperature: float = 1.0,
     reasoning_effort: str | None = None,
     max_turns: int = 6,
+    max_cost: float = 0.0,
     retries: int = 2,
     request_timeout: tuple[int, int] = (30, 120),
 ) -> str | dict:
-    """Run an iterative OpenAI Responses API agent with application-managed function tools."""
+    """Run an iterative OpenAI Responses API agent with application-managed function tools.
+
+    max_cost is a USD ceiling across all turns (0 disables); once reached, remaining tool turns are skipped and the
+    agent synthesizes a final answer. Models missing from MODEL_COSTS report zero cost, so only max_turns bounds them.
+    """
     model = model or _get_default_model()
     if _is_anthropic_model(model):
         print("Anthropic review model selected; falling back to single-shot response without local agent tools")
@@ -348,7 +359,7 @@ def get_agent_response(
         "temperature": temperature,
         "tools": tools,
         "tool_choice": "auto",
-        "parallel_tool_calls": False,
+        "parallel_tool_calls": True,  # batched tool calls share one turn, so the history is re-billed fewer times
     }
     if "gpt-5" in model:
         base_data["reasoning"] = {"effort": reasoning_effort or "low"}
@@ -360,6 +371,7 @@ def get_agent_response(
     total_usage = None
     previous_response_id = None
     next_input = conversation
+    turn = -1
     for turn in range(max_turns):
         data = {**base_data, "input": next_input}
         if previous_response_id:
@@ -383,6 +395,13 @@ def get_agent_response(
         print(f"Agent tool turn {turn + 1}: {', '.join(c.get('name', 'unknown') for c in function_calls)}")
         if not previous_response_id:
             raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
+        if max_cost and _openai_usage_cost(total_usage, model) >= max_cost:
+            print(f"Agent cost budget ${max_cost:.2f} reached; skipping remaining tool turns")
+            next_input = [  # pending calls still need outputs for the chained synthesis request to be valid
+                {"type": "function_call_output", "call_id": call.get("call_id"), "output": "Tool budget exhausted."}
+                for call in function_calls
+            ]
+            break
         next_input = [_handle_function_call(call, tool_handlers) for call in function_calls]
 
     final_instruction = {
@@ -401,7 +420,7 @@ def get_agent_response(
     total_usage = _add_openai_usage(total_usage, response_json)
     _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, tools 0")
     _print_openai_usage(
-        {"usage": total_usage}, model, total_elapsed, f"agent total, turns {max_turns + 1}, tools {tool_calls}"
+        {"usage": total_usage}, model, total_elapsed, f"agent total, turns {turn + 2}, tools {tool_calls}"
     )
     return _finalize_response_content(response_json, text_format)
 

@@ -31,6 +31,8 @@ MAX_REVIEW_COMMENTS = 8
 MAX_TOOL_OUTPUT_CHARS = 20000
 MAX_TOOL_FILE_LINES = 240
 MAX_AGENT_TURNS = 8
+MAX_AGENT_TURNS_LARGE = 24  # large/truncated PRs need more tool turns to cover all files, bounded by MAX_REVIEW_COST
+MAX_REVIEW_COST = 2.00  # USD ceiling per review across all agent turns
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
 
 
@@ -390,6 +392,7 @@ def generate_pr_review(
     # Calculate remaining budget for diff and check if truncation needed
     diff_budget = max(1000, MAX_PROMPT_CHARS - len(guidelines_section) - len(full_files_section))
     diff_truncated = len(augmented_diff) > diff_budget
+    is_large_pr = diff_truncated or len(file_list) > 30
     if is_agent_review_model:  # must match the get_agent_response fallback gate
         visibility_section = (
             "CONTEXT AND VERIFICATION:\n"
@@ -410,6 +413,8 @@ def generate_pr_review(
             "- list_files: locate repository files by glob\n"
             "- web_search: verify current public docs, package docs, release notes, issues, or vendor behavior when a "
             "review finding depends on external behavior\n"
+            "- Tool turns and cost are budgeted: batch independent tool calls in the same turn, e.g. read several "
+            "diffs or files at once\n"
             "- Do not quote large tool output. Use tools only to verify concise, actionable review findings.\n\n"
         )
     else:
@@ -461,7 +466,7 @@ def generate_pr_review(
         '{"comments": [{"file": "exact/path", "line": N, "side": "RIGHT", "severity": "HIGH", "message": "..."}], "summary": "..."}\n\n'
         "JSON rules: exact paths (no ./), severity: CRITICAL|HIGH|MEDIUM|LOW|SUGGESTION\n"
         f"Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''}), Lines: {lines_changed}\n"
-        f"{'Large or truncated PR: use list_changed_files and read_diff to inspect changed files not shown in the initial prompt. ' if len(file_list) > 30 or diff_truncated else ''}\n"
+        f"{'Large or truncated PR: use list_changed_files and read_diff to inspect changed files not shown in the initial prompt. ' if is_large_pr else ''}\n"
     )
 
     messages = [
@@ -519,7 +524,8 @@ def generate_pr_review(
             model=review_model,
             tools=tools,
             tool_handlers=tool_handlers,
-            max_turns=MAX_AGENT_TURNS,
+            max_turns=MAX_AGENT_TURNS_LARGE if is_large_pr else MAX_AGENT_TURNS,
+            max_cost=MAX_REVIEW_COST,
             request_timeout=(30, 120),
             retries=1,  # one transient failure on any of the sequential turns would otherwise abort the whole review
             # Do not pass background=True; queued background reviews can consume the full 900s poll timeout.
