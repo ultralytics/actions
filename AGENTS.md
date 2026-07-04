@@ -24,16 +24,16 @@ The action hierarchy for every change: **Delete > Replace > Add**. The best code
 ## Commands
 
 ```bash
-pip install -e ".[dev]"                  # install for development (or: uv pip install --system -e ".[dev]")
+pip install -e ".[dev]" # install for development (or: uv pip install --system -e ".[dev]")
 
-pytest tests -v                          # run all tests
-pytest tests/test_common_utils.py -v     # run one test file
-pytest tests/test_github_utils.py::test_name -v  # run one test
-pytest tests -v --cov=actions --cov-report=xml:coverage.xml  # tests with coverage (CI command)
+pytest tests -v                                             # run all tests
+pytest tests/test_common_utils.py -v                        # run one test file
+pytest tests/test_github_utils.py::test_name -v             # run one test
+pytest tests -v --cov=actions --cov-report=xml:coverage.xml # tests with coverage (CI command)
 
 ruff check --fix --unsafe-fixes --extend-select F,I,D,UP,RUF,FA --target-version py39 \
   --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413,RUF001,RUF002,RUF012 .
-ruff format --line-length 120 .          # format (line length 120)
+ruff format --line-length 120 . # format (line length 120)
 ```
 
 Notes:
