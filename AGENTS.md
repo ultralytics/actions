@@ -21,6 +21,13 @@ The action hierarchy for every change: **Delete > Replace > Add**. The best code
 
 **When fixing bugs, ask: "What can I delete?" before "What can I replace?" before "What should I add?"**
 
+## PR Workflow
+
+After opening a PR:
+
+1. Wait for the automated PR review and auto-format commit from Ultralytics Actions (`format.yml`), then pull and address every finding.
+2. Launch an independent adversarial review agent with cold context (no prior conversation, just the PR diff and this file) to hunt for bugs, regressions, and Core Principles violations. Fix what it finds, push, and repeat with a fresh agent until one reports LGTM with zero findings.
+
 ## Commands
 
 ```bash
