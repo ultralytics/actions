@@ -65,14 +65,14 @@ Key flow: GitHub workflow event → `action.yml` step (gated by `github.event_na
 - **`common_utils.py`** — URL/redirect checking, diff filtering, file-skip patterns, HTML comment removal.
 - **`version_utils.py`** — PyPI/pub.dev version checks used for publish gating.
 
-Everything reusable is re-exported through `actions/utils/__init__.py` — import from `actions.utils`, and keep `__all__` updated when adding exports.
+Most shared utilities are re-exported through `actions/utils/__init__.py` — keep `__all__` updated when adding exports.
 
-Self-hosting detail: when a workflow runs inside `ultralytics/actions` itself, `action.yml` installs the package from the current git branch (not PyPI/main), so PRs here dogfood their own changes via `.github/workflows/format.yml`.
+Self-hosting detail: workflows in this repo pin `ultralytics/actions@main`, but `action.yml` installs the Python package from the current git branch — so PRs here dogfood Python package changes via `.github/workflows/format.yml`, while changes to `action.yml` itself only take effect after merging to main.
 
 ## Conventions
 
 - License headers (`# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license`) are added automatically by Ultralytics Actions (`ultralytics-actions-headers`, extensions in `COMMENT_MAP`) — don't add or revert them manually.
 - Bump `__version__` in `actions/__init__.py` when a PR changes package behavior — publishing to PyPI is gated on the version change (`publish.yml`).
 - Google-style docstrings, single-line summaries where possible; formatting is enforced by the repo's own action (`format.yml`), which auto-commits fixes to PRs.
-- Tests use `unittest.mock` to patch env vars and network calls — no real GitHub/OpenAI requests in tests. Modules listed in `[tool.coverage.run] omit` are excluded from coverage requirements.
+- Tests use `unittest.mock` to patch env vars and network calls, except `tests/test_urls.py` which makes live HTTP requests. Modules listed in `[tool.coverage.run] omit` are excluded from coverage requirements.
 - Commits and PRs use plain git identity — no AI attribution, co-author lines, or generated-with footers.
