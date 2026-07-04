@@ -39,22 +39,21 @@ pytest tests/test_common_utils.py -v                        # run one test file
 pytest tests/test_github_utils.py::test_name -v             # run one test
 pytest tests -v --cov=actions --cov-report=xml:coverage.xml # tests with coverage (CI command)
 
+# Lint/format — mirrors the "Run Python" step in action.yml (source of truth if these drift)
 ruff check --fix --unsafe-fixes --extend-select F,I,D,UP,RUF,FA --target-version py39 \
   --ignore D100,D104,D203,D205,D212,D213,D401,D406,D407,D413,RUF001,RUF002,RUF012 .
-ruff format --line-length 120 . # format (line length 120)
+ruff format --line-length 120 .
 ```
 
 Notes:
 
-- `pytest` is configured with `--doctest-modules`, so docstring examples in `actions/` are also executed as tests.
-- CI tests Python 3.8 and 3.14 on ubuntu and macos — code must stay 3.8-compatible. Use `from __future__ import annotations` for modern type hints (the codebase does this everywhere).
-- CI also smoke-tests every CLI entry point (`tests/test_cli_commands.py`).
+- CI tests Python 3.8 and 3.14 on ubuntu and macos — code must stay 3.8-compatible. Use `from __future__ import annotations` for modern type hints.
 
 ## Architecture
 
 This repo is two things at once:
 
-1. **A Python package (`actions/`)** published as `ultralytics-actions` on PyPI. Each top-level module (`first_interaction.py`, `review_pr.py`, `summarize_pr.py`, `summarize_release.py`, `dependabot.py`, `github_report.py`, etc.) is a standalone script exposed as a `ultralytics-actions-*` CLI entry point in `pyproject.toml` `[project.scripts]`.
+1. **A Python package (`actions/`)** published as `ultralytics-actions` on PyPI. Top-level modules (`first_interaction.py`, `review_pr.py`, `summarize_pr.py`, `summarize_release.py`, `dependabot.py`, `github_report.py`, etc.) are standalone scripts, most exposed as `ultralytics-actions-*` CLI entry points in `pyproject.toml` `[project.scripts]`.
 2. **GitHub composite actions.** The root `action.yml` is the main "Ultralytics Actions" marketplace action: it installs the Python package, then runs formatters (Ruff, Prettier, Biome, swift-format, dart format, codespell) and the CLI entry points conditioned on event type and inputs, then commits results back to the PR. Subdirectories `retry/`, `cleanup-disk/`, `dependabot/`, `github-report/` are standalone composite actions with their own `action.yml` + README.
 
 Key flow: GitHub workflow event → `action.yml` step (gated by `github.event_name` / `github.event.action` / inputs) → env vars (`GITHUB_TOKEN`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MODEL`, ...) → CLI entry point → module `main()`/`run()`.
