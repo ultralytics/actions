@@ -27,6 +27,7 @@ After opening a PR:
 
 1. Wait for the automated PR review and auto-format commit from Ultralytics Actions (`format.yml`), then pull and address every finding.
 2. Launch an independent adversarial review agent with cold context (no prior conversation, just the PR diff and this file) to hunt for bugs, regressions, and Core Principles violations. Fix what it finds, push, and repeat with a fresh agent until one reports LGTM with zero findings.
+3. Never fight other commits on the branch. Ultralytics Actions pushes auto-format and license-header commits, and multiple users often work on the same PR at the same time. Always `git pull --rebase` before pushing, and never force-push, reset, or revert commits you did not author.
 
 ## Commands
 
@@ -69,11 +70,10 @@ Everything reusable is re-exported through `actions/utils/__init__.py` — impor
 
 Self-hosting detail: when a workflow runs inside `ultralytics/actions` itself, `action.yml` installs the package from the current git branch (not PyPI/main), so PRs here dogfood their own changes via `.github/workflows/format.yml`.
 
-The package version lives in `actions/__init__.py` (`__version__`); publishing to PyPI is gated on version bumps (`publish.yml`).
-
 ## Conventions
 
-- Source and config files start with the header `# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license` in the file's comment style, enforced by `ultralytics-actions-headers` for the extensions in `COMMENT_MAP` (`actions/update_file_headers.py`). Markdown files are not covered.
+- Source and config files start with the header `# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license` in the file's comment style. Ultralytics Actions adds these automatically (`ultralytics-actions-headers`, extensions in `COMMENT_MAP` in `actions/update_file_headers.py`) — no need to add them manually, and keep the bot's header commits.
+- Bump `__version__` in `actions/__init__.py` when a PR changes package behavior — publishing to PyPI is gated on the version change (`publish.yml`).
 - Google-style docstrings, single-line summaries where possible; formatting is enforced by the repo's own action (`format.yml`), which auto-commits fixes to PRs.
 - Tests use `unittest.mock` to patch env vars and network calls — no real GitHub/OpenAI requests in tests. Modules listed in `[tool.coverage.run] omit` are excluded from coverage requirements.
 - Commits and PRs use plain git identity — no AI attribution, co-author lines, or generated-with footers.
