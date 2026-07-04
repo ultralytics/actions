@@ -28,6 +28,7 @@ After opening a PR:
 1. Wait for the automated PR review and auto-format commit from Ultralytics Actions (`format.yml`), then pull and address every finding.
 2. Launch an independent adversarial review agent with cold context (just the PR diff and this file) to hunt for bugs, regressions, and Core Principles violations. Fix, push, and repeat with a fresh agent until one reports LGTM.
 3. Never fight other commits: Ultralytics Actions pushes auto-format and header commits, and multiple users may work on the same PR. `git pull --rebase` before pushing; never force-push, reset, or revert commits you did not author.
+4. After the PR merges, clean up: remove local worktrees and branches for it, then `git checkout main && git pull`.
 
 ## Commands
 
