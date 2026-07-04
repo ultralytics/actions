@@ -33,7 +33,7 @@ After opening a PR:
 ## Commands
 
 ```bash
-pip install -e ".[dev]" # install for development (or: uv pip install --system -e ".[dev]")
+uv pip install -e ".[dev]" # install for development
 
 pytest tests -v                                             # run all tests
 pytest tests/test_common_utils.py -v                        # run one test file
