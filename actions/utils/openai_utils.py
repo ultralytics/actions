@@ -211,10 +211,14 @@ def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | N
     total_usage = total_usage or {
         "input_tokens": 0,
         "output_tokens": 0,
+        "input_tokens_details": {"cached_tokens": 0},
         "output_tokens_details": {"reasoning_tokens": 0},
     }
     total_usage["input_tokens"] += usage.get("input_tokens", 0)
     total_usage["output_tokens"] += usage.get("output_tokens", 0)
+    total_usage["input_tokens_details"]["cached_tokens"] += (usage.get("input_tokens_details") or {}).get(
+        "cached_tokens", 0
+    )
     total_usage["output_tokens_details"]["reasoning_tokens"] += (usage.get("output_tokens_details") or {}).get(
         "reasoning_tokens", 0
     )
@@ -226,10 +230,13 @@ def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadat
     if usage := response_json.get("usage"):
         input_tokens = usage.get("input_tokens", 0)
         output_tokens = usage.get("output_tokens", 0)
+        cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0)
         thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
         costs = MODEL_COSTS.get(model, (0.0, 0.0))
-        cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
-        token_str = f"{input_tokens}→{output_tokens - thinking_tokens}"
+        # Cached input tokens are billed at 10% of the input rate
+        cost = ((input_tokens - cached_tokens * 0.9) * costs[0] + output_tokens * costs[1]) / 1e6
+        cached_str = f" ({cached_tokens} cached)" if cached_tokens else ""
+        token_str = f"{input_tokens}{cached_str}→{output_tokens - thinking_tokens}"
         if thinking_tokens:
             token_str += f" (+{thinking_tokens} thinking)"
         metadata = f", {metadata}" if metadata else ""

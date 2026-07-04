@@ -147,7 +147,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
                 "arguments": '{"value": "abc"}',
             }
         ],
-        "usage": {"input_tokens": 10, "output_tokens": 5},
+        "usage": {"input_tokens": 10, "input_tokens_details": {"cached_tokens": 4}, "output_tokens": 5},
     }
     second_response = MagicMock()
     second_response.status_code = 200
@@ -160,7 +160,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
                 "content": [{"type": "output_text", "text": '{"comments": [], "summary": "done"}'}],
             }
         ],
-        "usage": {"input_tokens": 20, "output_tokens": 7},
+        "usage": {"input_tokens": 20, "input_tokens_details": {"cached_tokens": 8}, "output_tokens": 7},
     }
     mock_post.side_effect = [first_response, second_response]
 
@@ -214,7 +214,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
     printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
     assert "turn 1/6, tools 1" in printed
     assert "turn 2/6, tools 0" in printed
-    assert "30→12 = 42 tokens" in printed
+    assert "30 (12 cached)→12 = 42 tokens, $0.00046" in printed
     assert "agent total, turns 2, tools 1" in printed
 
 
