@@ -122,7 +122,9 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, t
     assert kwargs["tools"][0]["type"] == "web_search"
     assert "filters" not in kwargs["tools"][0]
     assert {tool.get("name") for tool in kwargs["tools"] if tool.get("type") == "function"} == {
+        "list_changed_files",
         "list_files",
+        "read_diff",
         "read_file",
         "search_repo",
     }
@@ -161,3 +163,33 @@ def test_review_agent_tools_can_read_repo_but_not_outside(tmp_path, monkeypatch)
     assert ".github/workflows/format.yml:1:workflow = True" in handlers["search_repo"](
         query="workflow = True", path_glob=".github/**"
     )
+
+
+def test_review_agent_tools_can_list_and_read_changed_file_diffs():
+    """Test PR diff tools let the agent inspect every changed file on demand."""
+    diff = "\n".join(
+        [
+            "diff --git a/early.py b/early.py",
+            "--- a/early.py",
+            "+++ b/early.py",
+            "@@ -1 +1 @@",
+            "-old = True",
+            "+old = False",
+            "diff --git a/nested/late.py b/nested/late.py",
+            "--- a/nested/late.py",
+            "+++ b/nested/late.py",
+            "@@ -10 +10 @@",
+            "-value = 1",
+            "+value = 2",
+        ]
+    )
+    diff_files, augmented_diff = review_pr.parse_diff_files(diff)
+    _, handlers = review_pr.build_review_agent_tools(diff_files, augmented_diff)
+
+    changed_files = handlers["list_changed_files"](path_glob=None)
+    assert "early.py (+1/-1)" in changed_files
+    assert "nested/late.py (+1/-1)" in changed_files
+    assert handlers["list_changed_files"](path_glob="nested/**") == "nested/late.py (+1/-1)"
+    late_diff = handlers["read_diff"](path="nested/late.py", start_line=None, end_line=None)
+    assert "R   10 +value = 2" in late_diff
+    assert "L   10 -value = 1" in late_diff
