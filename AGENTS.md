@@ -73,7 +73,7 @@ The package version lives in `actions/__init__.py` (`__version__`); publishing t
 
 ## Conventions
 
-- Every file starts with the header `# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license` (enforced by `ultralytics-actions-headers`).
+- Source and config files start with the header `# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license` in the file's comment style, enforced by `ultralytics-actions-headers` for the extensions in `COMMENT_MAP` (`actions/update_file_headers.py`). Markdown files are not covered.
 - Google-style docstrings, single-line summaries where possible; formatting is enforced by the repo's own action (`format.yml`), which auto-commits fixes to PRs.
 - Tests use `unittest.mock` to patch env vars and network calls — no real GitHub/OpenAI requests in tests. Modules listed in `[tool.coverage.run] omit` are excluded from coverage requirements.
 - Commits and PRs use plain git identity — no AI attribution, co-author lines, or generated-with footers.
