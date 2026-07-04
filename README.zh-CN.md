@@ -27,13 +27,13 @@
 
 ## Ultralytics Actions 主 Action
 
-面向 Python、Swift、Dart 和 Markdown 文件的 AI 驱动格式化、标签和 PR 摘要工具。
+面向 Python、JavaScript/TypeScript、Swift、Dart 和网页/文档文件的 AI 驱动格式化、标签和 PR 摘要工具。
 
 ### 📄 功能
 
 - **Python 代码：** 使用极快的 Python linter 和 formatter [Ruff](https://github.com/astral-sh/ruff) 格式化
 - **Python Docstrings：** 使用 Ultralytics Python docstring formatter 强制 Google 风格格式（可选）
-- **JavaScript/TypeScript：** 使用极快的 JS、TS、JSX、TSX 和 JSON formatter [Biome](https://biomejs.dev/) 格式化（可选，通过 `biome.json` 自动检测）
+- **JavaScript/TypeScript：** 使用极快的 JS、TS、JSX、TSX 和 JSON formatter [Biome](https://biomejs.dev/) 格式化（可选，通过 `biome.json` 或 `biome.jsonc` 自动检测）
 - **Web 和文档文件：** 使用 [Prettier](https://github.com/prettier/prettier) 格式化 JS、TS、CSS、HTML、JSON、YAML、Markdown 和 shell 脚本
 - **Swift 代码：** 使用 [`swift-format`](https://github.com/swiftlang/swift-format) 格式化（需要 `macos-latest` runner）
 - **Dart 代码：** 使用 [`dart format`](https://dart.dev/tools/dart-format) 格式化 Dart 和 Flutter 项目
@@ -101,7 +101,7 @@ jobs:
           python: true # Format Python with Ruff
           # python-version: "3.14" # Optional: set up a specific Python version (default: runner Python)
           python_docstrings: true # Format Python docstrings (default: true)
-          biome: true # Format JS/TS with Biome (auto-detected via biome.json)
+          biome: true # Format JS/TS with Biome (auto-detected via biome.json or biome.jsonc)
           prettier: true # Format YAML, JSON, Markdown, CSS
           swift: false # Format Swift (requires macos-latest)
           dart: false # Format Dart/Flutter
@@ -178,7 +178,7 @@ jobs:
 [![PyPI - Version](https://img.shields.io/pypi/v/ultralytics-actions?logo=pypi&logoColor=white)](https://pypi.org/project/ultralytics-actions/) [![Ultralytics Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://clickpy.clickhouse.com/dashboard/ultralytics-actions) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ultralytics-actions?logo=python&logoColor=gold)](https://pypi.org/project/ultralytics-actions/)
 
 ```bash
-pip install ultralytics-actions
+uv pip install ultralytics-actions
 ```
 
 **可用模块：**

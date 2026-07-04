@@ -27,13 +27,13 @@ This repository provides three main components:
 
 ## Ultralytics Actions (Main Action)
 
-AI-powered formatting, labeling, and PR summaries for Python, Swift, Dart, and Markdown files.
+AI-powered formatting, labeling, and PR summaries for Python, JavaScript/TypeScript, Swift, Dart, and web/docs files.
 
 ### 📄 Features
 
 - **Python Code:** Formatted using [Ruff](https://github.com/astral-sh/ruff), an extremely fast Python linter and formatter
 - **Python Docstrings:** Google-style formatting enforced with Ultralytics Python docstring formatter (optional)
-- **JavaScript/TypeScript:** Formatted with [Biome](https://biomejs.dev/), an extremely fast formatter for JS, TS, JSX, TSX, and JSON (optional, auto-detected via `biome.json`)
+- **JavaScript/TypeScript:** Formatted with [Biome](https://biomejs.dev/), an extremely fast formatter for JS, TS, JSX, TSX, and JSON (optional, auto-detected via `biome.json` or `biome.jsonc`)
 - **Web and Docs Files:** Styled with [Prettier](https://github.com/prettier/prettier) for JS, TS, CSS, HTML, JSON, YAML, Markdown, and shell scripts
 - **Swift Code:** Formatted with [`swift-format`](https://github.com/swiftlang/swift-format) _(requires `macos-latest` runner)_
 - **Dart Code:** Formatted with [`dart format`](https://dart.dev/tools/dart-format) for Dart and Flutter projects
@@ -101,7 +101,7 @@ jobs:
           python: true # Format Python with Ruff
           # python-version: "3.14" # Optional: set up a specific Python version (default: runner Python)
           python_docstrings: true # Format Python docstrings (default: true)
-          biome: true # Format JS/TS with Biome (auto-detected via biome.json)
+          biome: true # Format JS/TS with Biome (auto-detected via biome.json or biome.jsonc)
           prettier: true # Format YAML, JSON, Markdown, CSS
           swift: false # Format Swift (requires macos-latest)
           dart: false # Format Dart/Flutter
@@ -178,7 +178,7 @@ Install the `ultralytics-actions` package for programmatic access to action util
 [![PyPI - Version](https://img.shields.io/pypi/v/ultralytics-actions?logo=pypi&logoColor=white)](https://pypi.org/project/ultralytics-actions/) [![Ultralytics Downloads](https://static.pepy.tech/badge/ultralytics-actions)](https://clickpy.clickhouse.com/dashboard/ultralytics-actions) [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/ultralytics-actions?logo=python&logoColor=gold)](https://pypi.org/project/ultralytics-actions/)
 
 ```bash
-pip install ultralytics-actions
+uv pip install ultralytics-actions
 ```
 
 **Available Modules:**
