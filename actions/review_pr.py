@@ -4,28 +4,263 @@ from __future__ import annotations
 
 import json
 import re
+from fnmatch import fnmatch
 from pathlib import Path
 
 from .utils import (
     ACTIONS_CREDIT,
+    COMMON_EXCLUDED_DIRS,
     DIFF_FILE_PATTERN,
     GITHUB_API_URL,
     MAX_PROMPT_CHARS,
     Action,
     format_skipped_files_dropdown,
-    get_response,
+    get_agent_response,
     get_review_model,
     remove_html_comments,
     sanitize_ai_text,
     should_skip_file,
 )
+from .utils.openai_utils import _is_anthropic_model
 
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
 MAX_CONTEXT_FILE_CHARS = 5000
 MAX_REVIEW_COMMENTS = 8
+MAX_TOOL_OUTPUT_CHARS = 20000
+MAX_TOOL_FILE_LINES = 240
+MAX_AGENT_TURNS = 16
+MAX_REVIEW_COST = 2.00  # USD ceiling per review across all agent turns
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
+
+
+def _clip_tool_output(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
+    """Limit model-facing tool output size."""
+    return text if len(text) <= limit else f"{text[:limit].rstrip()}\n... (truncated)"
+
+
+def _resolve_repo_path(path: str) -> Path:
+    """Resolve a repo-relative path without allowing access outside the checkout."""
+    root = Path.cwd().resolve()
+    target = (root / (path or ".")).resolve()
+    try:
+        target.relative_to(root)
+    except ValueError as e:
+        raise ValueError(f"path must stay inside repository: {path}") from e
+    return target
+
+
+def read_file(path: str, start_line=None, end_line=None) -> str:
+    """Read a bounded range from a repository file for agent review context."""
+    try:
+        target = _resolve_repo_path(path)
+    except ValueError as e:
+        return str(e)
+    rel = target.relative_to(Path.cwd().resolve()).as_posix()
+    if not target.is_file():
+        return f"{path} is not a file."
+    if should_skip_file(rel) or target.stat().st_size > 500_000:
+        return f"{path} is skipped because it is generated, vendored, or too large."
+
+    lines = target.read_text(encoding="utf-8", errors="ignore").splitlines()
+    start = max(1, int(start_line or 1))
+    end = min(len(lines), int(end_line or len(lines)), start + MAX_TOOL_FILE_LINES - 1)
+    if end < start:
+        return f"{path} has no lines in requested range {start}-{end}."
+    numbered = "\n".join(f"{i:>5}: {lines[i - 1]}" for i in range(start, end + 1))
+    return _clip_tool_output(f"{rel}:{start}-{end}\n{numbered}")
+
+
+def _iter_repo_files(path_glob=None):
+    """Yield repository files, including hidden files, pruning vendored dirs and paths outside the checkout."""
+    root = Path.cwd().resolve()
+    stack = [root]
+    while stack:
+        try:
+            children = list(stack.pop().iterdir())
+        except OSError:
+            continue
+        for path in children:
+            if path.is_dir():
+                if path.name not in COMMON_EXCLUDED_DIRS and not path.is_symlink():
+                    stack.append(path)
+                continue
+            rel = path.relative_to(root).as_posix()
+            if (path_glob and not fnmatch(rel, path_glob)) or should_skip_file(rel):
+                continue
+            try:
+                target = path.resolve()
+                target.relative_to(root)
+            except (OSError, ValueError):
+                continue
+            if target.is_file():
+                yield target, rel
+
+
+def list_files(path_glob=None) -> str:
+    """List repository files matching an optional glob."""
+    files = [rel for _, rel in _iter_repo_files(path_glob)]
+    if not files:
+        return "No matching files found."
+    return _clip_tool_output("\n".join(sorted(files)[:300]))
+
+
+def search_repo(query: str, path_glob=None) -> str:
+    """Search repository text for agent review context."""
+    if not query:
+        return "query is required."
+    matches = []
+    for target, rel in _iter_repo_files(path_glob):
+        if target.stat().st_size > 500_000:
+            continue
+        for line_no, line in enumerate(target.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+            if query in line:
+                matches.append(f"{rel}:{line_no}:{line}")
+                if len(matches) >= 200:
+                    return _clip_tool_output("\n".join(matches))
+    return _clip_tool_output("\n".join(matches)) if matches else "No matches found."
+
+
+def _split_augmented_diff_by_file(augmented_diff: str) -> dict[str, list[str]]:
+    """Split an augmented diff into per-file chunks."""
+    chunks, current_file = {}, None
+    for line in augmented_diff.splitlines():
+        if line.startswith("diff --git"):
+            match = DIFF_FILE_PATTERN.search(line)
+            current_file = match.group(1).rstrip('"') if match else None
+            if current_file:
+                chunks[current_file] = []
+        if current_file:
+            chunks[current_file].append(line)
+    return chunks
+
+
+def build_review_agent_tools(diff_files: dict | None = None, augmented_diff: str = "") -> tuple[list[dict], dict]:
+    """Build read-only tools for the PR review agent."""
+    diff_files = diff_files or {}
+    diff_chunks = _split_augmented_diff_by_file(augmented_diff)
+
+    def list_changed_files(path_glob=None) -> str:
+        """List changed files in this PR with added/removed line counts."""
+        rows = []
+        for path in sorted(diff_files):
+            if path_glob and not fnmatch(path, path_glob):
+                continue
+            sides = diff_files[path]
+            rows.append(f"{path} (+{len(sides['RIGHT'])}/-{len(sides['LEFT'])})")
+        return _clip_tool_output("\n".join(rows)) if rows else "No changed files found."
+
+    def read_diff(path: str, start_line=None, end_line=None) -> str:
+        """Read the line-numbered augmented diff for one changed file."""
+        if path not in diff_chunks:
+            return f"{path} is not in the changed-file diff."
+        lines = diff_chunks[path]
+        start = max(1, int(start_line or 1))
+        end = min(len(lines), int(end_line or len(lines)))
+        if end < start:
+            return f"{path} has no diff lines in requested range {start}-{end}."
+        return _clip_tool_output(f"{path} diff:{start}-{end}\n" + "\n".join(lines[start - 1 : end]))
+
+    tools = [
+        {"type": "web_search"},
+        {
+            "type": "function",
+            "name": "list_changed_files",
+            "description": (
+                "List every changed file in the PR with added/removed line counts. Use this when the PR has many "
+                "files or the initial diff is truncated so every changed file can be considered."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path_glob": {"type": ["string", "null"], "description": "Optional changed-file glob, or null."},
+                },
+                "required": ["path_glob"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+        {
+            "type": "function",
+            "name": "read_diff",
+            "description": (
+                "Read the line-numbered augmented diff for one changed file. Use this to inspect changed hunks that "
+                "were not included in the initial prompt or to recover exact R/L line numbers for inline comments."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Changed file path from list_changed_files."},
+                    "start_line": {"type": ["integer", "null"], "description": "1-based diff output line, or null."},
+                    "end_line": {"type": ["integer", "null"], "description": "1-based diff output line, or null."},
+                },
+                "required": ["path", "start_line", "end_line"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+        {
+            "type": "function",
+            "name": "read_file",
+            "description": (
+                "Read a bounded line range from a repository file in the checked-out PR head, including unchanged "
+                "files such as pyproject.toml, tests, configs, and shared helpers. Use this to verify changed code or "
+                "nearby definitions before making a review finding."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {"type": "string", "description": "Repository-relative file path."},
+                    "start_line": {"type": ["integer", "null"], "description": "1-based first line, or null."},
+                    "end_line": {"type": ["integer", "null"], "description": "1-based last line, or null."},
+                },
+                "required": ["path", "start_line", "end_line"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+        {
+            "type": "function",
+            "name": "search_repo",
+            "description": (
+                "Search the checked-out repository. Use focused literal strings to find related "
+                "definitions, dependencies, tests, config, or prior patterns before deciding whether a diff hunk is "
+                "wrong."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Literal string to search for."},
+                    "path_glob": {"type": ["string", "null"], "description": "Optional glob, or null."},
+                },
+                "required": ["query", "path_glob"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+        {
+            "type": "function",
+            "name": "list_files",
+            "description": "List repository files matching an optional glob when you need to locate related files.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path_glob": {"type": ["string", "null"], "description": "Optional glob, or null."},
+                },
+                "required": ["path_glob"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+    ]
+    return tools, {
+        "list_changed_files": list_changed_files,
+        "read_diff": read_diff,
+        "read_file": read_file,
+        "search_repo": search_repo,
+        "list_files": list_files,
+    }
 
 
 def get_repo_guidelines(model: str = "") -> str:
@@ -121,11 +356,12 @@ def generate_pr_review(
 
     # Read model-appropriate guidelines from repo root for project-specific review context
     review_model = get_review_model()
+    is_agent_review_model = not _is_anthropic_model(review_model)
     guidelines_section = get_repo_guidelines(review_model)
 
     # Fetch full file contents for better context if within token budget
     full_files_section = ""
-    if event and len(file_list) <= 10:  # Reasonable file count limit
+    if event and not is_agent_review_model and len(file_list) <= 10:  # Reasonable file count limit
         file_contents, total_chars = [], len(augmented_diff) + len(guidelines_section)
         for file_path in file_list:
             try:
@@ -155,6 +391,40 @@ def generate_pr_review(
     # Calculate remaining budget for diff and check if truncation needed
     diff_budget = max(1000, MAX_PROMPT_CHARS - len(guidelines_section) - len(full_files_section))
     diff_truncated = len(augmented_diff) > diff_budget
+    is_large_pr = diff_truncated or len(file_list) > 30
+    if is_agent_review_model:  # must match the get_agent_response fallback gate
+        visibility_section = (
+            "CONTEXT AND VERIFICATION:\n"
+            "- Start from the diff, then use tools to inspect full files or related code when context affects a finding\n"
+            "- Verify suspected issues before commenting: read the enclosing function, and check definitions, callers, and existing patterns\n"
+            "- Assume the author is knowledgeable about new package versions, dependencies, and codebase architecture unless tool evidence proves otherwise\n"
+            "- Do NOT flag version updates; check imports or references to code outside the diff with tools instead of flagging them\n"
+            "- If still unsure after checking, assume the author knows what they're doing\n"
+            "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
+            "AVAILABLE TOOLS:\n"
+            "- list_changed_files: list every changed file in the PR with added/removed counts; use this for large "
+            "PRs or when the initial diff is truncated\n"
+            "- read_diff: inspect the line-numbered diff for a changed file; use this to review files not visible in "
+            "the initial prompt and to recover exact R/L line numbers for comments\n"
+            "- read_file: inspect bounded line ranges from repository files, including unchanged files; the checkout is "
+            "the PR head, so file line numbers match RIGHT-side diff line numbers\n"
+            "- search_repo: find related definitions, dependencies, tests, config, or existing patterns across the checkout\n"
+            "- list_files: locate repository files by glob\n"
+            "- web_search: verify current public docs, package docs, release notes, issues, or vendor behavior when a "
+            "review finding depends on external behavior\n"
+            "- Tool turns and cost are budgeted: batch independent tool calls in the same turn, e.g. read several "
+            "diffs or files at once\n"
+            "- Do not quote large tool output. Use tools only to verify concise, actionable review findings.\n\n"
+        )
+    else:
+        visibility_section = (
+            "LIMITED VISIBILITY - IMPORTANT:\n"
+            "- You can only see the diff and partial file contents, not the full codebase\n"
+            "- Assume the author is knowledgeable about: new package versions, imports to functions defined elsewhere, dependencies, and codebase architecture\n"
+            "- Do NOT flag: version updates, new imports that appear unused in the diff, or references to code outside the diff\n"
+            "- If unsure whether something is an error, assume the author knows what they're doing\n"
+            "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
+        )
 
     content = (
         "You are an expert code reviewer for Ultralytics. Review code changes and provide inline comments ONLY for genuine issues.\n\n"
@@ -169,12 +439,7 @@ def generate_pr_review(
         "- Minor naming preferences\n"
         "- 'Consider using X' without clear benefit\n"
         "- Issues in unchanged context lines\n\n"
-        "LIMITED VISIBILITY - IMPORTANT:\n"
-        "- You can only see the diff and partial file contents, not the full codebase\n"
-        "- Assume the author is knowledgeable about: new package versions, imports to functions defined elsewhere, dependencies, and codebase architecture\n"
-        "- Do NOT flag: version updates, new imports that appear unused in the diff, or references to code outside the diff\n"
-        "- If unsure whether something is an error, assume the author knows what they're doing\n"
-        "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
+        f"{visibility_section}"
         "QUALITY OVER QUANTITY:\n"
         "- Zero comments is valid for clean PRs - don't invent issues\n"
         "- Each comment must be actionable with clear reasoning\n"
@@ -195,11 +460,12 @@ def generate_pr_review(
         "         context         <- no prefix = unchanged context, don't comment on these\n"
         "- Extract the integer after R or L prefix (e.g., 'R  123' -> line 123, 'L   45' -> line 45)\n"
         "- Suggestions ONLY work on RIGHT (added) lines, never LEFT (removed) lines\n"
-        "- ONLY use line numbers you see explicitly prefixed with R or L in the diff\n\n"
+        "- ONLY use line numbers you see explicitly prefixed with R or L in the initial diff or read_diff output\n\n"
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "side": "RIGHT", "severity": "HIGH", "message": "..."}], "summary": "..."}\n\n'
         "JSON rules: exact paths (no ./), severity: CRITICAL|HIGH|MEDIUM|LOW|SUGGESTION\n"
         f"Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''}), Lines: {lines_changed}\n"
+        f"{'Large or truncated PR: use list_changed_files and read_diff to inspect changed files not shown in the initial prompt. ' if is_large_pr else ''}\n"
     )
 
     messages = [
@@ -250,23 +516,17 @@ def generate_pr_review(
             "additionalProperties": False,
         }
 
-        response = get_response(
+        tools, tool_handlers = build_review_agent_tools(diff_files, augmented_diff)
+        response = get_agent_response(
             messages,
             text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
             model=review_model,
-            tools=[
-                {
-                    "type": "web_search",
-                    "filters": {
-                        "allowed_domains": [
-                            "ultralytics.com",
-                            "github.com",
-                            "stackoverflow.com",
-                        ]
-                    },
-                }
-            ],
-            retries=0,
+            tools=tools,
+            tool_handlers=tool_handlers,
+            max_turns=MAX_AGENT_TURNS,
+            max_cost=MAX_REVIEW_COST,
+            request_timeout=(30, 120),
+            retries=1,  # one transient failure on any of the sequential turns would otherwise abort the whole review
             # Do not pass background=True; queued background reviews can consume the full 900s poll timeout.
         )
 

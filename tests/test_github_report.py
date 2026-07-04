@@ -137,6 +137,11 @@ def test_paginate_collects_until_short_page(monkeypatch):
 
 def test_collect_failed_actions_latest_run_per_workflow(monkeypatch):
     """Only the latest default-branch run for each workflow should determine whether it is reported."""
+    now = datetime.now(timezone.utc).replace(microsecond=0)
+    recent_success = (now - timedelta(hours=3)).isoformat().replace("+00:00", "Z")
+    older_failure = (now - timedelta(days=1)).isoformat().replace("+00:00", "Z")
+    recent_failure = (now - timedelta(hours=2)).isoformat().replace("+00:00", "Z")
+    recent_failure_updated = (now - timedelta(hours=1, minutes=50)).isoformat().replace("+00:00", "Z")
 
     def fake_paginate(path, params=None, key=None, max_pages=100, token=None, allow_skip=False):
         if path == "/orgs/ultralytics/repos":
@@ -161,22 +166,22 @@ def test_collect_failed_actions_latest_run_per_workflow(monkeypatch):
                     "workflow_id": 1,
                     "name": "Nightly",
                     "conclusion": "success",
-                    "run_started_at": "2026-06-30T03:00:00Z",
+                    "run_started_at": recent_success,
                 },
                 {
                     "workflow_id": 1,
                     "name": "Nightly",
                     "conclusion": "failure",
-                    "run_started_at": "2026-06-29T03:00:00Z",
+                    "run_started_at": older_failure,
                 },
                 {
                     "workflow_id": 2,
                     "name": "Links",
                     "event": "push",
                     "conclusion": "timed_out",
-                    "run_started_at": "2026-06-30T04:00:00Z",
+                    "run_started_at": recent_failure,
                     "run_number": 42,
-                    "updated_at": "2026-06-30T04:10:00Z",
+                    "updated_at": recent_failure_updated,
                     "head_sha": "abcdef123456",
                     "display_title": "Links",
                     "html_url": "https://github.com/ultralytics/private-repo/actions/runs/42",
