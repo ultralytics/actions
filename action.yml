@@ -366,7 +366,7 @@ runs:
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
         if ! git diff --staged --quiet; then
           git commit -m "$COMMIT_MSG"
-          git push --force-with-lease="refs/heads/${PR_HEAD_REF}:${PR_HEAD_SHA}" origin "HEAD:${PR_HEAD_REF}"
+          git push --force-with-lease="refs/heads/${PR_HEAD_REF}:${PR_HEAD_SHA}" origin "HEAD:refs/heads/${PR_HEAD_REF}"
         else
           echo "No changes to commit"
         fi
