@@ -355,6 +355,8 @@ runs:
       env:
         GITHUB_USERNAME: ${{ inputs.github_username }}
         GITHUB_EMAIL: ${{ inputs.github_email }}
+        PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+        PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       run: |
         echo "::group::Commit and Push Changes"
         COMMIT_MSG="Auto-format by https://ultralytics.com/actions"
@@ -364,7 +366,7 @@ runs:
         git reset HEAD -- .github/workflows/  # workflow changes are not permitted with default token
         if ! git diff --staged --quiet; then
           git commit -m "$COMMIT_MSG"
-          git push
+          git push --force-with-lease="refs/heads/${PR_HEAD_REF}:${PR_HEAD_SHA}" origin "HEAD:${PR_HEAD_REF}"
         else
           echo "No changes to commit"
         fi
