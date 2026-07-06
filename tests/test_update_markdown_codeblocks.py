@@ -6,7 +6,6 @@ from unittest.mock import mock_open, patch
 from actions.update_markdown_code_blocks import (
     add_indentation,
     extract_code_blocks,
-    format_bash_with_prettier,
     generate_temp_filename,
     main,
     process_markdown_file,
@@ -25,19 +24,11 @@ def test():
     return True
 ```
 
-And some bash code:
-
-```bash
-echo "Hello World"
-```
 """
     code_blocks = extract_code_blocks(markdown_content)
 
     assert len(code_blocks["python"]) == 1
     assert code_blocks["python"][0][1] == "def test():\n    return True"
-
-    assert len(code_blocks["bash"]) == 1
-    assert code_blocks["bash"][0][1] == 'echo "Hello World"'
 
 
 def test_remove_indentation():
@@ -77,11 +68,6 @@ def test_generate_temp_filename():
     assert "guide_docs_p0_" in filename
     assert filename.endswith(".py")
 
-    filename = generate_temp_filename(file_path, 1, "bash")
-
-    assert "guide_docs_b1_" in filename
-    assert filename.endswith(".sh")
-
 
 @patch("pathlib.Path.read_text")
 @patch("pathlib.Path.write_text")
@@ -108,18 +94,41 @@ def test():
     mock_file.assert_called_once()
 
 
-def test_format_bash_skips_when_no_shell_files(tmp_path):
-    """Test bash formatter skips Prettier when no shell snippets were extracted."""
-    (tmp_path / "snippet.py").write_text("print('ok')", encoding="utf-8")
+def test_main_skips_symlinked_markdown(tmp_path):
+    """Test Markdown formatter skips symlinks to avoid formatting the same content twice."""
+    target = tmp_path / "AGENTS.md"
+    target.write_text("# Guide\n", encoding="utf-8")
+    (tmp_path / "CLAUDE.md").symlink_to(target)
+
+    with patch("actions.update_markdown_code_blocks.process_markdown_file", return_value=("", [])) as mock_process:
+        main(root_dir=tmp_path, process_python=False)
+
+    mock_process.assert_called_once()
+    assert mock_process.call_args.args[0] == target
+
+
+def test_main_ignores_bash_blocks(tmp_path):
+    """Test Markdown formatting ignores shell fences because docs often use them for terminal output."""
+    markdown = tmp_path / "example.md"
+    markdown.write_text(
+        """# Example
+
+```bash
+Firmware Version: 4.23.0 (release,app,extended context switch buffer)
+```
+""",
+        encoding="utf-8",
+    )
 
     with patch("subprocess.run") as mock_run:
-        format_bash_with_prettier(tmp_path)
+        main(root_dir=tmp_path, process_python=False)
 
     mock_run.assert_not_called()
+    assert markdown.read_text(encoding="utf-8").endswith("```\n")
 
 
 def test_main_real_files():
     """Test main function on actual repository Markdown files."""
     # Run main on current directory which contains README.md and other Markdown files
     # This provides real-world test coverage of the entire pipeline
-    main(process_python=True, process_bash=True, verbose=False)
+    main(process_python=True, verbose=False)
