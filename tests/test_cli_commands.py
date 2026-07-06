@@ -37,3 +37,4 @@ def test_docstring_formatter_preserves_identifier_first_words():
         "iOS builds are not supported.",
     ):
         assert format_python_docstrings.format_docstring(text, 8, 120, '"""', "") == f'"""{text}"""'
+    assert format_python_docstrings.format_docstring("done.", 8, 120, '"""', "") == '"""Done."""'
