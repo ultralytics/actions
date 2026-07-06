@@ -120,6 +120,28 @@ def test():
     mock_file.assert_called_once()
 
 
+def test_mixed_indentation_block_not_extracted(tmp_path):
+    """Test blocks with lines indented less than the fence are skipped instead of corrupted."""
+    markdown = tmp_path / "example.md"
+    markdown.write_text(
+        """# Example
+
+=== "Tab"
+
+    ```bash
+    hailortcli fw-control identify
+Firmware Version: 4.23.0
+    ```
+""",
+        encoding="utf-8",
+    )
+
+    markdown_content, temp_files = process_markdown_file(markdown, tmp_path)
+
+    assert markdown_content is not None
+    assert temp_files == []
+
+
 def test_format_bash_skips_when_no_shell_files(tmp_path):
     """Test bash formatter skips Prettier when no shell snippets were extracted."""
     (tmp_path / "snippet.py").write_text("print('ok')", encoding="utf-8")

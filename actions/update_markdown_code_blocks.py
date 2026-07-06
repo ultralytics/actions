@@ -103,16 +103,16 @@ def format_bash_with_prettier(temp_dir):
     try:
         # Prettier formats each file independently: files with parse errors (e.g. terminal output in bash
         # fences) are reported on stderr and left unchanged while valid files are still formatted.
-        # Run from temp_dir with relative paths as Prettier silently skips paths outside its cwd.
+        # Run from temp_dir with a quoted glob as Prettier silently skips paths outside its cwd.
         result = subprocess.run(
-            "npx prettier --write --print-width=120 --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs "
-            + " ".join(f'"{f.relative_to(temp_dir)}"' for f in sh_files),
+            'npx prettier --write --print-width=120 --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs "**/*.sh"',
             shell=True,  # must use shell=True to expand internal $(cmd)
             capture_output=True,
             text=True,
             cwd=temp_dir,
+            timeout=300,
         )
-        skipped = sum(1 for f in sh_files if f"{f.name}:" in result.stderr)
+        skipped = sum(1 for f in sh_files if f"[error] {f.name}:" in result.stderr)
         formatted = len(sh_files) - skipped
         if result.returncode != 0 and skipped == 0:
             print(f"ERROR running prettier-plugin-sh ❌ {result.stderr}")
@@ -172,18 +172,20 @@ def process_markdown_file(file_path, temp_dir, process_python=True, process_bash
 
         code_types = []
         if process_python:
-            code_types.append(("python", 0))
+            code_types.append("python")
         if process_bash:
-            code_types.append(("bash", 1000))
+            code_types.append("bash")
 
-        for code_type, offset in code_types:
+        for code_type in code_types:
             for i, (num_spaces, code_block) in enumerate(code_blocks_by_type[code_type]):
                 if verbose:
                     print(f"Extracting {code_type} code block {i} from {file_path}")
 
                 num_spaces = len(num_spaces)
                 code_without_indentation = remove_indentation(code_block, num_spaces)
-                temp_file_path = temp_dir / generate_temp_filename(file_path, i + offset, code_type)
+                if add_indentation(code_without_indentation, num_spaces) != code_block:
+                    continue  # lines indented less than the fence would be corrupted by the round trip
+                temp_file_path = temp_dir / generate_temp_filename(file_path, i, code_type)
 
                 with open(temp_file_path, "w", encoding="utf-8") as temp_file:
                     temp_file.write(code_without_indentation)
