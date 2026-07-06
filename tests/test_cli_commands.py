@@ -34,5 +34,6 @@ def test_docstring_formatter_preserves_identifier_first_words():
         "process_mask/process_mask_native/scale_masks must handle 0 detections without crashing.",
         "np.array inputs are converted to tensors.",
         "https://ultralytics.com hosts the docs.",
+        "iOS builds are not supported.",
     ):
         assert format_python_docstrings.format_docstring(text, 8, 120, '"""', "") == f'"""{text}"""'

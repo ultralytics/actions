@@ -380,7 +380,7 @@ def format_docstring(
     single_ok = ("\n" not in text) and not has_section and not has_list
     if single_ok:
         words = text.split()
-        if words and words[0][0].islower() and not any(c in words[0] for c in "_./`("):
+        if words and words[0].islower() and not any(c in words[0] for c in "_./`("):
             words[0] = words[0][0].upper() + words[0][1:]
         out = " ".join(words)
         if out and out[-1] not in ".!?":
