@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from actions import review_pr
 from actions.first_interaction import get_event_content, get_first_interaction_response, get_relevant_labels
 
@@ -99,12 +101,18 @@ def test_get_first_interaction_response(mock_get_response):
     mock_get_response.assert_called_once()
 
 
+@patch("actions.review_pr._verified_local_checkout", return_value=True)
 @patch("actions.review_pr.get_agent_response")
-def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, tmp_path, monkeypatch):
+def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, mock_checkout, tmp_path, monkeypatch):
     """Test PR reviews avoid background polling for code diffs."""
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "test.py").write_text("old = False\n", encoding="utf-8")
     mock_get_agent_response.return_value = {"comments": [], "summary": "LGTM"}
+    mock_event = MagicMock()
+    mock_event.repository = "ultralytics/actions"
+    mock_event.pr = {"number": 1, "head": {"sha": "headsha"}}
+    api_response = MagicMock(status_code=200, text="")
+    api_response.json.return_value = {"head": {"sha": "headsha"}}
+    mock_event.get.return_value = api_response
     diff = """diff --git a/test.py b/test.py
 --- a/test.py
 +++ b/test.py
@@ -113,7 +121,7 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, t
 +old = False
 """
 
-    review = review_pr.generate_pr_review("ultralytics/actions", diff, "Test PR", "", event=MagicMock())
+    review = review_pr.generate_pr_review("ultralytics/actions", diff, "Test PR", "", event=mock_event)
 
     assert review["summary"] == "LGTM"
     mock_get_agent_response.assert_called_once()
@@ -134,10 +142,9 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, t
     assert "FULL FILE CONTENTS" not in mock_get_agent_response.call_args.args[0][1]["content"]
 
 
-def test_review_agent_tools_can_read_repo_but_not_outside(tmp_path, monkeypatch):
-    """Test local review tools can inspect unchanged repo files without escaping the checkout."""
+def test_review_agent_search_scans_local_checkout_only(tmp_path, monkeypatch):
+    """Test repo search scans the local checkout without escaping it and is dropped without a checkout."""
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "changed.py").write_text("target = True\n", encoding="utf-8")
     (tmp_path / "secret.py").write_text("secret = True\n", encoding="utf-8")
     (tmp_path / "patterns.py").write_text("literal = '(a+)+$'\n", encoding="utf-8")
     workflow = tmp_path / ".github" / "workflows" / "format.yml"
@@ -146,17 +153,15 @@ def test_review_agent_tools_can_read_repo_but_not_outside(tmp_path, monkeypatch)
     outside = tmp_path.parent / "outside_secret.py"
     outside.write_text("outside_secret = True\n", encoding="utf-8")
     (tmp_path / "linked_secret.py").symlink_to(outside)
-    (tmp_path / "linked_internal.py").symlink_to(tmp_path / "secret.py")
 
-    _, handlers = review_pr.build_review_agent_tools()
+    tools, handlers = review_pr.build_review_agent_tools(local_checkout=True)
 
-    assert "target = True" in handlers["read_file"](path="changed.py", start_line=None, end_line=None)
-    assert "secret = True" in handlers["read_file"](path="secret.py", start_line=None, end_line=None)
+    assert "search_repo" in {t.get("name") for t in tools}
+    assert "1: secret = True" in handlers["read_file"](path="secret.py", start_line=None, end_line=None)
     assert "path must stay inside repository" in handlers["read_file"](
         path="linked_secret.py", start_line=None, end_line=None
     )
-    listed_files = handlers["list_files"](path_glob=None).splitlines()
-    assert "secret.py" in listed_files
+    assert "secret.py" in handlers["list_files"](path_glob=None).splitlines()
     assert ".github/workflows/format.yml" in handlers["list_files"](path_glob=".github/**").splitlines()
     assert "secret.py:1:secret = True" in handlers["search_repo"](query="secret = True", path_glob=None)
     assert "No matches found." == handlers["search_repo"](query="secret.*True", path_glob=None)
@@ -164,6 +169,73 @@ def test_review_agent_tools_can_read_repo_but_not_outside(tmp_path, monkeypatch)
     assert ".github/workflows/format.yml:1:workflow = True" in handlers["search_repo"](
         query="workflow = True", path_glob=".github/**"
     )
+    assert "No matches found." == handlers["search_repo"](query="outside_secret = True", path_glob=None)
+
+    tools, handlers = review_pr.build_review_agent_tools(local_checkout=False)
+    assert "search_repo" not in handlers
+    assert "search_repo" not in {t.get("name") for t in tools}
+
+
+def test_pr_head_sha_prefers_live_value():
+    """Test head SHA resolution prefers the live PR value and falls back to the event payload."""
+    event = MagicMock()
+    event.repository = "org/repo"
+    event.pr = {"number": 5, "head": {"sha": "old"}}
+    live = MagicMock(status_code=200)
+    live.json.return_value = {"head": {"sha": "new"}}
+    event.get.return_value = live
+    assert review_pr._pr_head_sha(event) == "new"
+    event.get.return_value = MagicMock(status_code=500)
+    assert review_pr._pr_head_sha(event) == "old"
+    assert review_pr._pr_head_sha(None) is None
+
+
+def test_review_agent_tools_read_pr_head_via_api(tmp_path, monkeypatch):
+    """Test review tools serve PR-head content via the GitHub API regardless of local checkout."""
+    monkeypatch.chdir(tmp_path)
+    event = MagicMock()
+    event.repository = "org/repo"
+    event.headers = {"Authorization": "Bearer x"}
+    file_response = MagicMock(status_code=200, text="import torch\ntorch.zeros(1)\n")
+    missing_response = MagicMock(status_code=404)
+    tree_response = MagicMock(status_code=200)
+    tree_response.json.return_value = {
+        "tree": [{"path": "tests/test_python.py", "type": "blob"}, {"path": "docs", "type": "tree"}]
+    }
+
+    def fake_get(url, **kwargs):
+        if "/git/trees/" in url:
+            return tree_response
+        if "missing.py" in url:
+            return missing_response
+        return MagicMock(status_code=500) if "flaky.py" in url else file_response
+
+    event.get.side_effect = fake_get
+
+    _, handlers = review_pr.build_review_agent_tools({}, "", event, "a" * 40, local_checkout=False)
+
+    excerpt = handlers["read_file"](path="tests/test_python.py", start_line=1, end_line=1)
+    assert "1: import torch" in excerpt
+    assert handlers["read_file"](path="missing.py", start_line=None, end_line=None).endswith(
+        "does not exist at the PR head."
+    )
+    with pytest.raises(RuntimeError):  # transient API errors must not read as "file missing"
+        handlers["read_file"](path="flaky.py", start_line=None, end_line=None)
+
+    tree_response.status_code = 500
+    assert handlers["list_files"](path_glob=None) == "list_files failed: HTTP 500."  # failures are not cached
+    tree_response.status_code = 200
+    assert handlers["list_files"](path_glob=None).splitlines() == ["tests/test_python.py"]
+
+
+@patch("actions.review_pr._fetch_head_file")
+def test_get_repo_guidelines_fetches_pr_head(mock_fetch):
+    """Test guidelines are fetched from the PR head via the GitHub API."""
+    mock_fetch.side_effect = lambda event, sha, path: "Be nice" if path == "AGENTS.md" else None
+    section = review_pr.get_repo_guidelines("gpt-5.5", event=MagicMock(), head_sha="abc")
+    assert "AGENTS.md" in section and "Be nice" in section
+    assert "CONTRIBUTING.md" not in section
+    assert review_pr.get_repo_guidelines("gpt-5.5", event=None, head_sha="abc") == ""
 
 
 def test_review_agent_tools_can_list_and_read_changed_file_diffs():

@@ -6,6 +6,7 @@ import json
 import re
 from fnmatch import fnmatch
 from pathlib import Path
+from urllib.parse import quote
 
 from .utils import (
     ACTIONS_CREDIT,
@@ -40,38 +41,6 @@ def _clip_tool_output(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
     return text if len(text) <= limit else f"{text[:limit].rstrip()}\n... (truncated)"
 
 
-def _resolve_repo_path(path: str) -> Path:
-    """Resolve a repo-relative path without allowing access outside the checkout."""
-    root = Path.cwd().resolve()
-    target = (root / (path or ".")).resolve()
-    try:
-        target.relative_to(root)
-    except ValueError as e:
-        raise ValueError(f"path must stay inside repository: {path}") from e
-    return target
-
-
-def read_file(path: str, start_line=None, end_line=None) -> str:
-    """Read a bounded range from a repository file for agent review context."""
-    try:
-        target = _resolve_repo_path(path)
-    except ValueError as e:
-        return str(e)
-    rel = target.relative_to(Path.cwd().resolve()).as_posix()
-    if not target.is_file():
-        return f"{path} is not a file."
-    if should_skip_file(rel) or target.stat().st_size > 500_000:
-        return f"{path} is skipped because it is generated, vendored, or too large."
-
-    lines = target.read_text(encoding="utf-8", errors="ignore").splitlines()
-    start = max(1, int(start_line or 1))
-    end = min(len(lines), int(end_line or len(lines)), start + MAX_TOOL_FILE_LINES - 1)
-    if end < start:
-        return f"{path} has no lines in requested range {start}-{end}."
-    numbered = "\n".join(f"{i:>5}: {lines[i - 1]}" for i in range(start, end + 1))
-    return _clip_tool_output(f"{rel}:{start}-{end}\n{numbered}")
-
-
 def _iter_repo_files(path_glob=None):
     """Yield repository files, including hidden files, pruning vendored dirs and paths outside the checkout."""
     root = Path.cwd().resolve()
@@ -98,14 +67,6 @@ def _iter_repo_files(path_glob=None):
                 yield target, rel
 
 
-def list_files(path_glob=None) -> str:
-    """List repository files matching an optional glob."""
-    files = [rel for _, rel in _iter_repo_files(path_glob)]
-    if not files:
-        return "No matching files found."
-    return _clip_tool_output("\n".join(sorted(files)[:300]))
-
-
 def search_repo(query: str, path_glob=None) -> str:
     """Search repository text for agent review context."""
     if not query:
@@ -122,6 +83,49 @@ def search_repo(query: str, path_glob=None) -> str:
     return _clip_tool_output("\n".join(matches)) if matches else "No matches found."
 
 
+def _pr_head_sha(event: Action | None) -> str | None:
+    """Return the live PR head SHA (payload fallback) so reviews read the same code the diff describes."""
+    if event is None or not event.pr:
+        return None
+    if (number := event.pr.get("number")) and event.repository:
+        try:
+            response = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{number}")
+            if response.status_code == 200 and (sha := (response.json().get("head") or {}).get("sha")):
+                return sha
+        except Exception as e:
+            print(f"Live PR head lookup failed: {e}")
+    sha = (event.pr.get("head") or {}).get("sha")
+    return sha if isinstance(sha, str) else None
+
+
+def _fetch_head_file(event: Action, sha: str, path: str) -> str | None:
+    """Fetch one file's text from the PR head via the GitHub contents API; None only if it does not exist (404)."""
+    url = f"{GITHUB_API_URL}/repos/{event.repository}/contents/{quote(path)}?ref={sha}"
+    headers = {**event.headers, "Accept": "application/vnd.github.raw+json"}
+    response = event.get(url, headers=headers, expected_status=[200, 404])
+    if response.status_code == 200:
+        return response.text
+    if response.status_code == 404:
+        return None
+    raise RuntimeError(f"fetch failed for {path} at PR head: HTTP {response.status_code}")
+
+
+def _read_head_file(event: Action, head_sha: str | None, local_checkout: bool, path: str) -> str | None:
+    """Read one file's text from the PR head: verified local checkout first (no API calls), GitHub API fallback."""
+    if local_checkout:
+        root = Path.cwd().resolve()
+        target = (root / path).resolve()
+        target.relative_to(root)  # raises ValueError for paths or symlinks escaping the checkout
+        if not target.is_file():
+            return None
+        if target.stat().st_size > 500_000:
+            raise RuntimeError(f"{path} is too large to read")
+        return target.read_text(encoding="utf-8", errors="ignore")
+    if not (event and head_sha):
+        return None
+    return _fetch_head_file(event, head_sha, path)
+
+
 def _split_augmented_diff_by_file(augmented_diff: str) -> dict[str, list[str]]:
     """Split an augmented diff into per-file chunks."""
     chunks, current_file = {}, None
@@ -136,10 +140,52 @@ def _split_augmented_diff_by_file(augmented_diff: str) -> dict[str, list[str]]:
     return chunks
 
 
-def build_review_agent_tools(diff_files: dict | None = None, augmented_diff: str = "") -> tuple[list[dict], dict]:
-    """Build read-only tools for the PR review agent."""
+def build_review_agent_tools(
+    diff_files: dict | None = None,
+    augmented_diff: str = "",
+    event: Action = None,
+    head_sha: str | None = None,
+    local_checkout: bool = False,
+) -> tuple[list[dict], dict]:
+    """Build read-only tools for the PR review agent, reading files from the PR head via the GitHub API."""
     diff_files = diff_files or {}
     diff_chunks = _split_augmented_diff_by_file(augmented_diff)
+    head_tree = []  # cached PR head file listing
+
+    def read_file(path: str, start_line=None, end_line=None) -> str:
+        """Read a bounded line range from a file at the PR head."""
+        if should_skip_file(path):
+            return f"{path} is skipped because it is generated, vendored, or too large."
+        try:
+            text = _read_head_file(event, head_sha, local_checkout, path)
+        except ValueError:
+            return f"path must stay inside repository: {path}"
+        if text is None:
+            return f"{path} does not exist at the PR head."
+        if len(text) > 500_000:
+            return f"{path} is skipped because it is generated, vendored, or too large."
+        lines = text.splitlines()
+        start = max(1, int(start_line or 1))
+        end = min(len(lines), int(end_line or len(lines)), start + MAX_TOOL_FILE_LINES - 1)
+        if end < start:
+            return f"{path} has no lines in requested range {start}-{end}."
+        numbered = "\n".join(f"{i:>5}: {lines[i - 1]}" for i in range(start, end + 1))
+        return _clip_tool_output(f"{path}:{start}-{end}\n{numbered}")
+
+    def list_files(path_glob=None) -> str:
+        """List files at the PR head matching an optional glob."""
+        if local_checkout:
+            files = sorted(rel for _, rel in _iter_repo_files(path_glob))
+            return _clip_tool_output("\n".join(files[:300])) if files else "No matching files found."
+        if not (event and head_sha):
+            return "list_files is unavailable: no PR head to list from."
+        if not head_tree:
+            response = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/git/trees/{head_sha}?recursive=1")
+            if response.status_code != 200:
+                return f"list_files failed: HTTP {response.status_code}."  # don't cache failures
+            head_tree.append([t["path"] for t in response.json().get("tree", []) if t.get("type") == "blob"])
+        files = sorted(p for p in head_tree[0] if (not path_glob or fnmatch(p, path_glob)) and not should_skip_file(p))
+        return _clip_tool_output("\n".join(files[:300])) if files else "No matching files found."
 
     def list_changed_files(path_glob=None) -> str:
         """List changed files in this PR with added/removed line counts."""
@@ -204,9 +250,9 @@ def build_review_agent_tools(diff_files: dict | None = None, augmented_diff: str
             "type": "function",
             "name": "read_file",
             "description": (
-                "Read a bounded line range from a repository file in the checked-out PR head, including unchanged "
-                "files such as pyproject.toml, tests, configs, and shared helpers. Use this to verify changed code or "
-                "nearby definitions before making a review finding."
+                "Read a bounded line range from a repository file at the PR head, including unchanged files such as "
+                "pyproject.toml, tests, configs, and shared helpers. Use this to verify changed code or nearby "
+                "definitions before making a review finding."
             ),
             "parameters": {
                 "type": "object",
@@ -254,32 +300,37 @@ def build_review_agent_tools(diff_files: dict | None = None, augmented_diff: str
             "strict": True,
         },
     ]
-    return tools, {
+    handlers = {
         "list_changed_files": list_changed_files,
         "read_diff": read_diff,
         "read_file": read_file,
         "search_repo": search_repo,
         "list_files": list_files,
     }
+    if not local_checkout:  # repo text search needs a checkout of the PR head; drop it instead of returning empty
+        tools = [t for t in tools if t.get("name") != "search_repo"]
+        del handlers["search_repo"]
+    return tools, handlers
 
 
-def get_repo_guidelines(model: str = "") -> str:
-    """Read guidelines from the repository root if they exist (one agent file + CONTRIBUTING.md)."""
+def get_repo_guidelines(
+    model: str = "", event: Action = None, head_sha: str | None = None, local_checkout: bool = False
+) -> str:
+    """Read repository guidelines (one agent file + CONTRIBUTING.md) from the PR head."""
     guidelines = []
     # Prefer CLAUDE.md for Anthropic models, AGENTS.md for others; load only one, never both
     agent_prefs = ("CLAUDE.md", "AGENTS.md") if "claude" in model.lower() else ("AGENTS.md", "CLAUDE.md")
     for filename in ("CONTRIBUTING.md", *agent_prefs):
         try:
-            p = Path(filename)
-            if p.is_file() and p.stat().st_size <= 100_000:
-                content = p.read_text(encoding="utf-8", errors="ignore")[:MAX_CONTEXT_FILE_CHARS]
-                if content:
-                    guidelines.append(f"### {filename}\n~~~\n{content}\n~~~")
-                    print(f"Loaded {filename} ({len(content)} chars) for review context")
-                    if filename in agent_prefs:
-                        break  # Only load one agent guidelines file
+            content = (_read_head_file(event, head_sha, local_checkout, filename) or "")[:MAX_CONTEXT_FILE_CHARS]
         except Exception as e:
             print(f"Failed to read {filename}: {e}")
+            continue
+        if content:
+            guidelines.append(f"### {filename}\n~~~\n{content}\n~~~")
+            print(f"Loaded {filename} ({len(content)} chars) for review context")
+            if filename in agent_prefs:
+                break  # Only load one agent guidelines file
     return f"PROJECT GUIDELINES:\n{chr(10).join(guidelines)}\n\n" if guidelines else ""
 
 
@@ -354,37 +405,35 @@ def generate_pr_review(
     file_list = list(diff_files.keys())
     lines_changed = sum(len(sides["RIGHT"]) + len(sides["LEFT"]) for sides in diff_files.values())
 
-    # Read model-appropriate guidelines from repo root for project-specific review context
+    # Read model-appropriate guidelines from the PR head for project-specific review context
     review_model = get_review_model()
     is_agent_review_model = not _is_anthropic_model(review_model)
-    guidelines_section = get_repo_guidelines(review_model)
+    head_sha = _pr_head_sha(event)
+    local_checkout = _verified_local_checkout(head_sha)
+    if head_sha:
+        print(f"Reviewing PR head {head_sha[:7]} ({'local checkout' if local_checkout else 'via GitHub API'})")
+    guidelines_section = get_repo_guidelines(review_model, event, head_sha, local_checkout)
 
     # Fetch full file contents for better context if within token budget
     full_files_section = ""
-    if event and not is_agent_review_model and len(file_list) <= 10:  # Reasonable file count limit
+    if event and head_sha and not is_agent_review_model and len(file_list) <= 10:  # Reasonable file count limit
         file_contents, total_chars = [], len(augmented_diff) + len(guidelines_section)
-        for file_path in file_list:
+        for file_path in file_list:  # already filtered by should_skip_file above
             try:
-                p = Path(file_path)
-                if not p.is_file():
-                    continue
-                # Skip files matching SKIP_PATTERNS and files >100KB
-                if should_skip_file(file_path) or p.stat().st_size > 100_000:
-                    continue
-                snippet = p.read_text(encoding="utf-8", errors="ignore")[:MAX_CONTEXT_FILE_CHARS]
-                if not snippet:
-                    continue
-                if len(snippet) == MAX_CONTEXT_FILE_CHARS:
-                    snippet = f"{snippet.rstrip()}\n... (truncated)"
-                # Only include if within budget, include buffer for Markdown noise
-                estimated_cost = len(snippet) + 200
-                if total_chars + estimated_cost < MAX_PROMPT_CHARS:
-                    file_contents.append(f"### {file_path}\n```\n{snippet}\n```")
-                    total_chars += estimated_cost
-                else:
-                    break  # Stop when we hit budget limit
+                text = _read_head_file(event, head_sha, local_checkout, file_path) or ""
             except Exception:
                 continue
+            if not text or len(text) > 100_000:  # skip missing and >100KB files entirely
+                continue
+            snippet = text[:MAX_CONTEXT_FILE_CHARS]
+            if len(snippet) == MAX_CONTEXT_FILE_CHARS:
+                snippet = f"{snippet.rstrip()}\n... (truncated)"
+            # Only include if within budget, include buffer for Markdown noise
+            estimated_cost = len(snippet) + 200
+            if total_chars + estimated_cost >= MAX_PROMPT_CHARS:
+                break  # Stop when we hit budget limit
+            file_contents.append(f"### {file_path}\n```\n{snippet}\n```")
+            total_chars += estimated_cost
         if file_contents:
             full_files_section = f"FULL FILE CONTENTS:\n{chr(10).join(file_contents)}\n\n"
 
@@ -397,19 +446,24 @@ def generate_pr_review(
             "CONTEXT AND VERIFICATION:\n"
             "- Start from the diff, then use tools to inspect full files or related code when context affects a finding\n"
             "- Verify suspected issues before commenting: read the enclosing function, and check definitions, callers, and existing patterns\n"
-            "- Assume the author is knowledgeable about new package versions, dependencies, and codebase architecture unless tool evidence proves otherwise\n"
-            "- Do NOT flag version updates; check imports or references to code outside the diff with tools instead of flagging them\n"
-            "- If still unsure after checking, assume the author knows what they're doing\n"
+            "- Never claim a name, import, or reference is missing without reading the relevant file first\n"
+            "- Do NOT flag version updates\n"
+            "- Report every issue the tool evidence confirms; drop a suspicion only when the evidence shows the code is correct\n"
             "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
             "AVAILABLE TOOLS:\n"
             "- list_changed_files: list every changed file in the PR with added/removed counts; use this for large "
             "PRs or when the initial diff is truncated\n"
             "- read_diff: inspect the line-numbered diff for a changed file; use this to review files not visible in "
             "the initial prompt and to recover exact R/L line numbers for comments\n"
-            "- read_file: inspect bounded line ranges from repository files, including unchanged files; the checkout is "
+            "- read_file: inspect bounded line ranges from repository files, including unchanged files; contents are "
             "the PR head, so file line numbers match RIGHT-side diff line numbers\n"
-            "- search_repo: find related definitions, dependencies, tests, config, or existing patterns across the checkout\n"
-            "- list_files: locate repository files by glob\n"
+            + (
+                "- search_repo: find related definitions, dependencies, tests, config, or existing patterns across "
+                "the repository\n"
+                if local_checkout
+                else ""
+            )
+            + "- list_files: locate repository files by glob\n"
             "- web_search: verify current public docs, package docs, release notes, issues, or vendor behavior when a "
             "review finding depends on external behavior\n"
             "- Tool turns and cost are budgeted: batch independent tool calls in the same turn, e.g. read several "
@@ -441,7 +495,7 @@ def generate_pr_review(
         "- Issues in unchanged context lines\n\n"
         f"{visibility_section}"
         "QUALITY OVER QUANTITY:\n"
-        "- Zero comments is valid for clean PRs - don't invent issues\n"
+        "- Zero comments is valid for clean PRs - don't invent issues, but don't withhold genuine verified ones\n"
         "- Each comment must be actionable with clear reasoning\n"
         "- Combine related issues into one comment\n"
         f"- Hard cap: {MAX_REVIEW_COMMENTS} comments maximum\n\n"
@@ -516,7 +570,7 @@ def generate_pr_review(
             "additionalProperties": False,
         }
 
-        tools, tool_handlers = build_review_agent_tools(diff_files, augmented_diff)
+        tools, tool_handlers = build_review_agent_tools(diff_files, augmented_diff, event, head_sha, local_checkout)
         response = get_agent_response(
             messages,
             text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
@@ -617,6 +671,7 @@ def generate_pr_review(
                 "diff_files": diff_files,
                 "diff_truncated": diff_truncated,
                 "skipped_files": skipped_files,
+                "head_sha": head_sha,
             }
         )
         print(f"Valid comments after filtering: {len(response['comments'])}")
@@ -675,13 +730,26 @@ def get_local_head_sha() -> str | None:
         return None
 
 
+def _verified_local_checkout(head_sha: str | None) -> bool:
+    """Check the working tree is a clean checkout of the PR head (formatters may dirty it before reviews run)."""
+    import subprocess
+
+    if not head_sha or get_local_head_sha() != head_sha:
+        return False
+    try:
+        status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=True)
+        return not status.stdout.strip()
+    except Exception:
+        return False
+
+
 def post_review_summary(event: Action, review_data: dict, review_number: int) -> None:
     """Post overall review summary and inline comments as a single PR review."""
     if not (pr_number := event.pr.get("number")):
         return
 
-    # Use local HEAD SHA to avoid "Line could not be resolved" errors when auto-format pushed new commits
-    commit_sha = get_local_head_sha() or event.pr.get("head", {}).get("sha")
+    # Anchor to the exact head the review was generated from; fall back to the local checkout, then live head
+    commit_sha = review_data.get("head_sha") or get_local_head_sha() or _pr_head_sha(event)
     if not commit_sha:
         return
 
