@@ -101,9 +101,9 @@ def test_get_first_interaction_response(mock_get_response):
     mock_get_response.assert_called_once()
 
 
-@patch("actions.review_pr.get_local_head_sha", return_value="headsha")
+@patch("actions.review_pr._verified_local_checkout", return_value=True)
 @patch("actions.review_pr.get_agent_response")
-def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, mock_local_sha, tmp_path, monkeypatch):
+def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, mock_checkout, tmp_path, monkeypatch):
     """Test PR reviews avoid background polling for code diffs."""
     monkeypatch.chdir(tmp_path)
     mock_get_agent_response.return_value = {"comments": [], "summary": "LGTM"}

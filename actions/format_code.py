@@ -19,6 +19,7 @@ RUFF_CHECK = [
 RUFF_FORMAT = ["ruff", "format", "--line-length=120", "."]
 DOCSTRINGS = ["ultralytics-actions-format-python-docstrings", "."]
 PRETTIER = """
+npm install -g prettier@3.6.2 prettier-plugin-sh
 ultralytics-actions-update-markdown-code-blocks
 npx prettier --write --list-different --print-width 120 "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
 if find . -name "*.sh" -type f | grep -q .; then

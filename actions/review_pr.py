@@ -116,7 +116,11 @@ def _read_head_file(event: Action, head_sha: str | None, local_checkout: bool, p
         root = Path.cwd().resolve()
         target = (root / path).resolve()
         target.relative_to(root)  # raises ValueError for paths or symlinks escaping the checkout
-        return target.read_text(encoding="utf-8", errors="ignore") if target.is_file() else None
+        if not target.is_file():
+            return None
+        if target.stat().st_size > 500_000:
+            raise RuntimeError(f"{path} is too large to read")
+        return target.read_text(encoding="utf-8", errors="ignore")
     if not (event and head_sha):
         return None
     return _fetch_head_file(event, head_sha, path)
@@ -405,7 +409,7 @@ def generate_pr_review(
     review_model = get_review_model()
     is_agent_review_model = not _is_anthropic_model(review_model)
     head_sha = _pr_head_sha(event)
-    local_checkout = bool(head_sha) and get_local_head_sha() == head_sha
+    local_checkout = _verified_local_checkout(head_sha)
     if head_sha:
         print(f"Reviewing PR head {head_sha[:7]} ({'local checkout' if local_checkout else 'via GitHub API'})")
     guidelines_section = get_repo_guidelines(review_model, event, head_sha, local_checkout)
@@ -724,6 +728,19 @@ def get_local_head_sha() -> str | None:
     except Exception as e:
         print(f"Failed to get local HEAD SHA: {e}")
         return None
+
+
+def _verified_local_checkout(head_sha: str | None) -> bool:
+    """Check the working tree is a clean checkout of the PR head (formatters may dirty it before reviews run)."""
+    import subprocess
+
+    if not head_sha or get_local_head_sha() != head_sha:
+        return False
+    try:
+        status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=True)
+        return not status.stdout.strip()
+    except Exception:
+        return False
 
 
 def post_review_summary(event: Action, review_data: dict, review_number: int) -> None:
