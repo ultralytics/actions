@@ -224,9 +224,9 @@ runs:
           npx prettier --write --list-different --print-width 120 --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs "**/*.sh"
         fi
         # Handle Markdown separately
-        find . -name "*.md" ! -path "*/docs/*" -exec npx prettier --write --list-different --print-width 120 {} +
+        find . -name "*.md" -type f ! -path "*/docs/*" -exec npx prettier --write --list-different --print-width 120 {} +
         if [ -d "./docs" ]; then
-          find ./docs -name "*.md" ! -path "*/reference/*" -exec npx prettier --tab-width 4 --print-width 120 --write --list-different {} +
+          find ./docs -name "*.md" -type f ! -path "*/reference/*" -exec npx prettier --tab-width 4 --print-width 120 --write --list-different {} +
         fi
         echo "::endgroup::"
       shell: bash
