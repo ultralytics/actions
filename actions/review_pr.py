@@ -385,10 +385,11 @@ def generate_pr_review(
     full_files_section = ""
     if event and head_sha and not is_agent_review_model and len(file_list) <= 10:  # Reasonable file count limit
         file_contents, total_chars = [], len(augmented_diff) + len(guidelines_section)
-        for file_path in file_list:
-            snippet = (_fetch_head_file(event, head_sha, file_path) or "")[:MAX_CONTEXT_FILE_CHARS]
-            if not snippet:
+        for file_path in file_list:  # already filtered by should_skip_file above
+            text = _fetch_head_file(event, head_sha, file_path) or ""
+            if not text or len(text) > 100_000:  # skip missing and >100KB files entirely
                 continue
+            snippet = text[:MAX_CONTEXT_FILE_CHARS]
             if len(snippet) == MAX_CONTEXT_FILE_CHARS:
                 snippet = f"{snippet.rstrip()}\n... (truncated)"
             # Only include if within budget, include buffer for Markdown noise
@@ -697,8 +698,8 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     if not (pr_number := event.pr.get("number")):
         return
 
-    # Use local HEAD SHA to avoid "Line could not be resolved" errors when auto-format pushed new commits
-    commit_sha = get_local_head_sha() or _pr_head_sha(event)
+    # Anchor to the live PR head the review was generated from; fall back to the local checkout
+    commit_sha = _pr_head_sha(event) or get_local_head_sha()
     if not commit_sha:
         return
 
