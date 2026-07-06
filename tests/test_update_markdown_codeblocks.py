@@ -63,7 +63,7 @@ def test_generate_temp_filename():
     """Test generating temporary filenames."""
     file_path = Path("docs/guide.md")
 
-    filename = generate_temp_filename(file_path, 0, "python")
+    filename = generate_temp_filename(file_path, 0)
 
     assert "guide_docs_p0_" in filename
     assert filename.endswith(".py")

@@ -106,9 +106,7 @@ def process_markdown_string(
         if markdown_snapshot is None or temp_files is None:
             return formatted_markdown
 
-        python_files_exist = process_python and any(code_type == "python" for _, _, _, code_type in temp_files)
-
-        if python_files_exist:
+        if process_python and temp_files:
             format_code_with_ruff(temp_dir)
 
         update_markdown_file(temp_md, markdown_snapshot, temp_files)
@@ -117,13 +115,12 @@ def process_markdown_string(
     return formatted_markdown
 
 
-def generate_temp_filename(file_path, index, code_type):
+def generate_temp_filename(file_path, index):
     """Creates unique temp filename with full path info for debugging."""
     stem = file_path.stem
-    code_letter = code_type[0]
     path_part = str(file_path.parent).replace("/", "_").replace("\\", "_").replace(" ", "-")
     hash_val = hashlib.md5(f"{file_path}_{index}".encode()).hexdigest()[:6]
-    filename = f"{stem}_{path_part}_{code_letter}{index}_{hash_val}.py"
+    filename = f"{stem}_{path_part}_p{index}_{hash_val}.py"
     return re.sub(r"[^\w\-.]", "_", filename)
 
 
@@ -140,12 +137,12 @@ def process_markdown_file(file_path, temp_dir, process_python=True, verbose=Fals
 
                 num_spaces = len(num_spaces)
                 code_without_indentation = remove_indentation(code_block, num_spaces)
-                temp_file_path = temp_dir / generate_temp_filename(file_path, i, "python")
+                temp_file_path = temp_dir / generate_temp_filename(file_path, i)
 
                 with open(temp_file_path, "w", encoding="utf-8") as temp_file:
                     temp_file.write(code_without_indentation)
 
-                temp_files.append((num_spaces, code_block, temp_file_path, "python"))
+                temp_files.append((num_spaces, code_block, temp_file_path))
 
         return markdown_content, temp_files
 
@@ -156,13 +153,13 @@ def process_markdown_file(file_path, temp_dir, process_python=True, verbose=Fals
 
 def update_markdown_file(file_path, markdown_content, temp_files):
     """Updates a Markdown file with formatted code blocks."""
-    for num_spaces, original_code_block, temp_file_path, code_type in temp_files:
+    for num_spaces, original_code_block, temp_file_path in temp_files:
         try:
             with open(temp_file_path, encoding="utf-8") as temp_file:
                 formatted_code = temp_file.read().rstrip("\n")  # Strip trailing newlines
             formatted_code_with_indentation = add_indentation(formatted_code, num_spaces)
 
-            for lang in {"python": ["python", "py", "{ .py .annotate }"]}[code_type]:
+            for lang in ("python", "py", "{ .py .annotate }"):
                 markdown_content = markdown_content.replace(
                     f"{' ' * num_spaces}```{lang}\n{original_code_block}\n{' ' * num_spaces}```",
                     f"{' ' * num_spaces}```{lang}\n{formatted_code_with_indentation}\n{' ' * num_spaces}```",
