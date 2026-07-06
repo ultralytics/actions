@@ -26,3 +26,13 @@ def test_docstring_formatter_keeps_simple_docstrings_single_line():
     text = "Make the live fp32 EMA genuinely non-finite while the model stays finite (sticky-NaN on a finite-loss run)."
 
     assert format_python_docstrings.format_docstring(text, 8, 120, '"""', "") == f'"""{text}"""'
+
+
+def test_docstring_formatter_preserves_identifier_first_words():
+    """Test that code identifiers, dotted names, and URLs are not capitalized as first words."""
+    for text in (
+        "process_mask/process_mask_native/scale_masks must handle 0 detections without crashing.",
+        "np.array inputs are converted to tensors.",
+        "https://ultralytics.com hosts the docs.",
+    ):
+        assert format_python_docstrings.format_docstring(text, 8, 120, '"""', "") == f'"""{text}"""'
