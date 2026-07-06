@@ -88,19 +88,38 @@ def _pr_head_sha(event: Action | None) -> str | None:
     if event is None or not event.pr:
         return None
     if (number := event.pr.get("number")) and event.repository:
-        response = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{number}")
-        if response.status_code == 200 and (sha := (response.json().get("head") or {}).get("sha")):
-            return sha
+        try:
+            response = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{number}")
+            if response.status_code == 200 and (sha := (response.json().get("head") or {}).get("sha")):
+                return sha
+        except Exception as e:
+            print(f"Live PR head lookup failed: {e}")
     sha = (event.pr.get("head") or {}).get("sha")
     return sha if isinstance(sha, str) else None
 
 
 def _fetch_head_file(event: Action, sha: str, path: str) -> str | None:
-    """Fetch one file's text from the PR head via the GitHub contents API (follows in-repo symlinks)."""
+    """Fetch one file's text from the PR head via the GitHub contents API; None only if it does not exist (404)."""
     url = f"{GITHUB_API_URL}/repos/{event.repository}/contents/{quote(path)}?ref={sha}"
     headers = {**event.headers, "Accept": "application/vnd.github.raw+json"}
     response = event.get(url, headers=headers, expected_status=[200, 404])
-    return response.text if response.status_code == 200 else None
+    if response.status_code == 200:
+        return response.text
+    if response.status_code == 404:
+        return None
+    raise RuntimeError(f"fetch failed for {path} at PR head: HTTP {response.status_code}")
+
+
+def _read_head_file(event: Action, head_sha: str | None, local_checkout: bool, path: str) -> str | None:
+    """Read one file's text from the PR head: verified local checkout first (no API calls), GitHub API fallback."""
+    if local_checkout:
+        root = Path.cwd().resolve()
+        target = (root / path).resolve()
+        target.relative_to(root)  # raises ValueError for paths or symlinks escaping the checkout
+        return target.read_text(encoding="utf-8", errors="ignore") if target.is_file() else None
+    if not (event and head_sha):
+        return None
+    return _fetch_head_file(event, head_sha, path)
 
 
 def _split_augmented_diff_by_file(augmented_diff: str) -> dict[str, list[str]]:
@@ -131,11 +150,12 @@ def build_review_agent_tools(
 
     def read_file(path: str, start_line=None, end_line=None) -> str:
         """Read a bounded line range from a file at the PR head."""
-        if not (event and head_sha):
-            return "read_file is unavailable: no PR head to read from."
         if should_skip_file(path):
             return f"{path} is skipped because it is generated, vendored, or too large."
-        text = _fetch_head_file(event, head_sha, path)
+        try:
+            text = _read_head_file(event, head_sha, local_checkout, path)
+        except ValueError:
+            return f"path must stay inside repository: {path}"
         if text is None:
             return f"{path} does not exist at the PR head."
         if len(text) > 500_000:
@@ -150,12 +170,16 @@ def build_review_agent_tools(
 
     def list_files(path_glob=None) -> str:
         """List files at the PR head matching an optional glob."""
+        if local_checkout:
+            files = sorted(rel for _, rel in _iter_repo_files(path_glob))
+            return _clip_tool_output("\n".join(files[:300])) if files else "No matching files found."
         if not (event and head_sha):
             return "list_files is unavailable: no PR head to list from."
         if not head_tree:
             response = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/git/trees/{head_sha}?recursive=1")
-            tree = response.json().get("tree", []) if response.status_code == 200 else []
-            head_tree.append([t["path"] for t in tree if t.get("type") == "blob"])
+            if response.status_code != 200:
+                return f"list_files failed: HTTP {response.status_code}."  # don't cache failures
+            head_tree.append([t["path"] for t in response.json().get("tree", []) if t.get("type") == "blob"])
         files = sorted(p for p in head_tree[0] if (not path_glob or fnmatch(p, path_glob)) and not should_skip_file(p))
         return _clip_tool_output("\n".join(files[:300])) if files else "No matching files found."
 
@@ -285,15 +309,20 @@ def build_review_agent_tools(
     return tools, handlers
 
 
-def get_repo_guidelines(model: str = "", event: Action = None, head_sha: str | None = None) -> str:
-    """Fetch repository guidelines (one agent file + CONTRIBUTING.md) from the PR head."""
-    if not (event and head_sha):
-        return ""
+def get_repo_guidelines(
+    model: str = "", event: Action = None, head_sha: str | None = None, local_checkout: bool = False
+) -> str:
+    """Read repository guidelines (one agent file + CONTRIBUTING.md) from the PR head."""
     guidelines = []
     # Prefer CLAUDE.md for Anthropic models, AGENTS.md for others; load only one, never both
     agent_prefs = ("CLAUDE.md", "AGENTS.md") if "claude" in model.lower() else ("AGENTS.md", "CLAUDE.md")
     for filename in ("CONTRIBUTING.md", *agent_prefs):
-        if content := (_fetch_head_file(event, head_sha, filename) or "")[:MAX_CONTEXT_FILE_CHARS]:
+        try:
+            content = (_read_head_file(event, head_sha, local_checkout, filename) or "")[:MAX_CONTEXT_FILE_CHARS]
+        except Exception as e:
+            print(f"Failed to read {filename}: {e}")
+            continue
+        if content:
             guidelines.append(f"### {filename}\n~~~\n{content}\n~~~")
             print(f"Loaded {filename} ({len(content)} chars) for review context")
             if filename in agent_prefs:
@@ -379,14 +408,17 @@ def generate_pr_review(
     local_checkout = bool(head_sha) and get_local_head_sha() == head_sha
     if head_sha:
         print(f"Reviewing PR head {head_sha[:7]} ({'local checkout' if local_checkout else 'via GitHub API'})")
-    guidelines_section = get_repo_guidelines(review_model, event, head_sha)
+    guidelines_section = get_repo_guidelines(review_model, event, head_sha, local_checkout)
 
     # Fetch full file contents for better context if within token budget
     full_files_section = ""
     if event and head_sha and not is_agent_review_model and len(file_list) <= 10:  # Reasonable file count limit
         file_contents, total_chars = [], len(augmented_diff) + len(guidelines_section)
         for file_path in file_list:  # already filtered by should_skip_file above
-            text = _fetch_head_file(event, head_sha, file_path) or ""
+            try:
+                text = _read_head_file(event, head_sha, local_checkout, file_path) or ""
+            except Exception:
+                continue
             if not text or len(text) > 100_000:  # skip missing and >100KB files entirely
                 continue
             snippet = text[:MAX_CONTEXT_FILE_CHARS]
@@ -635,6 +667,7 @@ def generate_pr_review(
                 "diff_files": diff_files,
                 "diff_truncated": diff_truncated,
                 "skipped_files": skipped_files,
+                "head_sha": head_sha,
             }
         )
         print(f"Valid comments after filtering: {len(response['comments'])}")
@@ -698,8 +731,8 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     if not (pr_number := event.pr.get("number")):
         return
 
-    # Anchor to the live PR head the review was generated from; fall back to the local checkout
-    commit_sha = _pr_head_sha(event) or get_local_head_sha()
+    # Anchor to the exact head the review was generated from; fall back to the local checkout, then live head
+    commit_sha = review_data.get("head_sha") or get_local_head_sha() or _pr_head_sha(event)
     if not commit_sha:
         return
 

@@ -2,6 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from actions import review_pr
 from actions.first_interaction import get_event_content, get_first_interaction_response, get_relevant_labels
 
@@ -155,6 +157,12 @@ def test_review_agent_search_scans_local_checkout_only(tmp_path, monkeypatch):
     tools, handlers = review_pr.build_review_agent_tools(local_checkout=True)
 
     assert "search_repo" in {t.get("name") for t in tools}
+    assert "1: secret = True" in handlers["read_file"](path="secret.py", start_line=None, end_line=None)
+    assert "path must stay inside repository" in handlers["read_file"](
+        path="linked_secret.py", start_line=None, end_line=None
+    )
+    assert "secret.py" in handlers["list_files"](path_glob=None).splitlines()
+    assert ".github/workflows/format.yml" in handlers["list_files"](path_glob=".github/**").splitlines()
     assert "secret.py:1:secret = True" in handlers["search_repo"](query="secret = True", path_glob=None)
     assert "No matches found." == handlers["search_repo"](query="secret.*True", path_glob=None)
     assert "patterns.py:1:literal = '(a+)+$'" in handlers["search_repo"](query="(a+)+$", path_glob=None)
@@ -198,7 +206,9 @@ def test_review_agent_tools_read_pr_head_via_api(tmp_path, monkeypatch):
     def fake_get(url, **kwargs):
         if "/git/trees/" in url:
             return tree_response
-        return missing_response if "missing.py" in url else file_response
+        if "missing.py" in url:
+            return missing_response
+        return MagicMock(status_code=500) if "flaky.py" in url else file_response
 
     event.get.side_effect = fake_get
 
@@ -209,6 +219,12 @@ def test_review_agent_tools_read_pr_head_via_api(tmp_path, monkeypatch):
     assert handlers["read_file"](path="missing.py", start_line=None, end_line=None).endswith(
         "does not exist at the PR head."
     )
+    with pytest.raises(RuntimeError):  # transient API errors must not read as "file missing"
+        handlers["read_file"](path="flaky.py", start_line=None, end_line=None)
+
+    tree_response.status_code = 500
+    assert handlers["list_files"](path_glob=None) == "list_files failed: HTTP 500."  # failures are not cached
+    tree_response.status_code = 200
     assert handlers["list_files"](path_glob=None).splitlines() == ["tests/test_python.py"]
 
 
