@@ -19,6 +19,12 @@ def test_format_commands_match_action_yml():
         assert arg == "*" or arg in text, f"codespell arg not in action.yml: {arg}"
 
 
+def test_markdown_prettier_skips_symlinks():
+    """Test Markdown formatting only targets regular files because Prettier rejects explicit symlink paths."""
+    assert 'find . -name "*.md" -type f' in format_code.PRETTIER
+    assert 'find ./docs -name "*.md" -type f' in format_code.PRETTIER
+
+
 @patch("actions.format_code.subprocess.run")
 def test_format_main_runs_all_formatters(mock_run, monkeypatch):
     """Test format CLI runs every formatter by default and respects INPUTS_* opt-outs."""
