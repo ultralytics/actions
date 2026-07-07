@@ -7,6 +7,7 @@ import os
 import re
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -42,7 +43,9 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "claude-opus-4-5-20251101": (5.00, 25.00),
     "claude-opus-4-6": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
-    "claude-sonnet-5": (2.00, 10.00),  # introductory pricing, matches ultralytics/assistant MODELS registry
+    "claude-sonnet-5": (2.00, 10.00),  # introductory pricing through 2026-08-31, then (3.00, 15.00)
+    "claude-opus-4-8": (5.00, 25.00),
+    "claude-fable-5": (10.00, 50.00),
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v).
@@ -304,7 +307,9 @@ def _post_openai_response(
 
             r.raise_for_status()
             return r.json(), elapsed
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError):
+        except (requests.exceptions.ConnectionError, json.JSONDecodeError):
+            # ConnectTimeout subclasses ConnectionError so it stays retryable; a ReadTimeout propagates instead,
+            # because the request may have completed server-side and re-POSTing it would double-bill.
             if attempt < retries:
                 print(f"Retrying API request in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
                 time.sleep(2**attempt)
@@ -356,6 +361,7 @@ def get_agent_response(
     reasoning_effort: str | None = None,
     max_turns: int = 6,
     max_cost: float = 0.0,
+    parallel_tools: bool = False,
     retries: int = 2,
     request_timeout: tuple[int, int] = (30, 120),
 ) -> str | dict:
@@ -363,6 +369,7 @@ def get_agent_response(
 
     max_cost is a USD ceiling across all turns (0 disables); once reached, remaining tool turns are skipped and the
     agent synthesizes a final answer. Models missing from MODEL_COSTS disable max_cost loudly; max_turns still bounds.
+    parallel_tools runs a turn's batched tool calls concurrently: opt in ONLY when every handler is thread-safe.
     """
     model = model or _get_default_model()
     if max_cost and model not in MODEL_COSTS:
@@ -440,7 +447,11 @@ def get_agent_response(
                 for call in function_calls
             ]
             break
-        next_input = [_handle_function_call(call, tool_handlers) for call in function_calls]
+        if parallel_tools and len(function_calls) > 1:  # opt-in contract: handlers must be thread-safe
+            with ThreadPoolExecutor(max_workers=min(8, len(function_calls))) as pool:
+                next_input = list(pool.map(lambda call: _handle_function_call(call, tool_handlers), function_calls))
+        else:
+            next_input = [_handle_function_call(call, tool_handlers) for call in function_calls]
 
     final_instruction = {
         "role": "user",
@@ -581,14 +592,28 @@ def get_response(
             for x in remove:
                 content = content.replace(x, "")
 
-            # Retry on bad links
-            if attempt < retries and check_links and not check_links_in_string(content):
-                print("Bad URLs detected, retrying")
-                continue
+            # Retry on bad links, feeding the broken URLs back so the model fixes them instead of rolling the dice
+            if check_links and (bad_urls := check_links_in_string(content, return_bad=True)[1]):
+                if attempt < retries:
+                    print(f"Bad URLs detected, retrying with feedback: {bad_urls}")
+                    feedback = [
+                        {"role": "assistant", "content": content},
+                        {
+                            "role": "user",
+                            "content": "Broken links in your reply: " + ", ".join(bad_urls) + ". "
+                            "Rewrite the full reply, replacing each broken link with a working one or removing it.",
+                        },
+                    ]
+                    messages = [*messages, *feedback]
+                    user_messages = [*user_messages, *feedback]
+                    continue
+                content = check_links_in_string(content, replace=True)  # final attempt: salvage via redirects/search
 
             return content
 
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError) as e:
+        except (requests.exceptions.ConnectionError, json.JSONDecodeError) as e:
+            # ConnectTimeout subclasses ConnectionError so it stays retryable; a ReadTimeout propagates instead,
+            # because the request may have completed server-side and re-POSTing it would double-bill.
             if attempt < retries:
                 print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
                 time.sleep(2**attempt)

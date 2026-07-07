@@ -106,6 +106,21 @@ def test_get_response(mock_post):
 
 @patch("time.sleep")
 @patch("requests.post")
+def test_get_response_read_timeout_propagates(mock_post, mock_sleep):
+    """Test a read timeout is NOT retried: the request may have completed server-side and re-POSTing double-bills."""
+    mock_post.side_effect = requests.exceptions.ReadTimeout()
+
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
+        try:
+            get_response([{"role": "user", "content": "Hello"}], check_links=False, retries=2)
+            raise AssertionError("ReadTimeout should propagate")
+        except requests.exceptions.ReadTimeout:
+            pass
+    assert mock_post.call_count == 1  # no re-POST of a possibly-billed request
+
+
+@patch("time.sleep")
+@patch("requests.post")
 def test_get_response_retries_rate_limits(mock_post, mock_sleep):
     """Test a 429 response is retried with a longer backoff than server errors."""
     limited = MagicMock()
@@ -142,7 +157,7 @@ def test_get_response_with_link_check(mock_check_links, mock_post):
         ]
     }
     mock_post.return_value = mock_response
-    mock_check_links.return_value = True
+    mock_check_links.return_value = (True, [])
 
     messages = [{"role": "user", "content": "Hello"}]
 
@@ -274,7 +289,7 @@ def test_get_agent_response_summarizes_after_max_turns(mock_post):
         ],
         "usage": {"input_tokens": 20, "output_tokens": 7},
     }
-    mock_post.side_effect = [tool_response, requests.exceptions.Timeout(), final_response]
+    mock_post.side_effect = [tool_response, requests.exceptions.ConnectTimeout(), final_response]
 
     schema = {
         "type": "object",
