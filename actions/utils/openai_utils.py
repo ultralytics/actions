@@ -233,8 +233,8 @@ def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | N
 def _normalize_usage_tokens(usage: dict) -> tuple[int, int]:
     """Return (input_tokens, cached_tokens) for OpenAI Responses or Anthropic Messages usage shapes.
 
-    Anthropic reports cache reads/writes outside input_tokens, so both fold back into the input total and reads count
-    as cached — the same normalization ultralytics/assistant applies, keeping cross-repo telemetry identical.
+    Anthropic reports cache reads/writes outside input_tokens, so both fold back into the input total and reads count as
+    cached — the same normalization ultralytics/assistant applies, keeping cross-repo telemetry identical.
     """
     cache_read = usage.get("cache_read_input_tokens", 0)
     input_tokens = usage.get("input_tokens", 0) + cache_read + usage.get("cache_creation_input_tokens", 0)
