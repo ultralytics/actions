@@ -249,19 +249,31 @@ def _openai_usage_cost(usage: dict, model: str) -> float:
     return ((input_tokens - cached_tokens * 0.9) * costs[0] + usage.get("output_tokens", 0) * costs[1]) / 1e6
 
 
+def _format_tool_calls(calls: list[str]) -> str:
+    """Format tool calls with per-type counts: '5 tools (2 lookup_value, 3 web_search)'."""
+    counts = {}
+    for name in calls:
+        counts[name] = counts.get(name, 0) + 1
+    types = ", ".join(f"{n} {name}" if n > 1 else name for name, n in counts.items())
+    return f"{len(calls)} tools" + (f" ({types})" if calls else "")
+
+
 def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadata: str = "") -> None:
-    """Print token/cost telemetry for one OpenAI Responses or Anthropic Messages response."""
+    """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, +31 thinking), $0.69, 8.9s'."""
     if usage := response_json.get("usage"):
         input_tokens, cached_tokens = _normalize_usage_tokens(usage)
-        output_tokens = usage.get("output_tokens", 0)
+        output_tokens = usage.get("output_tokens", 0)  # includes thinking, noted in the parenthetical
         thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
         cost = _openai_usage_cost(usage, model)
-        cached_str = f" ({cached_tokens} cached)" if cached_tokens else ""
-        token_str = f"{input_tokens}{cached_str}→{output_tokens - thinking_tokens}"
+        notes = []
+        if cached_tokens:
+            notes.append(f"{round(100 * cached_tokens / input_tokens)}% cached")
         if thinking_tokens:
-            token_str += f" (+{thinking_tokens} thinking)"
+            notes.append(f"+{thinking_tokens} thinking")
+        note_str = f" ({', '.join(notes)})" if notes else ""
         metadata = f", {metadata}" if metadata else ""
-        print(f"{model} {token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s{metadata}")
+        cost_str = f"${cost:.2f}" if cost == 0 or cost >= 0.01 else f"${cost:.5f}"  # match ultralytics/assistant
+        print(f"{model}: {input_tokens}→{output_tokens} tokens{note_str}, {cost_str}, {elapsed:.1f}s{metadata}")
 
 
 def _post_openai_response(
@@ -385,7 +397,7 @@ def get_agent_response(
     if text_format:
         base_data["text"] = text_format
 
-    tool_calls = 0
+    tool_calls = []
     total_elapsed = 0.0
     total_usage = None
     previous_response_id = None
@@ -401,14 +413,18 @@ def get_agent_response(
         previous_response_id = response_json.get("id")
         output_items = response_json.get("output", [])
         turn_calls = _response_tool_calls(output_items)
-        tool_calls += len(turn_calls)
-        tools_str = f"{len(turn_calls)} tools" + (f" ({', '.join(turn_calls)})" if turn_calls else "")
-        _print_openai_usage(response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, {tools_str}")
+        tool_calls += turn_calls
+        _print_openai_usage(
+            response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, {_format_tool_calls(turn_calls)}"
+        )
         function_calls = [item for item in output_items if item.get("type") == "function_call"]
 
         if not function_calls:
             _print_openai_usage(
-                {"usage": total_usage}, model, total_elapsed, f"agent total, {turn + 1} turns, {tool_calls} tools"
+                {"usage": total_usage},
+                model,
+                total_elapsed,
+                f"agent total, {turn + 1} turns, {_format_tool_calls(tool_calls)}",
             )
             return _finalize_response_content(response_json, text_format)
 
@@ -439,7 +455,7 @@ def get_agent_response(
     total_usage = _add_openai_usage(total_usage, response_json)
     _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, 0 tools")
     _print_openai_usage(
-        {"usage": total_usage}, model, total_elapsed, f"agent total, {turn + 2} turns, {tool_calls} tools"
+        {"usage": total_usage}, model, total_elapsed, f"agent total, {turn + 2} turns, {_format_tool_calls(tool_calls)}"
     )
     return _finalize_response_content(response_json, text_format)
 
