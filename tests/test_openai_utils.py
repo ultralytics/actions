@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 import requests
 
 from actions.utils.openai_utils import (
+    MODEL_COSTS,
     OPENAI_MODEL_DEFAULT,
     PR_REVIEW_MODEL_DEFAULT,
     _is_anthropic_model,
@@ -17,9 +18,11 @@ from actions.utils.openai_utils import (
 
 
 def test_default_models():
-    """Test canonical default models."""
+    """Test canonical default models are priced so max_cost budgets stay enforceable."""
     assert OPENAI_MODEL_DEFAULT == "gpt-5.5"
     assert PR_REVIEW_MODEL_DEFAULT == "gpt-5.5"
+    assert OPENAI_MODEL_DEFAULT in MODEL_COSTS  # unpriced models disable max_cost budgets
+    assert PR_REVIEW_MODEL_DEFAULT in MODEL_COSTS
 
 
 def test_is_anthropic_model():
@@ -329,7 +332,12 @@ def test_get_response_anthropic(mock_post):
     mock_response.elapsed.total_seconds.return_value = 1.5
     mock_response.json.return_value = {
         "content": [{"type": "text", "text": "Test response from Claude"}],
-        "usage": {"input_tokens": 50, "output_tokens": 20},
+        "usage": {
+            "input_tokens": 50,
+            "cache_read_input_tokens": 900,
+            "cache_creation_input_tokens": 50,
+            "output_tokens": 20,
+        },
     }
     mock_post.return_value = mock_response
 
@@ -337,9 +345,13 @@ def test_get_response_anthropic(mock_post):
 
     with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}, clear=False):
         with patch("actions.utils.openai_utils.ANTHROPIC_API_KEY", "test-key"):
-            result = get_response(messages, check_links=False, model="claude-sonnet-4-6", background=True)
+            with patch("builtins.print") as mock_print:
+                result = get_response(messages, check_links=False, model="claude-sonnet-4-6", background=True)
 
     assert result == "Test response from Claude"
+    printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    # Cache reads/writes fold into input and reads count as cached, matching ultralytics/assistant normalization
+    assert "1000 (900 cached)→20 = 1020 tokens, $0.00087" in printed
     mock_post.assert_called_once()
     # Verify Anthropic endpoint was called
     call_args = mock_post.call_args

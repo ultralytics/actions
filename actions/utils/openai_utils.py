@@ -7,6 +7,7 @@ import os
 import re
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -229,20 +230,30 @@ def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | N
     return total_usage
 
 
+def _normalize_usage_tokens(usage: dict) -> tuple[int, int]:
+    """Return (input_tokens, cached_tokens) for OpenAI Responses or Anthropic Messages usage shapes.
+
+    Anthropic reports cache reads/writes outside input_tokens, so both fold back into the input total and reads count
+    as cached — the same normalization ultralytics/assistant applies, keeping cross-repo telemetry identical.
+    """
+    cache_read = usage.get("cache_read_input_tokens", 0)
+    input_tokens = usage.get("input_tokens", 0) + cache_read + usage.get("cache_creation_input_tokens", 0)
+    cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0) or cache_read
+    return input_tokens, cached_tokens
+
+
 def _openai_usage_cost(usage: dict, model: str) -> float:
-    """Compute billed USD cost for a Responses API usage block (cached input billed at 10% of the input rate)."""
+    """Compute billed USD cost for one usage block (cached input billed at 10% of the input rate)."""
     costs = MODEL_COSTS.get(model, (0.0, 0.0))
-    input_tokens = usage.get("input_tokens", 0)
-    cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0)
+    input_tokens, cached_tokens = _normalize_usage_tokens(usage)
     return ((input_tokens - cached_tokens * 0.9) * costs[0] + usage.get("output_tokens", 0) * costs[1]) / 1e6
 
 
 def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadata: str = "") -> None:
-    """Print Responses API token/cost telemetry."""
+    """Print token/cost telemetry for one OpenAI Responses or Anthropic Messages response."""
     if usage := response_json.get("usage"):
-        input_tokens = usage.get("input_tokens", 0)
+        input_tokens, cached_tokens = _normalize_usage_tokens(usage)
         output_tokens = usage.get("output_tokens", 0)
-        cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0)
         thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
         cost = _openai_usage_cost(usage, model)
         cached_str = f" ({cached_tokens} cached)" if cached_tokens else ""
@@ -336,9 +347,12 @@ def get_agent_response(
     """Run an iterative OpenAI Responses API agent with application-managed function tools.
 
     max_cost is a USD ceiling across all turns (0 disables); once reached, remaining tool turns are skipped and the
-    agent synthesizes a final answer. Models missing from MODEL_COSTS report zero cost, so only max_turns bounds them.
+    agent synthesizes a final answer. Models missing from MODEL_COSTS disable max_cost loudly; max_turns still bounds.
     """
     model = model or _get_default_model()
+    if max_cost and model not in MODEL_COSTS:
+        print(f"WARNING ⚠️ {model} missing from MODEL_COSTS; max_cost budget disabled (max_turns still applies)")
+        max_cost = 0.0
     if _is_anthropic_model(model):
         print("Anthropic review model selected; falling back to single-shot response without local agent tools")
         return get_response(
@@ -407,7 +421,8 @@ def get_agent_response(
                 for call in function_calls
             ]
             break
-        next_input = [_handle_function_call(call, tool_handlers) for call in function_calls]
+        with ThreadPoolExecutor(max_workers=min(8, len(function_calls))) as pool:  # I/O-bound GitHub/API reads
+            next_input = list(pool.map(lambda call: _handle_function_call(call, tool_handlers), function_calls))
 
     final_instruction = {
         "role": "user",
@@ -557,10 +572,6 @@ def get_response(
                 time.sleep(2**attempt)
                 continue
             raise
-        except requests.exceptions.HTTPError:
-            raise
-
-    return content
 
 
 def get_pr_open_response(repository: str, diff_text: str, title: str, username: str, available_labels: dict) -> dict:
