@@ -7,7 +7,6 @@ import os
 import re
 import time
 from collections.abc import Callable
-from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -43,6 +42,7 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "claude-opus-4-5-20251101": (5.00, 25.00),
     "claude-opus-4-6": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
+    "claude-sonnet-5": (2.00, 10.00),  # introductory pricing, matches ultralytics/assistant MODELS registry
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v).
@@ -233,8 +233,8 @@ def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | N
 def _normalize_usage_tokens(usage: dict) -> tuple[int, int]:
     """Return (input_tokens, cached_tokens) for OpenAI Responses or Anthropic Messages usage shapes.
 
-    Anthropic reports cache reads/writes outside input_tokens, so both fold back into the input total and reads count as
-    cached — the same normalization ultralytics/assistant applies, keeping cross-repo telemetry identical.
+    Anthropic reports cache reads/writes outside input_tokens, so both fold back into the input total and reads count
+    as cached — the same normalization ultralytics/assistant applies, keeping cross-repo telemetry identical.
     """
     cache_read = usage.get("cache_read_input_tokens", 0)
     input_tokens = usage.get("input_tokens", 0) + cache_read + usage.get("cache_creation_input_tokens", 0)
@@ -414,15 +414,14 @@ def get_agent_response(
 
         if not previous_response_id:
             raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
-        if max_cost and total_usage and _openai_usage_cost(total_usage, model) >= max_cost:
+        if max_cost and _openai_usage_cost(total_usage, model) >= max_cost:
             print(f"Agent cost budget ${max_cost:.2f} reached; skipping remaining tool turns")
             next_input = [  # pending calls still need outputs for the chained synthesis request to be valid
                 {"type": "function_call_output", "call_id": call.get("call_id"), "output": "Tool budget exhausted."}
                 for call in function_calls
             ]
             break
-        with ThreadPoolExecutor(max_workers=min(8, len(function_calls))) as pool:  # I/O-bound GitHub/API reads
-            next_input = list(pool.map(lambda call: _handle_function_call(call, tool_handlers), function_calls))
+        next_input = [_handle_function_call(call, tool_handlers) for call in function_calls]
 
     final_instruction = {
         "role": "user",
