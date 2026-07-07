@@ -42,6 +42,7 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "claude-opus-4-5-20251101": (5.00, 25.00),
     "claude-opus-4-6": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
+    "claude-sonnet-5": (2.00, 10.00),  # introductory pricing, matches ultralytics/assistant MODELS registry
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v).
@@ -197,9 +198,13 @@ def _openai_response_text(response_json: dict) -> str:
     return content.strip()
 
 
-def _count_response_tool_calls(output_items: list[dict]) -> int:
-    """Count Responses API tool-call output items, including hosted tools."""
-    return sum(1 for item in output_items if (item.get("type") or "").endswith("_call"))
+def _response_tool_calls(output_items: list[dict]) -> list[str]:
+    """Name Responses API tool-call output items, including hosted tools (e.g. web_search_call -> web_search)."""
+    return [
+        item.get("name") or (item.get("type") or "")[: -len("_call")]  # removesuffix needs py3.9+, repo floor is 3.8
+        for item in output_items
+        if (item.get("type") or "").endswith("_call")
+    ]
 
 
 def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | None:
@@ -225,20 +230,30 @@ def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | N
     return total_usage
 
 
+def _normalize_usage_tokens(usage: dict) -> tuple[int, int]:
+    """Return (input_tokens, cached_tokens) for OpenAI Responses or Anthropic Messages usage shapes.
+
+    Anthropic reports cache reads/writes outside input_tokens, so both fold back into the input total and reads count as
+    cached — the same normalization ultralytics/assistant applies, keeping cross-repo telemetry identical.
+    """
+    cache_read = usage.get("cache_read_input_tokens", 0)
+    input_tokens = usage.get("input_tokens", 0) + cache_read + usage.get("cache_creation_input_tokens", 0)
+    cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0) or cache_read
+    return input_tokens, cached_tokens
+
+
 def _openai_usage_cost(usage: dict, model: str) -> float:
-    """Compute billed USD cost for a Responses API usage block (cached input billed at 10% of the input rate)."""
+    """Compute billed USD cost for one usage block (cached input billed at 10% of the input rate)."""
     costs = MODEL_COSTS.get(model, (0.0, 0.0))
-    input_tokens = usage.get("input_tokens", 0)
-    cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0)
+    input_tokens, cached_tokens = _normalize_usage_tokens(usage)
     return ((input_tokens - cached_tokens * 0.9) * costs[0] + usage.get("output_tokens", 0) * costs[1]) / 1e6
 
 
 def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadata: str = "") -> None:
-    """Print Responses API token/cost telemetry."""
+    """Print token/cost telemetry for one OpenAI Responses or Anthropic Messages response."""
     if usage := response_json.get("usage"):
-        input_tokens = usage.get("input_tokens", 0)
+        input_tokens, cached_tokens = _normalize_usage_tokens(usage)
         output_tokens = usage.get("output_tokens", 0)
-        cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0)
         thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
         cost = _openai_usage_cost(usage, model)
         cached_str = f" ({cached_tokens} cached)" if cached_tokens else ""
@@ -246,7 +261,7 @@ def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadat
         if thinking_tokens:
             token_str += f" (+{thinking_tokens} thinking)"
         metadata = f", {metadata}" if metadata else ""
-        print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s{metadata})")
+        print(f"{model} {token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s{metadata}")
 
 
 def _post_openai_response(
@@ -261,9 +276,10 @@ def _post_openai_response(
             success = r.status_code == 200
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
 
-            if attempt < retries and r.status_code >= 500:
-                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
-                time.sleep(2**attempt)
+            if attempt < retries and (r.status_code >= 500 or r.status_code == 429):
+                wait = 10 * 2**attempt if r.status_code == 429 else 2**attempt  # rate limits need longer backoff
+                print(f"Retrying {r.status_code} in {wait}s (attempt {attempt + 1}/{retries + 1})...")
+                time.sleep(wait)
                 continue
 
             if r.status_code >= 400:
@@ -331,9 +347,12 @@ def get_agent_response(
     """Run an iterative OpenAI Responses API agent with application-managed function tools.
 
     max_cost is a USD ceiling across all turns (0 disables); once reached, remaining tool turns are skipped and the
-    agent synthesizes a final answer. Models missing from MODEL_COSTS report zero cost, so only max_turns bounds them.
+    agent synthesizes a final answer. Models missing from MODEL_COSTS disable max_cost loudly; max_turns still bounds.
     """
     model = model or _get_default_model()
+    if max_cost and model not in MODEL_COSTS:
+        print(f"WARNING ⚠️ {model} missing from MODEL_COSTS; max_cost budget disabled (max_turns still applies)")
+        max_cost = 0.0
     if _is_anthropic_model(model):
         print("Anthropic review model selected; falling back to single-shot response without local agent tools")
         return get_response(
@@ -381,18 +400,18 @@ def get_agent_response(
         total_usage = _add_openai_usage(total_usage, response_json)
         previous_response_id = response_json.get("id")
         output_items = response_json.get("output", [])
-        turn_tool_calls = _count_response_tool_calls(output_items)
-        tool_calls += turn_tool_calls
-        _print_openai_usage(response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, tools {turn_tool_calls}")
+        turn_calls = _response_tool_calls(output_items)
+        tool_calls += len(turn_calls)
+        tools_str = f"{len(turn_calls)} tools" + (f" ({', '.join(turn_calls)})" if turn_calls else "")
+        _print_openai_usage(response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, {tools_str}")
         function_calls = [item for item in output_items if item.get("type") == "function_call"]
 
         if not function_calls:
             _print_openai_usage(
-                {"usage": total_usage}, model, total_elapsed, f"agent total, turns {turn + 1}, tools {tool_calls}"
+                {"usage": total_usage}, model, total_elapsed, f"agent total, {turn + 1} turns, {tool_calls} tools"
             )
             return _finalize_response_content(response_json, text_format)
 
-        print(f"Agent tool turn {turn + 1}: {', '.join(c.get('name', 'unknown') for c in function_calls)}")
         if not previous_response_id:
             raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
         if max_cost and _openai_usage_cost(total_usage, model) >= max_cost:
@@ -418,9 +437,9 @@ def get_agent_response(
     response_json, elapsed = _post_openai_response(data, headers, max(retries, 2), request_timeout)
     total_elapsed += elapsed
     total_usage = _add_openai_usage(total_usage, response_json)
-    _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, tools 0")
+    _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, 0 tools")
     _print_openai_usage(
-        {"usage": total_usage}, model, total_elapsed, f"agent total, turns {turn + 2}, tools {tool_calls}"
+        {"usage": total_usage}, model, total_elapsed, f"agent total, {turn + 2} turns, {tool_calls} tools"
     )
     return _finalize_response_content(response_json, text_format)
 
@@ -470,9 +489,10 @@ def get_response(
             data = {
                 "model": model,
                 "max_tokens": 8192,
-                "temperature": temperature,
                 "messages": user_messages,
             }
+            if temperature != 1.0:  # 1.0 is the API default; newer Claude models 400 on explicit non-default values
+                data["temperature"] = temperature
             if system_content:
                 data["system"] = system_content
             # Tools (web_search) are not forwarded to Anthropic (caused empty responses with JSON schema)
@@ -500,10 +520,11 @@ def get_response(
             success = r.status_code == 200
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
 
-            # Retry server errors
-            if attempt < retries and r.status_code >= 500:
-                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
-                time.sleep(2**attempt)
+            # Retry server errors and rate limits (a 429 rejection executed nothing, so retrying is side-effect free)
+            if attempt < retries and (r.status_code >= 500 or r.status_code == 429):
+                wait = 10 * 2**attempt if r.status_code == 429 else 2**attempt  # rate limits need longer backoff
+                print(f"Retrying {r.status_code} in {wait}s (attempt {attempt + 1}/{retries + 1})...")
+                time.sleep(wait)
                 continue
 
             if r.status_code >= 400:
@@ -525,15 +546,7 @@ def get_response(
                         content += block.get("text") or ""
                 content = content.strip()
 
-                # Extract usage
-                if usage := response_json.get("usage"):
-                    input_tokens = usage.get("input_tokens", 0)
-                    output_tokens = usage.get("output_tokens", 0)
-                    costs = MODEL_COSTS.get(model, (0.0, 0.0))
-                    cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
-                    print(
-                        f"{model} ({input_tokens}→{output_tokens} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)"
-                    )
+                _print_openai_usage(response_json, model, elapsed)
             else:
                 content = _openai_response_text(response_json)
                 _print_openai_usage(response_json, model, elapsed)
@@ -559,10 +572,6 @@ def get_response(
                 time.sleep(2**attempt)
                 continue
             raise
-        except requests.exceptions.HTTPError:
-            raise
-
-    return content
 
 
 def get_pr_open_response(repository: str, diff_text: str, title: str, username: str, available_labels: dict) -> dict:
