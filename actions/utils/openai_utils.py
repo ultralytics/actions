@@ -259,7 +259,7 @@ def _format_tool_calls(calls: list[str]) -> str:
 
 
 def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadata: str = "") -> None:
-    """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, +31 thinking), $0.69000, 8.9s'."""
+    """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, +31 thinking), $0.69, 8.9s'."""
     if usage := response_json.get("usage"):
         input_tokens, cached_tokens = _normalize_usage_tokens(usage)
         output_tokens = usage.get("output_tokens", 0)  # includes thinking, noted in the parenthetical
