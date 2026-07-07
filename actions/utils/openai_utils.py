@@ -200,7 +200,7 @@ def _openai_response_text(response_json: dict) -> str:
 def _response_tool_calls(output_items: list[dict]) -> list[str]:
     """Name Responses API tool-call output items, including hosted tools (e.g. web_search_call -> web_search)."""
     return [
-        item.get("name") or (item.get("type") or "").removesuffix("_call")
+        item.get("name") or (item.get("type") or "")[: -len("_call")]  # removesuffix needs py3.9+, repo floor is 3.8
         for item in output_items
         if (item.get("type") or "").endswith("_call")
     ]
@@ -265,9 +265,10 @@ def _post_openai_response(
             success = r.status_code == 200
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
 
-            if attempt < retries and r.status_code >= 500:
-                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
-                time.sleep(2**attempt)
+            if attempt < retries and (r.status_code >= 500 or r.status_code == 429):
+                wait = 10 * 2**attempt if r.status_code == 429 else 2**attempt  # rate limits need longer backoff
+                print(f"Retrying {r.status_code} in {wait}s (attempt {attempt + 1}/{retries + 1})...")
+                time.sleep(wait)
                 continue
 
             if r.status_code >= 400:
@@ -504,10 +505,11 @@ def get_response(
             success = r.status_code == 200
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
 
-            # Retry server errors
-            if attempt < retries and r.status_code >= 500:
-                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
-                time.sleep(2**attempt)
+            # Retry server errors and rate limits (a 429 rejection executed nothing, so retrying is side-effect free)
+            if attempt < retries and (r.status_code >= 500 or r.status_code == 429):
+                wait = 10 * 2**attempt if r.status_code == 429 else 2**attempt  # rate limits need longer backoff
+                print(f"Retrying {r.status_code} in {wait}s (attempt {attempt + 1}/{retries + 1})...")
+                time.sleep(wait)
                 continue
 
             if r.status_code >= 400:

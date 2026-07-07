@@ -101,6 +101,27 @@ def test_get_response(mock_post):
     mock_post.assert_called_once()
 
 
+@patch("time.sleep")
+@patch("requests.post")
+def test_get_response_retries_rate_limits(mock_post, mock_sleep):
+    """Test a 429 response is retried with a longer backoff than server errors."""
+    limited = MagicMock()
+    limited.status_code = 429
+    limited.elapsed.total_seconds.return_value = 0.1
+    ok = MagicMock()
+    ok.status_code = 200
+    ok.elapsed.total_seconds.return_value = 1.0
+    ok.json.return_value = {"output": [{"type": "message", "content": [{"type": "output_text", "text": "recovered"}]}]}
+    mock_post.side_effect = [limited, ok]
+
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
+        result = get_response([{"role": "user", "content": "Hello"}], check_links=False, retries=1)
+
+    assert result == "recovered"
+    assert mock_post.call_count == 2
+    mock_sleep.assert_called_once_with(10)  # 10 * 2**0, not the 2**0 server-error backoff
+
+
 @patch("requests.post")
 @patch("actions.utils.openai_utils.check_links_in_string")
 def test_get_response_with_link_check(mock_check_links, mock_post):
