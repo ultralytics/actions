@@ -7,8 +7,8 @@ import requests
 from actions.utils.openai_utils import (
     OPENAI_MODEL_DEFAULT,
     PR_REVIEW_MODEL_DEFAULT,
-    _count_response_tool_calls,
     _is_anthropic_model,
+    _response_tool_calls,
     get_agent_response,
     get_response,
     get_review_model,
@@ -31,15 +31,15 @@ def test_is_anthropic_model():
     assert _is_anthropic_model("gpt-5-mini-2025-08-07") is False
 
 
-def test_count_response_tool_calls():
-    """Test Responses API tool-call item counting."""
+def test_response_tool_calls():
+    """Test Responses API tool-call item naming, including hosted tools without a name field."""
     output_items = [
-        {"type": "function_call"},
+        {"type": "function_call", "name": "lookup_value"},
         {"type": "web_search_call"},
         {"type": "message"},
         {"type": "function_call_output"},
     ]
-    assert _count_response_tool_calls(output_items) == 2
+    assert _response_tool_calls(output_items) == ["lookup_value", "web_search"]
 
 
 def test_remove_outer_codeblocks():
@@ -212,10 +212,11 @@ def test_get_agent_response_calls_function_tools(mock_post):
         }
     ]
     printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
-    assert "turn 1/6, tools 1" in printed
-    assert "turn 2/6, tools 0" in printed
+    assert "turn 1/6, 1 tools (lookup_value)" in printed
+    assert "turn 2/6, 0 tools" in printed
     assert "30 (12 cached)→12 = 42 tokens, $0.00046" in printed
-    assert "agent total, turns 2, tools 1" in printed
+    assert "agent total, 2 turns, 1 tools" in printed
+    assert "Agent tool turn" not in printed  # tool names live in the per-turn usage line now
 
 
 @patch("requests.post")

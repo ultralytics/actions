@@ -197,9 +197,13 @@ def _openai_response_text(response_json: dict) -> str:
     return content.strip()
 
 
-def _count_response_tool_calls(output_items: list[dict]) -> int:
-    """Count Responses API tool-call output items, including hosted tools."""
-    return sum(1 for item in output_items if (item.get("type") or "").endswith("_call"))
+def _response_tool_calls(output_items: list[dict]) -> list[str]:
+    """Name Responses API tool-call output items, including hosted tools (e.g. web_search_call -> web_search)."""
+    return [
+        item.get("name") or (item.get("type") or "").removesuffix("_call")
+        for item in output_items
+        if (item.get("type") or "").endswith("_call")
+    ]
 
 
 def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | None:
@@ -246,7 +250,7 @@ def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadat
         if thinking_tokens:
             token_str += f" (+{thinking_tokens} thinking)"
         metadata = f", {metadata}" if metadata else ""
-        print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s{metadata})")
+        print(f"{model} {token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s{metadata}")
 
 
 def _post_openai_response(
@@ -381,18 +385,18 @@ def get_agent_response(
         total_usage = _add_openai_usage(total_usage, response_json)
         previous_response_id = response_json.get("id")
         output_items = response_json.get("output", [])
-        turn_tool_calls = _count_response_tool_calls(output_items)
-        tool_calls += turn_tool_calls
-        _print_openai_usage(response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, tools {turn_tool_calls}")
+        turn_calls = _response_tool_calls(output_items)
+        tool_calls += len(turn_calls)
+        tools_str = f"{len(turn_calls)} tools" + (f" ({', '.join(turn_calls)})" if turn_calls else "")
+        _print_openai_usage(response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, {tools_str}")
         function_calls = [item for item in output_items if item.get("type") == "function_call"]
 
         if not function_calls:
             _print_openai_usage(
-                {"usage": total_usage}, model, total_elapsed, f"agent total, turns {turn + 1}, tools {tool_calls}"
+                {"usage": total_usage}, model, total_elapsed, f"agent total, {turn + 1} turns, {tool_calls} tools"
             )
             return _finalize_response_content(response_json, text_format)
 
-        print(f"Agent tool turn {turn + 1}: {', '.join(c.get('name', 'unknown') for c in function_calls)}")
         if not previous_response_id:
             raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
         if max_cost and _openai_usage_cost(total_usage, model) >= max_cost:
@@ -418,9 +422,9 @@ def get_agent_response(
     response_json, elapsed = _post_openai_response(data, headers, max(retries, 2), request_timeout)
     total_elapsed += elapsed
     total_usage = _add_openai_usage(total_usage, response_json)
-    _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, tools 0")
+    _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, 0 tools")
     _print_openai_usage(
-        {"usage": total_usage}, model, total_elapsed, f"agent total, turns {turn + 2}, tools {tool_calls}"
+        {"usage": total_usage}, model, total_elapsed, f"agent total, {turn + 2} turns, {tool_calls} tools"
     )
     return _finalize_response_content(response_json, text_format)
 
@@ -525,15 +529,7 @@ def get_response(
                         content += block.get("text") or ""
                 content = content.strip()
 
-                # Extract usage
-                if usage := response_json.get("usage"):
-                    input_tokens = usage.get("input_tokens", 0)
-                    output_tokens = usage.get("output_tokens", 0)
-                    costs = MODEL_COSTS.get(model, (0.0, 0.0))
-                    cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
-                    print(
-                        f"{model} ({input_tokens}→{output_tokens} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)"
-                    )
+                _print_openai_usage(response_json, model, elapsed)
             else:
                 content = _openai_response_text(response_json)
                 _print_openai_usage(response_json, model, elapsed)
