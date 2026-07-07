@@ -16,7 +16,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 MODEL = os.getenv("MODEL")  # Auto-detected from API keys if not set
 REVIEW_MODEL = os.getenv("REVIEW_MODEL")  # Optional override for PR reviews
-MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% of 128k context)
+MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # deliberate COST ceiling, not a context limit; agent tools read the rest
 
 # Default models (single source of truth)
 OPENAI_MODEL_DEFAULT = "gpt-5.5"
@@ -176,9 +176,12 @@ def _poll_openai_response(response_json: dict, headers: dict, timeout: int = 900
         time.sleep(2)
         try:
             r = requests.get(f"https://api.openai.com/v1/responses/{response_id}", headers=headers, timeout=(30, 60))
+            if r.status_code >= 500 or r.status_code == 429:  # transient; the deadline above bounds the loop
+                print(f"OpenAI poll got {r.status_code}; continuing...")
+                continue
             r.raise_for_status()
             response_json = r.json()
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError) as e:
             print(f"OpenAI poll failed with {e.__class__.__name__}; continuing...")
 
     if response_id and response_json.get("status") != "completed":
@@ -504,7 +507,7 @@ def get_response(
         if is_anthropic:
             data = {
                 "model": model,
-                "max_tokens": 8192,
+                "max_tokens": 32000,  # large replies (reviews) exceed 8192; truncated schema output is unusable
                 "messages": user_messages,
             }
             if temperature != 1.0:  # 1.0 is the API default; newer Claude models 400 on explicit non-default values
@@ -563,6 +566,9 @@ def get_response(
                 content = content.strip()
 
                 _print_openai_usage(response_json, model, elapsed)
+                if response_json.get("stop_reason") == "max_tokens" and text_format:
+                    # A truncated schema-constrained reply is partial JSON; fail clearly instead of at json.loads
+                    raise RuntimeError(f"{model} response truncated at max_tokens; structured output is incomplete")
             else:
                 content = _openai_response_text(response_json)
                 _print_openai_usage(response_json, model, elapsed)
