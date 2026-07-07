@@ -272,7 +272,8 @@ def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadat
             notes.append(f"+{thinking_tokens} thinking")
         note_str = f" ({', '.join(notes)})" if notes else ""
         metadata = f", {metadata}" if metadata else ""
-        print(f"{model}: {input_tokens}→{output_tokens} tokens{note_str}, ${cost:.5f}, {elapsed:.1f}s{metadata}")
+        cost_str = f"${cost:.2f}" if cost == 0 or cost >= 0.01 else f"${cost:.5f}"  # match ultralytics/assistant
+        print(f"{model}: {input_tokens}→{output_tokens} tokens{note_str}, {cost_str}, {elapsed:.1f}s{metadata}")
 
 
 def _post_openai_response(
