@@ -233,8 +233,8 @@ def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | N
 def _normalize_usage_tokens(usage: dict) -> tuple[int, int]:
     """Return (input_tokens, cached_tokens) for OpenAI Responses or Anthropic Messages usage shapes.
 
-    Anthropic reports cache reads/writes outside input_tokens, so both fold back into the input total and reads count as
-    cached — the same normalization ultralytics/assistant applies, keeping cross-repo telemetry identical.
+    Anthropic reports cache reads/writes outside input_tokens, so both fold back into the input total and reads count
+    as cached — the same normalization ultralytics/assistant applies, keeping cross-repo telemetry identical.
     """
     cache_read = usage.get("cache_read_input_tokens", 0)
     input_tokens = usage.get("input_tokens", 0) + cache_read + usage.get("cache_creation_input_tokens", 0)
@@ -414,7 +414,7 @@ def get_agent_response(
 
         if not previous_response_id:
             raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
-        if max_cost and _openai_usage_cost(total_usage, model) >= max_cost:
+        if max_cost and total_usage and _openai_usage_cost(total_usage, model) >= max_cost:
             print(f"Agent cost budget ${max_cost:.2f} reached; skipping remaining tool turns")
             next_input = [  # pending calls still need outputs for the chained synthesis request to be valid
                 {"type": "function_call_output", "call_id": call.get("call_id"), "output": "Tool budget exhausted."}
@@ -490,9 +490,10 @@ def get_response(
             data = {
                 "model": model,
                 "max_tokens": 8192,
-                "temperature": temperature,
                 "messages": user_messages,
             }
+            if temperature != 1.0:  # 1.0 is the API default; newer Claude models 400 on explicit non-default values
+                data["temperature"] = temperature
             if system_content:
                 data["system"] = system_content
             # Tools (web_search) are not forwarded to Anthropic (caused empty responses with JSON schema)
