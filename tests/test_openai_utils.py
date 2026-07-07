@@ -238,8 +238,8 @@ def test_get_agent_response_calls_function_tools(mock_post):
     printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
     assert "turn 1/6, 1 tools (lookup_value)" in printed
     assert "turn 2/6, 0 tools" in printed
-    assert "30 (12 cached)→12 = 42 tokens, $0.00046" in printed
-    assert "agent total, 2 turns, 1 tools" in printed
+    assert "30→12 tokens (40% cached), $0.00046" in printed
+    assert "agent total, 2 turns, 1 tools (lookup_value)" in printed
     assert "Agent tool turn" not in printed  # tool names live in the per-turn usage line now
 
 
@@ -351,7 +351,7 @@ def test_get_response_anthropic(mock_post):
     assert result == "Test response from Claude"
     printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
     # Cache reads/writes fold into input and reads count as cached, matching ultralytics/assistant normalization
-    assert "1000 (900 cached)→20 = 1020 tokens, $0.00087" in printed
+    assert "1000→20 tokens (90% cached), $0.00087" in printed
     mock_post.assert_called_once()
     # Verify Anthropic endpoint was called
     call_args = mock_post.call_args
