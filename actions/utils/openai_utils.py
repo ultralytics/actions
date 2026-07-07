@@ -259,7 +259,7 @@ def _format_tool_calls(calls: list[str]) -> str:
 
 
 def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadata: str = "") -> None:
-    """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, +31 thinking), $0.69, 8.9s'."""
+    """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, 31 thinking), $0.69, 8.9s'."""
     if usage := response_json.get("usage"):
         input_tokens, cached_tokens = _normalize_usage_tokens(usage)
         output_tokens = usage.get("output_tokens", 0)  # includes thinking, noted in the parenthetical
@@ -269,7 +269,7 @@ def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadat
         if cached_tokens:
             notes.append(f"{round(100 * cached_tokens / input_tokens)}% cached")
         if thinking_tokens:
-            notes.append(f"+{thinking_tokens} thinking")
+            notes.append(f"{thinking_tokens} thinking")
         note_str = f" ({', '.join(notes)})" if notes else ""
         metadata = f", {metadata}" if metadata else ""
         cost_str = f"${cost:.2f}" if cost == 0 or cost >= 0.01 else f"${cost:.5f}"  # match ultralytics/assistant
