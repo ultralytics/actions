@@ -178,7 +178,7 @@ def test_review_agent_search_scans_local_checkout_only(tmp_path, monkeypatch):
 
 
 def test_pr_head_sha_prefers_live_value():
-    """Test head SHA resolution prefers the live PR value and falls back to the event payload."""
+    """Test head SHA resolution requires the live PR value."""
     event = MagicMock()
     event.repository = "org/repo"
     event.pr = {"number": 5, "head": {"sha": "old"}}
@@ -187,7 +187,7 @@ def test_pr_head_sha_prefers_live_value():
     event.get.return_value = live
     assert review_pr.Action.get_pr_head_sha(event) == "new"
     event.get.return_value = MagicMock(status_code=500)
-    assert review_pr.Action.get_pr_head_sha(event) == "old"
+    assert review_pr.Action.get_pr_head_sha(event) is None
 
 
 def test_review_snapshot_retries_until_diff_and_head_match():

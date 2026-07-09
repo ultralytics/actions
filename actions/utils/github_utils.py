@@ -252,14 +252,13 @@ class Action:
         return self._pr_diff_cache
 
     def get_pr_head_sha(self) -> str | None:
-        """Return the live PR head SHA, falling back to the event payload."""
+        """Return the live PR head SHA."""
         if not self.pr:
             return None
         response = self.get(f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}")
         if response.status_code == 200 and (sha := (response.json().get("head") or {}).get("sha")):
             return sha
-        sha = (self.pr.get("head") or {}).get("sha")
-        return sha if isinstance(sha, str) else None
+        return None
 
     def get_pr_diff_snapshot(self) -> tuple[str, str]:
         """Fetch a diff whose PR head stayed unchanged for the full request."""

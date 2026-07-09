@@ -377,8 +377,8 @@ def get_agent_response(
 ) -> str | dict:
     """Run an iterative OpenAI Responses API agent with application-managed function tools.
 
-    max_cost is a USD ceiling across all turns (0 disables); once reached, remaining tool turns are skipped and the
-    agent synthesizes a final answer. Models missing from MODEL_COSTS disable max_cost loudly; max_turns still bounds.
+    max_cost is a USD ceiling across all turns (0 disables); a tool request after reaching it aborts the incomplete
+    agent run. Models missing from MODEL_COSTS disable max_cost loudly; max_turns still bounds.
     parallel_tools runs a turn's batched tool calls concurrently: opt in ONLY when every handler is thread-safe.
     """
     model = model or _get_default_model()
@@ -451,12 +451,7 @@ def get_agent_response(
         if not previous_response_id:
             raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
         if max_cost and _openai_usage_cost(total_usage, model) >= max_cost:
-            print(f"Agent cost budget ${max_cost:.2f} reached; skipping remaining tool turns")
-            next_input = [  # pending calls still need outputs for the chained synthesis request to be valid
-                {"type": "function_call_output", "call_id": call.get("call_id"), "output": "Tool budget exhausted."}
-                for call in function_calls
-            ]
-            break
+            raise RuntimeError(f"Agent cost budget ${max_cost:.2f} reached before requested tools could run")
         if parallel_tools and len(function_calls) > 1:  # opt-in contract: handlers must be thread-safe
             with ThreadPoolExecutor(max_workers=min(8, len(function_calls))) as pool:
                 next_input = list(pool.map(lambda call: _handle_function_call(call, tool_handlers), function_calls))
