@@ -484,6 +484,20 @@ def test_get_agent_response_rejects_incomplete_response(mock_post):
 
 
 @patch("requests.post")
+def test_get_response_rejects_incomplete_response(mock_post):
+    """Test synchronous Responses completions reject terminal incomplete output."""
+    response = MagicMock(status_code=200)
+    response.elapsed.total_seconds.return_value = 1.0
+    response.json.return_value = {"id": "resp_incomplete", "status": "incomplete", "incomplete_details": "limit"}
+    mock_post.return_value = response
+
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"), pytest.raises(
+        RuntimeError, match="ended with limit"
+    ):
+        get_response([{"role": "user", "content": "summary"}], check_links=False, retries=0)
+
+
+@patch("requests.post")
 def test_get_agent_response_rejects_failed_tool(mock_post):
     """Test failed evidence tools abort the agent run."""
     response = MagicMock(status_code=200)

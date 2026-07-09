@@ -595,7 +595,7 @@ def get_response(
 
             # Parse response
             response_json = r.json()
-            if background:
+            if background or (not is_anthropic and response_json.get("status")):
                 response_json = _poll_openai_response(response_json, headers)
                 elapsed = time.time() - started
             if is_anthropic:
