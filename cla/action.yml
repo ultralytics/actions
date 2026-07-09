@@ -16,26 +16,18 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: astral-sh/setup-uv@v7
+    - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
       with:
+        github-token: ""
         ignore-empty-workdir: true
-        enable-cache: false
         version: "0.9.4"
-
-    - name: Install requests
-      run: |
-        cd "$GITHUB_ACTION_PATH/.."
-        uv venv "$RUNNER_TEMP/ultralytics-cla"
-        uv pip install --python "$RUNNER_TEMP/ultralytics-cla/bin/python" \
-          "requests==2.32.4; python_version < '3.10'" \
-          "requests==2.33.0; python_version >= '3.10'"
-      shell: bash
 
     - name: Check CLA
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         CLA_TOKEN: ${{ inputs.cla-token }}
+        PYTHONPATH: ${{ github.action_path }}/..
       run: |
         cd "$GITHUB_ACTION_PATH/.."
-        "$RUNNER_TEMP/ultralytics-cla/bin/python" -m actions.cla
+        uv run --locked --script actions/cla.py
       shell: bash

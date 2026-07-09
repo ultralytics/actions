@@ -41,4 +41,6 @@ Raw unlinked commit emails are never guessed or treated as identity.
 
 The workflow requires `actions: write` to refresh the PR-head check after a
 signature comment and `pull-requests: write` to maintain its single status
-comment. It never checks out or executes pull request code.
+comment. `cla-token` should be a fine-grained token restricted to
+`ultralytics/cla` with **Contents: read and write** access. It never checks out
+or executes pull request code.
