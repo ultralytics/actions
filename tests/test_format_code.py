@@ -19,6 +19,16 @@ def test_format_commands_match_action_yml():
         assert arg == "*" or arg in text, f"codespell arg not in action.yml: {arg}"
 
 
+def test_action_yml_groups_close_on_exit():
+    """Test log groups close even when a grouped shell command fails."""
+    lines = ACTION_YML.read_text(encoding="utf-8").splitlines()
+    group_lines = [i for i, line in enumerate(lines) if 'echo "::group::' in line]
+
+    assert group_lines
+    assert all(lines[i + 1].strip() == "trap 'echo \"::endgroup::\"' EXIT" for i in group_lines)
+    assert not any(line.strip() == 'echo "::endgroup::"' for line in lines)
+
+
 def test_markdown_prettier_skips_symlinks():
     """Test Markdown formatting only targets regular files because Prettier rejects explicit symlink paths."""
     assert 'find . -name "*.md" -type f' in format_code.PRETTIER
