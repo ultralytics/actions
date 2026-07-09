@@ -1,0 +1,45 @@
+name: "Ultralytics CLA"
+author: "Ultralytics"
+description: "Check pull request contributors against the central Ultralytics CLA signature ledger"
+branding:
+  icon: "check-circle"
+  color: "green"
+inputs:
+  github-token:
+    description: "GitHub token for pull request comments and workflow reruns"
+    required: true
+  cla-token:
+    description: "Token with read/write access to the ultralytics/cla signature ledger"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - uses: astral-sh/setup-uv@v7
+      with:
+        ignore-empty-workdir: true
+        enable-cache: false
+        version: "0.9.4"
+
+    - name: Install ultralytics-actions
+      env:
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_SHA: ${{ github.sha }}
+      run: |
+        if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
+          packages="git+https://github.com/ultralytics/actions@${GITHUB_SHA}"
+        else
+          packages="git+https://github.com/ultralytics/actions@main"
+        fi
+        if [ "$(uname)" = "Darwin" ]; then
+          uv pip install --system --break-system-packages $packages
+        else
+          sudo env "PATH=$PATH" uv pip install --system $packages
+        fi
+      shell: bash
+
+    - name: Check CLA
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        CLA_TOKEN: ${{ inputs.cla-token }}
+      run: python -m actions.cla
+      shell: bash

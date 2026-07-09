@@ -36,6 +36,9 @@ def test_action_init():
         assert action.token == "test-token"
         assert action.event_name == "push"
         assert action.repository == "test/repo"
+        retry = action.session.get_adapter("https://api.github.com").max_retries
+        assert retry.total == 3
+        assert {429, 500, 502, 503, 504} == set(retry.status_forcelist)
 
 
 def test_action_request_methods():
