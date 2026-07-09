@@ -1,0 +1,35 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+name: "Ultralytics CLA"
+author: "Ultralytics"
+description: "Check pull request contributors against the central Ultralytics CLA signature ledger"
+branding:
+  icon: "check-circle"
+  color: "green"
+inputs:
+  github-token:
+    description: "GitHub token for pull request comments and workflow reruns"
+    required: true
+  cla-token:
+    description: "Token with read/write access to the ultralytics/cla signature ledger"
+    required: true
+runs:
+  using: "composite"
+  steps:
+    - name: Install requests
+      run: |
+        cd "$GITHUB_ACTION_PATH/.."
+        python -m venv "$RUNNER_TEMP/ultralytics-cla"
+        "$RUNNER_TEMP/ultralytics-cla/bin/python" -m pip install --disable-pip-version-check \
+          "requests==2.32.4; python_version < '3.10'" \
+          "requests==2.33.0; python_version >= '3.10'"
+      shell: bash
+
+    - name: Check CLA
+      env:
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        CLA_TOKEN: ${{ inputs.cla-token }}
+      run: |
+        cd "$GITHUB_ACTION_PATH/.."
+        "$RUNNER_TEMP/ultralytics-cla/bin/python" -m actions.cla
+      shell: bash
