@@ -225,12 +225,13 @@ def test_clear_previous_review_preserves_summaries_and_deletes_inline_comments()
                 {"id": 1, "state": "APPROVED", "body": review_pr.REVIEW_MARKER, "user": {"login": "review-bot"}},
                 {"id": 2, "state": "COMMENTED", "body": review_pr.REVIEW_MARKER, "user": {"login": "review-bot"}},
                 {"id": 3, "state": "APPROVED", "body": "Human review", "user": {"login": "human"}},
+                {"id": 6, "state": "COMMENTED", "body": "Other automation", "user": {"login": "review-bot"}},
             ]
         ),
         MagicMock(
             json=lambda: [
-                {"id": 4, "user": {"login": "review-bot"}},
-                {"id": 5, "user": {"login": "human"}},
+                {"id": 4, "pull_request_review_id": 1, "user": {"login": "review-bot"}},
+                {"id": 5, "pull_request_review_id": 6, "user": {"login": "review-bot"}},
             ]
         ),
     ]

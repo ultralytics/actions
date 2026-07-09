@@ -708,12 +708,13 @@ def clear_previous_review(event: Action) -> None:
     pr_number, bot_username = event.pr.get("number"), event.get_username()
     reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
     reviews = event.get(reviews_base, params={"per_page": 100}, hard=True).json()
+    owned_reviews = {
+        review["id"]
+        for review in reviews
+        if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or "")
+    }
     for review in reviews:
-        if (
-            review.get("user", {}).get("login") == bot_username
-            and REVIEW_MARKER in (review.get("body") or "")
-            and review.get("state") in ("APPROVED", "CHANGES_REQUESTED")
-        ):
+        if review.get("id") in owned_reviews and review.get("state") in ("APPROVED", "CHANGES_REQUESTED"):
             event.put(
                 f"{reviews_base}/{review['id']}/dismissals",
                 json={"message": "Superseded by new review"},
@@ -723,7 +724,7 @@ def clear_previous_review(event: Action) -> None:
     comments_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
     comments = event.get(comments_base, params={"per_page": 100}, hard=True).json()
     for comment in comments:
-        if comment.get("user", {}).get("login") == bot_username:
+        if comment.get("pull_request_review_id") in owned_reviews:
             event.delete(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments/{comment['id']}", hard=True)
 
 
