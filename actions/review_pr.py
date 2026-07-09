@@ -32,7 +32,7 @@ MAX_REVIEW_COMMENTS = 8
 MAX_TOOL_OUTPUT_CHARS = 20000
 MAX_TOOL_FILE_LINES = 240
 MAX_AGENT_TURNS = 16
-MAX_REVIEW_COST = 2.00  # USD ceiling per review across all agent turns
+REVIEW_COST_SOFT_LIMIT = 2.00  # stop requesting tools after cumulative spend reaches this amount
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
 
 
@@ -81,21 +81,6 @@ def search_repo(query: str, path_glob=None) -> str:
                 if len(matches) >= 200:
                     return _clip_tool_output("\n".join(matches))
     return _clip_tool_output("\n".join(matches)) if matches else "No matches found."
-
-
-def _pr_head_sha(event: Action | None) -> str | None:
-    """Return the live PR head SHA (payload fallback) so reviews read the same code the diff describes."""
-    if event is None or not event.pr:
-        return None
-    if (number := event.pr.get("number")) and event.repository:
-        try:
-            response = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{number}")
-            if response.status_code == 200 and (sha := (response.json().get("head") or {}).get("sha")):
-                return sha
-        except Exception as e:
-            print(f"Live PR head lookup failed: {e}")
-    sha = (event.pr.get("head") or {}).get("sha")
-    return sha if isinstance(sha, str) else None
 
 
 def _fetch_head_file(event: Action, sha: str, path: str) -> str | None:
@@ -380,9 +365,16 @@ def parse_diff_files(diff_text: str) -> tuple[dict, str]:
 
 
 def generate_pr_review(
-    repository: str, diff_text: str, pr_title: str, pr_description: str, event: Action = None
+    repository: str,
+    diff_text: str,
+    pr_title: str,
+    pr_description: str,
+    event: Action = None,
+    head_sha: str | None = None,
 ) -> dict:
     """Generate comprehensive PR review with line-specific comments and overall assessment."""
+    if diff_text.startswith("ERROR:"):
+        return {"comments": [], "summary": f"{ERROR_MARKER}: {diff_text}"}
     if not diff_text:
         return {"comments": [], "summary": "No changes detected in diff"}
 
@@ -408,7 +400,7 @@ def generate_pr_review(
     # Read model-appropriate guidelines from the PR head for project-specific review context
     review_model = get_review_model()
     is_agent_review_model = not _is_anthropic_model(review_model)
-    head_sha = _pr_head_sha(event)
+    head_sha = head_sha or (event.get_pr_head_sha() if event else None)
     local_checkout = _verified_local_checkout(head_sha)
     if head_sha:
         print(f"Reviewing PR head {head_sha[:7]} ({'local checkout' if local_checkout else 'via GitHub API'})")
@@ -579,7 +571,7 @@ def generate_pr_review(
             tools=tools,
             tool_handlers=tool_handlers,
             max_turns=MAX_AGENT_TURNS,
-            max_cost=MAX_REVIEW_COST,
+            max_cost=REVIEW_COST_SOFT_LIMIT,
             parallel_tools=True,  # review tools are read-only GitHub/diff reads, safe to batch concurrently
             request_timeout=(30, 120),
             retries=1,  # one transient failure on any of the sequential turns would otherwise abort the whole review
@@ -691,35 +683,6 @@ def generate_pr_review(
         return {"comments": [], "summary": summary}
 
 
-def dismiss_previous_reviews(event: Action) -> int:
-    """Dismiss previous bot reviews and delete inline comments, returns count for numbering."""
-    if not (pr_number := event.pr.get("number")) or not (bot_username := event.get_username()):
-        return 1
-
-    review_count = 0
-    reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
-    reviews_url = f"{reviews_base}?per_page=100"
-    if (response := event.get(reviews_url)).status_code == 200:
-        for review in response.json():
-            if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or ""):
-                review_count += 1
-                if review.get("state") in ["APPROVED", "CHANGES_REQUESTED"] and (review_id := review.get("id")):
-                    event.put(f"{reviews_base}/{review_id}/dismissals", json={"message": "Superseded by new review"})
-
-    # Delete previous inline comments
-    comments_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments?per_page=100"
-    delete_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments"
-    if (response := event.get(comments_url)).status_code == 200:
-        for comment in response.json():
-            if comment.get("user", {}).get("login") == bot_username and (comment_id := comment.get("id")):
-                event.delete(
-                    f"{delete_base}/{comment_id}",
-                    expected_status=[200, 204, 404],
-                )
-
-    return review_count + 1
-
-
 def get_local_head_sha() -> str | None:
     """Get the current HEAD SHA from local git repo."""
     import subprocess
@@ -745,17 +708,18 @@ def _verified_local_checkout(head_sha: str | None) -> bool:
         return False
 
 
-def post_review_summary(event: Action, review_data: dict, review_number: int) -> None:
+def post_review_summary(event: Action, review_data: dict) -> None:
     """Post overall review summary and inline comments as a single PR review."""
     if not (pr_number := event.pr.get("number")):
         return
 
     # Anchor to the exact head the review was generated from; fall back to the local checkout, then live head
-    commit_sha = review_data.get("head_sha") or get_local_head_sha() or _pr_head_sha(event)
+    commit_sha = review_data.get("head_sha") or get_local_head_sha() or event.get_pr_head_sha()
     if not commit_sha:
         return
+    if event.get_pr_head_sha() != commit_sha:
+        raise RuntimeError("PR head changed during review generation")
 
-    review_title = f"{REVIEW_MARKER} {review_number}" if review_number > 1 else REVIEW_MARKER
     comments = review_data.get("comments", [])
     summary = review_data.get("summary") or ""
 
@@ -763,9 +727,13 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     has_error = not summary or ERROR_MARKER in summary
     has_inline_comments = review_data.get("comments_before_filtering", 0) > 0
     has_issues = any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments)
-    event_type = "COMMENT" if (has_error or has_inline_comments or has_issues) else "APPROVE"
+    event_type = (
+        "COMMENT"
+        if (has_error or has_inline_comments or has_issues or review_data.get("diff_truncated"))
+        else "APPROVE"
+    )
 
-    body = f"{review_title}\n\n{ACTIONS_CREDIT}\n\n{summary[:3000]}\n\n"
+    body = f"{REVIEW_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary[:3000]}\n\n"
 
     if comments:
         body += f"💬 Posted {len(comments)} inline comment{'s' if len(comments) != 1 else ''}\n"
@@ -807,7 +775,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int) ->
     if review_comments:
         payload["comments"] = review_comments
 
-    event.post(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews", json=payload)
+    event.post(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews", json=payload, hard=True)
 
 
 def main(*args, **kwargs):
@@ -829,12 +797,15 @@ def main(*args, **kwargs):
         return
 
     print(f"Starting PR review for #{event.pr['number']}")
-    review_number = dismiss_previous_reviews(event)
-
-    diff = event.get_pr_diff()
-    review = generate_pr_review(event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "", event)
-
-    post_review_summary(event, review, review_number)
+    try:
+        diff, head_sha = event.get_pr_diff_snapshot()
+    except RuntimeError as e:
+        print(f"Skipping stale PR review: {e}")
+        return
+    review = generate_pr_review(
+        event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "", event, head_sha
+    )
+    post_review_summary(event, review)
     print("PR review completed")
 
 

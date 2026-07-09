@@ -236,9 +236,9 @@ class Action:
             return True
         return False
 
-    def get_pr_diff(self) -> str:
+    def get_pr_diff(self, refresh: bool = False) -> str:
         """Retrieves the diff content for a specified pull request with caching."""
-        if self._pr_diff_cache:
+        if self._pr_diff_cache and not refresh:
             return self._pr_diff_cache
 
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}"
@@ -250,6 +250,27 @@ class Action:
         else:
             self._pr_diff_cache = "ERROR: UNABLE TO RETRIEVE DIFF."
         return self._pr_diff_cache
+
+    def get_pr_head_sha(self) -> str | None:
+        """Return the live PR head SHA, falling back to the event payload."""
+        if not self.pr:
+            return None
+        response = self.get(f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}")
+        if response.status_code == 200 and (sha := (response.json().get("head") or {}).get("sha")):
+            return sha
+        sha = (self.pr.get("head") or {}).get("sha")
+        return sha if isinstance(sha, str) else None
+
+    def get_pr_diff_snapshot(self) -> tuple[str, str]:
+        """Fetch a diff whose PR head stayed unchanged for the full request."""
+        for _ in range(2):
+            head_before = self.get_pr_head_sha()
+            diff = self.get_pr_diff(refresh=True)
+            head_after = self.get_pr_head_sha()
+            if head_before and head_before == head_after:
+                return diff, head_after
+            print(f"PR head moved while fetching diff ({head_before} -> {head_after}); retrying")
+        raise RuntimeError("PR head changed repeatedly while fetching the review diff")
 
     def get_repo_data(self, endpoint: str) -> dict:
         """Fetches repository data from a specified endpoint."""

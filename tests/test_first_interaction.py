@@ -1,6 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -137,7 +137,7 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, m
         "search_repo",
     }
     assert kwargs["max_turns"] == review_pr.MAX_AGENT_TURNS
-    assert kwargs["max_cost"] == review_pr.MAX_REVIEW_COST
+    assert kwargs["max_cost"] == review_pr.REVIEW_COST_SOFT_LIMIT
     assert kwargs["reasoning_effort"] == "medium"
     assert kwargs["request_timeout"] == (30, 120)
     assert "FULL FILE CONTENTS" not in mock_get_agent_response.call_args.args[0][1]["content"]
@@ -185,10 +185,47 @@ def test_pr_head_sha_prefers_live_value():
     live = MagicMock(status_code=200)
     live.json.return_value = {"head": {"sha": "new"}}
     event.get.return_value = live
-    assert review_pr._pr_head_sha(event) == "new"
+    assert review_pr.Action.get_pr_head_sha(event) == "new"
     event.get.return_value = MagicMock(status_code=500)
-    assert review_pr._pr_head_sha(event) == "old"
-    assert review_pr._pr_head_sha(None) is None
+    assert review_pr.Action.get_pr_head_sha(event) == "old"
+
+
+def test_review_snapshot_retries_until_diff_and_head_match():
+    """Test review snapshots refetch the diff when a push races the first request."""
+    event = MagicMock()
+    event.get_pr_head_sha.side_effect = ["old", "new", "new", "new"]
+    event.get_pr_diff.side_effect = ["old diff", "new diff"]
+
+    assert review_pr.Action.get_pr_diff_snapshot(event) == ("new diff", "new")
+    assert event.get_pr_diff.call_args_list == [call(refresh=True), call(refresh=True)]
+    assert event.get_pr_head_sha.call_count == 4
+
+
+def test_post_review_summary_fails_when_github_rejects_review():
+    """Test review publication is a required operation rather than a silent best effort."""
+    event = MagicMock()
+    event.repository = "org/repo"
+    event.pr = {"number": 7}
+    event.get_pr_head_sha.return_value = "abc"
+
+    review_pr.post_review_summary(event, {"head_sha": "abc", "summary": "LGTM", "comments": []})
+
+    assert event.post.call_args.kwargs["hard"] is True
+
+
+def test_incomplete_review_evidence_cannot_approve():
+    """Test unavailable or truncated diffs produce comments rather than approvals."""
+    event = MagicMock()
+    event.repository = "org/repo"
+    event.pr = {"number": 7}
+    event.get_pr_head_sha.return_value = "abc"
+
+    error = review_pr.generate_pr_review("org/repo", "ERROR: UNABLE TO RETRIEVE DIFF.", "PR", "", event, "abc")
+    review_pr.post_review_summary(event, {**error, "head_sha": "abc"})
+    assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
+
+    review_pr.post_review_summary(event, {"head_sha": "abc", "summary": "LGTM", "comments": [], "diff_truncated": True})
+    assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
 
 
 def test_review_agent_tools_read_pr_head_via_api(tmp_path, monkeypatch):
