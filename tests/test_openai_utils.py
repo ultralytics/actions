@@ -2,8 +2,8 @@
 
 from unittest.mock import MagicMock, patch
 
-import requests
 import pytest
+import requests
 
 from actions.utils.openai_utils import (
     MODEL_COSTS,

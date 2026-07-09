@@ -378,8 +378,8 @@ def get_agent_response(
     """Run an iterative OpenAI Responses API agent with application-managed function tools.
 
     max_cost is a USD ceiling across all turns (0 disables); a tool request after reaching it aborts the incomplete
-    agent run. Models missing from MODEL_COSTS disable max_cost loudly; max_turns still bounds.
-    parallel_tools runs a turn's batched tool calls concurrently: opt in ONLY when every handler is thread-safe.
+    agent run. Models missing from MODEL_COSTS disable max_cost loudly; max_turns still bounds. parallel_tools runs a
+    turn's batched tool calls concurrently: opt in ONLY when every handler is thread-safe.
     """
     model = model or _get_default_model()
     if max_cost and model not in MODEL_COSTS:
