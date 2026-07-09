@@ -138,6 +138,7 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, m
     }
     assert kwargs["max_turns"] == review_pr.MAX_AGENT_TURNS
     assert kwargs["max_cost"] == review_pr.MAX_REVIEW_COST
+    assert kwargs["reasoning_effort"] == "medium"
     assert kwargs["request_timeout"] == (30, 120)
     assert "FULL FILE CONTENTS" not in mock_get_agent_response.call_args.args[0][1]["content"]
 
@@ -232,10 +233,10 @@ def test_review_agent_tools_read_pr_head_via_api(tmp_path, monkeypatch):
 def test_get_repo_guidelines_fetches_pr_head(mock_fetch):
     """Test guidelines are fetched from the PR head via the GitHub API."""
     mock_fetch.side_effect = lambda event, sha, path: "Be nice" if path == "AGENTS.md" else None
-    section = review_pr.get_repo_guidelines("gpt-5.5", event=MagicMock(), head_sha="abc")
+    section = review_pr.get_repo_guidelines("gpt-5.6-sol", event=MagicMock(), head_sha="abc")
     assert "AGENTS.md" in section and "Be nice" in section
     assert "CONTRIBUTING.md" not in section
-    assert review_pr.get_repo_guidelines("gpt-5.5", event=None, head_sha="abc") == ""
+    assert review_pr.get_repo_guidelines("gpt-5.6-sol", event=None, head_sha="abc") == ""
 
 
 def test_review_agent_tools_can_list_and_read_changed_file_diffs():

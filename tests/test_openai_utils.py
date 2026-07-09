@@ -19,10 +19,13 @@ from actions.utils.openai_utils import (
 
 def test_default_models():
     """Test canonical default models are priced so max_cost budgets stay enforceable."""
-    assert OPENAI_MODEL_DEFAULT == "gpt-5.5"
-    assert PR_REVIEW_MODEL_DEFAULT == "gpt-5.5"
+    assert OPENAI_MODEL_DEFAULT == "gpt-5.6-sol"
+    assert PR_REVIEW_MODEL_DEFAULT == "gpt-5.6-sol"
     assert OPENAI_MODEL_DEFAULT in MODEL_COSTS  # unpriced models disable max_cost budgets
     assert PR_REVIEW_MODEL_DEFAULT in MODEL_COSTS
+    assert MODEL_COSTS["gpt-5.6-sol"] == (5.00, 30.00)
+    assert MODEL_COSTS["gpt-5.6-terra"] == (2.50, 15.00)
+    assert MODEL_COSTS["gpt-5.6-luna"] == (1.00, 6.00)
 
 
 def test_is_anthropic_model():
@@ -30,7 +33,7 @@ def test_is_anthropic_model():
     assert _is_anthropic_model("claude-sonnet-4-6") is True
     assert _is_anthropic_model("claude-haiku-4-5-20251001") is True
     assert _is_anthropic_model("claude-opus-4-7") is True
-    assert _is_anthropic_model("gpt-5.5") is False
+    assert _is_anthropic_model("gpt-5.6-sol") is False
     assert _is_anthropic_model("gpt-5-mini-2025-08-07") is False
 
 
@@ -65,7 +68,7 @@ def test_remove_outer_codeblocks():
 def test_get_review_model_override():
     """Test review model override logic."""
     with patch("actions.utils.openai_utils.REVIEW_MODEL", "claude-opus-4-7"):
-        with patch("actions.utils.openai_utils.MODEL", "gpt-5.5"):
+        with patch("actions.utils.openai_utils.MODEL", "gpt-5.6-sol"):
             assert get_review_model() == "claude-opus-4-7"
 
 
@@ -238,6 +241,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
     assert mock_post.call_count == 2
     first_payload = mock_post.call_args_list[0].kwargs["json"]
     assert first_payload["store"] is True
+    assert first_payload["reasoning"] == {"effort": "low"}
     assert "include" not in first_payload
     assert "previous_response_id" not in first_payload
     assert first_payload["input"] == [{"role": "user", "content": "review"}]
@@ -389,7 +393,7 @@ def test_get_agent_response_stops_at_cost_budget(mock_post):
                 "arguments": '{"value": "abc"}',
             }
         ],
-        "usage": {"input_tokens": 1_000_000, "output_tokens": 0},  # $5.00 for gpt-5.5, over any small budget
+        "usage": {"input_tokens": 1_000_000, "output_tokens": 0},  # $5.00 for gpt-5.6-sol, over any small budget
     }
     final_response = MagicMock()
     final_response.status_code = 200
@@ -436,7 +440,7 @@ def test_get_agent_response_stops_at_cost_budget(mock_post):
             tools=tools,
             tool_handlers={"lookup_value": forbidden_handler},
             text_format={"format": {"type": "json_schema", "name": "review", "strict": True, "schema": schema}},
-            model="gpt-5.5",
+            model="gpt-5.6-sol",
             max_turns=8,
             max_cost=1.00,
             retries=0,

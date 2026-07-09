@@ -575,6 +575,7 @@ def generate_pr_review(
             messages,
             text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
             model=review_model,
+            reasoning_effort="medium",
             tools=tools,
             tool_handlers=tool_handlers,
             max_turns=MAX_AGENT_TURNS,
