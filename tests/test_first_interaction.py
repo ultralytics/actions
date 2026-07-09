@@ -213,6 +213,41 @@ def test_post_review_summary_fails_when_github_rejects_review():
     assert event.post.call_args.kwargs["hard"] is True
 
 
+def test_clear_previous_review_preserves_summaries_and_deletes_inline_comments():
+    """Test replacement reviews invalidate bot decisions and remove only bot inline comments."""
+    event = MagicMock()
+    event.repository = "org/repo"
+    event.pr = {"number": 7}
+    event.get_username.return_value = "review-bot"
+    event.get.side_effect = [
+        MagicMock(
+            json=lambda: [
+                {"id": 1, "state": "APPROVED", "body": review_pr.REVIEW_MARKER, "user": {"login": "review-bot"}},
+                {"id": 2, "state": "COMMENTED", "body": review_pr.REVIEW_MARKER, "user": {"login": "review-bot"}},
+                {"id": 3, "state": "APPROVED", "body": "Human review", "user": {"login": "human"}},
+            ]
+        ),
+        MagicMock(
+            json=lambda: [
+                {"id": 4, "user": {"login": "review-bot"}},
+                {"id": 5, "user": {"login": "human"}},
+            ]
+        ),
+    ]
+
+    review_pr.clear_previous_review(event)
+
+    event.put.assert_called_once_with(
+        "https://api.github.com/repos/org/repo/pulls/7/reviews/1/dismissals",
+        json={"message": "Superseded by new review"},
+        hard=True,
+    )
+    event.delete.assert_called_once_with(
+        "https://api.github.com/repos/org/repo/pulls/comments/4",
+        hard=True,
+    )
+
+
 def test_incomplete_review_evidence_cannot_approve():
     """Test unavailable or truncated diffs produce comments rather than approvals."""
     event = MagicMock()

@@ -703,6 +703,30 @@ def _verified_local_checkout(head_sha: str | None) -> bool:
         return False
 
 
+def clear_previous_review(event: Action) -> None:
+    """Dismiss the bot's active review decisions and delete its superseded inline comments."""
+    pr_number, bot_username = event.pr.get("number"), event.get_username()
+    reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
+    reviews = event.get(reviews_base, params={"per_page": 100}, hard=True).json()
+    for review in reviews:
+        if (
+            review.get("user", {}).get("login") == bot_username
+            and REVIEW_MARKER in (review.get("body") or "")
+            and review.get("state") in ("APPROVED", "CHANGES_REQUESTED")
+        ):
+            event.put(
+                f"{reviews_base}/{review['id']}/dismissals",
+                json={"message": "Superseded by new review"},
+                hard=True,
+            )
+
+    comments_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
+    comments = event.get(comments_base, params={"per_page": 100}, hard=True).json()
+    for comment in comments:
+        if comment.get("user", {}).get("login") == bot_username:
+            event.delete(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments/{comment['id']}", hard=True)
+
+
 def post_review_summary(event: Action, review_data: dict) -> None:
     """Post overall review summary and inline comments as a single PR review."""
     if not (pr_number := event.pr.get("number")):
@@ -795,6 +819,7 @@ def main(*args, **kwargs):
     except RuntimeError as e:
         print(f"Skipping stale PR review: {e}")
         return
+    clear_previous_review(event)
     review = generate_pr_review(
         event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "", event, head_sha
     )
