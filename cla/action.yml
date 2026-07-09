@@ -18,6 +18,7 @@ runs:
   steps:
     - name: Install requests
       run: |
+        cd "$GITHUB_ACTION_PATH/.."
         python -m venv "$RUNNER_TEMP/ultralytics-cla"
         "$RUNNER_TEMP/ultralytics-cla/bin/python" -m pip install --disable-pip-version-check \
           "requests==2.32.4; python_version < '3.10'" \

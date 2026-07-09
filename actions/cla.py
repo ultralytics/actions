@@ -163,7 +163,7 @@ def _persist(action: Action, records: list[dict], source: Action, number: int) -
         )
         if response.status_code in (200, 201):
             return
-        if response.status_code not in (409, 422, 429, 500, 502, 503, 504):
+        if response.status_code not in (409, 429, 500, 502, 503, 504):
             response.raise_for_status()
     raise RuntimeError("CLA signature ledger changed repeatedly during update")
 
