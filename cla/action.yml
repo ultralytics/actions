@@ -1,4 +1,5 @@
-name: "Ultralytics CLA"
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
 author: "Ultralytics"
 description: "Check pull request contributors against the central Ultralytics CLA signature ledger"
 branding:
