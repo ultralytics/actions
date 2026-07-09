@@ -413,6 +413,7 @@ def get_agent_response(
 
     base_data = {
         "model": model,
+        "service_tier": "default",
         "store": True,
         "temperature": temperature,
         "tools": tools,

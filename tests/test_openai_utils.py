@@ -271,6 +271,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
     assert mock_post.call_count == 2
     first_payload = mock_post.call_args_list[0].kwargs["json"]
     assert first_payload["store"] is True
+    assert first_payload["service_tier"] == "default"
     assert first_payload["reasoning"] == {"effort": "low"}
     assert "include" not in first_payload
     assert "previous_response_id" not in first_payload
