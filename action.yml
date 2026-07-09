@@ -157,7 +157,10 @@ runs:
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (github.event.action == 'opened' || github.event.action == 'synchronize')
       env:
         HEADER: ${{ inputs.header }}
-      run: ultralytics-actions-headers
+      run: |
+        echo "::group::File Header"
+        trap 'echo "::endgroup::"' EXIT
+        ultralytics-actions-headers
       shell: bash
       continue-on-error: false
 
@@ -253,6 +256,8 @@ runs:
     - name: Run Dart Formatter
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && inputs.dart == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
+        echo "::group::Run Dart Formatter"
+        trap 'echo "::endgroup::"' EXIT
         dart format .
       shell: bash
       continue-on-error: true # Important so that commit step can pick up changes
@@ -283,7 +288,10 @@ runs:
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
         MODEL: ${{ inputs.model }}
-      run: ultralytics-actions-summarize-pr
+      run: |
+        echo "::group::PR Summary"
+        trap 'echo "::endgroup::"' EXIT
+        ultralytics-actions-summarize-pr
       shell: bash
       continue-on-error: true
 
@@ -299,7 +307,10 @@ runs:
         MODEL: ${{ inputs.model }}
         REVIEW_MODEL: ${{ inputs.review_model }}
         REVIEW: ${{ inputs.review }}
-      run: ultralytics-actions-first-interaction
+      run: |
+        echo "::group::Autolabel Issues and PRs"
+        trap 'echo "::endgroup::"' EXIT
+        ultralytics-actions-first-interaction
       shell: bash
       continue-on-error: true
 
@@ -315,7 +326,10 @@ runs:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
         MODEL: ${{ inputs.model }}
         REVIEW_MODEL: ${{ inputs.review_model }}
-      run: ultralytics-actions-review-pr
+      run: |
+        echo "::group::PR Review"
+        trap 'echo "::endgroup::"' EXIT
+        ultralytics-actions-review-pr
       shell: bash
       continue-on-error: true
 

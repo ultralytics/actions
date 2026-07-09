@@ -20,12 +20,15 @@ def test_format_commands_match_action_yml():
 
 
 def test_action_yml_groups_close_on_exit():
-    """Test log groups close even when a grouped shell command fails."""
+    """Test every run step opens a log group that closes even when a command fails."""
     lines = ACTION_YML.read_text(encoding="utf-8").splitlines()
-    group_lines = [i for i, line in enumerate(lines) if 'echo "::group::' in line]
+    run_lines = [i for i, line in enumerate(lines) if line.strip().startswith("run:")]
 
-    assert group_lines
-    assert all(lines[i + 1].strip() == "trap 'echo \"::endgroup::\"' EXIT" for i in group_lines)
+    assert run_lines
+    for i in run_lines:
+        assert lines[i].strip() == "run: |", f"line {i + 1}: run step must be a block opening a log group"
+        assert lines[i + 1].strip().startswith('echo "::group::'), f"line {i + 2}: run step must open a log group"
+        assert lines[i + 2].strip() == "trap 'echo \"::endgroup::\"' EXIT", f"line {i + 3}: missing EXIT trap"
     assert not any(line.strip() == 'echo "::endgroup::"' for line in lines)
 
 
