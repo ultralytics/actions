@@ -208,7 +208,8 @@ def test_get_agent_response_calls_function_tools(mock_post):
                 "call_id": "call_123",
                 "name": "lookup_value",
                 "arguments": '{"value": "abc"}',
-            }
+            },
+            {"type": "web_search_call"},
         ],
         "usage": {
             "input_tokens": 10,
@@ -284,10 +285,10 @@ def test_get_agent_response_calls_function_tools(mock_post):
         }
     ]
     printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
-    assert "turn 1/6, 1 tools (lookup_value)" in printed
+    assert "turn 1/6, 2 tools (lookup_value, web_search)" in printed
     assert "turn 2/6, 0 tools" in printed
-    assert "30→12 tokens (40% cached), $0.00009" in printed
-    assert "agent total, 2 turns, 1 tools (lookup_value)" in printed
+    assert "30→12 tokens (40% cached), $0.01" in printed
+    assert "agent total, 2 turns, 2 tools (lookup_value, web_search)" in printed
     assert "Agent tool turn" not in printed  # tool names live in the per-turn usage line now
 
 

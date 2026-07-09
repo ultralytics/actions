@@ -18,6 +18,7 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 MODEL = os.getenv("MODEL")  # Auto-detected from API keys if not set
 REVIEW_MODEL = os.getenv("REVIEW_MODEL")  # Optional override for PR reviews
 MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # deliberate COST ceiling, not a context limit; agent tools read the rest
+WEB_SEARCH_CALL_COST = 0.01  # $10 per 1K calls
 
 # Default models (single source of truth)
 OPENAI_MODEL_DEFAULT = "gpt-5.6-luna"
@@ -279,14 +280,14 @@ def _format_tool_calls(calls: list[str]) -> str:
 
 
 def _print_openai_usage(
-    response_json: dict, model: str, elapsed: float, metadata: str = "", total_cost: float | None = None
+    response_json: dict, model: str, elapsed: float, metadata: str = "", billed_cost: float | None = None
 ) -> None:
     """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, 31 thinking), $0.69, 8.9s'."""
     if usage := response_json.get("usage"):
         input_tokens, cached_tokens, _ = _normalize_usage_tokens(usage)
         output_tokens = usage.get("output_tokens", 0)  # includes thinking, noted in the parenthetical
         thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
-        cost = _openai_usage_cost(usage, model) if total_cost is None else total_cost
+        cost = _openai_usage_cost(usage, model) if billed_cost is None else billed_cost
         notes = []
         if cached_tokens:
             notes.append(f"{round(100 * cached_tokens / input_tokens)}% cached")
@@ -437,13 +438,21 @@ def get_agent_response(
         response_json, elapsed = _post_openai_response(data, headers, retries, request_timeout)
         total_elapsed += elapsed
         total_usage = _add_openai_usage(total_usage, response_json)
-        total_cost += _openai_usage_cost(response_json.get("usage") or {}, model)
         previous_response_id = response_json.get("id")
         output_items = response_json.get("output", [])
         turn_calls = _response_tool_calls(output_items)
+        turn_cost = (
+            _openai_usage_cost(response_json.get("usage") or {}, model)
+            + turn_calls.count("web_search") * WEB_SEARCH_CALL_COST
+        )
+        total_cost += turn_cost
         tool_calls += turn_calls
         _print_openai_usage(
-            response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, {_format_tool_calls(turn_calls)}"
+            response_json,
+            model,
+            elapsed,
+            f"turn {turn + 1}/{max_turns}, {_format_tool_calls(turn_calls)}",
+            turn_cost,
         )
         function_calls = [item for item in output_items if item.get("type") == "function_call"]
 
