@@ -20,7 +20,6 @@ jobs:
     if: github.event_name == 'pull_request_target' || (github.event.issue.pull_request && (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I sign the CLA'))
     concurrency:
       group: cla-${{ github.event.pull_request.number || github.event.issue.number }}
-      queue: max
     runs-on: ubuntu-latest
     steps:
       - name: CLA Assistant
