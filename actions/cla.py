@@ -1,4 +1,11 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+# /// script
+# requires-python = ">=3.8"
+# dependencies = [
+#   "requests==2.32.4; python_version < '3.10'",
+#   "requests==2.33.0; python_version >= '3.10'",
+# ]
+# ///
 
 from __future__ import annotations
 
@@ -7,7 +14,7 @@ import json
 import os
 import time
 
-from .utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action
+from actions.utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action
 
 CLA_REPOSITORY = "ultralytics/cla"
 CLA_PATH = "signatures/version1/cla.json"

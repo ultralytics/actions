@@ -26,10 +26,8 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         CLA_TOKEN: ${{ inputs.cla-token }}
+        PYTHONPATH: ${{ github.action_path }}/..
       run: |
         cd "$GITHUB_ACTION_PATH/.."
-        uv run --isolated --no-project \
-          --with "requests==2.32.4; python_version < '3.10'" \
-          --with "requests==2.33.0; python_version >= '3.10'" \
-          python -m actions.cla
+        uv run --locked --script actions/cla.py
       shell: bash
