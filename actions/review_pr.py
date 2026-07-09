@@ -725,11 +725,12 @@ def post_review_summary(event: Action, review_data: dict) -> None:
 
     # Don't approve if error occurred, inline comments exist, or medium-or-higher severity issues
     has_error = not summary or ERROR_MARKER in summary
+    has_evidence = bool(review_data.get("diff_files"))
     has_inline_comments = review_data.get("comments_before_filtering", 0) > 0
     has_issues = any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments)
     event_type = (
         "COMMENT"
-        if (has_error or has_inline_comments or has_issues or review_data.get("diff_truncated"))
+        if (has_error or not has_evidence or has_inline_comments or has_issues or review_data.get("diff_truncated"))
         else "APPROVE"
     )
 

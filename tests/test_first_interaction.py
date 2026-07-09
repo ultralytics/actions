@@ -227,6 +227,11 @@ def test_incomplete_review_evidence_cannot_approve():
     review_pr.post_review_summary(event, {"head_sha": "abc", "summary": "LGTM", "comments": [], "diff_truncated": True})
     assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
 
+    review_pr.post_review_summary(
+        event, {"head_sha": "abc", "summary": "All changed files were skipped", "comments": []}
+    )
+    assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
+
 
 def test_review_agent_tools_read_pr_head_via_api(tmp_path, monkeypatch):
     """Test review tools serve PR-head content via the GitHub API regardless of local checkout."""
