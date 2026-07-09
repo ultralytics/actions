@@ -1,6 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 
@@ -137,7 +137,8 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, m
         "search_repo",
     }
     assert kwargs["max_turns"] == review_pr.MAX_AGENT_TURNS
-    assert kwargs["max_cost"] == review_pr.MAX_REVIEW_COST
+    assert kwargs["max_cost"] == review_pr.REVIEW_COST_SOFT_LIMIT
+    assert kwargs["reasoning_effort"] == "medium"
     assert kwargs["request_timeout"] == (30, 120)
     assert "FULL FILE CONTENTS" not in mock_get_agent_response.call_args.args[0][1]["content"]
 
@@ -177,17 +178,103 @@ def test_review_agent_search_scans_local_checkout_only(tmp_path, monkeypatch):
 
 
 def test_pr_head_sha_prefers_live_value():
-    """Test head SHA resolution prefers the live PR value and falls back to the event payload."""
+    """Test head SHA resolution requires the live PR value."""
     event = MagicMock()
     event.repository = "org/repo"
     event.pr = {"number": 5, "head": {"sha": "old"}}
     live = MagicMock(status_code=200)
     live.json.return_value = {"head": {"sha": "new"}}
     event.get.return_value = live
-    assert review_pr._pr_head_sha(event) == "new"
+    assert review_pr.Action.get_pr_head_sha(event) == "new"
     event.get.return_value = MagicMock(status_code=500)
-    assert review_pr._pr_head_sha(event) == "old"
-    assert review_pr._pr_head_sha(None) is None
+    assert review_pr.Action.get_pr_head_sha(event) is None
+
+
+def test_review_snapshot_retries_until_diff_and_head_match():
+    """Test review snapshots refetch the diff when a push races the first request."""
+    event = MagicMock()
+    event.get_pr_head_sha.side_effect = ["old", "new", "new", "new"]
+    event.get_pr_diff.side_effect = ["old diff", "new diff"]
+
+    assert review_pr.Action.get_pr_diff_snapshot(event) == ("new diff", "new")
+    assert event.get_pr_diff.call_args_list == [call(refresh=True), call(refresh=True)]
+    assert event.get_pr_head_sha.call_count == 4
+
+
+def test_post_review_summary_fails_when_github_rejects_review():
+    """Test review publication is a required operation rather than a silent best effort."""
+    event = MagicMock()
+    event.repository = "org/repo"
+    event.pr = {"number": 7}
+    event.get_pr_head_sha.return_value = "abc"
+
+    review_pr.post_review_summary(event, {"head_sha": "abc", "summary": "LGTM", "comments": []})
+
+    assert event.post.call_args.kwargs["hard"] is True
+
+
+def test_clear_previous_review_preserves_summaries_and_deletes_inline_comments():
+    """Test replacement reviews invalidate bot decisions and remove only bot inline comments."""
+    event = MagicMock()
+    event.repository = "org/repo"
+    event.pr = {"number": 7}
+    event.get_username.return_value = "review-bot"
+    event.get.side_effect = [
+        MagicMock(
+            json=lambda: [
+                {"id": 1, "state": "APPROVED", "body": review_pr.REVIEW_MARKER, "user": {"login": "review-bot"}},
+                {"id": 2, "state": "COMMENTED", "body": review_pr.REVIEW_MARKER, "user": {"login": "review-bot"}},
+                {"id": 3, "state": "APPROVED", "body": "Human review", "user": {"login": "human"}},
+                {"id": 6, "state": "COMMENTED", "body": "Other automation", "user": {"login": "review-bot"}},
+            ]
+        ),
+        MagicMock(
+            json=lambda: [
+                {"id": 4, "pull_request_review_id": 1, "user": {"login": "review-bot"}},
+                {"id": 5, "pull_request_review_id": 6, "user": {"login": "review-bot"}},
+            ]
+        ),
+    ]
+
+    review_pr.clear_previous_review(event)
+
+    event.put.assert_called_once_with(
+        "https://api.github.com/repos/org/repo/pulls/7/reviews/1/dismissals",
+        json={"message": "Superseded by new review"},
+        hard=True,
+    )
+    event.delete.assert_called_once_with(
+        "https://api.github.com/repos/org/repo/pulls/comments/4",
+        hard=True,
+    )
+
+
+def test_incomplete_review_evidence_cannot_approve():
+    """Test unavailable or truncated diffs produce comments rather than approvals."""
+    event = MagicMock()
+    event.repository = "org/repo"
+    event.pr = {"number": 7}
+    event.get_pr_head_sha.return_value = "abc"
+
+    error = review_pr.generate_pr_review("org/repo", "ERROR: UNABLE TO RETRIEVE DIFF.", "PR", "", event, "abc")
+    review_pr.post_review_summary(event, error)
+    assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
+
+    review_pr.post_review_summary(event, {"head_sha": "abc", "summary": "LGTM", "comments": [], "diff_truncated": True})
+    assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
+
+    binary = "diff --git a/image.png b/image.png\nBinary files a/image.png and b/image.png differ"
+    binary_review = review_pr.generate_pr_review("org/repo", binary, "PR", "", event, "abc")
+    review_pr.post_review_summary(event, binary_review)
+    assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
+
+    with pytest.raises(KeyError):
+        review_pr.post_review_summary(event, {"summary": "stale result", "comments": []})
+
+    review_pr.post_review_summary(
+        event, {"head_sha": "abc", "summary": "All changed files were skipped", "comments": []}
+    )
+    assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
 
 
 def test_review_agent_tools_read_pr_head_via_api(tmp_path, monkeypatch):
@@ -223,7 +310,8 @@ def test_review_agent_tools_read_pr_head_via_api(tmp_path, monkeypatch):
         handlers["read_file"](path="flaky.py", start_line=None, end_line=None)
 
     tree_response.status_code = 500
-    assert handlers["list_files"](path_glob=None) == "list_files failed: HTTP 500."  # failures are not cached
+    with pytest.raises(RuntimeError, match="list_files failed: HTTP 500"):
+        handlers["list_files"](path_glob=None)
     tree_response.status_code = 200
     assert handlers["list_files"](path_glob=None).splitlines() == ["tests/test_python.py"]
 
@@ -232,10 +320,10 @@ def test_review_agent_tools_read_pr_head_via_api(tmp_path, monkeypatch):
 def test_get_repo_guidelines_fetches_pr_head(mock_fetch):
     """Test guidelines are fetched from the PR head via the GitHub API."""
     mock_fetch.side_effect = lambda event, sha, path: "Be nice" if path == "AGENTS.md" else None
-    section = review_pr.get_repo_guidelines("gpt-5.5", event=MagicMock(), head_sha="abc")
+    section = review_pr.get_repo_guidelines("gpt-5.6-sol", event=MagicMock(), head_sha="abc")
     assert "AGENTS.md" in section and "Be nice" in section
     assert "CONTRIBUTING.md" not in section
-    assert review_pr.get_repo_guidelines("gpt-5.5", event=None, head_sha="abc") == ""
+    assert review_pr.get_repo_guidelines("gpt-5.6-sol", event=None, head_sha="abc") == ""
 
 
 def test_review_agent_tools_can_list_and_read_changed_file_diffs():

@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+import pytest
 import requests
 
 from actions.utils.openai_utils import (
@@ -9,6 +10,7 @@ from actions.utils.openai_utils import (
     OPENAI_MODEL_DEFAULT,
     PR_REVIEW_MODEL_DEFAULT,
     _is_anthropic_model,
+    _openai_usage_cost,
     _response_tool_calls,
     get_agent_response,
     get_response,
@@ -19,10 +21,32 @@ from actions.utils.openai_utils import (
 
 def test_default_models():
     """Test canonical default models are priced so max_cost budgets stay enforceable."""
-    assert OPENAI_MODEL_DEFAULT == "gpt-5.5"
-    assert PR_REVIEW_MODEL_DEFAULT == "gpt-5.5"
+    assert OPENAI_MODEL_DEFAULT == "gpt-5.6-luna"
+    assert PR_REVIEW_MODEL_DEFAULT == "gpt-5.6-terra"
     assert OPENAI_MODEL_DEFAULT in MODEL_COSTS  # unpriced models disable max_cost budgets
     assert PR_REVIEW_MODEL_DEFAULT in MODEL_COSTS
+    assert MODEL_COSTS["gpt-5.6-sol"] == (5.00, 30.00)
+    assert MODEL_COSTS["gpt-5.6-terra"] == (2.50, 15.00)
+    assert MODEL_COSTS["gpt-5.6-luna"] == (1.00, 6.00)
+
+
+def test_gpt_56_cost_includes_cache_write_and_long_context_rates():
+    """GPT-5.6 cache writes bill at 125%, with long requests at 2x input and 1.5x output."""
+    usage = {
+        "input_tokens": 1000,
+        "input_tokens_details": {"cached_tokens": 200, "cache_write_tokens": 300},
+        "output_tokens": 100,
+    }
+    expected = ((1000 - 200 * 0.9 + 300 * 0.25) * 5.00 + 100 * 30.00) / 1e6
+    assert _openai_usage_cost(usage, "gpt-5.6-sol") == expected
+    usage["input_tokens"] = 272001
+    expected = ((272001 - 200 * 0.9 + 300 * 0.25) * 5.00 * 2 + 100 * 30.00 * 1.5) / 1e6
+    assert _openai_usage_cost(usage, "gpt-5.6-sol") == expected
+    turns = [{"input_tokens": 150000, "output_tokens": 0}] * 2
+    assert sum(_openai_usage_cost(turn, "gpt-5.6-luna") for turn in turns) == 0.3
+    assert _openai_usage_cost({"input_tokens": 300000, "output_tokens": 0}, "gpt-5.6-luna") == 0.6
+    old_model_expected = ((1000 - 200 * 0.9) * 5.00 + 100 * 30.00) / 1e6
+    assert _openai_usage_cost({**usage, "input_tokens": 1000}, "gpt-5.5") == old_model_expected
 
 
 def test_is_anthropic_model():
@@ -30,7 +54,7 @@ def test_is_anthropic_model():
     assert _is_anthropic_model("claude-sonnet-4-6") is True
     assert _is_anthropic_model("claude-haiku-4-5-20251001") is True
     assert _is_anthropic_model("claude-opus-4-7") is True
-    assert _is_anthropic_model("gpt-5.5") is False
+    assert _is_anthropic_model("gpt-5.6-terra") is False
     assert _is_anthropic_model("gpt-5-mini-2025-08-07") is False
 
 
@@ -65,7 +89,7 @@ def test_remove_outer_codeblocks():
 def test_get_review_model_override():
     """Test review model override logic."""
     with patch("actions.utils.openai_utils.REVIEW_MODEL", "claude-opus-4-7"):
-        with patch("actions.utils.openai_utils.MODEL", "gpt-5.5"):
+        with patch("actions.utils.openai_utils.MODEL", "gpt-5.6-terra"):
             assert get_review_model() == "claude-opus-4-7"
 
 
@@ -184,9 +208,14 @@ def test_get_agent_response_calls_function_tools(mock_post):
                 "call_id": "call_123",
                 "name": "lookup_value",
                 "arguments": '{"value": "abc"}',
-            }
+            },
+            {"type": "web_search_call"},
         ],
-        "usage": {"input_tokens": 10, "input_tokens_details": {"cached_tokens": 4}, "output_tokens": 5},
+        "usage": {
+            "input_tokens": 10,
+            "input_tokens_details": {"cached_tokens": 4, "cache_write_tokens": 3},
+            "output_tokens": 5,
+        },
     }
     second_response = MagicMock()
     second_response.status_code = 200
@@ -199,7 +228,11 @@ def test_get_agent_response_calls_function_tools(mock_post):
                 "content": [{"type": "output_text", "text": '{"comments": [], "summary": "done"}'}],
             }
         ],
-        "usage": {"input_tokens": 20, "input_tokens_details": {"cached_tokens": 8}, "output_tokens": 7},
+        "usage": {
+            "input_tokens": 20,
+            "input_tokens_details": {"cached_tokens": 8, "cache_write_tokens": 6},
+            "output_tokens": 7,
+        },
     }
     mock_post.side_effect = [first_response, second_response]
 
@@ -238,6 +271,8 @@ def test_get_agent_response_calls_function_tools(mock_post):
     assert mock_post.call_count == 2
     first_payload = mock_post.call_args_list[0].kwargs["json"]
     assert first_payload["store"] is True
+    assert first_payload["service_tier"] == "default"
+    assert first_payload["reasoning"] == {"effort": "low"}
     assert "include" not in first_payload
     assert "previous_response_id" not in first_payload
     assert first_payload["input"] == [{"role": "user", "content": "review"}]
@@ -251,10 +286,10 @@ def test_get_agent_response_calls_function_tools(mock_post):
         }
     ]
     printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
-    assert "turn 1/6, 1 tools (lookup_value)" in printed
+    assert "turn 1/6, 2 tools (lookup_value, web_search)" in printed
     assert "turn 2/6, 0 tools" in printed
-    assert "30→12 tokens (40% cached), $0.00046" in printed
-    assert "agent total, 2 turns, 1 tools (lookup_value)" in printed
+    assert "30→12 tokens (40% cached), $0.01" in printed
+    assert "agent total, 2 turns, 2 tools (lookup_value, web_search)" in printed
     assert "Agent tool turn" not in printed  # tool names live in the per-turn usage line now
 
 
@@ -375,7 +410,7 @@ def test_get_response_anthropic(mock_post):
 
 @patch("requests.post")
 def test_get_agent_response_stops_at_cost_budget(mock_post):
-    """Test the cost budget skips remaining tool turns and forces final synthesis with stub tool outputs."""
+    """Test the cost budget aborts rather than synthesizing from incomplete tool evidence."""
     tool_response = MagicMock()
     tool_response.status_code = 200
     tool_response.elapsed.total_seconds.return_value = 1.0
@@ -389,22 +424,9 @@ def test_get_agent_response_stops_at_cost_budget(mock_post):
                 "arguments": '{"value": "abc"}',
             }
         ],
-        "usage": {"input_tokens": 1_000_000, "output_tokens": 0},  # $5.00 for gpt-5.5, over any small budget
+        "usage": {"input_tokens": 1_000_000, "output_tokens": 0},  # $5.00 for gpt-5.6-sol, over any small budget
     }
-    final_response = MagicMock()
-    final_response.status_code = 200
-    final_response.elapsed.total_seconds.return_value = 1.0
-    final_response.json.return_value = {
-        "id": "resp_final",
-        "output": [
-            {
-                "type": "message",
-                "content": [{"type": "output_text", "text": '{"comments": [], "summary": "budget"}'}],
-            }
-        ],
-        "usage": {"input_tokens": 20, "output_tokens": 7},
-    }
-    mock_post.side_effect = [tool_response, final_response]
+    mock_post.return_value = tool_response
 
     schema = {
         "type": "object",
@@ -430,26 +452,73 @@ def test_get_agent_response_stops_at_cost_budget(mock_post):
     def forbidden_handler(value):
         raise AssertionError("tool handlers must not run once the cost budget is reached")
 
-    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
-        result = get_agent_response(
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"), pytest.raises(
+        RuntimeError, match=r"cost budget.*reached"
+    ):
+        get_agent_response(
             [{"role": "user", "content": "review"}],
             tools=tools,
             tool_handlers={"lookup_value": forbidden_handler},
             text_format={"format": {"type": "json_schema", "name": "review", "strict": True, "schema": schema}},
-            model="gpt-5.5",
+            model="gpt-5.6-sol",
             max_turns=8,
             max_cost=1.00,
             retries=0,
         )
 
-    assert result == {"comments": [], "summary": "budget"}
-    assert mock_post.call_count == 2  # budget reached on turn 1, remaining turns skipped
-    final_payload = mock_post.call_args_list[1].kwargs["json"]
-    assert final_payload["tool_choice"] == "none"
-    assert final_payload["previous_response_id"] == "resp_tool"
-    assert final_payload["input"][0] == {
-        "type": "function_call_output",
-        "call_id": "call_123",
-        "output": "Tool budget exhausted.",
+    mock_post.assert_called_once()
+
+
+@patch("requests.post")
+def test_get_agent_response_rejects_incomplete_response(mock_post):
+    """Test terminal incomplete responses cannot become review evidence."""
+    response = MagicMock(status_code=200)
+    response.elapsed.total_seconds.return_value = 1.0
+    response.json.return_value = {"id": "resp_incomplete", "status": "incomplete", "incomplete_details": "limit"}
+    mock_post.return_value = response
+
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"), pytest.raises(
+        RuntimeError, match="ended with limit"
+    ):
+        get_agent_response([{"role": "user", "content": "review"}], tools=[], tool_handlers={}, retries=0)
+
+
+@patch("requests.post")
+def test_get_response_rejects_incomplete_response(mock_post):
+    """Test synchronous Responses completions reject terminal incomplete output."""
+    response = MagicMock(status_code=200)
+    response.elapsed.total_seconds.return_value = 1.0
+    response.json.return_value = {"id": "resp_incomplete", "status": "incomplete", "incomplete_details": "limit"}
+    mock_post.return_value = response
+
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"), pytest.raises(
+        RuntimeError, match="ended with limit"
+    ):
+        get_response([{"role": "user", "content": "summary"}], check_links=False, retries=0)
+
+
+@patch("requests.post")
+def test_get_agent_response_rejects_failed_tool(mock_post):
+    """Test failed evidence tools abort the agent run."""
+    response = MagicMock(status_code=200)
+    response.elapsed.total_seconds.return_value = 1.0
+    response.json.return_value = {
+        "id": "resp_tool",
+        "status": "completed",
+        "output": [{"type": "function_call", "call_id": "call_123", "name": "read_file", "arguments": "{}"}],
+        "usage": {"input_tokens": 10, "output_tokens": 5},
     }
-    assert "Synthesize the gathered tool results" in final_payload["input"][-1]["content"]
+    mock_post.return_value = response
+
+    def failed_read():
+        raise RuntimeError("read failed")
+
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"), pytest.raises(
+        RuntimeError, match="read failed"
+    ):
+        get_agent_response(
+            [{"role": "user", "content": "review"}],
+            tools=[],
+            tool_handlers={"read_file": failed_read},
+            retries=0,
+        )
