@@ -1,4 +1,5 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
 # /// script
 # requires-python = ">=3.8"
 # dependencies = [
