@@ -4,7 +4,7 @@ Checks every pull request commit author against the shared signature ledger in
 `ultralytics/cla` and maintains one status comment on the pull request.
 
 ```yaml
-name: CLA Assistant
+name: CLA
 on:
   issue_comment:
     types: [created]
@@ -22,7 +22,7 @@ jobs:
       group: cla-${{ github.event.pull_request.number || github.event.issue.number }}
     runs-on: ubuntu-latest
     steps:
-      - name: CLA Assistant
+      - name: CLA
         uses: ultralytics/actions/cla@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
