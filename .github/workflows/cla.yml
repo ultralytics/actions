@@ -27,7 +27,7 @@ jobs:
     steps:
       - name: CLA Assistant
         if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I sign the CLA') || github.event_name == 'pull_request_target'
-        uses: ultralytics/actions/cla@main
+        uses: ultralytics/actions/cla@43945a7d2364fc943becb0245a4edcb05e49427f
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           cla-token: ${{ secrets._GITHUB_TOKEN }}
