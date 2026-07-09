@@ -579,6 +579,7 @@ def generate_pr_review(
             tool_handlers=tool_handlers,
             max_turns=MAX_AGENT_TURNS,
             max_cost=MAX_REVIEW_COST,
+            parallel_tools=True,  # review tools are read-only GitHub/diff reads, safe to batch concurrently
             request_timeout=(30, 120),
             retries=1,  # one transient failure on any of the sequential turns would otherwise abort the whole review
             # Do not pass background=True; queued background reviews can consume the full 900s poll timeout.

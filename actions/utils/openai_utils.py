@@ -7,6 +7,7 @@ import os
 import re
 import time
 from collections.abc import Callable
+from concurrent.futures import ThreadPoolExecutor
 
 import requests
 
@@ -16,7 +17,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 MODEL = os.getenv("MODEL")  # Auto-detected from API keys if not set
 REVIEW_MODEL = os.getenv("REVIEW_MODEL")  # Optional override for PR reviews
-MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # Max characters for prompt (50% of 128k context)
+MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # deliberate COST ceiling, not a context limit; agent tools read the rest
 
 # Default models (single source of truth)
 OPENAI_MODEL_DEFAULT = "gpt-5.5"
@@ -42,6 +43,9 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "claude-opus-4-5-20251101": (5.00, 25.00),
     "claude-opus-4-6": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
+    "claude-sonnet-5": (2.00, 10.00),  # introductory pricing through 2026-08-31, then (3.00, 15.00)
+    "claude-opus-4-8": (5.00, 25.00),
+    "claude-fable-5": (10.00, 50.00),
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v).
@@ -175,9 +179,12 @@ def _poll_openai_response(response_json: dict, headers: dict, timeout: int = 900
         time.sleep(2)
         try:
             r = requests.get(f"https://api.openai.com/v1/responses/{response_id}", headers=headers, timeout=(30, 60))
+            if r.status_code >= 500 or r.status_code == 429:  # transient; the deadline above bounds the loop
+                print(f"OpenAI poll got {r.status_code}; continuing...")
+                continue
             r.raise_for_status()
             response_json = r.json()
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError) as e:
             print(f"OpenAI poll failed with {e.__class__.__name__}; continuing...")
 
     if response_id and response_json.get("status") != "completed":
@@ -197,9 +204,13 @@ def _openai_response_text(response_json: dict) -> str:
     return content.strip()
 
 
-def _count_response_tool_calls(output_items: list[dict]) -> int:
-    """Count Responses API tool-call output items, including hosted tools."""
-    return sum(1 for item in output_items if (item.get("type") or "").endswith("_call"))
+def _response_tool_calls(output_items: list[dict]) -> list[str]:
+    """Name Responses API tool-call output items, including hosted tools (e.g. web_search_call -> web_search)."""
+    return [
+        item.get("name") or (item.get("type") or "")[: -len("_call")]  # removesuffix needs py3.9+, repo floor is 3.8
+        for item in output_items
+        if (item.get("type") or "").endswith("_call")
+    ]
 
 
 def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | None:
@@ -225,28 +236,50 @@ def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | N
     return total_usage
 
 
+def _normalize_usage_tokens(usage: dict) -> tuple[int, int]:
+    """Return (input_tokens, cached_tokens) for OpenAI Responses or Anthropic Messages usage shapes.
+
+    Anthropic reports cache reads/writes outside input_tokens, so both fold back into the input total and reads count as
+    cached — the same normalization ultralytics/assistant applies, keeping cross-repo telemetry identical.
+    """
+    cache_read = usage.get("cache_read_input_tokens", 0)
+    input_tokens = usage.get("input_tokens", 0) + cache_read + usage.get("cache_creation_input_tokens", 0)
+    cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0) or cache_read
+    return input_tokens, cached_tokens
+
+
 def _openai_usage_cost(usage: dict, model: str) -> float:
-    """Compute billed USD cost for a Responses API usage block (cached input billed at 10% of the input rate)."""
+    """Compute billed USD cost for one usage block (cached input billed at 10% of the input rate)."""
     costs = MODEL_COSTS.get(model, (0.0, 0.0))
-    input_tokens = usage.get("input_tokens", 0)
-    cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0)
+    input_tokens, cached_tokens = _normalize_usage_tokens(usage)
     return ((input_tokens - cached_tokens * 0.9) * costs[0] + usage.get("output_tokens", 0) * costs[1]) / 1e6
 
 
+def _format_tool_calls(calls: list[str]) -> str:
+    """Format tool calls with per-type counts: '5 tools (2 lookup_value, 3 web_search)'."""
+    counts = {}
+    for name in calls:
+        counts[name] = counts.get(name, 0) + 1
+    types = ", ".join(f"{n} {name}" if n > 1 else name for name, n in counts.items())
+    return f"{len(calls)} tools" + (f" ({types})" if calls else "")
+
+
 def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadata: str = "") -> None:
-    """Print Responses API token/cost telemetry."""
+    """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, 31 thinking), $0.69, 8.9s'."""
     if usage := response_json.get("usage"):
-        input_tokens = usage.get("input_tokens", 0)
-        output_tokens = usage.get("output_tokens", 0)
-        cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0)
+        input_tokens, cached_tokens = _normalize_usage_tokens(usage)
+        output_tokens = usage.get("output_tokens", 0)  # includes thinking, noted in the parenthetical
         thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
         cost = _openai_usage_cost(usage, model)
-        cached_str = f" ({cached_tokens} cached)" if cached_tokens else ""
-        token_str = f"{input_tokens}{cached_str}→{output_tokens - thinking_tokens}"
+        notes = []
+        if cached_tokens:
+            notes.append(f"{round(100 * cached_tokens / input_tokens)}% cached")
         if thinking_tokens:
-            token_str += f" (+{thinking_tokens} thinking)"
+            notes.append(f"{thinking_tokens} thinking")
+        note_str = f" ({', '.join(notes)})" if notes else ""
         metadata = f", {metadata}" if metadata else ""
-        print(f"{model} ({token_str} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s{metadata})")
+        cost_str = f"${cost:.2f}" if cost == 0 or cost >= 0.01 else f"${cost:.5f}"  # match ultralytics/assistant
+        print(f"{model}: {input_tokens}→{output_tokens} tokens{note_str}, {cost_str}, {elapsed:.1f}s{metadata}")
 
 
 def _post_openai_response(
@@ -261,9 +294,10 @@ def _post_openai_response(
             success = r.status_code == 200
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
 
-            if attempt < retries and r.status_code >= 500:
-                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
-                time.sleep(2**attempt)
+            if attempt < retries and (r.status_code >= 500 or r.status_code == 429):
+                wait = 10 * 2**attempt if r.status_code == 429 else 2**attempt  # rate limits need longer backoff
+                print(f"Retrying {r.status_code} in {wait}s (attempt {attempt + 1}/{retries + 1})...")
+                time.sleep(wait)
                 continue
 
             if r.status_code >= 400:
@@ -273,7 +307,9 @@ def _post_openai_response(
 
             r.raise_for_status()
             return r.json(), elapsed
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError):
+        except (requests.exceptions.ConnectionError, json.JSONDecodeError):
+            # ConnectTimeout subclasses ConnectionError so it stays retryable; a ReadTimeout propagates instead,
+            # because the request may have completed server-side and re-POSTing it would double-bill.
             if attempt < retries:
                 print(f"Retrying API request in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
                 time.sleep(2**attempt)
@@ -325,15 +361,20 @@ def get_agent_response(
     reasoning_effort: str | None = None,
     max_turns: int = 6,
     max_cost: float = 0.0,
+    parallel_tools: bool = False,
     retries: int = 2,
     request_timeout: tuple[int, int] = (30, 120),
 ) -> str | dict:
     """Run an iterative OpenAI Responses API agent with application-managed function tools.
 
     max_cost is a USD ceiling across all turns (0 disables); once reached, remaining tool turns are skipped and the
-    agent synthesizes a final answer. Models missing from MODEL_COSTS report zero cost, so only max_turns bounds them.
+    agent synthesizes a final answer. Models missing from MODEL_COSTS disable max_cost loudly; max_turns still bounds.
+    parallel_tools runs a turn's batched tool calls concurrently: opt in ONLY when every handler is thread-safe.
     """
     model = model or _get_default_model()
+    if max_cost and model not in MODEL_COSTS:
+        print(f"WARNING ⚠️ {model} missing from MODEL_COSTS; max_cost budget disabled (max_turns still applies)")
+        max_cost = 0.0
     if _is_anthropic_model(model):
         print("Anthropic review model selected; falling back to single-shot response without local agent tools")
         return get_response(
@@ -366,7 +407,7 @@ def get_agent_response(
     if text_format:
         base_data["text"] = text_format
 
-    tool_calls = 0
+    tool_calls = []
     total_elapsed = 0.0
     total_usage = None
     previous_response_id = None
@@ -381,18 +422,22 @@ def get_agent_response(
         total_usage = _add_openai_usage(total_usage, response_json)
         previous_response_id = response_json.get("id")
         output_items = response_json.get("output", [])
-        turn_tool_calls = _count_response_tool_calls(output_items)
-        tool_calls += turn_tool_calls
-        _print_openai_usage(response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, tools {turn_tool_calls}")
+        turn_calls = _response_tool_calls(output_items)
+        tool_calls += turn_calls
+        _print_openai_usage(
+            response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, {_format_tool_calls(turn_calls)}"
+        )
         function_calls = [item for item in output_items if item.get("type") == "function_call"]
 
         if not function_calls:
             _print_openai_usage(
-                {"usage": total_usage}, model, total_elapsed, f"agent total, turns {turn + 1}, tools {tool_calls}"
+                {"usage": total_usage},
+                model,
+                total_elapsed,
+                f"agent total, {turn + 1} turns, {_format_tool_calls(tool_calls)}",
             )
             return _finalize_response_content(response_json, text_format)
 
-        print(f"Agent tool turn {turn + 1}: {', '.join(c.get('name', 'unknown') for c in function_calls)}")
         if not previous_response_id:
             raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
         if max_cost and _openai_usage_cost(total_usage, model) >= max_cost:
@@ -402,7 +447,11 @@ def get_agent_response(
                 for call in function_calls
             ]
             break
-        next_input = [_handle_function_call(call, tool_handlers) for call in function_calls]
+        if parallel_tools and len(function_calls) > 1:  # opt-in contract: handlers must be thread-safe
+            with ThreadPoolExecutor(max_workers=min(8, len(function_calls))) as pool:
+                next_input = list(pool.map(lambda call: _handle_function_call(call, tool_handlers), function_calls))
+        else:
+            next_input = [_handle_function_call(call, tool_handlers) for call in function_calls]
 
     final_instruction = {
         "role": "user",
@@ -418,9 +467,9 @@ def get_agent_response(
     response_json, elapsed = _post_openai_response(data, headers, max(retries, 2), request_timeout)
     total_elapsed += elapsed
     total_usage = _add_openai_usage(total_usage, response_json)
-    _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, tools 0")
+    _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, 0 tools")
     _print_openai_usage(
-        {"usage": total_usage}, model, total_elapsed, f"agent total, turns {turn + 2}, tools {tool_calls}"
+        {"usage": total_usage}, model, total_elapsed, f"agent total, {turn + 2} turns, {_format_tool_calls(tool_calls)}"
     )
     return _finalize_response_content(response_json, text_format)
 
@@ -469,10 +518,11 @@ def get_response(
         if is_anthropic:
             data = {
                 "model": model,
-                "max_tokens": 8192,
-                "temperature": temperature,
+                "max_tokens": 32000,  # large replies (reviews) exceed 8192; truncated schema output is unusable
                 "messages": user_messages,
             }
+            if temperature != 1.0:  # 1.0 is the API default; newer Claude models 400 on explicit non-default values
+                data["temperature"] = temperature
             if system_content:
                 data["system"] = system_content
             # Tools (web_search) are not forwarded to Anthropic (caused empty responses with JSON schema)
@@ -500,10 +550,11 @@ def get_response(
             success = r.status_code == 200
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
 
-            # Retry server errors
-            if attempt < retries and r.status_code >= 500:
-                print(f"Retrying {r.status_code} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
-                time.sleep(2**attempt)
+            # Retry server errors and rate limits (a 429 rejection executed nothing, so retrying is side-effect free)
+            if attempt < retries and (r.status_code >= 500 or r.status_code == 429):
+                wait = 10 * 2**attempt if r.status_code == 429 else 2**attempt  # rate limits need longer backoff
+                print(f"Retrying {r.status_code} in {wait}s (attempt {attempt + 1}/{retries + 1})...")
+                time.sleep(wait)
                 continue
 
             if r.status_code >= 400:
@@ -525,15 +576,10 @@ def get_response(
                         content += block.get("text") or ""
                 content = content.strip()
 
-                # Extract usage
-                if usage := response_json.get("usage"):
-                    input_tokens = usage.get("input_tokens", 0)
-                    output_tokens = usage.get("output_tokens", 0)
-                    costs = MODEL_COSTS.get(model, (0.0, 0.0))
-                    cost = (input_tokens * costs[0] + output_tokens * costs[1]) / 1e6
-                    print(
-                        f"{model} ({input_tokens}→{output_tokens} = {input_tokens + output_tokens} tokens, ${cost:.5f}, {elapsed:.1f}s)"
-                    )
+                _print_openai_usage(response_json, model, elapsed)
+                if response_json.get("stop_reason") == "max_tokens" and text_format:
+                    # A truncated schema-constrained reply is partial JSON; fail clearly instead of at json.loads
+                    raise RuntimeError(f"{model} response truncated at max_tokens; structured output is incomplete")
             else:
                 content = _openai_response_text(response_json)
                 _print_openai_usage(response_json, model, elapsed)
@@ -546,23 +592,33 @@ def get_response(
             for x in remove:
                 content = content.replace(x, "")
 
-            # Retry on bad links
-            if attempt < retries and check_links and not check_links_in_string(content):
-                print("Bad URLs detected, retrying")
-                continue
+            # Retry on bad links, feeding the broken URLs back so the model fixes them instead of rolling the dice
+            if check_links and (bad_urls := check_links_in_string(content, return_bad=True)[1]):
+                if attempt < retries:
+                    print(f"Bad URLs detected, retrying with feedback: {bad_urls}")
+                    feedback = [
+                        {"role": "assistant", "content": content},
+                        {
+                            "role": "user",
+                            "content": "Broken links in your reply: " + ", ".join(bad_urls) + ". "
+                            "Rewrite the full reply, replacing each broken link with a working one or removing it.",
+                        },
+                    ]
+                    messages = [*messages, *feedback]
+                    user_messages = [*user_messages, *feedback]
+                    continue
+                content = check_links_in_string(content, replace=True)  # final attempt: salvage via redirects/search
 
             return content
 
-        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError) as e:
+        except (requests.exceptions.ConnectionError, json.JSONDecodeError) as e:
+            # ConnectTimeout subclasses ConnectionError so it stays retryable; a ReadTimeout propagates instead,
+            # because the request may have completed server-side and re-POSTing it would double-bill.
             if attempt < retries:
                 print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
                 time.sleep(2**attempt)
                 continue
             raise
-        except requests.exceptions.HTTPError:
-            raise
-
-    return content
 
 
 def get_pr_open_response(repository: str, diff_text: str, title: str, username: str, available_labels: dict) -> dict:
