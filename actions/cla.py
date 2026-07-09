@@ -55,7 +55,7 @@ def _read(action: Action, method: str, url: str, **kwargs):
             response.raise_for_status()
             return response
         if attempt < 3:
-            time.sleep(2**attempt)
+            time.sleep(float(response.headers.get("Retry-After", 2**attempt)))
     response.raise_for_status()
 
 
@@ -144,7 +144,7 @@ def _record(comment: dict, action: Action, number: int) -> dict:
 def _persist(action: Action, records: list[dict], source: Action, number: int) -> None:
     """Merge new signatures into the ledger with optimistic concurrency."""
     url = f"{GITHUB_API_URL}/repos/{CLA_REPOSITORY}/contents/{CLA_PATH}"
-    for _ in range(4):
+    for attempt in range(4):
         content, sha = _ledger(action)
         signed_ids = {row["id"] for row in content["signedContributors"]}
         additions = [row for row in records if row["id"] not in signed_ids]
@@ -165,6 +165,8 @@ def _persist(action: Action, records: list[dict], source: Action, number: int) -
             return
         if response.status_code not in (409, 429, 500, 502, 503, 504):
             response.raise_for_status()
+        if response.status_code != 409 and attempt < 3:
+            time.sleep(float(response.headers.get("Retry-After", 2**attempt)))
     raise RuntimeError("CLA signature ledger changed repeatedly during update")
 
 

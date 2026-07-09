@@ -9,10 +9,11 @@ import pytest
 from actions import cla
 
 
-def response(status=200, data=None):
+def response(status=200, data=None, headers=None):
     """Create a mock HTTP response."""
     result = MagicMock(status_code=status)
     result.json.return_value = data
+    result.headers = headers or {}
     return result
 
 
@@ -126,6 +127,20 @@ def test_persist_rereads_and_merges_after_conflict():
     written = json.loads(base64.b64decode(store.put.call_args.kwargs["json"]["content"]))
     assert written["signedContributors"] == [old, new]
     assert store.put.call_args.kwargs["json"]["sha"] == "sha-2"
+
+
+def test_persist_honors_retry_after_for_transient_write(monkeypatch):
+    """Back off before re-reading after an ambiguous transient ledger write."""
+    source, store = action(), action()
+    new = {"name": "new", "id": 2}
+    store.get.side_effect = [ledger_response([], "sha-1"), ledger_response([], "sha-2")]
+    store.put.side_effect = [response(429, headers={"Retry-After": "3"}), response(200)]
+    sleep = MagicMock()
+    monkeypatch.setattr("actions.cla.time.sleep", sleep)
+
+    cla._persist(store, [new], source, 7)
+
+    sleep.assert_called_once_with(3.0)
 
 
 def test_run_records_exact_sentence_and_updates_legacy_comment():
