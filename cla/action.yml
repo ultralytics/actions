@@ -28,6 +28,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         CLA_TOKEN: ${{ inputs.cla-token }}
-        PYTHONPATH: ${{ github.action_path }}/..
-      run: '"$RUNNER_TEMP/ultralytics-cla/bin/python" -m actions.cla'
+      run: |
+        cd "$GITHUB_ACTION_PATH/.."
+        "$RUNNER_TEMP/ultralytics-cla/bin/python" -m actions.cla
       shell: bash
