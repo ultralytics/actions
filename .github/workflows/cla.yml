@@ -26,7 +26,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: CLA Assistant
-        uses: ultralytics/actions/cla@27f6daa602604980a75c2622995acbe2b2d5de2f
+        uses: ultralytics/actions/cla@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           cla-token: ${{ secrets._GITHUB_TOKEN }}
