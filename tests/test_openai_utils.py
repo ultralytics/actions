@@ -453,7 +453,7 @@ def test_get_agent_response_stops_at_cost_budget(mock_post):
         raise AssertionError("tool handlers must not run once the cost budget is reached")
 
     with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"), pytest.raises(
-        RuntimeError, match="cost budget.*reached"
+        RuntimeError, match=r"cost budget.*reached"
     ):
         get_agent_response(
             [{"role": "user", "content": "review"}],
