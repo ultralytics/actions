@@ -5,7 +5,6 @@ from __future__ import annotations
 import base64
 import json
 import os
-import re
 import time
 
 from .utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action
@@ -18,7 +17,7 @@ SIGN_COMMENT = "I have read the CLA Document and I sign the CLA"
 COMMENT_MARKER = "<!-- ultralytics-cla -->"
 LEGACY_MARKER = "CLA Assistant Lite bot"
 BOT_LOGIN = "github-actions[bot]"
-ALLOWLIST = ("dependabot[bot]", "github-actions", "pre-commit*", "bot*")
+ALLOWLIST = frozenset(("dependabot[bot]", "github-actions[bot]", "pre-commit-ci[bot]"))
 TRANSIENT_STATUS = (429, 500, 502, 503, 504)
 COMMITS_QUERY = """
 query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
@@ -43,16 +42,9 @@ query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
 """
 
 
-def _matches(pattern: str, login: str) -> bool:
-    """Match a GitHub login against a case-insensitive wildcard pattern."""
-    return re.fullmatch(re.escape(pattern).replace(r"\*", ".*"), login, re.IGNORECASE) is not None
-
-
 def _allowed(login: str) -> bool:
     """Return whether a GitHub login matches the configured bot allowlist."""
-    return any(_matches(pattern, login) for pattern in ALLOWLIST) or (
-        login.endswith("[bot]") and any(_matches(pattern, login[:-5]) for pattern in ALLOWLIST)
-    )
+    return login.casefold() in ALLOWLIST
 
 
 def _read(action: Action, method: str, url: str, **kwargs):
@@ -243,13 +235,8 @@ def _rerun_pr_check(action: Action, number: int) -> None:
             break
     if not run:
         raise RuntimeError("Could not find the PR-head CLA workflow run")
-    for _ in range(12):
-        if run["conclusion"] is not None:
-            break
-        time.sleep(5)
-        run = _read(action, "get", f"{GITHUB_API_URL}/repos/{action.repository}/actions/runs/{run['id']}").json()
     if run["conclusion"] is None:
-        raise RuntimeError("PR-head CLA workflow did not complete before the rerun timeout")
+        return
     if run["conclusion"] != "success":
         action.post(f"{GITHUB_API_URL}/repos/{action.repository}/actions/runs/{run['id']}/rerun", hard=True)
 

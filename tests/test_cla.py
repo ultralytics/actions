@@ -61,6 +61,7 @@ def test_contributors_paginates_and_requires_verified_github_identity():
         {"name": "Unknown", "email": "private@example.com", "user": None},
         {"user": {"databaseId": 3, "login": "dependabot[bot]"}},
         {"user": {"databaseId": 4, "login": "other[bot]"}},
+        {"user": {"databaseId": 5, "login": "bot-attacker"}},
     ]
     source.get.return_value = response(data={"user": {"id": 1, "login": "person"}})
     source.post.return_value = commits_response(authors)
@@ -70,6 +71,7 @@ def test_contributors_paginates_and_requires_verified_github_identity():
         {"id": None, "name": "Alias"},
         {"id": None, "name": "Unknown"},
         {"id": 4, "name": "other[bot]"},
+        {"id": 5, "name": "bot-attacker"},
     ]
 
 
@@ -277,17 +279,15 @@ def test_rerun_uses_exact_pr_head(monkeypatch):
     assert source.post.call_args.args[0].endswith("/actions/runs/2/rerun")
 
 
-def test_rerun_waits_for_in_progress_exact_head(monkeypatch):
-    """Wait for an in-flight exact-head check, then rerun it if it failed."""
+def test_rerun_leaves_queued_exact_head_to_complete(monkeypatch):
+    """Let an incomplete exact-head check run after per-PR concurrency releases."""
     source = action("issue_comment")
     monkeypatch.setenv("GITHUB_WORKFLOW_REF", "ultralytics/example/.github/workflows/cla.yml@refs/heads/main")
-    monkeypatch.setattr("actions.cla.time.sleep", MagicMock())
     source.get.side_effect = [
         response(data={"head": {"ref": "feature", "sha": "exact"}}),
         response(data={"workflow_runs": [{"id": 2, "head_sha": "exact", "conclusion": None}]}),
-        response(data={"id": 2, "head_sha": "exact", "conclusion": "failure"}),
     ]
 
     cla._rerun_pr_check(source, 7)
 
-    assert source.post.call_args.args[0].endswith("/actions/runs/2/rerun")
+    source.post.assert_not_called()
