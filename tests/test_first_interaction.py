@@ -221,11 +221,19 @@ def test_incomplete_review_evidence_cannot_approve():
     event.get_pr_head_sha.return_value = "abc"
 
     error = review_pr.generate_pr_review("org/repo", "ERROR: UNABLE TO RETRIEVE DIFF.", "PR", "", event, "abc")
-    review_pr.post_review_summary(event, {**error, "head_sha": "abc"})
+    review_pr.post_review_summary(event, error)
     assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
 
     review_pr.post_review_summary(event, {"head_sha": "abc", "summary": "LGTM", "comments": [], "diff_truncated": True})
     assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
+
+    binary = "diff --git a/image.png b/image.png\nBinary files a/image.png and b/image.png differ"
+    binary_review = review_pr.generate_pr_review("org/repo", binary, "PR", "", event, "abc")
+    review_pr.post_review_summary(event, binary_review)
+    assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
+
+    with pytest.raises(KeyError):
+        review_pr.post_review_summary(event, {"summary": "stale result", "comments": []})
 
     review_pr.post_review_summary(
         event, {"head_sha": "abc", "summary": "All changed files were skipped", "comments": []}

@@ -357,6 +357,7 @@ def parse_diff_files(diff_text: str) -> tuple[dict, str]:
         else:
             augmented_lines.append(line)
 
+    files = {path: sides for path, sides in files.items() if sides["RIGHT"] or sides["LEFT"]}
     return files, "\n".join(augmented_lines)
 
 
@@ -369,14 +370,15 @@ def generate_pr_review(
     head_sha: str | None = None,
 ) -> dict:
     """Generate comprehensive PR review with line-specific comments and overall assessment."""
+    head_sha = head_sha or (event.get_pr_head_sha() if event else None)
     if diff_text.startswith("ERROR:"):
-        return {"comments": [], "summary": f"{ERROR_MARKER}: {diff_text}"}
+        return {"comments": [], "summary": f"{ERROR_MARKER}: {diff_text}", "head_sha": head_sha}
     if not diff_text:
-        return {"comments": [], "summary": "No changes detected in diff"}
+        return {"comments": [], "summary": "No changes detected in diff", "head_sha": head_sha}
 
     diff_files, augmented_diff = parse_diff_files(diff_text)
     if not diff_files:
-        return {"comments": [], "summary": "No files with changes detected in diff"}
+        return {"comments": [], "summary": "No reviewable text changes detected in diff", "head_sha": head_sha}
 
     # Filter out generated/vendored files
     filtered_files = {p: s for p, s in diff_files.items() if not should_skip_file(p)}
@@ -388,6 +390,7 @@ def generate_pr_review(
             "comments": [],
             "summary": f"All {len(skipped_files)} changed files are generated/vendored (skipped review)",
             "skipped_files": skipped_files,
+            "head_sha": head_sha,
         }
 
     file_list = list(diff_files.keys())
@@ -396,7 +399,6 @@ def generate_pr_review(
     # Read model-appropriate guidelines from the PR head for project-specific review context
     review_model = get_review_model()
     is_agent_review_model = not _is_anthropic_model(review_model)
-    head_sha = head_sha or (event.get_pr_head_sha() if event else None)
     local_checkout = _verified_local_checkout(head_sha)
     if head_sha:
         print(f"Reviewing PR head {head_sha[:7]} ({'local checkout' if local_checkout else 'via GitHub API'})")
@@ -673,7 +675,7 @@ def generate_pr_review(
             f"{ERROR_MARKER}: `{type(e).__name__}`\n\n"
             f"<details><summary>Debug Info</summary>\n\n```\n{error_details}\n```\n</details>"
         )
-        return {"comments": [], "summary": summary}
+        return {"comments": [], "summary": summary, "head_sha": head_sha}
 
 
 def get_local_head_sha() -> str | None:
@@ -706,10 +708,7 @@ def post_review_summary(event: Action, review_data: dict) -> None:
     if not (pr_number := event.pr.get("number")):
         return
 
-    # Anchor to the exact head the review was generated from; fall back to the local checkout, then live head
-    commit_sha = review_data.get("head_sha") or get_local_head_sha() or event.get_pr_head_sha()
-    if not commit_sha:
-        return
+    commit_sha = review_data["head_sha"]
     if event.get_pr_head_sha() != commit_sha:
         raise RuntimeError("PR head changed during review generation")
 
