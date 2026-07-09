@@ -30,8 +30,8 @@ def test_default_models():
     assert MODEL_COSTS["gpt-5.6-luna"] == (1.00, 6.00)
 
 
-def test_gpt_56_cost_includes_cache_write_premium():
-    """GPT-5.6 cache writes bill at 125% while cache reads remain discounted to 10%."""
+def test_gpt_56_cost_includes_cache_write_and_long_context_rates():
+    """GPT-5.6 cache writes bill at 125%, with long requests at 2x input and 1.5x output."""
     usage = {
         "input_tokens": 1000,
         "input_tokens_details": {"cached_tokens": 200, "cache_write_tokens": 300},
@@ -39,8 +39,11 @@ def test_gpt_56_cost_includes_cache_write_premium():
     }
     expected = ((1000 - 200 * 0.9 + 300 * 0.25) * 5.00 + 100 * 30.00) / 1e6
     assert _openai_usage_cost(usage, "gpt-5.6-sol") == expected
+    usage["input_tokens"] = 272001
+    expected = ((272001 - 200 * 0.9 + 300 * 0.25) * 5.00 * 2 + 100 * 30.00 * 1.5) / 1e6
+    assert _openai_usage_cost(usage, "gpt-5.6-sol") == expected
     old_model_expected = ((1000 - 200 * 0.9) * 5.00 + 100 * 30.00) / 1e6
-    assert _openai_usage_cost(usage, "gpt-5.5") == old_model_expected
+    assert _openai_usage_cost({**usage, "input_tokens": 1000}, "gpt-5.5") == old_model_expected
 
 
 def test_is_anthropic_model():

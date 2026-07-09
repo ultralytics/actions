@@ -257,12 +257,16 @@ def _normalize_usage_tokens(usage: dict) -> tuple[int, int, int]:
 
 
 def _openai_usage_cost(usage: dict, model: str) -> float:
-    """Compute billed USD cost (cache reads at 10% and GPT-5.6 cache writes at 125% of input)."""
+    """Compute billed USD cost including GPT-5.6 cache-write and long-context rates."""
     costs = MODEL_COSTS.get(model, (0.0, 0.0))
     input_tokens, cached_tokens, cache_write_tokens = _normalize_usage_tokens(usage)
     cache_write_premium = cache_write_tokens * 0.25 if model.startswith("gpt-5.6-") else 0
     billed_input = input_tokens - cached_tokens * 0.9 + cache_write_premium
-    return (billed_input * costs[0] + usage.get("output_tokens", 0) * costs[1]) / 1e6
+    long_context = model.startswith("gpt-5.6-") and input_tokens > 272000
+    return (
+        billed_input * costs[0] * (2 if long_context else 1)
+        + usage.get("output_tokens", 0) * costs[1] * (1.5 if long_context else 1)
+    ) / 1e6
 
 
 def _format_tool_calls(calls: list[str]) -> str:
