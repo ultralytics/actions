@@ -260,7 +260,8 @@ def _openai_usage_cost(usage: dict, model: str) -> float:
     """Compute billed USD cost (cache reads at 10% and GPT-5.6 cache writes at 125% of input)."""
     costs = MODEL_COSTS.get(model, (0.0, 0.0))
     input_tokens, cached_tokens, cache_write_tokens = _normalize_usage_tokens(usage)
-    billed_input = input_tokens - cached_tokens * 0.9 + cache_write_tokens * 0.25
+    cache_write_premium = cache_write_tokens * 0.25 if model.startswith("gpt-5.6-") else 0
+    billed_input = input_tokens - cached_tokens * 0.9 + cache_write_premium
     return (billed_input * costs[0] + usage.get("output_tokens", 0) * costs[1]) / 1e6
 
 
@@ -276,15 +277,13 @@ def _format_tool_calls(calls: list[str]) -> str:
 def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadata: str = "") -> None:
     """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, 31 thinking), $0.69, 8.9s'."""
     if usage := response_json.get("usage"):
-        input_tokens, cached_tokens, cache_write_tokens = _normalize_usage_tokens(usage)
+        input_tokens, cached_tokens, _ = _normalize_usage_tokens(usage)
         output_tokens = usage.get("output_tokens", 0)  # includes thinking, noted in the parenthetical
         thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
         cost = _openai_usage_cost(usage, model)
         notes = []
         if cached_tokens:
             notes.append(f"{round(100 * cached_tokens / input_tokens)}% cached")
-        if cache_write_tokens:
-            notes.append(f"{cache_write_tokens} cache write")
         if thinking_tokens:
             notes.append(f"{thinking_tokens} thinking")
         note_str = f" ({', '.join(notes)})" if notes else ""
