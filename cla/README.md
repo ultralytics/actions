@@ -5,8 +5,6 @@ Checks every pull request commit author against the shared signature ledger in
 
 ```yaml
 name: CLA Assistant
-concurrency:
-  group: cla-${{ github.event.pull_request.number || github.event.issue.number }}
 on:
   issue_comment:
     types: [created]
@@ -19,11 +17,12 @@ permissions:
 
 jobs:
   CLA:
-    if: github.event_name != 'issue_comment' || github.event.issue.pull_request
+    if: github.event_name == 'pull_request_target' || (github.event.issue.pull_request && (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I sign the CLA'))
+    concurrency:
+      group: cla-${{ github.event.pull_request.number || github.event.issue.number }}
     runs-on: ubuntu-latest
     steps:
       - name: CLA Assistant
-        if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I sign the CLA') || github.event_name == 'pull_request_target'
         uses: ultralytics/actions/cla@main
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
