@@ -143,6 +143,19 @@ def test_persist_honors_retry_after_for_transient_write(monkeypatch):
     sleep.assert_called_once_with(3.0)
 
 
+def test_persist_surfaces_exhausted_transport_error(monkeypatch):
+    """Preserve the final HTTP error when transient write retries are exhausted."""
+    source, store = action(), action()
+    store.get.side_effect = [ledger_response([], f"sha-{i}") for i in range(4)]
+    failures = [response(502) for _ in range(4)]
+    failures[-1].raise_for_status.side_effect = RuntimeError("502 Bad Gateway")
+    store.put.side_effect = failures
+    monkeypatch.setattr("actions.cla.time.sleep", MagicMock())
+
+    with pytest.raises(RuntimeError, match="502 Bad Gateway"):
+        cla._persist(store, [{"name": "new", "id": 2}], source, 7)
+
+
 def test_run_records_exact_sentence_and_updates_legacy_comment():
     """Persist an exact signature and reuse the legacy action's status comment."""
     source, store = action(), action()

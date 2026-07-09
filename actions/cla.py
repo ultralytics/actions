@@ -167,7 +167,9 @@ def _persist(action: Action, records: list[dict], source: Action, number: int) -
             response.raise_for_status()
         if response.status_code != 409 and attempt < 3:
             time.sleep(float(response.headers.get("Retry-After", 2**attempt)))
-    raise RuntimeError("CLA signature ledger changed repeatedly during update")
+    if response.status_code == 409:
+        raise RuntimeError("CLA signature ledger changed repeatedly during update")
+    response.raise_for_status()
 
 
 def _comment_body(signed: list[dict], unsigned: list[dict], unknown: list[dict]) -> str:
