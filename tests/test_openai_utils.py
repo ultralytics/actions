@@ -9,6 +9,7 @@ from actions.utils.openai_utils import (
     OPENAI_MODEL_DEFAULT,
     PR_REVIEW_MODEL_DEFAULT,
     _is_anthropic_model,
+    _openai_usage_cost,
     _response_tool_calls,
     get_agent_response,
     get_response,
@@ -26,6 +27,17 @@ def test_default_models():
     assert MODEL_COSTS["gpt-5.6-sol"] == (5.00, 30.00)
     assert MODEL_COSTS["gpt-5.6-terra"] == (2.50, 15.00)
     assert MODEL_COSTS["gpt-5.6-luna"] == (1.00, 6.00)
+
+
+def test_gpt_56_cost_includes_cache_write_premium():
+    """GPT-5.6 cache writes bill at 125% while cache reads remain discounted to 10%."""
+    usage = {
+        "input_tokens": 1000,
+        "input_tokens_details": {"cached_tokens": 200, "cache_write_tokens": 300},
+        "output_tokens": 100,
+    }
+    expected = ((1000 - 200 * 0.9 + 300 * 0.25) * 5.00 + 100 * 30.00) / 1e6
+    assert _openai_usage_cost(usage, "gpt-5.6-sol") == expected
 
 
 def test_is_anthropic_model():
@@ -189,7 +201,11 @@ def test_get_agent_response_calls_function_tools(mock_post):
                 "arguments": '{"value": "abc"}',
             }
         ],
-        "usage": {"input_tokens": 10, "input_tokens_details": {"cached_tokens": 4}, "output_tokens": 5},
+        "usage": {
+            "input_tokens": 10,
+            "input_tokens_details": {"cached_tokens": 4, "cache_write_tokens": 3},
+            "output_tokens": 5,
+        },
     }
     second_response = MagicMock()
     second_response.status_code = 200
@@ -202,7 +218,11 @@ def test_get_agent_response_calls_function_tools(mock_post):
                 "content": [{"type": "output_text", "text": '{"comments": [], "summary": "done"}'}],
             }
         ],
-        "usage": {"input_tokens": 20, "input_tokens_details": {"cached_tokens": 8}, "output_tokens": 7},
+        "usage": {
+            "input_tokens": 20,
+            "input_tokens_details": {"cached_tokens": 8, "cache_write_tokens": 6},
+            "output_tokens": 7,
+        },
     }
     mock_post.side_effect = [first_response, second_response]
 
@@ -257,7 +277,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
     printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
     assert "turn 1/6, 1 tools (lookup_value)" in printed
     assert "turn 2/6, 0 tools" in printed
-    assert "30→12 tokens (40% cached), $0.00046" in printed
+    assert "30→12 tokens (40% cached, 9 cache write), $0.00047" in printed
     assert "agent total, 2 turns, 1 tools (lookup_value)" in printed
     assert "Agent tool turn" not in printed  # tool names live in the per-turn usage line now
 

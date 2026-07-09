@@ -225,7 +225,7 @@ def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | N
     total_usage = total_usage or {
         "input_tokens": 0,
         "output_tokens": 0,
-        "input_tokens_details": {"cached_tokens": 0},
+        "input_tokens_details": {"cache_write_tokens": 0, "cached_tokens": 0},
         "output_tokens_details": {"reasoning_tokens": 0},
     }
     total_usage["input_tokens"] += usage.get("input_tokens", 0)
@@ -233,29 +233,35 @@ def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | N
     total_usage["input_tokens_details"]["cached_tokens"] += (usage.get("input_tokens_details") or {}).get(
         "cached_tokens", 0
     )
+    total_usage["input_tokens_details"]["cache_write_tokens"] += (usage.get("input_tokens_details") or {}).get(
+        "cache_write_tokens", 0
+    )
     total_usage["output_tokens_details"]["reasoning_tokens"] += (usage.get("output_tokens_details") or {}).get(
         "reasoning_tokens", 0
     )
     return total_usage
 
 
-def _normalize_usage_tokens(usage: dict) -> tuple[int, int]:
-    """Return (input_tokens, cached_tokens) for OpenAI Responses or Anthropic Messages usage shapes.
+def _normalize_usage_tokens(usage: dict) -> tuple[int, int, int]:
+    """Return input, cache-read, and cache-write tokens for OpenAI Responses or Anthropic Messages usage shapes.
 
     Anthropic reports cache reads/writes outside input_tokens, so both fold back into the input total and reads count as
     cached — the same normalization ultralytics/assistant applies, keeping cross-repo telemetry identical.
     """
     cache_read = usage.get("cache_read_input_tokens", 0)
     input_tokens = usage.get("input_tokens", 0) + cache_read + usage.get("cache_creation_input_tokens", 0)
-    cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0) or cache_read
-    return input_tokens, cached_tokens
+    details = usage.get("input_tokens_details") or {}
+    cached_tokens = details.get("cached_tokens", 0) or cache_read
+    cache_write_tokens = details.get("cache_write_tokens", 0)
+    return input_tokens, cached_tokens, cache_write_tokens
 
 
 def _openai_usage_cost(usage: dict, model: str) -> float:
-    """Compute billed USD cost for one usage block (cached input billed at 10% of the input rate)."""
+    """Compute billed USD cost (cache reads at 10% and GPT-5.6 cache writes at 125% of input)."""
     costs = MODEL_COSTS.get(model, (0.0, 0.0))
-    input_tokens, cached_tokens = _normalize_usage_tokens(usage)
-    return ((input_tokens - cached_tokens * 0.9) * costs[0] + usage.get("output_tokens", 0) * costs[1]) / 1e6
+    input_tokens, cached_tokens, cache_write_tokens = _normalize_usage_tokens(usage)
+    billed_input = input_tokens - cached_tokens * 0.9 + cache_write_tokens * 0.25
+    return (billed_input * costs[0] + usage.get("output_tokens", 0) * costs[1]) / 1e6
 
 
 def _format_tool_calls(calls: list[str]) -> str:
@@ -270,13 +276,15 @@ def _format_tool_calls(calls: list[str]) -> str:
 def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadata: str = "") -> None:
     """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, 31 thinking), $0.69, 8.9s'."""
     if usage := response_json.get("usage"):
-        input_tokens, cached_tokens = _normalize_usage_tokens(usage)
+        input_tokens, cached_tokens, cache_write_tokens = _normalize_usage_tokens(usage)
         output_tokens = usage.get("output_tokens", 0)  # includes thinking, noted in the parenthetical
         thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
         cost = _openai_usage_cost(usage, model)
         notes = []
         if cached_tokens:
             notes.append(f"{round(100 * cached_tokens / input_tokens)}% cached")
+        if cache_write_tokens:
+            notes.append(f"{cache_write_tokens} cache write")
         if thinking_tokens:
             notes.append(f"{thinking_tokens} thinking")
         note_str = f" ({', '.join(notes)})" if notes else ""
