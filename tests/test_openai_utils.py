@@ -42,6 +42,9 @@ def test_gpt_56_cost_includes_cache_write_and_long_context_rates():
     usage["input_tokens"] = 272001
     expected = ((272001 - 200 * 0.9 + 300 * 0.25) * 5.00 * 2 + 100 * 30.00 * 1.5) / 1e6
     assert _openai_usage_cost(usage, "gpt-5.6-sol") == expected
+    turns = [{"input_tokens": 150000, "output_tokens": 0}] * 2
+    assert sum(_openai_usage_cost(turn, "gpt-5.6-luna") for turn in turns) == 0.3
+    assert _openai_usage_cost({"input_tokens": 300000, "output_tokens": 0}, "gpt-5.6-luna") == 0.6
     old_model_expected = ((1000 - 200 * 0.9) * 5.00 + 100 * 30.00) / 1e6
     assert _openai_usage_cost({**usage, "input_tokens": 1000}, "gpt-5.5") == old_model_expected
 

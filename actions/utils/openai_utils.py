@@ -278,13 +278,15 @@ def _format_tool_calls(calls: list[str]) -> str:
     return f"{len(calls)} tools" + (f" ({types})" if calls else "")
 
 
-def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadata: str = "") -> None:
+def _print_openai_usage(
+    response_json: dict, model: str, elapsed: float, metadata: str = "", total_cost: float | None = None
+) -> None:
     """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, 31 thinking), $0.69, 8.9s'."""
     if usage := response_json.get("usage"):
         input_tokens, cached_tokens, _ = _normalize_usage_tokens(usage)
         output_tokens = usage.get("output_tokens", 0)  # includes thinking, noted in the parenthetical
         thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
-        cost = _openai_usage_cost(usage, model)
+        cost = _openai_usage_cost(usage, model) if total_cost is None else total_cost
         notes = []
         if cached_tokens:
             notes.append(f"{round(100 * cached_tokens / input_tokens)}% cached")
@@ -423,6 +425,7 @@ def get_agent_response(
 
     tool_calls = []
     total_elapsed = 0.0
+    total_cost = 0.0
     total_usage = None
     previous_response_id = None
     next_input = conversation
@@ -434,6 +437,7 @@ def get_agent_response(
         response_json, elapsed = _post_openai_response(data, headers, retries, request_timeout)
         total_elapsed += elapsed
         total_usage = _add_openai_usage(total_usage, response_json)
+        total_cost += _openai_usage_cost(response_json.get("usage") or {}, model)
         previous_response_id = response_json.get("id")
         output_items = response_json.get("output", [])
         turn_calls = _response_tool_calls(output_items)
@@ -449,12 +453,13 @@ def get_agent_response(
                 model,
                 total_elapsed,
                 f"agent total, {turn + 1} turns, {_format_tool_calls(tool_calls)}",
+                total_cost,
             )
             return _finalize_response_content(response_json, text_format)
 
         if not previous_response_id:
             raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
-        if max_cost and _openai_usage_cost(total_usage, model) >= max_cost:
+        if max_cost and total_cost >= max_cost:
             raise RuntimeError(f"Agent cost budget ${max_cost:.2f} reached before requested tools could run")
         if parallel_tools and len(function_calls) > 1:  # opt-in contract: handlers must be thread-safe
             with ThreadPoolExecutor(max_workers=min(8, len(function_calls))) as pool:
@@ -476,9 +481,14 @@ def get_agent_response(
     response_json, elapsed = _post_openai_response(data, headers, max(retries, 2), request_timeout)
     total_elapsed += elapsed
     total_usage = _add_openai_usage(total_usage, response_json)
+    total_cost += _openai_usage_cost(response_json.get("usage") or {}, model)
     _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, 0 tools")
     _print_openai_usage(
-        {"usage": total_usage}, model, total_elapsed, f"agent total, {turn + 2} turns, {_format_tool_calls(tool_calls)}"
+        {"usage": total_usage},
+        model,
+        total_elapsed,
+        f"agent total, {turn + 2} turns, {_format_tool_calls(tool_calls)}",
+        total_cost,
     )
     return _finalize_response_content(response_json, text_format)
 
