@@ -21,8 +21,13 @@ jobs:
   actions:
     runs-on: ubuntu-latest
     steps:
+      # Dogfood this repo's own action: PR events run the PR's action.yml, issue events run main's
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
       - name: Run Ultralytics Actions
-        uses: ultralytics/actions@main
+        uses: ./
         with:
           token: ${{ secrets._GITHUB_TOKEN || github.token }} # Auto-generated fallback
           labels: true # Auto-label issues/PRs using AI

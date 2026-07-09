@@ -68,7 +68,7 @@ Key flow: GitHub workflow event → `action.yml` step (gated by `github.event_na
 
 Most shared utilities are re-exported through `actions/utils/__init__.py` — keep `__all__` updated when adding exports.
 
-Self-hosting detail: workflows in this repo pin `ultralytics/actions@main`, but `action.yml` installs the Python package from the current git branch — so PRs here dogfood Python package changes via `.github/workflows/format.yml`, while changes to `action.yml` itself only take effect after merging to main.
+Self-hosting detail: `.github/workflows/format.yml` checks out the event's ref (PR head for pull requests, main for issue events) and runs `uses: ./` — so PRs here dogfood both the Python package and `action.yml` itself before merge.
 
 ## Conventions
 
