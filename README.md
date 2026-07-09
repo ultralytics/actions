@@ -49,7 +49,7 @@ Choose between [OpenAI](https://developers.openai.com/) or [Anthropic](https://w
 
 | Provider  | Default Model       | API Key             |
 | --------- | ------------------- | ------------------- |
-| OpenAI    | `gpt-5.6-sol`       | `openai_api_key`    |
+| OpenAI    | `gpt-5.6-luna`      | `openai_api_key`    |
 | Anthropic | `claude-sonnet-4-6` | `anthropic_api_key` |
 
 The model is auto-detected based on which API key you provide. Override with the `model` input, or use `review_model` to override PR review only.
@@ -111,7 +111,7 @@ jobs:
           # AI API keys - provide OpenAI OR Anthropic (model auto-detected from key)
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # model: gpt-5.6-sol  # Optional: set model explicitly
+          # model: gpt-5.6-luna  # Optional: set model explicitly
           # review_model: claude-opus-4-7  # Optional: override PR review model
           brave_api_key: ${{ secrets.BRAVE_API_KEY }} # Used for broken link resolution
 ```

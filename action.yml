@@ -76,10 +76,10 @@ inputs:
     description: "Anthropic API Key"
     required: false
   model:
-    description: "AI Model - defaults to GPT-5.6 Sol or Sonnet 4.6 based on API key"
+    description: "AI Model - defaults to GPT-5.6 Luna or Sonnet 4.6 based on API key"
     required: false
   review_model:
-    description: "AI Model for PR reviews (optional, defaults to gpt-5.6-sol with medium reasoning)"
+    description: "AI Model for PR reviews (optional, defaults to gpt-5.6-terra with medium reasoning)"
     required: false
   first_issue_response:
     description: "Example response to a new issue"

@@ -20,9 +20,9 @@ REVIEW_MODEL = os.getenv("REVIEW_MODEL")  # Optional override for PR reviews
 MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # deliberate COST ceiling, not a context limit; agent tools read the rest
 
 # Default models (single source of truth)
-OPENAI_MODEL_DEFAULT = "gpt-5.6-sol"
+OPENAI_MODEL_DEFAULT = "gpt-5.6-luna"
 ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-4-6"
-PR_REVIEW_MODEL_DEFAULT = "gpt-5.6-sol"
+PR_REVIEW_MODEL_DEFAULT = "gpt-5.6-terra"
 
 MODEL_COSTS = {  # (input, output) per 1M tokens
     # OpenAI models

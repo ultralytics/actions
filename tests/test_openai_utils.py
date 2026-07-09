@@ -20,8 +20,8 @@ from actions.utils.openai_utils import (
 
 def test_default_models():
     """Test canonical default models are priced so max_cost budgets stay enforceable."""
-    assert OPENAI_MODEL_DEFAULT == "gpt-5.6-sol"
-    assert PR_REVIEW_MODEL_DEFAULT == "gpt-5.6-sol"
+    assert OPENAI_MODEL_DEFAULT == "gpt-5.6-luna"
+    assert PR_REVIEW_MODEL_DEFAULT == "gpt-5.6-terra"
     assert OPENAI_MODEL_DEFAULT in MODEL_COSTS  # unpriced models disable max_cost budgets
     assert PR_REVIEW_MODEL_DEFAULT in MODEL_COSTS
     assert MODEL_COSTS["gpt-5.6-sol"] == (5.00, 30.00)
@@ -47,7 +47,7 @@ def test_is_anthropic_model():
     assert _is_anthropic_model("claude-sonnet-4-6") is True
     assert _is_anthropic_model("claude-haiku-4-5-20251001") is True
     assert _is_anthropic_model("claude-opus-4-7") is True
-    assert _is_anthropic_model("gpt-5.6-sol") is False
+    assert _is_anthropic_model("gpt-5.6-terra") is False
     assert _is_anthropic_model("gpt-5-mini-2025-08-07") is False
 
 
@@ -82,7 +82,7 @@ def test_remove_outer_codeblocks():
 def test_get_review_model_override():
     """Test review model override logic."""
     with patch("actions.utils.openai_utils.REVIEW_MODEL", "claude-opus-4-7"):
-        with patch("actions.utils.openai_utils.MODEL", "gpt-5.6-sol"):
+        with patch("actions.utils.openai_utils.MODEL", "gpt-5.6-terra"):
             assert get_review_model() == "claude-opus-4-7"
 
 
@@ -279,7 +279,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
     printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
     assert "turn 1/6, 1 tools (lookup_value)" in printed
     assert "turn 2/6, 0 tools" in printed
-    assert "30→12 tokens (40% cached), $0.00047" in printed
+    assert "30→12 tokens (40% cached), $0.00009" in printed
     assert "agent total, 2 turns, 1 tools (lookup_value)" in printed
     assert "Agent tool turn" not in printed  # tool names live in the per-turn usage line now
 
