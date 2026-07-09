@@ -1,5 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+name: "Ultralytics CLA"
 author: "Ultralytics"
 description: "Check pull request contributors against the central Ultralytics CLA signature ledger"
 branding:
@@ -22,19 +23,11 @@ runs:
         version: "0.9.4"
 
     - name: Install ultralytics-actions
-      env:
-        GITHUB_REPOSITORY: ${{ github.repository }}
-        GITHUB_SHA: ${{ github.sha }}
       run: |
-        if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
-          packages="git+https://github.com/ultralytics/actions@${GITHUB_SHA}"
-        else
-          packages="git+https://github.com/ultralytics/actions@main"
-        fi
         if [ "$(uname)" = "Darwin" ]; then
-          uv pip install --system --break-system-packages $packages
+          uv pip install --system --break-system-packages "$GITHUB_ACTION_PATH/.."
         else
-          sudo env "PATH=$PATH" uv pip install --system $packages
+          sudo env "PATH=$PATH" uv pip install --system "$GITHUB_ACTION_PATH/.."
         fi
       shell: bash
 

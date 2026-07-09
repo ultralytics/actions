@@ -34,27 +34,36 @@ def ledger_response(rows, sha="old-sha"):
     return response(data={"content": content, "sha": sha})
 
 
+def commits_response(authors, total=None, has_next=False, cursor=None):
+    """Create a GraphQL response containing PR commit authors."""
+    nodes = [{"commit": {"author": author}} for author in authors]
+    commits = {
+        "totalCount": len(nodes) if total is None else total,
+        "nodes": nodes,
+        "pageInfo": {"hasNextPage": has_next, "endCursor": cursor},
+    }
+    return response(data={"data": {"repository": {"pullRequest": {"commits": commits}}}})
+
+
 def test_contributors_paginates_and_requires_verified_github_identity():
     """Collect linked authors while retaining unverified email identities as unknown."""
     source = action()
-    commits = [
+    authors = [
         {
-            "author": {"id": 1, "login": "person", "type": "User"},
-            "commit": {"author": {"email": "work@example.com"}},
+            "email": "work@example.com",
+            "user": {"databaseId": 1, "login": "person"},
         },
         {
-            "author": {"id": 1, "login": "person", "type": "User"},
-            "commit": {"author": {"email": "personal@example.com"}},
+            "email": "personal@example.com",
+            "user": {"databaseId": 1, "login": "person"},
         },
-        {
-            "author": None,
-            "commit": {"author": {"name": "Alias", "email": "2+alias@users.noreply.github.com"}},
-        },
-        {"author": None, "commit": {"author": {"name": "Unknown", "email": "private@example.com"}}},
-        {"author": {"id": 3, "login": "dependabot[bot]", "type": "Bot"}, "commit": {"author": {}}},
-        {"author": {"id": 4, "login": "other[bot]", "type": "Bot"}, "commit": {"author": {}}},
+        {"name": "Alias", "email": "2+alias@users.noreply.github.com", "user": None},
+        {"name": "Unknown", "email": "private@example.com", "user": None},
+        {"user": {"databaseId": 3, "login": "dependabot[bot]"}},
+        {"user": {"databaseId": 4, "login": "other[bot]"}},
     ]
-    source.get.side_effect = [response(data=commits), response(data={"commits": len(commits)})]
+    source.get.return_value = response(data={"user": {"id": 1, "login": "person"}})
+    source.post.return_value = commits_response(authors)
 
     assert cla._contributors(source, 7) == [
         {"id": 1, "name": "person"},
@@ -74,17 +83,31 @@ def test_ledger_preserves_existing_schema_and_never_creates_missing_file():
     store.get.assert_called_once_with(
         "https://api.github.com/repos/ultralytics/cla/contents/signatures/version1/cla.json",
         params={"ref": "cla-signatures"},
-        hard=True,
     )
 
 
 def test_contributors_fails_when_github_truncates_commits():
     """Fail instead of silently skipping commit authors beyond an API limit."""
     source = action()
-    source.get.side_effect = [response(data=[{"author": None}]), response(data={"commits": 2})]
+    source.get.return_value = response(data={"user": {"id": 1, "login": "person"}})
+    source.post.return_value = commits_response([{"name": "Unknown", "user": None}], total=2)
 
     with pytest.raises(RuntimeError, match="returned 1 of 2"):
         cla._contributors(source, 7)
+
+
+def test_contributors_paginates_graphql_commits():
+    """Follow GraphQL cursors beyond one hundred PR commits."""
+    source = action()
+    source.get.return_value = response(data={"user": {"id": 1, "login": "opener"}})
+    first = [{"user": {"databaseId": i, "login": f"user-{i}"}} for i in range(2, 102)]
+    source.post.side_effect = [
+        commits_response(first, total=101, has_next=True, cursor="next"),
+        commits_response([{"user": {"databaseId": 102, "login": "user-102"}}], total=101),
+    ]
+
+    assert len(cla._contributors(source, 7)) == 102
+    assert source.post.call_args_list[1].kwargs["json"]["variables"]["cursor"] == "next"
 
 
 def test_persist_rereads_and_merges_after_conflict():
@@ -112,12 +135,12 @@ def test_run_records_exact_sentence_and_updates_legacy_comment():
         "created_at": "date",
         "user": {"id": 2, "login": "new", "type": "User"},
     }
-    bot = {"id": 40, "body": "Posted by the CLA Assistant Lite bot", "user": {"type": "Bot"}}
+    bot = {"id": 40, "body": "Posted by the CLA Assistant Lite bot", "user": {"login": cla.BOT_LOGIN}}
     source.get.side_effect = [
-        response(data=[{"author": signing["user"], "commit": {"author": {}}}]),
-        response(data={"commits": 1}),
+        response(data={"user": {"id": 2, "login": "new"}}),
         response(data=[signing, bot]),
     ]
+    source.post.return_value = commits_response([{"user": {"databaseId": 2, "login": "new"}}])
     store.get.side_effect = [ledger_response([]), ledger_response([])]
     store.put.return_value = response(200)
 
@@ -132,15 +155,19 @@ def test_run_records_exact_sentence_and_updates_legacy_comment():
     assert "All Contributors have signed" in source.patch.call_args.kwargs["json"]["body"]
 
 
-def test_run_rejects_similar_sentence_and_keeps_hard_failure():
+@pytest.mark.parametrize("body", [f"{cla.SIGN_COMMENT}!", cla.SIGN_COMMENT.lower(), f" {cla.SIGN_COMMENT}"])
+def test_run_rejects_similar_sentence_and_keeps_hard_failure(body):
     """Reject a modified signing sentence and leave the CLA gate failed."""
     source, store = action(), action()
     user = {"id": 2, "login": "new", "type": "User"}
     source.get.side_effect = [
-        response(data=[{"author": user, "commit": {"author": {}}}]),
-        response(data={"commits": 1}),
-        response(data=[{"id": 30, "body": f"{cla.SIGN_COMMENT}!", "created_at": "date", "user": user}]),
-        response(data=[{"id": 40, "body": cla.COMMENT_MARKER, "user": {"type": "Bot"}}]),
+        response(data={"user": {"id": 2, "login": "new"}}),
+        response(data=[{"id": 30, "body": body, "created_at": "date", "user": user}]),
+        response(data=[{"id": 40, "body": cla.COMMENT_MARKER, "user": {"login": cla.BOT_LOGIN}}]),
+    ]
+    source.post.side_effect = [
+        commits_response([{"user": {"databaseId": 2, "login": "new"}}]),
+        response(201),
     ]
     store.get.return_value = ledger_response([])
     source.post.return_value = response(201)
@@ -156,10 +183,13 @@ def test_run_fails_unlinked_email_author():
     """Require commit authors with unlinked emails to link a GitHub account."""
     source, store = action(), action()
     source.get.side_effect = [
-        response(data=[{"author": None, "commit": {"author": {"name": "Unknown", "email": "private@example.com"}}}]),
-        response(data={"commits": 1}),
+        response(data={"user": {"id": 2, "login": "new"}}),
         response(data=[]),
-        response(data=[{"id": 40, "body": cla.COMMENT_MARKER, "user": {"type": "Bot"}}]),
+        response(data=[{"id": 40, "body": cla.COMMENT_MARKER, "user": {"login": cla.BOT_LOGIN}}]),
+    ]
+    source.post.side_effect = [
+        commits_response([{"name": "Unknown", "email": "private@example.com", "user": None}]),
+        response(201),
     ]
     store.get.return_value = ledger_response([])
     source.post.return_value = response(201)
@@ -170,11 +200,31 @@ def test_run_fails_unlinked_email_author():
     assert "not linked to a GitHub account" in source.post.call_args.kwargs["json"]["body"]
 
 
+def test_run_requires_pr_opener_when_commit_identity_is_already_signed():
+    """Require the submitter to sign even when forged commit metadata names a signer."""
+    source, store = action(), action()
+    source.get.side_effect = [
+        response(data={"user": {"id": 9, "login": "submitter"}}),
+        response(data=[]),
+        response(data=[{"id": 40, "body": cla.COMMENT_MARKER, "user": {"login": cla.BOT_LOGIN}}]),
+    ]
+    source.post.side_effect = [
+        commits_response([{"user": {"databaseId": 1, "login": "signed-author"}}]),
+        response(201),
+    ]
+    store.get.return_value = ledger_response([{"id": 1}])
+
+    with pytest.raises(RuntimeError, match="must sign"):
+        cla.run(source, store)
+
+    assert "@submitter" in source.patch.call_args.kwargs["json"]["body"]
+
+
 def test_create_comment_confirms_ambiguous_write_before_failing():
     """Treat an ambiguous comment response as success only when the marker exists."""
     source = action()
     source.post.return_value = response(502)
-    source.get.return_value = response(data=[{"id": 40, "body": cla.COMMENT_MARKER, "user": {"type": "Bot"}}])
+    source.get.return_value = response(data=[{"id": 40, "body": cla.COMMENT_MARKER, "user": {"login": cla.BOT_LOGIN}}])
 
     cla._update_comment(source, 7, [], "body")
 
@@ -183,19 +233,27 @@ def test_create_comment_confirms_ambiguous_write_before_failing():
     source.patch.assert_called_once()
 
 
-def test_update_comment_reconciles_duplicates():
-    """Keep the oldest bot-owned CLA comment and delete duplicate status comments."""
+def test_update_comment_ignores_marker_from_another_bot():
+    """Adopt only comments owned by the authenticated GitHub Actions bot."""
     source = action()
-    comments = [
-        {"id": 40, "body": cla.COMMENT_MARKER, "user": {"type": "Bot"}},
-        {"id": 41, "body": "CLA Assistant Lite bot", "user": {"type": "Bot"}},
-    ]
-    source.delete.return_value = response(204)
+    source.post.return_value = response(201)
+    source.get.return_value = response(data=[{"id": 41, "body": cla.COMMENT_MARKER, "user": {"login": cla.BOT_LOGIN}}])
+    other = [{"id": 40, "body": cla.COMMENT_MARKER, "user": {"login": "other[bot]"}}]
 
-    cla._update_comment(source, 7, comments, "body")
+    cla._update_comment(source, 7, other, "body")
 
-    assert source.patch.call_args.args[0].endswith("/issues/comments/40")
-    assert source.delete.call_args.args[0].endswith("/issues/comments/41")
+    source.post.assert_called_once()
+    assert source.patch.call_args.args[0].endswith("/issues/comments/41")
+
+
+def test_read_retries_transient_responses(monkeypatch):
+    """Retry a transient GitHub read without changing unrelated API clients."""
+    source = action()
+    source.get.side_effect = [response(502), response(200, {"ok": True})]
+    monkeypatch.setattr("actions.cla.time.sleep", MagicMock())
+
+    assert cla._read(source, "get", "url").json() == {"ok": True}
+    assert source.get.call_count == 2
 
 
 def test_rerun_uses_exact_pr_head(monkeypatch):

@@ -8,7 +8,7 @@ import os
 import re
 import time
 
-from .utils import GITHUB_API_URL, Action
+from .utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action
 
 CLA_REPOSITORY = "ultralytics/cla"
 CLA_PATH = "signatures/version1/cla.json"
@@ -17,7 +17,30 @@ CLA_DOCUMENT = "https://docs.ultralytics.com/help/CLA"
 SIGN_COMMENT = "I have read the CLA Document and I sign the CLA"
 COMMENT_MARKER = "<!-- ultralytics-cla -->"
 LEGACY_MARKER = "CLA Assistant Lite bot"
+BOT_LOGIN = "github-actions[bot]"
 ALLOWLIST = ("dependabot[bot]", "github-actions", "pre-commit*", "bot*")
+TRANSIENT_STATUS = (429, 500, 502, 503, 504)
+COMMITS_QUERY = """
+query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
+  repository(owner: $owner, name: $name) {
+    pullRequest(number: $number) {
+      commits(first: 100, after: $cursor) {
+        totalCount
+        nodes {
+          commit {
+            author {
+              name
+              email
+              user { databaseId login }
+            }
+          }
+        }
+        pageInfo { endCursor hasNextPage }
+      }
+    }
+  }
+}
+"""
 
 
 def _matches(pattern: str, login: str) -> bool:
@@ -25,11 +48,30 @@ def _matches(pattern: str, login: str) -> bool:
     return re.fullmatch(re.escape(pattern).replace(r"\*", ".*"), login, re.IGNORECASE) is not None
 
 
+def _allowed(login: str) -> bool:
+    """Return whether a GitHub login matches the configured bot allowlist."""
+    return any(_matches(pattern, login) for pattern in ALLOWLIST) or (
+        login.endswith("[bot]") and any(_matches(pattern, login[:-5]) for pattern in ALLOWLIST)
+    )
+
+
+def _read(action: Action, method: str, url: str, **kwargs):
+    """Retry a read-only GitHub request on transient responses."""
+    for attempt in range(4):
+        response = getattr(action, method)(url, **kwargs)
+        if response.status_code not in TRANSIENT_STATUS:
+            response.raise_for_status()
+            return response
+        if attempt < 3:
+            time.sleep(2**attempt)
+    response.raise_for_status()
+
+
 def _paginate(action: Action, url: str) -> list[dict]:
     """Fetch every page from a GitHub REST collection."""
     items = []
     for page in range(1, 101):
-        response = action.get(url, params={"per_page": 100, "page": page}, hard=True)
+        response = _read(action, "get", url, params={"per_page": 100, "page": page})
         page_items = response.json()
         items.extend(page_items)
         if len(page_items) < 100:
@@ -38,33 +80,50 @@ def _paginate(action: Action, url: str) -> list[dict]:
 
 
 def _contributors(action: Action, number: int) -> list[dict]:
-    """Return unique human commit authors, retaining unlinked authors as unsigned."""
+    """Return the PR opener and every unique commit author."""
     contributors = {}
-    url = f"{GITHUB_API_URL}/repos/{action.repository}/pulls/{number}/commits"
-    commits = _paginate(action, url)
-    pr = action.get(f"{GITHUB_API_URL}/repos/{action.repository}/pulls/{number}", hard=True).json()
-    if len(commits) != pr["commits"]:
-        raise RuntimeError(f"GitHub returned {len(commits)} of {pr['commits']} PR commits")
-    for commit in commits:
-        raw_author = commit.get("commit", {}).get("author") or {}
-        user = commit.get("author")
-        login = user.get("login", "") if user else ""
-        allowed = any(_matches(pattern, login) for pattern in ALLOWLIST) or (
-            login.endswith("[bot]") and any(_matches(pattern, login[:-5]) for pattern in ALLOWLIST)
-        )
-        if user and not allowed:
-            contributors[user["id"]] = {"id": user["id"], "name": user["login"]}
-        elif not user:
-            author = raw_author.get("name")
-            if author:
-                contributors[f"unknown:{author}"] = {"id": None, "name": author}
-    return list(contributors.values())
+    pr = _read(action, "get", f"{GITHUB_API_URL}/repos/{action.repository}/pulls/{number}").json()
+    opener = pr["user"]
+    if not _allowed(opener["login"]):
+        contributors[opener["id"]] = {"id": opener["id"], "name": opener["login"]}
+
+    owner, name = action.repository.split("/", 1)
+    cursor = None
+    count = 0
+    for _ in range(100):
+        response = _read(
+            action,
+            "post",
+            GITHUB_GRAPHQL_URL,
+            json={
+                "query": COMMITS_QUERY,
+                "variables": {"owner": owner, "name": name, "number": number, "cursor": cursor},
+            },
+        ).json()
+        if response.get("errors"):
+            raise RuntimeError(f"Could not read PR commit authors: {response['errors']}")
+        commits = response["data"]["repository"]["pullRequest"]["commits"]
+        for node in commits["nodes"]:
+            author = node["commit"].get("author") or {}
+            user = author.get("user")
+            if user and not _allowed(user["login"]):
+                contributors[user["databaseId"]] = {"id": user["databaseId"], "name": user["login"]}
+            elif not user and author.get("name"):
+                key = f"unknown:{author['name']}:{author.get('email', '')}"
+                contributors[key] = {"id": None, "name": author["name"]}
+        count += len(commits["nodes"])
+        if not commits["pageInfo"]["hasNextPage"]:
+            if count != commits["totalCount"]:
+                raise RuntimeError(f"GitHub returned {count} of {commits['totalCount']} PR commits")
+            return list(contributors.values())
+        cursor = commits["pageInfo"]["endCursor"]
+    raise RuntimeError("Pull request exceeded 10,000 commits")
 
 
 def _ledger(action: Action) -> tuple[dict, str]:
     """Read and validate the existing central signature ledger."""
     url = f"{GITHUB_API_URL}/repos/{CLA_REPOSITORY}/contents/{CLA_PATH}"
-    response = action.get(url, params={"ref": CLA_BRANCH}, hard=True)
+    response = _read(action, "get", url, params={"ref": CLA_BRANCH})
     payload = response.json()
     content = json.loads(base64.b64decode(payload["content"]))
     if not isinstance(content.get("signedContributors"), list):
@@ -138,7 +197,7 @@ def _update_comment(action: Action, number: int, comments: list[dict], body: str
     existing = [
         comment
         for comment in comments
-        if comment.get("user", {}).get("type") == "Bot"
+        if comment.get("user", {}).get("login") == BOT_LOGIN
         and (COMMENT_MARKER in (comment.get("body") or "") or LEGACY_MARKER in (comment.get("body") or ""))
     ]
     if not existing:
@@ -149,7 +208,7 @@ def _update_comment(action: Action, number: int, comments: list[dict], body: str
         existing = [
             comment
             for comment in _comments(action, number)
-            if comment.get("user", {}).get("type") == "Bot"
+            if comment.get("user", {}).get("login") == BOT_LOGIN
             and (COMMENT_MARKER in (comment.get("body") or "") or LEGACY_MARKER in (comment.get("body") or ""))
         ]
         if not existing:
@@ -161,26 +220,23 @@ def _update_comment(action: Action, number: int, comments: list[dict], body: str
         json={"body": body},
         hard=True,
     )
-    for duplicate in existing[1:]:
-        response = action.delete(f"{GITHUB_API_URL}/repos/{action.repository}/issues/comments/{duplicate['id']}")
-        if response.status_code not in (200, 204, 404):
-            response.raise_for_status()
 
 
 def _rerun_pr_check(action: Action, number: int) -> None:
     """Rerun the PR-head CLA workflow after a successful issue-comment signature."""
     if action.event_name != "issue_comment":
         return
-    pr = action.get(f"{GITHUB_API_URL}/repos/{action.repository}/pulls/{number}", hard=True).json()
+    pr = _read(action, "get", f"{GITHUB_API_URL}/repos/{action.repository}/pulls/{number}").json()
     workflow_ref = os.environ["GITHUB_WORKFLOW_REF"]
     workflow = workflow_ref.split(f"{action.repository}/", 1)[1].rsplit("@", 1)[0]
     run = None
     url = f"{GITHUB_API_URL}/repos/{action.repository}/actions/workflows/{workflow}/runs"
     for page in range(1, 101):
-        runs = action.get(
+        runs = _read(
+            action,
+            "get",
             url,
             params={"branch": pr["head"]["ref"], "event": "pull_request_target", "per_page": 100, "page": page},
-            hard=True,
         ).json()["workflow_runs"]
         run = next((item for item in runs if item["head_sha"] == pr["head"]["sha"]), None)
         if run or len(runs) < 100:
@@ -191,7 +247,7 @@ def _rerun_pr_check(action: Action, number: int) -> None:
         if run["conclusion"] is not None:
             break
         time.sleep(5)
-        run = action.get(f"{GITHUB_API_URL}/repos/{action.repository}/actions/runs/{run['id']}", hard=True).json()
+        run = _read(action, "get", f"{GITHUB_API_URL}/repos/{action.repository}/actions/runs/{run['id']}").json()
     if run["conclusion"] is None:
         raise RuntimeError("PR-head CLA workflow did not complete before the rerun timeout")
     if run["conclusion"] != "success":
@@ -209,8 +265,7 @@ def run(action: Action, ledger_action: Action) -> None:
     records = {
         comment["user"]["id"]: _record(comment, action, number)
         for comment in comments
-        if (comment.get("body") or "").strip().casefold() == SIGN_COMMENT.casefold()
-        and comment.get("user", {}).get("id") in contributor_ids - signed_ids
+        if comment.get("body") == SIGN_COMMENT and comment.get("user", {}).get("id") in contributor_ids - signed_ids
     }
     if records:
         _persist(ledger_action, list(records.values()), action, number)
