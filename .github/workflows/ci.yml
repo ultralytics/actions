@@ -52,10 +52,11 @@ jobs:
           ultralytics-actions-info
 
       - name: Upload coverage to Codecov
+        continue-on-error: true
         uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           disable_search: true
           plugins: noop
           use_oidc: true
-          fail_ci_if_error: true
+          fail_ci_if_error: false
