@@ -323,7 +323,10 @@ def _post_openai_response(
                 r.reason = f"{r.reason}\n{error_body}"
 
             r.raise_for_status()
-            return r.json(), elapsed
+            response_json = r.json()
+            return (
+                _poll_openai_response(response_json, headers) if response_json.get("status") else response_json
+            ), elapsed
         except (requests.exceptions.ConnectionError, json.JSONDecodeError):
             # ConnectTimeout subclasses ConnectionError so it stays retryable; a ReadTimeout propagates instead,
             # because the request may have completed server-side and re-POSTing it would double-bill.
@@ -357,14 +360,11 @@ def _handle_function_call(call: dict, tool_handlers: dict[str, Callable]) -> dic
     """Execute one model-requested function call and return a Responses API output item."""
     name = call.get("name")
     call_id = call.get("call_id")
-    try:
-        if name not in tool_handlers:
-            raise KeyError(f"Unknown tool: {name}")
-        output = tool_handlers[name](**_parse_tool_arguments(call))
-        if not isinstance(output, str):
-            output = json.dumps(output)
-    except Exception as e:
-        output = f"{name or 'tool'} failed: {type(e).__name__}: {e}"
+    if name not in tool_handlers:
+        raise KeyError(f"Unknown tool: {name}")
+    output = tool_handlers[name](**_parse_tool_arguments(call))
+    if not isinstance(output, str):
+        output = json.dumps(output)
     return {"type": "function_call_output", "call_id": call_id, "output": output}
 
 

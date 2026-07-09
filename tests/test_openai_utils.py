@@ -467,3 +467,44 @@ def test_get_agent_response_stops_at_cost_budget(mock_post):
         )
 
     mock_post.assert_called_once()
+
+
+@patch("requests.post")
+def test_get_agent_response_rejects_incomplete_response(mock_post):
+    """Test terminal incomplete responses cannot become review evidence."""
+    response = MagicMock(status_code=200)
+    response.elapsed.total_seconds.return_value = 1.0
+    response.json.return_value = {"id": "resp_incomplete", "status": "incomplete", "incomplete_details": "limit"}
+    mock_post.return_value = response
+
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"), pytest.raises(
+        RuntimeError, match="ended with limit"
+    ):
+        get_agent_response([{"role": "user", "content": "review"}], tools=[], tool_handlers={}, retries=0)
+
+
+@patch("requests.post")
+def test_get_agent_response_rejects_failed_tool(mock_post):
+    """Test failed evidence tools abort the agent run."""
+    response = MagicMock(status_code=200)
+    response.elapsed.total_seconds.return_value = 1.0
+    response.json.return_value = {
+        "id": "resp_tool",
+        "status": "completed",
+        "output": [{"type": "function_call", "call_id": "call_123", "name": "read_file", "arguments": "{}"}],
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+    mock_post.return_value = response
+
+    def failed_read():
+        raise RuntimeError("read failed")
+
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"), pytest.raises(
+        RuntimeError, match="read failed"
+    ):
+        get_agent_response(
+            [{"role": "user", "content": "review"}],
+            tools=[],
+            tool_handlers={"read_file": failed_read},
+            retries=0,
+        )
