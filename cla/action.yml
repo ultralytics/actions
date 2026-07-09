@@ -16,11 +16,17 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - uses: astral-sh/setup-uv@v7
+      with:
+        ignore-empty-workdir: true
+        enable-cache: false
+        version: "0.9.4"
+
     - name: Install requests
       run: |
         cd "$GITHUB_ACTION_PATH/.."
-        python -m venv "$RUNNER_TEMP/ultralytics-cla"
-        "$RUNNER_TEMP/ultralytics-cla/bin/python" -m pip install --disable-pip-version-check \
+        uv venv "$RUNNER_TEMP/ultralytics-cla"
+        uv pip install --python "$RUNNER_TEMP/ultralytics-cla/bin/python" \
           "requests==2.32.4; python_version < '3.10'" \
           "requests==2.33.0; python_version >= '3.10'"
       shell: bash

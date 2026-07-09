@@ -49,7 +49,7 @@
 
 | 提供商    | 默认模型            | API Key             |
 | --------- | ------------------- | ------------------- |
-| OpenAI    | `gpt-5.5`           | `openai_api_key`    |
+| OpenAI    | `gpt-5.6-luna`      | `openai_api_key`    |
 | Anthropic | `claude-sonnet-4-6` | `anthropic_api_key` |
 
 模型会根据提供的 API key 自动检测。可通过 `model` 输入覆盖默认模型，也可使用 `review_model` 仅覆盖 PR review 模型。
@@ -111,7 +111,7 @@ jobs:
           # AI API keys - provide OpenAI OR Anthropic (model auto-detected from key)
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
-          # model: gpt-5.5  # Optional: set model explicitly
+          # model: gpt-5.6-luna  # Optional: set model explicitly
           # review_model: claude-opus-4-7  # Optional: override PR review model
           brave_api_key: ${{ secrets.BRAVE_API_KEY }} # Used for broken link resolution
 ```

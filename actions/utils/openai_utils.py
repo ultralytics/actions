@@ -18,11 +18,12 @@ ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 MODEL = os.getenv("MODEL")  # Auto-detected from API keys if not set
 REVIEW_MODEL = os.getenv("REVIEW_MODEL")  # Optional override for PR reviews
 MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # deliberate COST ceiling, not a context limit; agent tools read the rest
+WEB_SEARCH_CALL_COST = 0.01  # $10 per 1K calls
 
 # Default models (single source of truth)
-OPENAI_MODEL_DEFAULT = "gpt-5.5"
+OPENAI_MODEL_DEFAULT = "gpt-5.6-luna"
 ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-4-6"
-PR_REVIEW_MODEL_DEFAULT = "gpt-5.5"
+PR_REVIEW_MODEL_DEFAULT = "gpt-5.6-terra"
 
 MODEL_COSTS = {  # (input, output) per 1M tokens
     # OpenAI models
@@ -34,6 +35,9 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "gpt-5.3-codex": (1.75, 14.00),
     "gpt-5.5": (5.00, 30.00),
     "gpt-5.4": (2.50, 15.00),
+    "gpt-5.6-sol": (5.00, 30.00),
+    "gpt-5.6-terra": (2.50, 15.00),
+    "gpt-5.6-luna": (1.00, 6.00),
     "gpt-5-nano-2025-08-07": (0.05, 0.40),
     "gpt-5-mini-2025-08-07": (0.25, 2.00),
     # Anthropic Claude models
@@ -222,7 +226,7 @@ def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | N
     total_usage = total_usage or {
         "input_tokens": 0,
         "output_tokens": 0,
-        "input_tokens_details": {"cached_tokens": 0},
+        "input_tokens_details": {"cache_write_tokens": 0, "cached_tokens": 0},
         "output_tokens_details": {"reasoning_tokens": 0},
     }
     total_usage["input_tokens"] += usage.get("input_tokens", 0)
@@ -230,29 +234,40 @@ def _add_openai_usage(total_usage: dict | None, response_json: dict) -> dict | N
     total_usage["input_tokens_details"]["cached_tokens"] += (usage.get("input_tokens_details") or {}).get(
         "cached_tokens", 0
     )
+    total_usage["input_tokens_details"]["cache_write_tokens"] += (usage.get("input_tokens_details") or {}).get(
+        "cache_write_tokens", 0
+    )
     total_usage["output_tokens_details"]["reasoning_tokens"] += (usage.get("output_tokens_details") or {}).get(
         "reasoning_tokens", 0
     )
     return total_usage
 
 
-def _normalize_usage_tokens(usage: dict) -> tuple[int, int]:
-    """Return (input_tokens, cached_tokens) for OpenAI Responses or Anthropic Messages usage shapes.
+def _normalize_usage_tokens(usage: dict) -> tuple[int, int, int]:
+    """Return input, cache-read, and cache-write tokens for OpenAI Responses or Anthropic Messages usage shapes.
 
     Anthropic reports cache reads/writes outside input_tokens, so both fold back into the input total and reads count as
     cached — the same normalization ultralytics/assistant applies, keeping cross-repo telemetry identical.
     """
     cache_read = usage.get("cache_read_input_tokens", 0)
     input_tokens = usage.get("input_tokens", 0) + cache_read + usage.get("cache_creation_input_tokens", 0)
-    cached_tokens = (usage.get("input_tokens_details") or {}).get("cached_tokens", 0) or cache_read
-    return input_tokens, cached_tokens
+    details = usage.get("input_tokens_details") or {}
+    cached_tokens = details.get("cached_tokens", 0) or cache_read
+    cache_write_tokens = details.get("cache_write_tokens", 0)
+    return input_tokens, cached_tokens, cache_write_tokens
 
 
 def _openai_usage_cost(usage: dict, model: str) -> float:
-    """Compute billed USD cost for one usage block (cached input billed at 10% of the input rate)."""
+    """Compute billed USD cost including GPT-5.6 cache-write and long-context rates."""
     costs = MODEL_COSTS.get(model, (0.0, 0.0))
-    input_tokens, cached_tokens = _normalize_usage_tokens(usage)
-    return ((input_tokens - cached_tokens * 0.9) * costs[0] + usage.get("output_tokens", 0) * costs[1]) / 1e6
+    input_tokens, cached_tokens, cache_write_tokens = _normalize_usage_tokens(usage)
+    cache_write_premium = cache_write_tokens * 0.25 if model.startswith("gpt-5.6-") else 0
+    billed_input = input_tokens - cached_tokens * 0.9 + cache_write_premium
+    long_context = model.startswith("gpt-5.6-") and input_tokens > 272000
+    return (
+        billed_input * costs[0] * (2 if long_context else 1)
+        + usage.get("output_tokens", 0) * costs[1] * (1.5 if long_context else 1)
+    ) / 1e6
 
 
 def _format_tool_calls(calls: list[str]) -> str:
@@ -264,13 +279,15 @@ def _format_tool_calls(calls: list[str]) -> str:
     return f"{len(calls)} tools" + (f" ({types})" if calls else "")
 
 
-def _print_openai_usage(response_json: dict, model: str, elapsed: float, metadata: str = "") -> None:
+def _print_openai_usage(
+    response_json: dict, model: str, elapsed: float, metadata: str = "", billed_cost: float | None = None
+) -> None:
     """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, 31 thinking), $0.69, 8.9s'."""
     if usage := response_json.get("usage"):
-        input_tokens, cached_tokens = _normalize_usage_tokens(usage)
+        input_tokens, cached_tokens, _ = _normalize_usage_tokens(usage)
         output_tokens = usage.get("output_tokens", 0)  # includes thinking, noted in the parenthetical
         thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
-        cost = _openai_usage_cost(usage, model)
+        cost = _openai_usage_cost(usage, model) if billed_cost is None else billed_cost
         notes = []
         if cached_tokens:
             notes.append(f"{round(100 * cached_tokens / input_tokens)}% cached")
@@ -306,7 +323,10 @@ def _post_openai_response(
                 r.reason = f"{r.reason}\n{error_body}"
 
             r.raise_for_status()
-            return r.json(), elapsed
+            response_json = r.json()
+            return (
+                _poll_openai_response(response_json, headers) if response_json.get("status") else response_json
+            ), elapsed
         except (requests.exceptions.ConnectionError, json.JSONDecodeError):
             # ConnectTimeout subclasses ConnectionError so it stays retryable; a ReadTimeout propagates instead,
             # because the request may have completed server-side and re-POSTing it would double-bill.
@@ -340,14 +360,11 @@ def _handle_function_call(call: dict, tool_handlers: dict[str, Callable]) -> dic
     """Execute one model-requested function call and return a Responses API output item."""
     name = call.get("name")
     call_id = call.get("call_id")
-    try:
-        if name not in tool_handlers:
-            raise KeyError(f"Unknown tool: {name}")
-        output = tool_handlers[name](**_parse_tool_arguments(call))
-        if not isinstance(output, str):
-            output = json.dumps(output)
-    except Exception as e:
-        output = f"{name or 'tool'} failed: {type(e).__name__}: {e}"
+    if name not in tool_handlers:
+        raise KeyError(f"Unknown tool: {name}")
+    output = tool_handlers[name](**_parse_tool_arguments(call))
+    if not isinstance(output, str):
+        output = json.dumps(output)
     return {"type": "function_call_output", "call_id": call_id, "output": output}
 
 
@@ -367,9 +384,9 @@ def get_agent_response(
 ) -> str | dict:
     """Run an iterative OpenAI Responses API agent with application-managed function tools.
 
-    max_cost is a USD ceiling across all turns (0 disables); once reached, remaining tool turns are skipped and the
-    agent synthesizes a final answer. Models missing from MODEL_COSTS disable max_cost loudly; max_turns still bounds.
-    parallel_tools runs a turn's batched tool calls concurrently: opt in ONLY when every handler is thread-safe.
+    max_cost is a USD ceiling across all turns (0 disables); a tool request after reaching it aborts the incomplete
+    agent run. Models missing from MODEL_COSTS disable max_cost loudly; max_turns still bounds. parallel_tools runs a
+    turn's batched tool calls concurrently: opt in ONLY when every handler is thread-safe.
     """
     model = model or _get_default_model()
     if max_cost and model not in MODEL_COSTS:
@@ -396,6 +413,7 @@ def get_agent_response(
 
     base_data = {
         "model": model,
+        "service_tier": "default",
         "store": True,
         "temperature": temperature,
         "tools": tools,
@@ -409,6 +427,7 @@ def get_agent_response(
 
     tool_calls = []
     total_elapsed = 0.0
+    total_cost = 0.0
     total_usage = None
     previous_response_id = None
     next_input = conversation
@@ -423,9 +442,18 @@ def get_agent_response(
         previous_response_id = response_json.get("id")
         output_items = response_json.get("output", [])
         turn_calls = _response_tool_calls(output_items)
+        turn_cost = (
+            _openai_usage_cost(response_json.get("usage") or {}, model)
+            + turn_calls.count("web_search") * WEB_SEARCH_CALL_COST
+        )
+        total_cost += turn_cost
         tool_calls += turn_calls
         _print_openai_usage(
-            response_json, model, elapsed, f"turn {turn + 1}/{max_turns}, {_format_tool_calls(turn_calls)}"
+            response_json,
+            model,
+            elapsed,
+            f"turn {turn + 1}/{max_turns}, {_format_tool_calls(turn_calls)}",
+            turn_cost,
         )
         function_calls = [item for item in output_items if item.get("type") == "function_call"]
 
@@ -435,18 +463,14 @@ def get_agent_response(
                 model,
                 total_elapsed,
                 f"agent total, {turn + 1} turns, {_format_tool_calls(tool_calls)}",
+                total_cost,
             )
             return _finalize_response_content(response_json, text_format)
 
         if not previous_response_id:
             raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
-        if max_cost and _openai_usage_cost(total_usage, model) >= max_cost:
-            print(f"Agent cost budget ${max_cost:.2f} reached; skipping remaining tool turns")
-            next_input = [  # pending calls still need outputs for the chained synthesis request to be valid
-                {"type": "function_call_output", "call_id": call.get("call_id"), "output": "Tool budget exhausted."}
-                for call in function_calls
-            ]
-            break
+        if max_cost and total_cost >= max_cost:
+            raise RuntimeError(f"Agent cost budget ${max_cost:.2f} reached before requested tools could run")
         if parallel_tools and len(function_calls) > 1:  # opt-in contract: handlers must be thread-safe
             with ThreadPoolExecutor(max_workers=min(8, len(function_calls))) as pool:
                 next_input = list(pool.map(lambda call: _handle_function_call(call, tool_handlers), function_calls))
@@ -467,9 +491,14 @@ def get_agent_response(
     response_json, elapsed = _post_openai_response(data, headers, max(retries, 2), request_timeout)
     total_elapsed += elapsed
     total_usage = _add_openai_usage(total_usage, response_json)
+    total_cost += _openai_usage_cost(response_json.get("usage") or {}, model)
     _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, 0 tools")
     _print_openai_usage(
-        {"usage": total_usage}, model, total_elapsed, f"agent total, {turn + 2} turns, {_format_tool_calls(tool_calls)}"
+        {"usage": total_usage},
+        model,
+        total_elapsed,
+        f"agent total, {turn + 2} turns, {_format_tool_calls(tool_calls)}",
+        total_cost,
     )
     return _finalize_response_content(response_json, text_format)
 
@@ -566,7 +595,7 @@ def get_response(
 
             # Parse response
             response_json = r.json()
-            if background:
+            if background or (not is_anthropic and response_json.get("status")):
                 response_json = _poll_openai_response(response_json, headers)
                 elapsed = time.time() - started
             if is_anthropic:
