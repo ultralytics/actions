@@ -167,8 +167,6 @@ def _persist(action: Action, records: list[dict], source: Action, number: int) -
             response.raise_for_status()
         if response.status_code != 409 and attempt < 3:
             time.sleep(float(response.headers.get("Retry-After", 2**attempt)))
-    if response.status_code == 409:
-        raise RuntimeError("CLA signature ledger changed repeatedly during update")
     response.raise_for_status()
 
 
