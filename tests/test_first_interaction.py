@@ -266,7 +266,8 @@ def test_review_agent_tools_read_pr_head_via_api(tmp_path, monkeypatch):
         handlers["read_file"](path="flaky.py", start_line=None, end_line=None)
 
     tree_response.status_code = 500
-    assert handlers["list_files"](path_glob=None) == "list_files failed: HTTP 500."  # failures are not cached
+    with pytest.raises(RuntimeError, match="list_files failed: HTTP 500"):
+        handlers["list_files"](path_glob=None)
     tree_response.status_code = 200
     assert handlers["list_files"](path_glob=None).splitlines() == ["tests/test_python.py"]
 

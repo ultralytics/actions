@@ -167,7 +167,7 @@ def build_review_agent_tools(
         if not head_tree:
             response = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/git/trees/{head_sha}?recursive=1")
             if response.status_code != 200:
-                return f"list_files failed: HTTP {response.status_code}."  # don't cache failures
+                raise RuntimeError(f"list_files failed: HTTP {response.status_code}")
             head_tree.append([t["path"] for t in response.json().get("tree", []) if t.get("type") == "blob"])
         files = sorted(p for p in head_tree[0] if (not path_glob or fnmatch(p, path_glob)) and not should_skip_file(p))
         return _clip_tool_output("\n".join(files[:300])) if files else "No matching files found."
