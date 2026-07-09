@@ -17,7 +17,11 @@ runs:
   using: "composite"
   steps:
     - name: Install requests
-      run: python -m pip install --disable-pip-version-check "requests==2.32.5"
+      run: |
+        python -m venv "$RUNNER_TEMP/ultralytics-cla"
+        "$RUNNER_TEMP/ultralytics-cla/bin/python" -m pip install --disable-pip-version-check \
+          "requests==2.32.4; python_version < '3.10'" \
+          "requests==2.33.0; python_version >= '3.10'"
       shell: bash
 
     - name: Check CLA
@@ -25,5 +29,5 @@ runs:
         GITHUB_TOKEN: ${{ inputs.github-token }}
         CLA_TOKEN: ${{ inputs.cla-token }}
         PYTHONPATH: ${{ github.action_path }}/..
-      run: python -m actions.cla
+      run: '"$RUNNER_TEMP/ultralytics-cla/bin/python" -m actions.cla'
       shell: bash
