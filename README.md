@@ -171,6 +171,19 @@ Update GitHub Actions versions across organization repositories with cached rele
 
 [**📖 Full Documentation →**](dependabot/README.md)
 
+### 5. CLA Action
+
+Check every pull request commit author against the central Ultralytics CLA signature ledger.
+
+```yaml
+- uses: ultralytics/actions/cla@main
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    cla-token: ${{ secrets._GITHUB_TOKEN }}
+```
+
+[**📖 Full Documentation →**](cla/README.md)
+
 ## Python Package
 
 Install the `ultralytics-actions` package for programmatic access to action utilities, including all [requirements](https://github.com/ultralytics/actions/blob/main/pyproject.toml), in a [**Python>=3.8**](https://www.python.org/) environment.
