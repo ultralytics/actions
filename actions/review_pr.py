@@ -306,11 +306,7 @@ def get_repo_guidelines(
     # Prefer CLAUDE.md for Anthropic models, AGENTS.md for others; load only one, never both
     agent_prefs = ("CLAUDE.md", "AGENTS.md") if "claude" in model.lower() else ("AGENTS.md", "CLAUDE.md")
     for filename in ("CONTRIBUTING.md", *agent_prefs):
-        try:
-            content = (_read_head_file(event, head_sha, local_checkout, filename) or "")[:MAX_CONTEXT_FILE_CHARS]
-        except Exception as e:
-            print(f"Failed to read {filename}: {e}")
-            continue
+        content = (_read_head_file(event, head_sha, local_checkout, filename) or "")[:MAX_CONTEXT_FILE_CHARS]
         if content:
             guidelines.append(f"### {filename}\n~~~\n{content}\n~~~")
             print(f"Loaded {filename} ({len(content)} chars) for review context")
@@ -411,10 +407,7 @@ def generate_pr_review(
     if event and head_sha and not is_agent_review_model and len(file_list) <= 10:  # Reasonable file count limit
         file_contents, total_chars = [], len(augmented_diff) + len(guidelines_section)
         for file_path in file_list:  # already filtered by should_skip_file above
-            try:
-                text = _read_head_file(event, head_sha, local_checkout, file_path) or ""
-            except Exception:
-                continue
+            text = _read_head_file(event, head_sha, local_checkout, file_path) or ""
             if not text or len(text) > 100_000:  # skip missing and >100KB files entirely
                 continue
             snippet = text[:MAX_CONTEXT_FILE_CHARS]
