@@ -194,25 +194,25 @@ Thank you for your contribution. Before it can be accepted, every contributor mu
 """
 
 
-def _update_comment(action: Action, number: int, comments: list[dict], body: str) -> None:
-    """Create or update one bot-owned CLA status comment."""
-    existing = [
+def _status_comments(comments: list[dict]) -> list[dict]:
+    """Return the bot-owned CLA status comments."""
+    return [
         comment
         for comment in comments
         if comment.get("user", {}).get("login") == BOT_LOGIN
         and (COMMENT_MARKER in (comment.get("body") or "") or LEGACY_MARKER in (comment.get("body") or ""))
     ]
+
+
+def _update_comment(action: Action, number: int, comments: list[dict], body: str) -> None:
+    """Create or update one bot-owned CLA status comment."""
+    existing = _status_comments(comments)
     if not existing:
         response = action.post(
             f"{GITHUB_API_URL}/repos/{action.repository}/issues/{number}/comments",
             json={"body": body},
         )
-        existing = [
-            comment
-            for comment in _comments(action, number)
-            if comment.get("user", {}).get("login") == BOT_LOGIN
-            and (COMMENT_MARKER in (comment.get("body") or "") or LEGACY_MARKER in (comment.get("body") or ""))
-        ]
+        existing = _status_comments(_comments(action, number))
         if not existing:
             response.raise_for_status()
             raise RuntimeError("GitHub did not return the created CLA status comment")
@@ -271,7 +271,8 @@ def run(action: Action, ledger_action: Action) -> None:
     signed = [user for user in contributors if user["id"] in signed_ids]
     unsigned = [user for user in contributors if user["id"] is not None and user["id"] not in signed_ids]
     unknown = [user for user in contributors if user["id"] is None]
-    _update_comment(action, number, comments, _comment_body(signed, unsigned, unknown))
+    if unsigned or unknown or _status_comments(comments):
+        _update_comment(action, number, comments, _comment_body(signed, unsigned, unknown))
     if unsigned or unknown:
         raise RuntimeError("All PR contributors must sign the CLA")
     _rerun_pr_check(action, number)
