@@ -189,6 +189,22 @@ def test_run_records_exact_sentence_and_updates_legacy_comment():
     assert "All Contributors have signed" in source.patch.call_args.kwargs["json"]["body"]
 
 
+def test_run_stays_silent_when_all_contributors_already_signed():
+    """Skip the status comment entirely when nobody needed to sign."""
+    source, store = action(), action()
+    source.get.side_effect = [
+        response(data={"user": {"id": 1, "login": "signed"}}),
+        response(data=[]),
+    ]
+    source.post.return_value = commits_response([{"user": {"databaseId": 1, "login": "signed"}}])
+    store.get.return_value = ledger_response([{"id": 1}])
+
+    cla.run(source, store)
+
+    assert source.post.call_count == 1  # GraphQL commits query only, no comment created
+    source.patch.assert_not_called()
+
+
 @pytest.mark.parametrize("body", [f"{cla.SIGN_COMMENT}!", cla.SIGN_COMMENT.lower(), f" {cla.SIGN_COMMENT}"])
 def test_run_rejects_similar_sentence_and_keeps_hard_failure(body):
     """Reject a modified signing sentence and leave the CLA gate failed."""
