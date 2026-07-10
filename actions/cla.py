@@ -230,7 +230,7 @@ def _rerun_pr_check(action: Action, number: int) -> None:
         return
     pr = _read(action, "get", f"{GITHUB_API_URL}/repos/{action.repository}/pulls/{number}").json()
     workflow_ref = os.environ["GITHUB_WORKFLOW_REF"]
-    workflow = workflow_ref.split(f"{action.repository}/", 1)[1].rsplit("@", 1)[0]
+    workflow = workflow_ref.rsplit("@", 1)[0].rsplit("/", 1)[-1]  # API accepts only the numeric id or bare filename
     run = None
     url = f"{GITHUB_API_URL}/repos/{action.repository}/actions/workflows/{workflow}/runs"
     for page in range(1, 101):
