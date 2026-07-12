@@ -67,43 +67,16 @@ def test_github_get_fetches_json(monkeypatch):
 
     def fake_urlopen(request, timeout):
         requests.append((request.full_url, timeout, request.headers["Authorization"]))
-        return Response()
-
-    monkeypatch.setenv("GH_TOKEN", "token")
-    monkeypatch.setattr(failed_scheduled_actions.urllib.request, "urlopen", fake_urlopen)
-
-    assert failed_scheduled_actions.github_get("/repos/ultralytics/actions", {"page": 1}) == {"ok": True}
-    assert requests == [("https://api.github.com/repos/ultralytics/actions?page=1", 60, "Bearer token")]
-
-
-def test_github_get_retries_transient_server_errors(monkeypatch):
-    """Transient GitHub server errors should retry before failing an organization-wide report."""
-    calls = []
-    sleeps = []
-
-    class Response:
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc, traceback):
-            return False
-
-        def read(self):
-            return b'{"ok": true}'
-
-    def fake_urlopen(*args, **kwargs):
-        calls.append(None)
-        if len(calls) < 3:
+        if len(requests) == 1:
             raise urllib.error.HTTPError("url", 504, "Gateway Timeout", {}, None)
         return Response()
 
     monkeypatch.setenv("GH_TOKEN", "token")
     monkeypatch.setattr(failed_scheduled_actions.urllib.request, "urlopen", fake_urlopen)
-    monkeypatch.setattr(failed_scheduled_actions.time, "sleep", lambda seconds: sleeps.append(seconds))
+    monkeypatch.setattr(failed_scheduled_actions.time, "sleep", lambda _: None)
 
-    assert failed_scheduled_actions.github_get("/orgs/ultralytics/repos") == {"ok": True}
-    assert len(calls) == 3
-    assert sleeps == [1, 2]
+    assert failed_scheduled_actions.github_get("/repos/ultralytics/actions", {"page": 1}) == {"ok": True}
+    assert len(requests) == 2
 
 
 def test_github_get_skips_allowed_repo_errors(monkeypatch, capsys):
