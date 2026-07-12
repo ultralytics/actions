@@ -76,7 +76,7 @@ def test_github_get_fetches_json(monkeypatch):
     monkeypatch.setattr(failed_scheduled_actions.time, "sleep", lambda _: None)
 
     assert failed_scheduled_actions.github_get("/repos/ultralytics/actions", {"page": 1}) == {"ok": True}
-    assert len(requests) == 2
+    assert requests == [("https://api.github.com/repos/ultralytics/actions?page=1", 60, "Bearer token")] * 2
 
 
 def test_github_get_skips_allowed_repo_errors(monkeypatch, capsys):
