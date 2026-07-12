@@ -67,13 +67,16 @@ def test_github_get_fetches_json(monkeypatch):
 
     def fake_urlopen(request, timeout):
         requests.append((request.full_url, timeout, request.headers["Authorization"]))
+        if len(requests) == 1:
+            raise urllib.error.HTTPError("url", 504, "Gateway Timeout", {}, None)
         return Response()
 
     monkeypatch.setenv("GH_TOKEN", "token")
     monkeypatch.setattr(failed_scheduled_actions.urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(failed_scheduled_actions.time, "sleep", lambda _: None)
 
     assert failed_scheduled_actions.github_get("/repos/ultralytics/actions", {"page": 1}) == {"ok": True}
-    assert requests == [("https://api.github.com/repos/ultralytics/actions?page=1", 60, "Bearer token")]
+    assert requests == [("https://api.github.com/repos/ultralytics/actions?page=1", 60, "Bearer token")] * 2
 
 
 def test_github_get_skips_allowed_repo_errors(monkeypatch, capsys):

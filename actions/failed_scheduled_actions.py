@@ -73,16 +73,20 @@ def github_get(path, params=None, token=None, allow_skip=False):
             "X-GitHub-Api-Version": "2022-11-28",
         },
     )
-    try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            return json.loads(response.read())
-    except urllib.error.HTTPError as e:
-        body = e.read().decode(errors="ignore").lower()
-        rate_limited = e.code == 403 and (e.headers.get("X-RateLimit-Remaining") == "0" or "rate limit" in body)
-        if allow_skip and e.code in {403, 404} and not rate_limited:
-            print(f"Skipping {path}: {e.code}")
-            return None
-        raise
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(request, timeout=60) as response:
+                return json.loads(response.read())
+        except urllib.error.HTTPError as e:
+            if e.code in {500, 502, 503, 504} and attempt < 2:
+                time.sleep(2**attempt)
+                continue
+            body = e.read().decode(errors="ignore").lower()
+            rate_limited = e.code == 403 and (e.headers.get("X-RateLimit-Remaining") == "0" or "rate limit" in body)
+            if allow_skip and e.code in {403, 404} and not rate_limited:
+                print(f"Skipping {path}: {e.code}")
+                return None
+            raise
 
 
 def paginate(path, params=None, key=None, max_pages=100, token=None, allow_skip=False):
