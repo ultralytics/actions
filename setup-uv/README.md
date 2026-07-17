@@ -1,6 +1,6 @@
 # Setup uv Action
 
-Installs the latest [uv](https://docs.astral.sh/uv/) release with retry support and optionally activates a Python virtual environment.
+Installs the latest [uv](https://docs.astral.sh/uv/) release with retry support on Linux and macOS and optionally activates a Python virtual environment.
 
 ## Usage
 

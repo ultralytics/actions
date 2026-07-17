@@ -13,13 +13,30 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            python_input: "3.14"
+            inherited_python: ""
+          - os: macos-latest
+            python_input: "3.14"
+            inherited_python: ""
+          - os: ubuntu-latest
+            python_input: ""
+            inherited_python: "3.14"
+    runs-on: ${{ matrix.os }}
+    env:
+      UV_PYTHON: ${{ matrix.inherited_python }}
     steps:
       - uses: actions/checkout@v7
 
+      - name: Create stale environment
+        run: python3 -m venv .venv && touch .venv/stale
+
       - uses: ./setup-uv
         with:
-          python-version: "3.14"
+          python-version: ${{ matrix.python_input }}
           activate-environment: true
 
       - name: Verify uv and Python
@@ -27,4 +44,5 @@ jobs:
           uv --version
           test "$UV_PYTHON" = "3.14"
           test "$VIRTUAL_ENV" = "$PWD/.venv"
+          test ! -e .venv/stale
           python -c 'import sys; assert sys.version_info[:2] == (3, 14)'
