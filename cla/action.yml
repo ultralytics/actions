@@ -16,11 +16,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7.6.0
-      with:
-        github-token: ""
-        ignore-empty-workdir: true
-        version: "0.9.4"
+    - uses: ultralytics/actions/setup-uv@fb59797d8aaaf12aa0d2d3aa7fe66dd64db99833
 
     - name: Check CLA
       env:
