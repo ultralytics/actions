@@ -1,0 +1,48 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+name: "Setup uv"
+description: "Install the latest uv with retry on Linux and macOS and optionally activate a Python environment"
+inputs:
+  python-version:
+    description: "Python version for uv commands"
+    required: false
+    default: ""
+  activate-environment:
+    description: "Create and activate a .venv environment"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Validate platform
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          echo "::error::setup-uv supports Linux and macOS runners"
+          exit 1
+        fi
+
+    - name: Install uv
+      uses: ultralytics/actions/retry@main
+      with:
+        run: |
+          set -o pipefail
+          curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="$RUNNER_TEMP/uv-bin" sh
+          echo "$RUNNER_TEMP/uv-bin" >> "$GITHUB_PATH"
+
+    - name: Configure environment
+      shell: bash
+      env:
+        ACTIVATE_ENVIRONMENT: ${{ inputs.activate-environment }}
+        INPUT_PYTHON_VERSION: ${{ inputs.python-version }}
+      run: |
+        if [ -n "$INPUT_PYTHON_VERSION" ]; then
+          export UV_PYTHON="$INPUT_PYTHON_VERSION"
+          echo "UV_PYTHON=$INPUT_PYTHON_VERSION" >> "$GITHUB_ENV"
+        fi
+        if [ "$ACTIVATE_ENVIRONMENT" = "true" ]; then
+          uv venv --clear
+          echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+        fi

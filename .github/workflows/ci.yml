@@ -28,17 +28,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v6
+      - uses: ./setup-uv
         with:
           python-version: ${{ matrix.python-version }}
-
-      - uses: astral-sh/setup-uv@v7
-        with:
-          enable-cache: false
+          activate-environment: true
 
       - name: Install dependencies
         run: |
-          uv pip install --system -e ".[dev]"
+          uv pip install -e ".[dev]"
 
       - name: Run Python tests
         uses: ultralytics/actions/retry@main

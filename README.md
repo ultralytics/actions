@@ -184,6 +184,19 @@ Check every pull request commit author against the central Ultralytics CLA signa
 
 [**📖 Full Documentation →**](cla/README.md)
 
+### 6. Setup uv Action
+
+Install the latest uv with retry support on Linux and macOS and optionally activate a Python environment.
+
+```yaml
+- uses: ultralytics/actions/setup-uv@main
+  with:
+    python-version: "3.14"
+    activate-environment: true
+```
+
+[**📖 Full Documentation →**](setup-uv/README.md)
+
 ## Python Package
 
 Install the `ultralytics-actions` package for programmatic access to action utilities, including all [requirements](https://github.com/ultralytics/actions/blob/main/pyproject.toml), in a [**Python>=3.8**](https://www.python.org/) environment.
