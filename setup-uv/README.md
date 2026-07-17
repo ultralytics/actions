@@ -13,7 +13,7 @@ Installs the latest [uv](https://docs.astral.sh/uv/) release with retry support 
 
 ## Inputs
 
-| Input                  | Description                            | Required | Default |
-| ---------------------- | -------------------------------------- | -------- | ------- |
-| `python-version`       | Python version for uv commands         | No       | -       |
-| `activate-environment` | Create and activate a `.venv` environment | No    | `false` |
+| Input                  | Description                               | Required | Default |
+| ---------------------- | ----------------------------------------- | -------- | ------- |
+| `python-version`       | Python version for uv commands            | No       | -       |
+| `activate-environment` | Create and activate a `.venv` environment | No       | `false` |
