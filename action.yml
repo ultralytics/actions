@@ -107,11 +107,7 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
-    - uses: astral-sh/setup-uv@v7
-      with:
-        ignore-empty-workdir: true
-        enable-cache: false
-        version: "0.9.4"
+    - uses: ultralytics/actions/setup-uv@fb59797d8aaaf12aa0d2d3aa7fe66dd64db99833
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
       env:
