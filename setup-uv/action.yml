@@ -34,5 +34,6 @@ runs:
         fi
         if [ "$ACTIVATE_ENVIRONMENT" = "true" ]; then
           uv venv
+          echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
           echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
         fi

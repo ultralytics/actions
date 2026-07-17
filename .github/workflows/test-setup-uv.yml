@@ -26,4 +26,5 @@ jobs:
         run: |
           uv --version
           test "$UV_PYTHON" = "3.14"
+          test "$VIRTUAL_ENV" = "$PWD/.venv"
           python -c 'import sys; assert sys.version_info[:2] == (3, 14)'
