@@ -15,14 +15,18 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Validate platform
+      shell: bash
+      run: |
+        if [ "$RUNNER_OS" = "Windows" ]; then
+          echo "::error::setup-uv supports Linux and macOS runners"
+          exit 1
+        fi
+
     - name: Install uv
       uses: ultralytics/actions/retry@main
       with:
         run: |
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            echo "::error::setup-uv supports Linux and macOS runners"
-            exit 1
-          fi
           set -o pipefail
           curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="$RUNNER_TEMP/uv-bin" sh
           echo "$RUNNER_TEMP/uv-bin" >> "$GITHUB_PATH"
