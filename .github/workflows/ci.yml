@@ -17,6 +17,18 @@ permissions:
   id-token: write # Required for Codecov OIDC uploads
 
 jobs:
+  Setup-uv-Windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./setup-uv
+        with:
+          python-version: "3.14"
+          activate-environment: true
+      - run: |
+          uv --version
+          python -c "import os, sys; assert sys.version_info[:2] == (3, 14); assert os.environ['VIRTUAL_ENV'].endswith(r'\.venv')"
+
   Test:
     runs-on: ${{ matrix.os }}
     strategy:
