@@ -20,7 +20,8 @@ runs:
       with:
         run: |
           set -o pipefail
-          curl -LsSf https://astral.sh/uv/install.sh | sh
+          curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="$RUNNER_TEMP/uv-bin" sh
+          echo "$RUNNER_TEMP/uv-bin" >> "$GITHUB_PATH"
 
     - name: Configure environment
       shell: bash
