@@ -11,6 +11,14 @@ inputs:
     description: "Create and activate a .venv environment"
     required: false
     default: "false"
+  enable-cache:
+    description: "Cache uv downloads between workflow runs"
+    required: false
+    default: "false"
+  cache-dependency-glob:
+    description: "Dependency files used to invalidate the uv cache"
+    required: false
+    default: "**/uv.lock"
 
 runs:
   using: "composite"
@@ -49,3 +57,16 @@ runs:
             echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
           fi
         fi
+
+    - name: Find uv cache
+      if: inputs.enable-cache == 'true'
+      id: uv-cache
+      shell: bash
+      run: echo "path=$(uv cache dir)" >> "$GITHUB_OUTPUT"
+
+    - name: Cache uv
+      if: inputs.enable-cache == 'true'
+      uses: actions/cache@v6
+      with:
+        path: ${{ steps.uv-cache.outputs.path }}
+        key: uv-${{ runner.os }}-${{ runner.arch }}-${{ inputs.python-version }}-${{ hashFiles(inputs.cache-dependency-glob) }}
