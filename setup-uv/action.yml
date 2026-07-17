@@ -70,3 +70,4 @@ runs:
       with:
         path: ${{ steps.uv-cache.outputs.path }}
         key: uv-${{ runner.os }}-${{ runner.arch }}-${{ inputs.python-version }}-${{ hashFiles(inputs.cache-dependency-glob) }}
+        restore-keys: uv-${{ runner.os }}-${{ runner.arch }}-${{ inputs.python-version }}-
