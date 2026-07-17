@@ -1,7 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 name: "Setup uv"
-description: "Install the latest uv with retry on Linux and macOS and optionally activate a Python environment"
+description: "Install the latest uv with retry and optionally activate a Python environment"
 inputs:
   python-version:
     description: "Python version for uv commands"
@@ -15,21 +15,18 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Validate platform
-      shell: bash
-      run: |
-        if [ "$RUNNER_OS" = "Windows" ]; then
-          echo "::error::setup-uv supports Linux and macOS runners"
-          exit 1
-        fi
-
     - name: Install uv
-      uses: ultralytics/actions/retry@main
+      uses: ultralytics/actions/retry@a9e123c43a227f70901da045ca6ef1c08c6bb39d
       with:
         run: |
           set -o pipefail
-          curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="$RUNNER_TEMP/uv-bin" sh
-          echo "$RUNNER_TEMP/uv-bin" >> "$GITHUB_PATH"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            powershell -NoProfile -ExecutionPolicy Bypass -Command '$env:UV_UNMANAGED_INSTALL = $env:RUNNER_TEMP + "\uv-bin"; irm https://astral.sh/uv/install.ps1 | iex'
+            echo "$RUNNER_TEMP\uv-bin" >> "$GITHUB_PATH"
+          else
+            curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="$RUNNER_TEMP/uv-bin" sh
+            echo "$RUNNER_TEMP/uv-bin" >> "$GITHUB_PATH"
+          fi
 
     - name: Configure environment
       shell: bash
@@ -43,6 +40,12 @@ runs:
         fi
         if [ "$ACTIVATE_ENVIRONMENT" = "true" ]; then
           uv venv --clear
-          echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
-          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            venv_path=$(cygpath -w "$PWD/.venv")
+            echo "VIRTUAL_ENV=$venv_path" >> "$GITHUB_ENV"
+            echo "$venv_path\Scripts" >> "$GITHUB_PATH"
+          else
+            echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
+            echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+          fi
         fi
