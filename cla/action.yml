@@ -16,7 +16,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: ultralytics/actions/setup-uv@fb59797d8aaaf12aa0d2d3aa7fe66dd64db99833
+    - uses: ultralytics/actions/setup-uv@main
 
     - name: Check CLA
       env:

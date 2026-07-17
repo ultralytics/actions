@@ -16,7 +16,7 @@ runs:
   using: "composite"
   steps:
     - name: Install uv
-      uses: ultralytics/actions/retry@a9e123c43a227f70901da045ca6ef1c08c6bb39d
+      uses: ultralytics/actions/retry@main
       with:
         run: |
           set -o pipefail
