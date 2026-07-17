@@ -1,0 +1,29 @@
+name: Test Setup uv Action
+
+permissions:
+  contents: read
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/test-setup-uv.yml"
+      - "retry/action.yml"
+      - "setup-uv/action.yml"
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: ./setup-uv
+        with:
+          python-version: "3.14"
+          activate-environment: true
+
+      - name: Verify uv and Python
+        run: |
+          uv --version
+          test "$UV_PYTHON" = "3.14"
+          python -c 'import sys; assert sys.version_info[:2] == (3, 14)'

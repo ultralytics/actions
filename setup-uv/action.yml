@@ -1,0 +1,35 @@
+name: "Setup uv"
+description: "Install the latest uv with retry and optionally activate a Python environment"
+inputs:
+  python-version:
+    description: "Python version for uv commands"
+    required: false
+    default: ""
+  activate-environment:
+    description: "Create and activate a .venv environment"
+    required: false
+    default: "false"
+
+runs:
+  using: "composite"
+  steps:
+    - name: Install uv
+      uses: ultralytics/actions/retry@main
+      with:
+        run: |
+          set -o pipefail
+          curl -LsSf https://astral.sh/uv/install.sh | sh
+
+    - name: Configure environment
+      shell: bash
+      env:
+        ACTIVATE_ENVIRONMENT: ${{ inputs.activate-environment }}
+        UV_PYTHON: ${{ inputs.python-version }}
+      run: |
+        if [ -n "$UV_PYTHON" ]; then
+          echo "UV_PYTHON=$UV_PYTHON" >> "$GITHUB_ENV"
+        fi
+        if [ "$ACTIVATE_ENVIRONMENT" = "true" ]; then
+          uv venv
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
+        fi
