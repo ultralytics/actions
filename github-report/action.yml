@@ -45,7 +45,11 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: ultralytics/actions/setup-uv@main
+    - uses: astral-sh/setup-uv@v7
+      with:
+        ignore-empty-workdir: true
+        enable-cache: false
+        version: "0.9.4"
 
     - name: Install ultralytics-actions
       env:
