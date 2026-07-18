@@ -34,7 +34,7 @@ fi
 CODESPELL = [
     "codespell",
     "--builtin",
-    "clear,rare,informal,en-GB_to_en-US",
+    "clear,informal,en-GB_to_en-US",
     "--write-changes",
     "--uri-ignore-words-list",
     "*",
