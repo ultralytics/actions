@@ -273,11 +273,15 @@ def test_get_agent_response_calls_function_tools(mock_post):
     assert first_payload["store"] is True
     assert first_payload["service_tier"] == "default"
     assert first_payload["reasoning"] == {"effort": "low"}
+    assert first_payload["context_management"] == [{"type": "compaction", "compact_threshold": 200_000}]
+    assert first_payload["prompt_cache_key"].startswith("agent-run:")
     assert "include" not in first_payload
     assert "previous_response_id" not in first_payload
     assert first_payload["input"] == [{"role": "user", "content": "review"}]
-    assert mock_post.call_args_list[1].kwargs["json"]["previous_response_id"] == "resp_first"
-    second_input = mock_post.call_args_list[1].kwargs["json"]["input"]
+    second_payload = mock_post.call_args_list[1].kwargs["json"]
+    assert second_payload["previous_response_id"] == "resp_first"
+    assert second_payload["prompt_cache_key"] == first_payload["prompt_cache_key"]
+    second_input = second_payload["input"]
     assert second_input == [
         {
             "type": "function_call_output",

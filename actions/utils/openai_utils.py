@@ -8,6 +8,7 @@ import re
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
+from uuid import uuid4
 
 import requests
 
@@ -419,6 +420,8 @@ def get_agent_response(
         "tools": tools,
         "tool_choice": "auto",
         "parallel_tool_calls": True,  # batched tool calls share one turn, so the history is re-billed fewer times
+        "prompt_cache_key": f"agent-run:{uuid4().hex}",
+        "context_management": [{"type": "compaction", "compact_threshold": 200_000}],
     }
     if "gpt-5" in model:
         base_data["reasoning"] = {"effort": reasoning_effort or "low"}
