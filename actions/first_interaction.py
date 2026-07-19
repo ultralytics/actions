@@ -202,8 +202,8 @@ def main(*args, **kwargs):
             print("Updating PR description with summary...")
             skipped_dropdown = format_skipped_files_dropdown(response.get("skipped_files", []))
             event.update_pr_description(number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}{skipped_dropdown}")
-        else:
-            summary = body
+            if sum(not char.isspace() for char in body) < 30:
+                body = f"{body.rstrip()}\n\n{summary}".lstrip()
 
         if relevant_labels := response.get("labels", []):
             apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
@@ -221,7 +221,7 @@ def main(*args, **kwargs):
             except RuntimeError as e:
                 print(f"Skipping stale PR review: {e}")
                 return
-            review_data = review_pr.generate_pr_review(event.repository, review_diff, title, summary, event, head_sha)
+            review_data = review_pr.generate_pr_review(event.repository, review_diff, title, body, event, head_sha)
             review_pr.post_review_summary(event, review_data)
             print("PR review completed")
         return
