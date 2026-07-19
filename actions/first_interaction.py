@@ -221,7 +221,7 @@ def main(*args, **kwargs):
             except RuntimeError as e:
                 print(f"Skipping stale PR review: {e}")
                 return
-            review_data = review_pr.generate_pr_review(event.repository, review_diff, title, summary, event, head_sha)
+            review_data = review_pr.generate_pr_review(event.repository, review_diff, title, body, event, head_sha)
             review_pr.post_review_summary(event, review_data)
             print("PR review completed")
         return
