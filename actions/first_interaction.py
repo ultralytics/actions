@@ -202,7 +202,7 @@ def main(*args, **kwargs):
             print("Updating PR description with summary...")
             skipped_dropdown = format_skipped_files_dropdown(response.get("skipped_files", []))
             event.update_pr_description(number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}{skipped_dropdown}")
-            if len(body.strip()) < 30:
+            if sum(not char.isspace() for char in body) < 30:
                 body = f"{body.rstrip()}\n\n{summary}".lstrip()
 
         if relevant_labels := response.get("labels", []):

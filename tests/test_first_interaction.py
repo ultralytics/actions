@@ -74,7 +74,9 @@ def test_get_event_content_pr():
             "PR description\n\nDeleted: superseded registry entries.",
             "PR description\n\nDeleted: superseded registry entries.",
         ),
-        ("Short description.", "Short description.\n\nGenerated summary"),
+        ("a" * 30, "a" * 30),
+        ("a" * 29, f"{'a' * 29}\n\nGenerated summary"),
+        ("a " * 19 + "a", f"{'a ' * 19}a\n\nGenerated summary"),
         ("", "Generated summary"),
     ],
 )
