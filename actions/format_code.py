@@ -41,7 +41,7 @@ CODESPELL = [
     "--ignore-regex",
     r"\b[a-z]+[A-Z][a-zA-Z]*\b",
     "--ignore-words-list",
-    "nin,cancelled,MapPin,couldn,grey,writeable,RepResNet,Idenfy,WIT,Smoot,EHR,ROUGE,ALS,Carmel,FPR,Hach,Calle,ore,COO,MOT,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,commend,bloc,nam,afterall,skelton,goin,cann,CANN",
+    "nin,cancelled,MapPin,couldn,grey,writeable,RepResNet,Idenfy,Smoot,EHR,ALS,Carmel,FPR,Hach,Calle,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,nam,afterall,skelton,goin,cann,CANN",
     "--skip",
     "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,*lock*,__pycache__*,*.ico,*.jpg,*.png,*.webp,*.avif,*.mp4,*.mov,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml,action.yml",
 ]
