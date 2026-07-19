@@ -266,7 +266,7 @@ runs:
         echo "::group::Run Codespell"
         trap 'echo "::endgroup::"' EXIT
         codespell \
-          --builtin clear,rare,informal,en-GB_to_en-US \
+          --builtin clear,informal,en-GB_to_en-US \
           --write-changes \
           --uri-ignore-words-list "*" \
           --ignore-regex '\b[a-z]+[A-Z][a-zA-Z]*\b' \
