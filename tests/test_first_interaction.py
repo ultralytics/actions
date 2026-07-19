@@ -67,9 +67,9 @@ def test_get_event_content_pr():
 @patch("actions.first_interaction.get_pr_open_response")
 @patch("actions.first_interaction.get_event_content")
 @patch("actions.first_interaction.Action")
-def test_open_pr_review_uses_author_description(mock_action, mock_content, mock_response, mock_review, mock_post):
-    """Test automatic reviews receive the author's description instead of the generated summary."""
-    body = "PR description\n\nDeleted: superseded registry entries."
+@pytest.mark.parametrize("body", ["PR description\n\nDeleted: superseded registry entries.", ""])
+def test_open_pr_review_uses_author_description(mock_action, mock_content, mock_response, mock_review, mock_post, body):
+    """Test automatic reviews prefer the author's description and fall back to the generated summary."""
     mock_content.return_value = (456, "node456", "Test PR", body, "testuser", "pull request", "opened")
     mock_response.return_value = {"summary": "Generated summary", "labels": [], "first_comment": ""}
     mock_review.return_value = {"head_sha": "headsha", "summary": "LGTM", "comments": []}
@@ -82,7 +82,9 @@ def test_open_pr_review_uses_author_description(mock_action, mock_content, mock_
 
     first_interaction.main()
 
-    mock_review.assert_called_once_with(event.repository, "review diff", "Test PR", body, event, "headsha")
+    mock_review.assert_called_once_with(
+        event.repository, "review diff", "Test PR", body or "Generated summary", event, "headsha"
+    )
     mock_post.assert_called_once_with(event, mock_review.return_value)
 
 
