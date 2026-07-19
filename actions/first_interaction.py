@@ -202,8 +202,6 @@ def main(*args, **kwargs):
             print("Updating PR description with summary...")
             skipped_dropdown = format_skipped_files_dropdown(response.get("skipped_files", []))
             event.update_pr_description(number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}{skipped_dropdown}")
-        else:
-            summary = body
 
         if relevant_labels := response.get("labels", []):
             apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
