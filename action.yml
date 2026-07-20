@@ -103,7 +103,7 @@ runs:
   steps:
     - name: Setup Python
       if: inputs.python == 'true' && inputs.python-version != ''
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v7
       with:
         python-version: ${{ inputs.python-version }}
 
