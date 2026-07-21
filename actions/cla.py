@@ -15,7 +15,7 @@ import json
 import os
 import time
 
-from actions.utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action
+from actions.utils import GITHUB_API_URL, Action
 
 CLA_REPOSITORY = "ultralytics/cla"
 CLA_PATH = "signatures/version1/cla.json"
@@ -27,27 +27,6 @@ LEGACY_MARKER = "CLA Assistant Lite bot"
 BOT_LOGIN = "github-actions[bot]"
 ALLOWLIST = frozenset(("dependabot[bot]", "github-actions[bot]", "pre-commit-ci[bot]"))
 TRANSIENT_STATUS = (429, 500, 502, 503, 504)
-COMMITS_QUERY = """
-query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
-  repository(owner: $owner, name: $name) {
-    pullRequest(number: $number) {
-      commits(first: 100, after: $cursor) {
-        totalCount
-        nodes {
-          commit {
-            author {
-              name
-              email
-              user { databaseId login }
-            }
-          }
-        }
-        pageInfo { endCursor hasNextPage }
-      }
-    }
-  }
-}
-"""
 
 
 def _allowed(login: str) -> bool:
@@ -67,12 +46,13 @@ def _read(action: Action, method: str, url: str, **kwargs):
     response.raise_for_status()
 
 
-def _paginate(action: Action, url: str) -> list[dict]:
+def _paginate(action: Action, url: str, key=None) -> list[dict]:
     """Fetch every page from a GitHub REST collection."""
     items = []
     for page in range(1, 101):
         response = _read(action, "get", url, params={"per_page": 100, "page": page})
-        page_items = response.json()
+        payload = response.json()
+        page_items = payload[key] if key else payload
         items.extend(page_items)
         if len(page_items) < 100:
             return items
@@ -87,37 +67,19 @@ def _contributors(action: Action, number: int) -> list[dict]:
     if not _allowed(opener["login"]):
         contributors[opener["id"]] = {"id": opener["id"], "name": opener["login"]}
 
-    owner, name = action.repository.split("/", 1)
-    cursor = None
-    count = 0
-    for _ in range(100):
-        response = _read(
-            action,
-            "post",
-            GITHUB_GRAPHQL_URL,
-            json={
-                "query": COMMITS_QUERY,
-                "variables": {"owner": owner, "name": name, "number": number, "cursor": cursor},
-            },
-        ).json()
-        if response.get("errors"):
-            raise RuntimeError(f"Could not read PR commit authors: {response['errors']}")
-        commits = response["data"]["repository"]["pullRequest"]["commits"]
-        for node in commits["nodes"]:
-            author = node["commit"].get("author") or {}
-            user = author.get("user")
-            if user and not _allowed(user["login"]):
-                contributors[user["databaseId"]] = {"id": user["databaseId"], "name": user["login"]}
-            elif not user and author.get("name"):
-                key = f"unknown:{author['name']}:{author.get('email', '')}"
-                contributors[key] = {"id": None, "name": author["name"]}
-        count += len(commits["nodes"])
-        if not commits["pageInfo"]["hasNextPage"]:
-            if count != commits["totalCount"]:
-                raise RuntimeError(f"GitHub returned {count} of {commits['totalCount']} PR commits")
-            return list(contributors.values())
-        cursor = commits["pageInfo"]["endCursor"]
-    raise RuntimeError("Pull request exceeded 10,000 commits")
+    url = f"{GITHUB_API_URL}/repos/{action.repository}/compare/{pr['base']['sha']}...{pr['head']['sha']}"
+    commits = _paginate(action, url, "commits")
+    if len(commits) != pr["commits"]:
+        raise RuntimeError(f"GitHub returned {len(commits)} of {pr['commits']} PR commits")
+    for commit in commits:
+        author = commit["commit"].get("author") or {}
+        user = commit.get("author")
+        if user and not _allowed(user["login"]):
+            contributors[user["id"]] = {"id": user["id"], "name": user["login"]}
+        elif not user and author.get("name"):
+            key = f"unknown:{author['name']}:{author.get('email', '')}"
+            contributors[key] = {"id": None, "name": author["name"]}
+    return list(contributors.values())
 
 
 def _ledger(action: Action) -> tuple[dict, str]:

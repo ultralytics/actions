@@ -35,15 +35,23 @@ def ledger_response(rows, sha="old-sha"):
     return response(data={"content": content, "sha": sha})
 
 
-def commits_response(authors, total=None, has_next=False, cursor=None):
-    """Create a GraphQL response containing PR commit authors."""
-    nodes = [{"commit": {"author": author}} for author in authors]
-    commits = {
-        "totalCount": len(nodes) if total is None else total,
-        "nodes": nodes,
-        "pageInfo": {"hasNextPage": has_next, "endCursor": cursor},
-    }
-    return response(data={"data": {"repository": {"pullRequest": {"commits": commits}}}})
+def pr_response(user, commits):
+    """Create a pull request response."""
+    return response(data={"user": user, "base": {"sha": "base"}, "head": {"sha": "head"}, "commits": commits})
+
+
+def commits_response(authors):
+    """Create a compare response containing commit authors."""
+    commits = []
+    for author in authors:
+        user = author.get("user")
+        commits.append(
+            {
+                "author": {"id": user["databaseId"], "login": user["login"]} if user else None,
+                "commit": {"author": {key: value for key, value in author.items() if key != "user"}},
+            }
+        )
+    return response(data={"commits": commits})
 
 
 def test_contributors_paginates_and_requires_verified_github_identity():
@@ -64,8 +72,7 @@ def test_contributors_paginates_and_requires_verified_github_identity():
         {"user": {"databaseId": 4, "login": "other[bot]"}},
         {"user": {"databaseId": 5, "login": "bot-attacker"}},
     ]
-    source.get.return_value = response(data={"user": {"id": 1, "login": "person"}})
-    source.post.return_value = commits_response(authors)
+    source.get.side_effect = [pr_response({"id": 1, "login": "person"}, len(authors)), commits_response(authors)]
 
     assert cla._contributors(source, 7) == [
         {"id": 1, "name": "person"},
@@ -92,25 +99,28 @@ def test_ledger_preserves_existing_schema_and_never_creates_missing_file():
 def test_contributors_fails_when_github_truncates_commits():
     """Fail instead of silently skipping commit authors beyond an API limit."""
     source = action()
-    source.get.return_value = response(data={"user": {"id": 1, "login": "person"}})
-    source.post.return_value = commits_response([{"name": "Unknown", "user": None}], total=2)
+    source.get.side_effect = [
+        pr_response({"id": 1, "login": "person"}, 2),
+        commits_response([{"name": "Unknown", "user": None}]),
+    ]
 
     with pytest.raises(RuntimeError, match="returned 1 of 2"):
         cla._contributors(source, 7)
 
 
-def test_contributors_paginates_graphql_commits():
-    """Follow GraphQL cursors beyond one hundred PR commits."""
+def test_contributors_paginates_compare_commits_beyond_pull_request_limit():
+    """Collect every author from a pull request with more than 250 commits."""
     source = action()
-    source.get.return_value = response(data={"user": {"id": 1, "login": "opener"}})
-    first = [{"user": {"databaseId": i, "login": f"user-{i}"}} for i in range(2, 102)]
-    source.post.side_effect = [
-        commits_response(first, total=101, has_next=True, cursor="next"),
-        commits_response([{"user": {"databaseId": 102, "login": "user-102"}}], total=101),
+    authors = [{"user": {"databaseId": i, "login": f"user-{i}"}} for i in range(2, 258)]
+    source.get.side_effect = [
+        pr_response({"id": 1, "login": "opener"}, len(authors)),
+        commits_response(authors[:100]),
+        commits_response(authors[100:200]),
+        commits_response(authors[200:]),
     ]
 
-    assert len(cla._contributors(source, 7)) == 102
-    assert source.post.call_args_list[1].kwargs["json"]["variables"]["cursor"] == "next"
+    assert len(cla._contributors(source, 7)) == 257
+    assert source.get.call_args_list[-1].kwargs["params"] == {"per_page": 100, "page": 3}
 
 
 def test_persist_rereads_and_merges_after_conflict():
@@ -171,10 +181,10 @@ def test_run_records_exact_sentence_and_updates_legacy_comment():
     }
     bot = {"id": 40, "body": "Posted by the CLA Assistant Lite bot", "user": {"login": cla.BOT_LOGIN}}
     source.get.side_effect = [
-        response(data={"user": {"id": 2, "login": "new"}}),
+        pr_response({"id": 2, "login": "new"}, 1),
+        commits_response([{"user": {"databaseId": 2, "login": "new"}}]),
         response(data=[signing, bot]),
     ]
-    source.post.return_value = commits_response([{"user": {"databaseId": 2, "login": "new"}}])
     store.get.side_effect = [ledger_response([]), ledger_response([])]
     store.put.return_value = response(200)
 
@@ -193,15 +203,15 @@ def test_run_stays_silent_when_all_contributors_already_signed():
     """Skip the status comment entirely when nobody needed to sign."""
     source, store = action(), action()
     source.get.side_effect = [
-        response(data={"user": {"id": 1, "login": "signed"}}),
+        pr_response({"id": 1, "login": "signed"}, 1),
+        commits_response([{"user": {"databaseId": 1, "login": "signed"}}]),
         response(data=[]),
     ]
-    source.post.return_value = commits_response([{"user": {"databaseId": 1, "login": "signed"}}])
     store.get.return_value = ledger_response([{"id": 1}])
 
     cla.run(source, store)
 
-    assert source.post.call_count == 1  # GraphQL commits query only, no comment created
+    source.post.assert_not_called()
     source.patch.assert_not_called()
 
 
@@ -211,13 +221,10 @@ def test_run_rejects_similar_sentence_and_keeps_hard_failure(body):
     source, store = action(), action()
     user = {"id": 2, "login": "new", "type": "User"}
     source.get.side_effect = [
-        response(data={"user": {"id": 2, "login": "new"}}),
+        pr_response({"id": 2, "login": "new"}, 1),
+        commits_response([{"user": {"databaseId": 2, "login": "new"}}]),
         response(data=[{"id": 30, "body": body, "created_at": "date", "user": user}]),
         response(data=[{"id": 40, "body": cla.COMMENT_MARKER, "user": {"login": cla.BOT_LOGIN}}]),
-    ]
-    source.post.side_effect = [
-        commits_response([{"user": {"databaseId": 2, "login": "new"}}]),
-        response(201),
     ]
     store.get.return_value = ledger_response([])
     source.post.return_value = response(201)
@@ -233,13 +240,10 @@ def test_run_fails_unlinked_email_author():
     """Require commit authors with unlinked emails to link a GitHub account."""
     source, store = action(), action()
     source.get.side_effect = [
-        response(data={"user": {"id": 2, "login": "new"}}),
+        pr_response({"id": 2, "login": "new"}, 1),
+        commits_response([{"name": "Unknown", "email": "private@example.com", "user": None}]),
         response(data=[]),
         response(data=[{"id": 40, "body": cla.COMMENT_MARKER, "user": {"login": cla.BOT_LOGIN}}]),
-    ]
-    source.post.side_effect = [
-        commits_response([{"name": "Unknown", "email": "private@example.com", "user": None}]),
-        response(201),
     ]
     store.get.return_value = ledger_response([])
     source.post.return_value = response(201)
@@ -254,13 +258,10 @@ def test_run_requires_pr_opener_when_commit_identity_is_already_signed():
     """Require the submitter to sign even when forged commit metadata names a signer."""
     source, store = action(), action()
     source.get.side_effect = [
-        response(data={"user": {"id": 9, "login": "submitter"}}),
+        pr_response({"id": 9, "login": "submitter"}, 1),
+        commits_response([{"user": {"databaseId": 1, "login": "signed-author"}}]),
         response(data=[]),
         response(data=[{"id": 40, "body": cla.COMMENT_MARKER, "user": {"login": cla.BOT_LOGIN}}]),
-    ]
-    source.post.side_effect = [
-        commits_response([{"user": {"databaseId": 1, "login": "signed-author"}}]),
-        response(201),
     ]
     store.get.return_value = ledger_response([{"id": 1}])
 
