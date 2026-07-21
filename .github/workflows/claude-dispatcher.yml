@@ -1,0 +1,116 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+# Central Claude dispatcher: trigger via API or UI with a target repo + a free-text task.
+# Claude has the gh CLI authenticated, so a prompt can just reference an issue/PR URL and
+# Claude pulls it for context; it implements the change on a new branch and the workflow
+# opens a PR on the target repo.
+
+name: Claude Dispatcher
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Target repo (owner/name)"
+        required: true
+      prompt:
+        description: "What Claude should implement (may reference an issue/PR URL)"
+        required: true
+      model:
+        description: "Claude model"
+        required: false
+        default: claude-sonnet-5
+      max_turns:
+        description: "Max agent turns before Claude stops (raise for complex tasks)"
+        required: false
+        default: "100"
+
+permissions:
+  contents: read # Cross-repo writes use the PAT below, not the default token
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout target repo
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.repo }}
+          token: ${{ secrets._GITHUB_TOKEN }} # PAT with org read/write; also given to Claude below for gh access
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Claude Code
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Run Claude
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }} # subscription auth (see plan §2)
+          GH_TOKEN: ${{ secrets._GITHUB_TOKEN }} # gh CLI auth so Claude can read issues/PRs/comments during the run
+          PROMPT: ${{ inputs.prompt }} # via env to avoid shell injection
+          MODEL: ${{ inputs.model }}
+          MAX_TURNS: ${{ inputs.max_turns }}
+        run: |
+          unset ANTHROPIC_API_KEY   # force subscription auth; an API key would override it and bill per-token
+          # Standing preamble tells Claude it has gh and that the workflow — not Claude — owns git/PR.
+          TASK="$(printf '%s\n' \
+            "You are running in a CI job. The gh CLI is authenticated with a GitHub token that has org read/write access." \
+            "Use gh freely to gather context: read any referenced issue, its comments, linked PRs, and related code/docs." \
+            "Implement the requested change by editing files in this checked-out repository only." \
+            "Do NOT create branches, commit, push, or open a pull request — the workflow does that after you finish." \
+            "If you are resolving a GitHub issue, end your final summary with a line 'Closes #<number>' so the PR links it." \
+            "" \
+            "TASK:" \
+            "$PROMPT")"
+          # Don't let a non-zero Claude exit (e.g. hitting --max-turns) abort the job under `bash -e`
+          # and silently discard partial work — capture the code and surface the JSON instead.
+          set +e
+          claude -p "$TASK" \
+            --model "$MODEL" \
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash" \
+            --max-turns "${MAX_TURNS:-100}" \
+            --output-format json > "$RUNNER_TEMP/result.json"   # do NOT add --bare (it ignores the OAuth token)
+          CODE=$?
+          set -e
+          # Surface what happened regardless of exit code (the JSON is otherwise lost with the runner).
+          {
+            echo "### Claude run (exit $CODE)"
+            echo '```'
+            jq -r '"is_error=\(.is_error)  subtype=\(.subtype // "n/a")  turns=\(.num_turns // "n/a")  cost_usd=\(.total_cost_usd // "n/a")"' "$RUNNER_TEMP/result.json" 2>/dev/null \
+              || echo "no parseable JSON — Claude likely failed to start (auth?)"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$CODE" -ne 0 ]; then
+            echo "⚠️ Claude exited $CODE (commonly \`error_max_turns\`). Continuing so any partial changes still open a PR." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Open pull request
+        env:
+          GH_TOKEN: ${{ secrets._GITHUB_TOKEN }}
+          REPO: ${{ inputs.repo }}
+          PROMPT: ${{ inputs.prompt }}
+        run: |
+          if git diff --quiet && git diff --cached --quiet; then
+            echo "⚠️ Claude produced no changes — nothing to open a PR for." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          BASE="$(git rev-parse --abbrev-ref HEAD)"   # target's default branch
+          # Branch slug: lowercased prompt, non-alphanumerics → "-", trimmed to 40 chars.
+          SLUG="$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9' '-' | sed -E 's/-+/-/g; s/^-+//; s/-+$//' | cut -c1-40 | sed -E 's/-+$//')"
+          [ -z "$SLUG" ] && SLUG="task"   # fallback if the prompt has no alphanumerics
+          BRANCH="ultralyticsAI/${SLUG}-${GITHUB_RUN_ID}"
+          TITLE="$(printf '%s' "$PROMPT" | head -c 100 | tr '\n' ' ')"   # single-line, capped for a clean PR/commit title
+          git config --global user.name "UltralyticsAssistant"
+          git config --global user.email "web@ultralytics.com"
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "Claude: $TITLE"
+          git push origin "$BRANCH"
+          BODY="$(jq -r '.result // "Automated change via the Claude dispatcher."' "$RUNNER_TEMP/result.json")"
+          URL="$(gh pr create --repo "$REPO" --base "$BASE" --head "$BRANCH" \
+            --title "Claude: $TITLE" --body "$BODY")"
+          echo "✅ Opened $URL" >> "$GITHUB_STEP_SUMMARY"
