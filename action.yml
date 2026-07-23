@@ -182,7 +182,6 @@ runs:
         --fix \
         --unsafe-fixes \
         --extend-select F,I,D,UP,RUF,FA \
-        --target-version py39 \
         --ignore BLE001,D100,D104,D203,D205,D212,D213,D401,D406,D407,D413,RUF001,RUF002,RUF012,S110 \
         . || true
         ruff format \
