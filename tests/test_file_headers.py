@@ -130,23 +130,24 @@ def test_ignore_paths():
 
 def test_main_real_files():
     """Test main function on actual repository files."""
-    with patch("actions.update_file_headers.update_file", return_value=False) as mock_update:
-        with patch("actions.update_file_headers.Action") as mock_action:
-            mock_action.return_value.repository = "ultralytics/actions"
-            mock_action.return_value.is_repo_private.return_value = False
-            main()
-            assert mock_update.call_count > 0
+    with patch("actions.update_file_headers.update_file", return_value=False) as mock_update, patch(
+        "actions.update_file_headers.Action"
+    ) as mock_action:
+        mock_action.return_value.repository = "ultralytics/actions"
+        mock_action.return_value.is_repo_private.return_value = False
+        main()
+        assert mock_update.call_count > 0
 
 
 def test_main_with_custom_header():
     """Test main function with custom header environment variable."""
-    with patch("actions.update_file_headers.update_file", return_value=False):
-        with patch("actions.update_file_headers.HEADER", "Custom Test Header"):
-            with patch("actions.update_file_headers.Action") as mock_action:
-                mock_event = mock_action.return_value
-                mock_event.repository = "test/repo"
-                main()
-                mock_action.assert_called_once()
+    with patch("actions.update_file_headers.update_file", return_value=False), patch(
+        "actions.update_file_headers.HEADER", "Custom Test Header"
+    ), patch("actions.update_file_headers.Action") as mock_action:
+        mock_event = mock_action.return_value
+        mock_event.repository = "test/repo"
+        main()
+        mock_action.assert_called_once()
 
 
 def test_main_private_and_skipped_repos():
@@ -155,22 +156,22 @@ def test_main_private_and_skipped_repos():
         tmp_path = Path(tmp_dir)
         (tmp_path / "app.py").write_text("print('hello')\n")
 
-        with patch("actions.update_file_headers.Path.cwd", return_value=tmp_path):
-            with patch("actions.update_file_headers.update_file", return_value=False) as mock_update:
-                with patch("actions.update_file_headers.Action") as mock_action:
-                    mock_event = mock_action.return_value
-                    mock_event.repository = "ultralytics/private"
-                    mock_event.is_repo_private.return_value = True
-                    main()
-                    assert any("CONFIDENTIAL" in call.args[4] for call in mock_update.call_args_list)
+        with patch("actions.update_file_headers.Path.cwd", return_value=tmp_path), patch(
+            "actions.update_file_headers.update_file", return_value=False
+        ) as mock_update, patch("actions.update_file_headers.Action") as mock_action:
+            mock_event = mock_action.return_value
+            mock_event.repository = "ultralytics/private"
+            mock_event.is_repo_private.return_value = True
+            main()
+            assert any("CONFIDENTIAL" in call.args[4] for call in mock_update.call_args_list)
 
-            with patch("actions.update_file_headers.update_file", return_value=False) as mock_update:
-                with patch("actions.update_file_headers.HEADER", None):
-                    with patch("actions.update_file_headers.Action") as mock_action:
-                        mock_action.return_value.repository = "other/repo"
-                        main()
-                        mock_action.return_value.is_repo_private.assert_not_called()
-                        mock_update.assert_not_called()
+        with patch("actions.update_file_headers.update_file", return_value=False) as mock_update, patch(
+            "actions.update_file_headers.HEADER", None
+        ), patch("actions.update_file_headers.Action") as mock_action:
+            mock_action.return_value.repository = "other/repo"
+            main()
+            mock_action.return_value.is_repo_private.assert_not_called()
+            mock_update.assert_not_called()
 
 
 def test_main_updates_files_in_current_directory():
@@ -180,11 +181,12 @@ def test_main_updates_files_in_current_directory():
         test_file = tmp_path / "app.py"
         test_file.write_text("print('hello')\n")
 
-        with patch("actions.update_file_headers.Path.cwd", return_value=tmp_path):
-            with patch("actions.update_file_headers.Action") as mock_action:
-                mock_event = mock_action.return_value
-                mock_event.repository = "ultralytics/actions"
-                mock_event.is_repo_private.return_value = False
-                main()
+        with patch("actions.update_file_headers.Path.cwd", return_value=tmp_path), patch(
+            "actions.update_file_headers.Action"
+        ) as mock_action:
+            mock_event = mock_action.return_value
+            mock_event.repository = "ultralytics/actions"
+            mock_event.is_repo_private.return_value = False
+            main()
 
         assert test_file.read_text().startswith("# Ultralytics 🚀 AGPL-3.0 License")

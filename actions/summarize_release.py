@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .utils import GITHUB_API_URL, Action, get_response, remove_html_comments
 
@@ -60,7 +60,7 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
             )
 
     # Sort PRs by merge date
-    prs.sort(key=lambda x: datetime.strptime(x["merged_at"], "%Y-%m-%dT%H:%M:%SZ"))
+    prs.sort(key=lambda x: datetime.strptime(x["merged_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc))
 
     return prs
 

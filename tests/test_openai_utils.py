@@ -88,9 +88,10 @@ def test_remove_outer_codeblocks():
 
 def test_get_review_model_override():
     """Test review model override logic."""
-    with patch("actions.utils.openai_utils.REVIEW_MODEL", "claude-opus-4-7"):
-        with patch("actions.utils.openai_utils.MODEL", "gpt-5.6-terra"):
-            assert get_review_model() == "claude-opus-4-7"
+    with patch("actions.utils.openai_utils.REVIEW_MODEL", "claude-opus-4-7"), patch(
+        "actions.utils.openai_utils.MODEL", "gpt-5.6-terra"
+    ):
+        assert get_review_model() == "claude-opus-4-7"
 
 
 def test_get_review_model_fallback():
@@ -120,9 +121,10 @@ def test_get_response(mock_post):
     messages = [{"role": "system", "content": "You are a helpful assistant"}, {"role": "user", "content": "Hello"}]
 
     # Use a context manager for the environment variable
-    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=False):
-        with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
-            result = get_response(messages, check_links=False)
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=False), patch(
+        "actions.utils.openai_utils.OPENAI_API_KEY", "test-key"
+    ):
+        result = get_response(messages, check_links=False)
 
     assert result == "Test response from OpenAI"
     mock_post.assert_called_once()
@@ -186,9 +188,10 @@ def test_get_response_with_link_check(mock_check_links, mock_post):
     messages = [{"role": "user", "content": "Hello"}]
 
     # Use a context manager for the environment variable
-    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=False):
-        with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
-            result = get_response(messages)
+    with patch.dict("os.environ", {"OPENAI_API_KEY": "test-key"}, clear=False), patch(
+        "actions.utils.openai_utils.OPENAI_API_KEY", "test-key"
+    ):
+        result = get_response(messages)
 
     assert result == "Response with https://example.com link"
     mock_check_links.assert_called_once()
@@ -350,16 +353,17 @@ def test_get_agent_response_summarizes_after_max_turns(mock_post):
         }
     ]
 
-    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
-        with patch("actions.utils.openai_utils.time.sleep") as mock_sleep:
-            result = get_agent_response(
-                [{"role": "user", "content": "review"}],
-                tools=tools,
-                tool_handlers={"lookup_value": lambda value: f"raw tool output for {value}"},
-                text_format={"format": {"type": "json_schema", "name": "review", "strict": True, "schema": schema}},
-                max_turns=1,
-                retries=0,
-            )
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"), patch(
+        "actions.utils.openai_utils.time.sleep"
+    ) as mock_sleep:
+        result = get_agent_response(
+            [{"role": "user", "content": "review"}],
+            tools=tools,
+            tool_handlers={"lookup_value": lambda value: f"raw tool output for {value}"},
+            text_format={"format": {"type": "json_schema", "name": "review", "strict": True, "schema": schema}},
+            max_turns=1,
+            retries=0,
+        )
 
     assert result == {"comments": [], "summary": "synthesized"}
     assert mock_post.call_count == 3
@@ -396,10 +400,10 @@ def test_get_response_anthropic(mock_post):
 
     messages = [{"role": "system", "content": "You are a helpful assistant"}, {"role": "user", "content": "Hello"}]
 
-    with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}, clear=False):
-        with patch("actions.utils.openai_utils.ANTHROPIC_API_KEY", "test-key"):
-            with patch("builtins.print") as mock_print:
-                result = get_response(messages, check_links=False, model="claude-sonnet-4-6", background=True)
+    with patch.dict("os.environ", {"ANTHROPIC_API_KEY": "test-key"}, clear=False), patch(
+        "actions.utils.openai_utils.ANTHROPIC_API_KEY", "test-key"
+    ), patch("builtins.print") as mock_print:
+        result = get_response(messages, check_links=False, model="claude-sonnet-4-6", background=True)
 
     assert result == "Test response from Claude"
     printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)

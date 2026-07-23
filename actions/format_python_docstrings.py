@@ -473,7 +473,8 @@ def format_python_file(text: str, width: int = 120, start_newline: bool = False)
                 nl[0] = src[sl][:sc] + nl[0]
                 nl[-1] += src[el][ec:]
                 src[sl : el + 1] = nl
-        except Exception:
+        except Exception as e:
+            print(f"Failed to apply docstring replacement: {e}")
             continue
     return "\n".join(src)
 
@@ -505,7 +506,8 @@ def iter_py_files(paths: list[Path]) -> list[Path]:
                     stack.append(child)
                 elif child.is_file() and child.suffix == ".py":
                     out.append(child)
-        except Exception:
+        except Exception as e:
+            print(f"Failed to inspect {d}: {e}")
             continue
     return list(dict.fromkeys(sorted(out)))
 

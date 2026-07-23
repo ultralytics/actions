@@ -160,6 +160,7 @@ def auto_merge_actions_prs(org, repos):
                 ],
                 capture_output=True,
                 text=True,
+                check=False,
             )
             if result.returncode == 0:
                 prs.extend(json.loads(result.stdout or "[]"))
@@ -232,6 +233,7 @@ def auto_merge_actions_prs(org, repos):
                 ],
                 capture_output=True,
                 text=True,
+                check=False,
             )
             if result.returncode == 0:
                 print(f"    ✅ Merged {pr_ref}")

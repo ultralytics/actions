@@ -121,10 +121,9 @@ def compute_update(current_ref, comment, latest):
         # Major-only tag like @v6 -> update to @v8 only if that tag actually exists.
         if int(latest_major.group(1)) > int(current_major.group(1)) and latest.get("major_tag"):
             return latest["major_tag"], comment
-    elif current_ref != latest_tag:
-        # Specific tag like @v2.8.0 -> update to the latest tag only when it is semantically newer.
-        if is_newer_version(current_ref, latest_tag):
-            return latest_tag, comment
+    # Specific tag like @v2.8.0 -> update to the latest tag only when it is semantically newer.
+    elif current_ref != latest_tag and is_newer_version(current_ref, latest_tag):
+        return latest_tag, comment
 
     return None
 
@@ -180,6 +179,7 @@ def get_open_pr_titles(org, repo):
         ["gh", "pr", "list", "--repo", f"{org}/{repo}", "--state", "open", "--json", "title", "--limit", "100"],
         capture_output=True,
         text=True,
+        check=False,
     )
     if result.returncode != 0:
         return set()
