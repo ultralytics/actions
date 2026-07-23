@@ -41,7 +41,7 @@ pytest tests/test_github_utils.py::test_name -v             # run one test
 pytest tests -v --cov=actions --cov-report=xml:coverage.xml # tests with coverage (CI command)
 
 # Lint/format — mirrors the "Run Python" step in action.yml (source of truth if these drift)
-ruff check --fix --unsafe-fixes --extend-select F,I,D,UP,RUF,FA \
+ruff check --fix --unsafe-fixes --extend-select F,I,D,UP,RUF,FA --target-version py38 \
   --ignore BLE001,D100,D104,D203,D205,D212,D213,D401,D406,D407,D413,RUF001,RUF002,RUF012,S110 .
 ruff format --line-length 120 .
 ```

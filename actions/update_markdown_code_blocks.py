@@ -72,6 +72,7 @@ def format_code_with_ruff(temp_dir):
                 "--fix",
                 "--unsafe-fixes",
                 "--extend-select=F,I,D,UP,RUF",
+                "--target-version=py38",
                 "--ignore=BLE001,D100,D101,D103,D104,D203,D205,D212,D213,D401,D406,D407,D413,F821,F841,RUF001,RUF002,RUF012,S110",
                 str(temp_dir),
             ],
