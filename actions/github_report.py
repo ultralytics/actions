@@ -113,8 +113,10 @@ def format_pr_report(prs, repos, visibility, org="ultralytics"):
     lines.extend(
         [
             f"**Total:** {len(prs)} open PRs across {repo_count}/{len(repos)} {visibility} repos",
-            f"**By Phase:** 🆕 {phase_counts['new']} New | 🟢 {phase_counts['green']} ≤7d | "
-            f"🟡 {phase_counts['yellow']} ≤30d | 🔴 {phase_counts['red']} >30d",
+            (
+                f"**By Phase:** 🆕 {phase_counts['new']} New | 🟢 {phase_counts['green']} ≤7d | "
+                f"🟡 {phase_counts['yellow']} ≤30d | 🔴 {phase_counts['red']} >30d"
+            ),
             "",
         ]
     )

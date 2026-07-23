@@ -89,7 +89,7 @@ def filter_labels(available_labels: dict, current_labels: list | None = None, is
     current_labels = current_labels or []
     filtered = available_labels.copy()
 
-    for label in {
+    for label in (
         "help wanted",
         "TODO",
         "research",
@@ -99,7 +99,7 @@ def filter_labels(available_labels: dict, current_labels: list | None = None, is
         "Stale",
         "wontfix",
         "duplicate",
-    }:
+    ):
         filtered.pop(label, None)
 
     if "bug" in current_labels:

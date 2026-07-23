@@ -125,6 +125,7 @@ omit = [
 
 [tool.ruff]
 line-length = 120
+target-version = "py38"
 
 [tool.ruff.format]
 docstring-code-format = true
