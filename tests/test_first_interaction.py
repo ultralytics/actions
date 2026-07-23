@@ -364,22 +364,7 @@ def test_get_repo_guidelines_fetches_pr_head(mock_fetch):
 
 def test_review_agent_tools_can_list_and_read_changed_file_diffs():
     """Test PR diff tools let the agent inspect every changed file on demand."""
-    diff = "\n".join(
-        [
-            "diff --git a/early.py b/early.py",
-            "--- a/early.py",
-            "+++ b/early.py",
-            "@@ -1 +1 @@",
-            "-old = True",
-            "+old = False",
-            "diff --git a/nested/late.py b/nested/late.py",
-            "--- a/nested/late.py",
-            "+++ b/nested/late.py",
-            "@@ -10 +10 @@",
-            "-value = 1",
-            "+value = 2",
-        ]
-    )
+    diff = "diff --git a/early.py b/early.py\n--- a/early.py\n+++ b/early.py\n@@ -1 +1 @@\n-old = True\n+old = False\ndiff --git a/nested/late.py b/nested/late.py\n--- a/nested/late.py\n+++ b/nested/late.py\n@@ -10 +10 @@\n-value = 1\n+value = 2"
     diff_files, augmented_diff = review_pr.parse_diff_files(diff)
     _, handlers = review_pr.build_review_agent_tools(diff_files, augmented_diff)
 

@@ -42,11 +42,13 @@ TABLE_RULE_RX = re.compile(r"^\s*[:\-\|\s]{3,}$")
 TREE_CHARS = ("└", "├", "│", "─")
 
 # Antipatterns for non-Google docstring styles
-RST_FIELD_RX = re.compile(r"^\s*:(param|type|return|rtype|raises)\b", re.M)
-EPYDOC_RX = re.compile(r"^\s*@(?:param|type|return|rtype|raise)\b", re.M)
-NUMPY_UNDERLINE_SECTION_RX = re.compile(r"^\s*(Parameters|Returns|Yields|Raises|Notes|Examples)\n[-]{3,}\s*$", re.M)
+RST_FIELD_RX = re.compile(r"^\s*:(param|type|return|rtype|raises)\b", re.MULTILINE)
+EPYDOC_RX = re.compile(r"^\s*@(?:param|type|return|rtype|raise)\b", re.MULTILINE)
+NUMPY_UNDERLINE_SECTION_RX = re.compile(
+    r"^\s*(Parameters|Returns|Yields|Raises|Notes|Examples)\n[-]{3,}\s*$", re.MULTILINE
+)
 GOOGLE_SECTION_RX = re.compile(
-    r"^\s*(Args|Attributes|Methods|Returns|Yields|Raises|Example|Examples|Notes|References):\s*$", re.M
+    r"^\s*(Args|Attributes|Methods|Returns|Yields|Raises|Example|Examples|Notes|References):\s*$", re.MULTILINE
 )
 NON_GOOGLE = {"numpy", "rest", "epydoc"}
 
@@ -283,9 +285,8 @@ def format_structured_block(lines: list[str], width: int, base: int) -> list[str
         desc = " ".join(parts)
         head = " " * cont + (f"{name}: " if (desc or had_colon) else name)
         out.extend(wrap_hanging(head, desc, width, cont + 4))
-        if tail:
-            if body := emit_paragraphs(tail, width, cont + 4, lst, orphan_min=2):
-                out.extend(body)
+        if tail and (body := emit_paragraphs(tail, width, cont + 4, lst, orphan_min=2)):
+            out.extend(body)
     return out
 
 

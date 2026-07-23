@@ -11,7 +11,7 @@ def test_paginate_only_skips_http_errors_when_allowed(monkeypatch):
 
     def fake_get(path, params=None, token=None, allow_skip=False):
         if allow_skip:
-            return None
+            return
         raise PermissionError(path)
 
     monkeypatch.setattr(failed_scheduled_actions, "github_get", fake_get)
