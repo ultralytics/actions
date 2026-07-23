@@ -73,7 +73,7 @@ def format_code_with_ruff(temp_dir):
                 "--unsafe-fixes",
                 "--extend-select=F,I,D,UP,RUF",
                 "--target-version=py38",
-                "--ignore=BLE001,D100,D101,D103,D104,D203,D205,D212,D213,D401,D406,D407,D413,F821,F841,RUF001,RUF002,RUF012,S110",
+                "--ignore=B018,BLE001,D100,D101,D103,D104,D203,D205,D212,D213,D401,D406,D407,D413,F821,F841,RUF001,RUF002,RUF012,S110",
                 str(temp_dir),
             ],
             check=True,
@@ -108,6 +108,7 @@ def format_bash_with_prettier(temp_dir):
             shell=True,  # must use shell=True to expand internal $(cmd)
             capture_output=True,
             text=True,
+            check=False,
         )
         if result.returncode != 0:
             print(f"ERROR running prettier-plugin-sh ❌ {result.stderr}")
@@ -183,7 +184,7 @@ def process_markdown_file(file_path, temp_dir, process_python=True, process_bash
                 temp_file_path = temp_dir / generate_temp_filename(file_path, i + offset, code_type)
 
                 with open(temp_file_path, "w", encoding="utf-8") as temp_file:
-                    temp_file.write(code_without_indentation)
+                    temp_file.write(f"{code_without_indentation}\n")
 
                 temp_files.append((num_spaces, code_block, temp_file_path, code_type))
 
@@ -221,9 +222,9 @@ def update_markdown_file(file_path, markdown_content, temp_files):
         print(f"Error writing file {file_path}: {e}")
 
 
-def main(root_dir=Path.cwd(), process_python=True, process_bash=True, verbose=False):
+def main(root_dir=None, process_python=True, process_bash=True, verbose=False):
     """Processes Markdown files, extracts and formats code blocks, and updates the original files."""
-    root_path = Path(root_dir)
+    root_path = Path.cwd() if root_dir is None else Path(root_dir)
     markdown_files = [markdown_file for markdown_file in root_path.rglob("*.md") if not markdown_file.is_symlink()]
     temp_dir = Path("temp_code_blocks")
     temp_dir.mkdir(exist_ok=True)

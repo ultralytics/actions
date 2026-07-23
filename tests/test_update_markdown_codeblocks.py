@@ -106,6 +106,7 @@ def test():
     assert len(temp_files) == 1
     assert temp_files[0][1] == "def test():\n    return True"
     mock_file.assert_called_once()
+    mock_file().write.assert_called_once_with("def test():\n    return True\n")
 
 
 def test_format_bash_skips_when_no_shell_files(tmp_path):
