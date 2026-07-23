@@ -40,10 +40,9 @@ def test_get_pr_branch_fork():
         "base": {"repo": {"id": 1}},
     }
 
-    with patch("time.time", return_value=1234567.890):
-        with patch("subprocess.run") as mock_run:
-            with patch("os.environ.get", return_value="test-token"):
-                branch, temp_branch = get_pr_branch(mock_event)
+    with patch("time.time", return_value=1234567.890), patch("subprocess.run") as mock_run:
+        with patch("os.environ.get", return_value="test-token"):
+            branch, temp_branch = get_pr_branch(mock_event)
 
     assert branch == "temp-ci-456-1234567890"
     assert temp_branch == "temp-ci-456-1234567890"

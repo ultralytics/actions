@@ -257,15 +257,14 @@ def test_get_agent_response_calls_function_tools(mock_post):
         }
     ]
 
-    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
-        with patch("builtins.print") as mock_print:
-            result = get_agent_response(
-                [{"role": "user", "content": "review"}],
-                tools=tools,
-                tool_handlers={"lookup_value": lambda value: {"found": value}},
-                text_format={"format": {"type": "json_schema", "name": "review", "strict": True, "schema": schema}},
-                retries=0,
-            )
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"), patch("builtins.print") as mock_print:
+        result = get_agent_response(
+            [{"role": "user", "content": "review"}],
+            tools=tools,
+            tool_handlers={"lookup_value": lambda value: {"found": value}},
+            text_format={"format": {"type": "json_schema", "name": "review", "strict": True, "schema": schema}},
+            retries=0,
+        )
 
     assert result == {"comments": [], "summary": "done"}
     assert mock_post.call_count == 2
