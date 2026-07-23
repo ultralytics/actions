@@ -89,7 +89,7 @@ def _ledger(action: Action) -> tuple[dict, str]:
     payload = response.json()
     content = json.loads(base64.b64decode(payload["content"]))
     if not isinstance(content.get("signedContributors"), list):
-        raise RuntimeError("CLA signature ledger has an invalid schema")
+        raise TypeError("CLA signature ledger has an invalid schema")
     return content, payload["sha"]
 
 

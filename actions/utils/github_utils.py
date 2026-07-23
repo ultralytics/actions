@@ -444,9 +444,12 @@ Thank you 🙏
             for commit in data["commits"]["nodes"]:
                 commit_data = commit["commit"]
                 for user_type in ["author", "committer"]:
-                    if user := commit_data[user_type].get("user"):
-                        if user["__typename"] != "Bot" and (login := user.get("login")):
-                            contributors.add(login)
+                    if (
+                        (user := commit_data[user_type].get("user"))
+                        and user["__typename"] != "Bot"
+                        and (login := user.get("login"))
+                    ):
+                        contributors.add(login)
 
             contributors.discard(author)
             contributors.discard(username)

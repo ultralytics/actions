@@ -1,6 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
 from actions.dispatch_actions import (
@@ -40,9 +40,10 @@ def test_get_pr_branch_fork():
         "base": {"repo": {"id": 1}},
     }
 
-    with patch("time.time", return_value=1234567.890), patch("subprocess.run") as mock_run:
-        with patch("os.environ.get", return_value="test-token"):
-            branch, temp_branch = get_pr_branch(mock_event)
+    with patch("time.time", return_value=1234567.890), patch("subprocess.run") as mock_run, patch(
+        "os.environ.get", return_value="test-token"
+    ):
+        branch, temp_branch = get_pr_branch(mock_event)
 
     assert branch == "temp-ci-456-1234567890"
     assert temp_branch == "temp-ci-456-1234567890"
@@ -204,7 +205,7 @@ def test_update_comment_function():
 
     # Mock datetime to have a consistent timestamp
     with patch("actions.dispatch_actions.datetime") as mock_datetime:
-        mock_datetime.now.return_value = datetime(2023, 1, 1, 12, 0, 0)
+        mock_datetime.now.return_value = datetime(2023, 1, 1, 12, 0, 0, tzinfo=timezone.utc)
         # Call without capturing return value
         update_comment(mock_event, comment_body, RUN_CI_KEYWORD, triggered_actions)
 
@@ -271,12 +272,12 @@ def test_main_triggers_ci_only():
         }
         mock_event.is_org_member.return_value = True
 
-        with patch("actions.dispatch_actions.get_pr_branch") as mock_get_branch:
-            with patch("actions.dispatch_actions.trigger_and_get_workflow_info") as mock_trigger:
-                with patch("actions.dispatch_actions.update_comment"):
-                    mock_get_branch.return_value = ("feature-branch", None)
-                    mock_trigger.return_value = [{"name": "CI", "file": "ci.yml", "url": "url", "run_number": 1}]
-                    main()
+        with patch("actions.dispatch_actions.get_pr_branch") as mock_get_branch, patch(
+            "actions.dispatch_actions.trigger_and_get_workflow_info"
+        ) as mock_trigger, patch("actions.dispatch_actions.update_comment"):
+            mock_get_branch.return_value = ("feature-branch", None)
+            mock_trigger.return_value = [{"name": "CI", "file": "ci.yml", "url": "url", "run_number": 1}]
+            main()
 
         mock_trigger.assert_called_once_with(mock_event, "feature-branch", ["ci.yml"], None)
 
@@ -294,12 +295,12 @@ def test_main_triggers_all_workflows():
         }
         mock_event.is_org_member.return_value = True
 
-        with patch("actions.dispatch_actions.get_pr_branch") as mock_get_branch:
-            with patch("actions.dispatch_actions.trigger_and_get_workflow_info") as mock_trigger:
-                with patch("actions.dispatch_actions.update_comment"):
-                    mock_get_branch.return_value = ("feature-branch", None)
-                    mock_trigger.return_value = [{"name": "CI", "file": "ci.yml", "url": "url", "run_number": 1}]
-                    main()
+        with patch("actions.dispatch_actions.get_pr_branch") as mock_get_branch, patch(
+            "actions.dispatch_actions.trigger_and_get_workflow_info"
+        ) as mock_trigger, patch("actions.dispatch_actions.update_comment"):
+            mock_get_branch.return_value = ("feature-branch", None)
+            mock_trigger.return_value = [{"name": "CI", "file": "ci.yml", "url": "url", "run_number": 1}]
+            main()
 
         mock_trigger.assert_called_once_with(mock_event, "feature-branch", ["ci.yml", "docker.yml"], None)
 
@@ -317,14 +318,12 @@ def test_main_triggers_docker_only():
         }
         mock_event.is_org_member.return_value = True
 
-        with patch("actions.dispatch_actions.get_pr_branch") as mock_get_branch:
-            with patch("actions.dispatch_actions.trigger_and_get_workflow_info") as mock_trigger:
-                with patch("actions.dispatch_actions.update_comment"):
-                    mock_get_branch.return_value = ("feature-branch", None)
-                    mock_trigger.return_value = [
-                        {"name": "Docker", "file": "docker.yml", "url": "url", "run_number": 1}
-                    ]
-                    main()
+        with patch("actions.dispatch_actions.get_pr_branch") as mock_get_branch, patch(
+            "actions.dispatch_actions.trigger_and_get_workflow_info"
+        ) as mock_trigger, patch("actions.dispatch_actions.update_comment"):
+            mock_get_branch.return_value = ("feature-branch", None)
+            mock_trigger.return_value = [{"name": "Docker", "file": "docker.yml", "url": "url", "run_number": 1}]
+            main()
 
         mock_trigger.assert_called_once_with(mock_event, "feature-branch", ["docker.yml"], None)
 
