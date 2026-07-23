@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 
 from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action
 
@@ -139,7 +139,7 @@ def update_comment(event, comment_body: str, command: str, triggered_actions: li
     if not triggered_actions:
         return
 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
+    timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     failed = all(action.get("error") for action in triggered_actions)
     status = (
         "No GitHub Actions workflows were started" if failed else "GitHub Actions below triggered via workflow dispatch"

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 from actions.utils import Action
@@ -178,7 +178,7 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
 def main(*args, **kwargs):
     """Automates file header updates for supported file types under the current working directory."""
     event = Action(*args, **kwargs)
-    current_year = datetime.now().year
+    current_year = datetime.now(timezone.utc).year
     repository = (event.repository or "").lower()
 
     # Only process repos owned by the Ultralytics organization

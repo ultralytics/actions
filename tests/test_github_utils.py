@@ -11,19 +11,20 @@ from actions.utils import Action, check_pypi_version, ultralytics_actions_info
 @pytest.mark.skipif(sys.version_info < (3, 11), reason="tomllib requires Python 3.11+")
 def test_check_pypi_version():
     """Test check_pypi_version function."""
-    with patch("tomllib.load", return_value={"project": {"name": "test-package", "version": "1.0.0"}}):
-        with patch("requests.get") as mock_get:
-            mock_response = MagicMock()
-            mock_response.status_code = 200
-            mock_response.elapsed.total_seconds.return_value = 0.5
-            mock_response.json.return_value = {"info": {"version": "0.9.0"}}
-            mock_get.return_value = mock_response
+    with patch("tomllib.load", return_value={"project": {"name": "test-package", "version": "1.0.0"}}), patch(
+        "requests.get"
+    ) as mock_get:
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.elapsed.total_seconds.return_value = 0.5
+        mock_response.json.return_value = {"info": {"version": "0.9.0"}}
+        mock_get.return_value = mock_response
 
-            local_version, online_version, publish = check_pypi_version()
+        local_version, online_version, publish = check_pypi_version()
 
-            assert local_version == "1.0.0"
-            assert online_version == "0.9.0"
-            assert publish is True
+        assert local_version == "1.0.0"
+        assert online_version == "0.9.0"
+        assert publish is True
 
 
 def test_action_init():
@@ -89,11 +90,12 @@ def test_get_pr_contributors_excludes_bots():
 
 def test_load_event_data():
     """Test loading event data from file."""
-    with patch("pathlib.Path.exists", return_value=True):
-        with patch("pathlib.Path.read_text", return_value='{"test": "data"}'):
-            action = Action()
-            data = action._load_event_data("fake_path")
-            assert data == {"test": "data"}
+    with patch("pathlib.Path.exists", return_value=True), patch(
+        "pathlib.Path.read_text", return_value='{"test": "data"}'
+    ):
+        action = Action()
+        data = action._load_event_data("fake_path")
+        assert data == {"test": "data"}
 
 
 def test_ultralytics_actions_info():
