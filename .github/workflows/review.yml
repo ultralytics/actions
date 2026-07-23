@@ -1,0 +1,52 @@
+name: PR Review
+
+on:
+  repository_dispatch:
+    types: [review_pr]
+
+permissions:
+  contents: read
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./setup-uv
+
+      - name: Review PR
+        env:
+          BRAVE_API_KEY: ${{ secrets.BRAVE_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets._GITHUB_TOKEN }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          TARGET_PR_NUMBER: ${{ github.event.client_payload.number }}
+          TARGET_REPOSITORY: ${{ github.event.client_payload.repository }}
+        run: |
+          uv run python - <<'PY'
+          import os
+
+          from actions.review_pr import main
+          from actions.utils import GITHUB_API_URL, Action
+
+          repository = os.environ["TARGET_REPOSITORY"]
+          owner, name = repository.split("/")
+          number = int(os.environ["TARGET_PR_NUMBER"])
+          if owner != "ultralytics" or not name or number < 1:
+              raise ValueError("Invalid target pull request")
+
+          token = os.environ["GITHUB_TOKEN"]
+          event = Action(token=token, event_data={"repository": {"full_name": repository}})
+          pull_request = event.get(
+              f"{GITHUB_API_URL}/repos/{repository}/pulls/{number}", hard=True
+          ).json()
+          main(
+              token=token,
+              event_name="pull_request",
+              event_data={
+                  "action": "review_requested",
+                  "pull_request": pull_request,
+                  "repository": {"full_name": repository},
+                  "requested_reviewer": {"login": event.get_username()},
+              },
+          )
+          PY
