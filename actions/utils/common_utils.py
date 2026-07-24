@@ -181,12 +181,8 @@ REDIRECT_END_IGNORE_LIST = frozenset(
         "githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
     }
 )
-URL_ALTERNATIVES = (
-    r"(?P<image>!?)\[(?P<md_text>[^]]+)]\(\s*(?P<md_url>[^)\s]+)[^)]*\)"  # Matches Markdown links and images
-    r"|"
-    r"(?P<space>[ \t]?)"  # Optional leading space, dropped along with a removed autolink or plaintext URL
-    r"(?:"
-    r"<(?P<auto_url>https?://[^<>\s\[\]]+)>"  # Matches Markdown autolinks
+URL_PATTERN = re.compile(
+    r"\[(?P<md_text>[^]]+)]\((?P<md_url>[^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
     r"(?P<plain_url>"  # Start capturing group for plaintext URLs
     r"(?:https?://)?"  # Optional http:// or https://
@@ -195,15 +191,6 @@ URL_ALTERNATIVES = (
     r"\.[a-zA-Z]{2,}"  # TLD
     r"(?:/[^\s\"')\]<>]*)?"  # Optional path
     r")"
-    r")"
-)
-URL_PATTERN = re.compile(URL_ALTERNATIVES)  # finds every URL, including inside code samples and HTML attributes
-REPLACE_PATTERN = re.compile(  # one pass over the original text: rewrites hyperlinks, leaves URLs that are data
-    r"(?:```[\s\S]*?```|`[^`\n]*`)"  # code samples are copied verbatim, never edited
-    r"|(?i:"  # HTML anchors, whose text stops at the next <a> so an unclosed tag cannot swallow a later one
-    r"(?P<a_open><a\b[^>]*?\shref\s*=\s*)(?P<a_href>\"[^\"]*\"|'[^']*'|[^\s>]*)(?P<a_tail>[^>]*>)"
-    r"(?P<a_text>[^<]*(?:<(?!/?a\b)[^<]*)*)</a>)"
-    r"|" + URL_ALTERNATIVES + r"|<[^>]+>"  # an HTML attribute URL has no anchor to keep, so leave the tag alone
 )
 
 
@@ -280,9 +267,9 @@ def format_skipped_files_note(skipped_files: list[str], max_files: int = 10) -> 
 
 def clean_url(url):
     """Remove extra characters from URL strings."""
-    url = str(url).strip().strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
-    # Second pass for nested quotes/punctuation/whitespace, i.e. HTML href=" 'https://url.com' "
-    url = url.strip().strip('"').strip("'").rstrip(".,:;!?`\\")
+    url = str(url).strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
+    # Second pass for nested quotes/punctuation
+    url = url.strip('"').strip("'").rstrip(".,:;!?`\\")
     return url
 
 
@@ -299,22 +286,16 @@ def allow_redirect(start="", end=""):
 
 
 def brave_search(query, api_key, count=5):
-    """Search for alternative URLs using Brave Search API, returning None if the search itself did not answer."""
+    """Search for alternative URLs using Brave Search API."""
     if not api_key:
-        return None
+        return
     if len(query) > 400:
         print(f"WARNING ⚠️ Brave search query length {len(query)} exceed limit of 400 characters, truncating.")
     url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query.strip()[:400])}&count={count}"
-    try:
-        response = requests.get(
-            url, headers={"X-Subscription-Token": api_key, "Accept": "application/json"}, timeout=10
-        )
-        if response.status_code == 200:
-            return [r["url"] for r in response.json().get("web", {}).get("results", []) if r.get("url")]
-        print(f"WARNING ⚠️ Brave search HTTP {response.status_code}")
-    except Exception as e:
-        print(f"WARNING ⚠️ Brave search failed: {e}")
-    return None  # rate limited or unreachable, which is not the same as "no replacement exists"
+    response = requests.get(url, headers={"X-Subscription-Token": api_key, "Accept": "application/json"}, timeout=10)
+    data = response.json() if response.status_code == 200 else {}
+    results = data.get("web", {}).get("results", []) if data else []
+    return [result.get("url") for result in results if result.get("url")]
 
 
 def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
@@ -368,12 +349,12 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
 
 
 def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
-    """Process text, find URLs, check for 404s, and replace or remove the broken ones."""
+    """Process text, find URLs, check for 404s, and handle replacements with redirects or Brave search."""
     urls = []
     for match in URL_PATTERN.finditer(text):
-        url = clean_url(match["md_url"] or match["auto_url"] or match["plain_url"] or "")
+        url = match["md_url"] or match["plain_url"]
         if url and parse.urlparse(url).scheme:
-            urls.append((match["md_text"] or "", url))
+            urls.append((match["md_text"] or "", clean_url(url)))
 
     with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
         session.headers.update(REQUESTS_HEADERS)
@@ -382,65 +363,46 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
         bad_urls = [url for (title, url), (valid, redirect) in zip(urls, results) if not valid]
 
         if replace:
-            link_actions = {}  # {url: replacement URL, or None to remove the link and keep its anchor text}
+            replacements = {}
+
+            # Process all URLs for replacements
             brave_api_key = os.getenv("BRAVE_API_KEY")
             for (title, url), (valid, redirect) in zip(urls, results):
-                if url in link_actions:  # decide once per URL, not once per occurrence
+                if url in replacements:  # decide once per URL, not once per occurrence
                     continue
+                # Handle invalid URLs with Brave search. Two queries, not two attempts: the dead URL biases the
+                # first toward the site root, so the second drops it and searches the link text on its domain.
                 if not valid:
-                    # Two distinct queries, not two attempts: the dead URL biases the first toward the site root,
-                    # so the second drops it and searches the link text on the same domain instead.
-                    best, answered = None, False
                     for query in (
                         f"{(redirect or url)[:200]} {title[:199]}",
                         f"{title[:199]} {parse.urlparse(url).netloc}",
                     ):
-                        if (search_urls := brave_search(query, brave_api_key, count=3)) is None:
-                            continue  # search did not answer; a silent [] here would delete a fixable link
-                        answered = True
-                        if best := next((u for u in search_urls if u != url and is_url(u, session)), None):
+                        search_urls = brave_search(query, brave_api_key, count=3) or []
+                        if best_url := next((u for u in search_urls if u != url and is_url(u, session)), None):
+                            replacements[url] = best_url
                             break
-                    if best or answered:  # leave the link untouched when no search ever answered
-                        link_actions[url] = best
+                # Handle redirects for valid URLs
                 elif redirect and redirect != url:
-                    link_actions[url] = redirect
+                    replacements[url] = redirect
 
-            if verbose and link_actions:
+            if verbose and replacements:
                 print(
-                    f"WARNING ⚠️ updated {len(link_actions)} links:\n"
-                    + "\n".join(f"  {k}: {v or 'REMOVED'}" for k, v in link_actions.items())
+                    f"WARNING ⚠️ replaced {len(replacements)} links:\n"
+                    + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
                 )
 
-            handled = set()  # URLs this pass actually rewrote or removed, the only ones it may certify as gone
-
             def replace_link(match):
-                """Point a matched link at its replacement URL, or remove it and retain any readable text."""
-                if match["a_text"] is not None:  # HTML anchor: keep the content, then rewrite or unwrap the tags
-                    content = REPLACE_PATTERN.sub(replace_link, match["a_text"])
-                    href, url = match["a_href"], clean_url(match["a_href"])
-                    if url not in link_actions:
-                        return f"{match['a_open']}{href}{match['a_tail']}{content}</a>"
-                    handled.add(url)
-                    if not (new_url := link_actions[url]):
-                        return content
-                    quote = href[0] if href.startswith(('"', "'")) else ""
-                    return f"{match['a_open']}{quote}{new_url}{quote}{match['a_tail']}{content}</a>"
-                raw_url = match["md_url"] or match["auto_url"] or match["plain_url"] or ""
-                url = clean_url(raw_url)
-                if url not in link_actions:
+                """Swap a matched URL for its replacement, leaving the surrounding link syntax untouched."""
+                group = "md_url" if match["md_url"] else "plain_url"
+                raw_url = match[group]
+                if not (new_url := replacements.get(clean_url(raw_url))):
                     return match[0]
-                handled.add(url)
-                new_url = link_actions[url]
-                if match["md_url"]:
-                    md_text = REPLACE_PATTERN.sub(replace_link, match["md_text"])  # text may repeat the same URL
-                    return f"{match['image']}[{md_text}]({new_url})" if new_url else md_text
-                if match["auto_url"]:
-                    return f"{match['space']}<{new_url}>" if new_url else ""
+                start, end = (i - match.start() for i in match.span(group))
                 suffix = raw_url[len(raw_url.rstrip(".,:;!?`\\")) :]  # trailing punctuation clean_url() dropped
-                return f"{match['space']}{new_url}{suffix}" if new_url else suffix
+                return f"{match[0][:start]}{new_url}{suffix}{match[0][end:]}"
 
-            text = REPLACE_PATTERN.sub(replace_link, text)
-            bad_urls = [url for url in bad_urls if url not in handled]  # a URL left as data is still a bad URL
+            text = URL_PATTERN.sub(replace_link, text)
+            bad_urls = [url for url in bad_urls if url not in replacements]  # unfixable links stay reported
 
     passing = not bad_urls
     if verbose and not passing:

@@ -134,54 +134,26 @@ def test_urls_with_different_tlds(verbose):
     assert mock_is_url.call_count == 5
 
 
-def test_replace_removes_unresolved_links(monkeypatch):
-    """Replace links by occurrence and retain anchor text when no valid replacement exists."""
-    text = (
-        "[Redirect](https://site.test) and [Broken](https://site.test/bad) and "
-        "redirect https://site.test. and plain https://punct.test. and "
-        "<a href = ' https://html.test '>HTML</a> and "
-        "<a href=https://unquoted.test>Unquoted</a> and "
-        '<a href="">Empty</a> and autolink <https://auto.test> and '
-        'placeholder <https://[HOST]:8080/api> and [Titled](https://site.test "T") and '
-        "![Redirect image](https://site.test) and ![Broken image](https://image.test)"
-    )
+def test_replace_keeps_unresolved_links(monkeypatch):
+    """Replace links the search can fix, keep and report the ones it cannot, and never touch a longer neighbour."""
+    text = "[Broken](https://site.test/bad) and [Fixed](https://site.test/gone) and https://site.test/gone/deeper"
 
     def fake_is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
-        valid = url == "https://site.test"
-        result = "https://new.test" if valid else url
-        return (valid, result) if return_url else valid
+        valid = url in {"https://new.test", "https://site.test/gone/deeper"}
+        return (valid, url) if return_url else valid
 
     monkeypatch.setenv("BRAVE_API_KEY", "test-key")
     with patch("actions.utils.common_utils.is_url", side_effect=fake_is_url), patch(
-        "actions.utils.common_utils.brave_search", return_value=["https://still-broken.test"]
+        "actions.utils.common_utils.brave_search",
+        side_effect=lambda query, *_, **__: [] if "Broken" in query else ["https://new.test"],
     ):
         result = check_links_in_string(text, verbose=False, return_bad=True, replace=True)
 
     assert result == (
-        True,
-        [],
-        (
-            "[Redirect](https://new.test) and Broken and redirect https://new.test. and plain. and HTML and Unquoted and "
-            '<a href="">Empty</a> and autolink and placeholder <https://[HOST]:8080/api> and [Titled](https://new.test) '
-            "and ![Redirect image](https://new.test) and Broken image"
-        ),
+        False,
+        ["https://site.test/bad"],
+        "[Broken](https://site.test/bad) and [Fixed](https://new.test) and https://site.test/gone/deeper",
     )
-
-
-def test_replace_keeps_links_when_search_unavailable(monkeypatch):
-    """Leave broken links in place when the search never answers, rather than deleting what could not be checked."""
-    text = "[Broken](https://site.test/bad) and `code https://site.test/bad` stay"
-
-    def fake_is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
-        return (False, url) if return_url else False
-
-    monkeypatch.setenv("BRAVE_API_KEY", "test-key")
-    with patch("actions.utils.common_utils.is_url", side_effect=fake_is_url), patch(
-        "actions.utils.common_utils.brave_search", return_value=None
-    ):
-        result = check_links_in_string(text, verbose=False, return_bad=True, replace=True)
-
-    assert result == (False, ["https://site.test/bad", "https://site.test/bad"], text)
 
 
 def test_case_sensitivity(verbose):
