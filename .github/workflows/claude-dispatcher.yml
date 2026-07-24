@@ -24,21 +24,18 @@ jobs:
         with:
           repository: ${{ inputs.repo }}
           token: ${{ secrets._GITHUB_TOKEN }}
+          persist-credentials: false
 
-      - run: npm install -g @anthropic-ai/claude-code
+      - run: npm install -g @anthropic-ai/claude-code@2.1.218
 
       - name: Run Claude
         env:
           CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-          GH_TOKEN: ${{ secrets._GITHUB_TOKEN }}
           PROMPT: ${{ inputs.prompt }}
         run: |
           unset ANTHROPIC_API_KEY
-          TASK="$(printf '%s\n' \
-            "Use gh to gather any referenced issue or PR context." \
-            "Implement the task in this repository, but do not commit, push, or open a PR." \
-            "$PROMPT")"
-          claude -p "$TASK" --allowedTools "Read,Edit,Write,Glob,Grep,Bash"
+          claude -p "Implement this task without committing, pushing, or opening a PR: $PROMPT" \
+            --allowedTools "Read,Edit,Write,Glob,Grep,Bash"
 
       - name: Open pull request
         env:
@@ -56,5 +53,6 @@ jobs:
           git switch -c "$BRANCH"
           git add -A
           git commit -m "Claude: $TITLE"
+          gh auth setup-git
           git push origin "$BRANCH"
           gh pr create --repo "$REPO" --head "$BRANCH" --title "Claude: $TITLE" --body "$PROMPT"
