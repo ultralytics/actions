@@ -142,6 +142,7 @@ def test_replace_removes_unresolved_links(monkeypatch):
         "<a href = ' https://html.test '>HTML</a> and "
         "<a href=https://unquoted.test>Unquoted</a> and "
         '<a href="">Empty</a> and autolink <https://auto.test> and '
+        'placeholder <https://[HOST]:8080/api> and [Titled](https://site.test "T") and '
         "![Redirect image](https://site.test) and ![Broken image](https://image.test)"
     )
 
@@ -161,7 +162,8 @@ def test_replace_removes_unresolved_links(monkeypatch):
         [],
         (
             "[Redirect](https://new.test) and Broken and redirect https://new.test. and plain. and HTML and Unquoted and "
-            '<a href="">Empty</a> and autolink and ![Redirect image](https://new.test) and Broken image'
+            '<a href="">Empty</a> and autolink and placeholder <https://[HOST]:8080/api> and [Titled](https://new.test) '
+            "and ![Redirect image](https://new.test) and Broken image"
         ),
     )
 

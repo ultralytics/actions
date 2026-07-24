@@ -182,11 +182,11 @@ REDIRECT_END_IGNORE_LIST = frozenset(
     }
 )
 URL_PATTERN = re.compile(
-    r"(?P<image>!?)\[(?P<md_text>[^]]+)]\((?P<md_url>[^)]+)\)"  # Matches Markdown links and images
+    r"(?P<image>!?)\[(?P<md_text>[^]]+)]\((?P<md_url>[^)\s]+)[^)]*\)"  # Matches Markdown links and images
     r"|"
     r"(?P<space>[ \t]?)"  # Optional leading space, dropped along with a removed autolink or plaintext URL
     r"(?:"
-    r"<(?P<auto_url>https?://[^>\s]+)>"  # Matches Markdown autolinks
+    r"<(?P<auto_url>https?://[^<>\s\[\]]+)>"  # Matches Markdown autolinks
     r"|"
     r"(?P<plain_url>"  # Start capturing group for plaintext URLs
     r"(?:https?://)?"  # Optional http:// or https://
@@ -198,8 +198,9 @@ URL_PATTERN = re.compile(
     r")"
 )
 HTML_LINK_PATTERN = re.compile(
-    r"(?P<open><a\b[^>]*?\shref\s*=\s*)(?P<href>\"[^\"]*\"|'[^']*'|[^\s>]*)(?P<tail>[^>]*>)(?P<text>.*?)</a>",
-    flags=re.IGNORECASE | re.DOTALL,
+    r"(?P<open><a\b[^>]*?\shref\s*=\s*)(?P<href>\"[^\"]*\"|'[^']*'|[^\s>]*)(?P<tail>[^>]*>)"
+    r"(?P<text>[^<]*(?:<(?!/?a\b)[^<]*)*)</a>",  # anchor text stops at the next <a>, so an unclosed tag stays local
+    flags=re.IGNORECASE,
 )
 
 
@@ -375,16 +376,18 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
             link_actions = {}  # {url: replacement URL, or None to remove the link and keep its anchor text}
             brave_api_key = os.getenv("BRAVE_API_KEY")
             for (title, url), (valid, redirect) in zip(urls, results):
+                if url in link_actions:  # decide once per URL, not once per occurrence
+                    continue
                 if not valid:  # replace only with a search result that passes the same check, otherwise remove
                     query = f"{(redirect or url)[:200]} {title[:199]}"
                     search_urls = brave_search(query, brave_api_key, count=3) if brave_api_key else []
-                    link_actions[url] = next((alt_url for alt_url in search_urls if is_url(alt_url, session)), None)
+                    link_actions[url] = next((u for u in search_urls if u != url and is_url(u, session)), None)
                 elif redirect and redirect != url:
                     link_actions[url] = redirect
 
             if verbose and link_actions:
                 print(
-                    f"WARNING ⚠️ replaced {len(link_actions)} links:\n"
+                    f"WARNING ⚠️ updated {len(link_actions)} links:\n"
                     + "\n".join(f"  {k}: {v or 'REMOVED'}" for k, v in link_actions.items())
                 )
 
@@ -409,14 +412,19 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                     return match[0]
                 new_url = link_actions[url]
                 if match["md_url"]:
-                    return f"{match['image']}[{match['md_text']}]({new_url})" if new_url else match["md_text"]
+                    md_text = URL_PATTERN.sub(replace_link, match["md_text"])  # link text may repeat the same URL
+                    return f"{match['image']}[{md_text}]({new_url})" if new_url else md_text
                 if match["auto_url"]:
                     return f"{match['space']}<{new_url}>" if new_url else ""
                 suffix = raw_url[len(raw_url.rstrip(".,:;!?`\\")) :]  # trailing punctuation clean_url() dropped
                 return f"{match['space']}{new_url}{suffix}" if new_url else suffix
 
             text = URL_PATTERN.sub(replace_link, HTML_LINK_PATTERN.sub(replace_html_link, text))
-            bad_urls = [url for url in bad_urls if url in text]  # only certify what the replacement pass removed
+            # Certify only URLs the pass actually removed, by re-detecting what survives rather than assuming
+            detected = {
+                clean_url(m["md_url"] or m["auto_url"] or m["plain_url"] or "") for m in URL_PATTERN.finditer(text)
+            }
+            bad_urls = [url for url in bad_urls if url in detected]
 
     passing = not bad_urls
     if verbose and not passing:
