@@ -2,7 +2,7 @@
 
 name: "Disk Space Cleanup"
 author: "Ultralytics"
-description: "Cleans up disk space by removing unnecessary tool caches and swap space"
+description: "Cleans up disk space by removing unnecessary tool caches, Docker images, and swap space"
 runs:
   using: "composite"
   steps:
@@ -13,13 +13,15 @@ runs:
         df -h /
         echo "::endgroup::"
 
-        echo "::group::Remove Tool Cache and Swap"
+        echo "::group::Remove Tool Cache, Docker Images, and Swap"
         toolcache_pid=""
         if [ -e /opt/hostedtoolcache ]; then
           # Remove tool cache to free up ~15GB of space per https://github.com/ultralytics/ultralytics/pull/15848
           rm -rf /opt/hostedtoolcache &
           toolcache_pid=$!
         fi
+        docker image prune --all --force &
+        docker_pid=$!
         # Remove swap space to free up ~4GB
         if [ -f /swapfile ] || [ -f /mnt/swapfile ]; then
           sudo swapoff -a
@@ -28,6 +30,7 @@ runs:
         if [ -n "$toolcache_pid" ]; then
           wait "$toolcache_pid" || true
         fi
+        wait "$docker_pid" || true
         echo "::endgroup::"
 
         echo "::group::Disk Space After Cleanup"

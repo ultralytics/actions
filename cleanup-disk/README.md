@@ -2,7 +2,7 @@
 
 # 🧹 Disk Space Cleanup Action
 
-Cleans up disk space on Ubuntu GitHub Actions runners by removing unnecessary tool caches and swap space. Frees up ~19GB total space.
+Cleans up disk space on Ubuntu GitHub Actions runners by removing unnecessary tool caches, Docker images, and swap space.
 
 ## 🚀 Usage
 
@@ -57,6 +57,7 @@ steps:
 ## 🗑️ What Gets Cleaned
 
 - `/opt/hostedtoolcache` - Tool cache (~15GB)
+- Preinstalled Docker images
 - `/swapfile` or `/mnt/swapfile` - Swap space (~4GB)
 
 ## 💡 When to Use
