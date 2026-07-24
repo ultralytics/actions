@@ -138,7 +138,9 @@ def test_replace_removes_unresolved_markdown_links(monkeypatch):
     """Replace links by occurrence and retain anchor text when no valid replacement exists."""
     text = (
         "[Redirect](https://site.test) and [Broken](https://site.test/bad) and "
-        "[Punctuated](https://punct.test.) and <a href = 'https://html.test'>HTML</a>"
+        "redirect https://site.test. and plain https://punct.test. and "
+        "<a href = ' https://html.test '>HTML</a> and "
+        "<a href=https://unquoted.test>Unquoted</a>"
     )
 
     def fake_is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
@@ -152,7 +154,11 @@ def test_replace_removes_unresolved_markdown_links(monkeypatch):
     ):
         result = check_links_in_string(text, verbose=False, return_bad=True, replace=True)
 
-    assert result == (True, [], "[Redirect](https://new.test) and Broken and Punctuated and HTML")
+    assert result == (
+        True,
+        [],
+        "[Redirect](https://new.test) and Broken and redirect https://new.test. and plain . and HTML and Unquoted",
+    )
 
 
 def test_case_sensitivity(verbose):

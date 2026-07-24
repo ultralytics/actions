@@ -389,31 +389,33 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
 
             def replace_html_link(match):
                 """Replace an HTML link target or retain only its anchor content."""
-                url = clean_url(match.group(3))
+                url = clean_url((match.group(3) or match.group(4)).strip())
                 if url not in link_actions:
                     return match.group(0)
                 replacement = link_actions[url]
                 return (
-                    f"{match.group(1)}{match.group(2)}{replacement}{match.group(2)}{match.group(4)}"
-                    f"{match.group(5)}{match.group(6)}"
+                    f"{match.group(1)}{match.group(2) or ''}{replacement}{match.group(2) or ''}{match.group(5)}"
+                    f"{match.group(6)}{match.group(7)}"
                     if replacement
-                    else match.group(5)
+                    else match.group(6)
                 )
 
             def replace_link(match):
                 """Replace a matched URL or retain only its Markdown anchor text."""
-                url = clean_url(match.group(2) or match.group(3))
+                raw_url = match.group(2) or match.group(3)
+                url = clean_url(raw_url)
                 if url not in link_actions:
                     return match.group(0)
                 replacement = link_actions[url]
+                suffix = raw_url[len(raw_url.rstrip(".,:;!?`\\")) :] if match.group(3) else ""
                 return (
                     f"[{match.group(1)}]({replacement})"
                     if replacement and match.group(2)
-                    else replacement or match.group(1) or ""
+                    else (replacement or match.group(1) or "") + suffix
                 )
 
             text = re.sub(
-                r"(<a\b[^>]*\bhref\s*=\s*)([\"'])(.*?)\2([^>]*>)(.*?)(</a>)",
+                r"(<a\b[^>]*\bhref\s*=\s*)(?:([\"'])\s*(.*?)\s*\2|([^\s>]+))([^>]*>)(.*?)(</a>)",
                 replace_html_link,
                 text,
                 flags=re.IGNORECASE | re.DOTALL,
