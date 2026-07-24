@@ -121,9 +121,13 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
     # Check for special first line
     special_line_index = -1
     first_line = lines[0].lstrip("\ufeff").lower() if lines else ""
+    encoding_cookie = r"^[ \t\f]*#.*?coding[:=][ \t]*[-_.a-zA-Z0-9]+"
     if first_line.startswith(("#!", "<?xml", "<!doctype")):
         special_line_index = 0
         prefix_lines.append(lines[0])
+    if first_line.startswith("#!") and len(lines) > 1 and re.match(encoding_cookie, lines[1]):
+        special_line_index = 1
+        prefix_lines.append(lines[1])
 
     start_idx = special_line_index + 1 if special_line_index >= 0 else 0
     end_idx = min(start_idx + 5, len(lines))  # Look in first few lines
@@ -132,7 +136,9 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
     candidate = lines[candidate_index].strip() if candidate_index >= 0 else ""
     comment_start = (prefix or block_start or "# ").strip()
     header = candidate[len(comment_start) :].strip() if candidate.startswith(comment_start) else ""
-    known_header = header.startswith(("Ultralytics 🚀 AGPL-3.0 License", "© 2014-", "Ultralytics Inc. 🚀 Copyright"))
+    known_header = header.startswith(("Ultralytics 🚀 AGPL-3.0 License", "Ultralytics Inc. 🚀 Copyright")) or (
+        header.startswith("© 2014-") and " Ultralytics Inc." in header
+    )
     header_index = candidate_index if candidate == formatted_header.strip() or known_header else -1
 
     # Add the formatted header to prefix lines
