@@ -120,18 +120,32 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
 
     # Check for special first line
     special_line_index = -1
-    if lines and (lines[0].startswith("#!") or lines[0].startswith("<?xml") or lines[0].startswith("<!DOCTYPE")):
+    first_line = lines[0].lstrip("\ufeff") if lines else ""
+    encoding_cookie = r"^[ \t\f]*#.*?coding[:=][ \t]*[-_.a-zA-Z0-9]+"
+    if lines and (
+        first_line.startswith(("#!", "<?xml"))
+        or first_line.lower().startswith("<!doctype")
+        or re.match(encoding_cookie, first_line)
+    ):
         special_line_index = 0
         prefix_lines.append(lines[0])
+    if first_line.startswith("#!") and len(lines) > 1 and re.match(encoding_cookie, lines[1]):
+        special_line_index = 1
+        prefix_lines.append(lines[1])
 
     start_idx = special_line_index + 1 if special_line_index >= 0 else 0
     end_idx = min(start_idx + 5, len(lines))  # Look in first few lines
 
-    # Find existing header
-    header_index = next(
-        (i for i in range(start_idx, end_idx) if re.search(r"AGPL-3.0|CONFIDENTIAL|Ultralytics|©\s*\d{4}", lines[i])),
-        -1,
+    # An existing header must be the first non-empty line and use the file's comment syntax.
+    candidate_index = next((i for i in range(start_idx, end_idx) if lines[i].strip()), -1)
+    candidate = lines[candidate_index].strip() if candidate_index >= 0 else ""
+    comment_start = (prefix or block_start or "# ").strip()
+    known_header = candidate.startswith(comment_start) and re.search(
+        r"AGPL-3\.0 License|CONFIDENTIAL: Unauthorized use|©\s*2014[–-]\d{4}\s+Ultralytics Inc\.|"
+        r"Ultralytics Inc\..*Copyright ©\s*2014[–-]\d{4}\s*-\s*CONFIDENTIAL\s*-",
+        candidate,
     )
+    header_index = candidate_index if candidate == formatted_header.strip() or known_header else -1
 
     # Add the formatted header to prefix lines
     prefix_lines.append(formatted_header)
