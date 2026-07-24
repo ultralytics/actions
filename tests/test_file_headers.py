@@ -76,6 +76,31 @@ def test_update_file_with_shebang():
         assert "print('Hello World')" in content
 
 
+def test_update_file_preserves_early_ultralytics_source():
+    """Test that Ultralytics references in source code are not mistaken for headers."""
+    with TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+        docstring_file = tmp_path / "api.py"
+        docstring_file.write_text('"""Ultralytics Platform API client."""\n\nVALUE = 1\n')
+        import_file = tmp_path / "__init__.py"
+        import_file.write_text("from ultralytics import YOLO\n")
+
+        for test_file, spacing in ((docstring_file, ""), (import_file, "\n")):
+            original = test_file.read_text()
+            assert update_file(test_file, "# ", None, None, "Ultralytics 🚀 Test Header") is True
+            assert test_file.read_text() == f"# Ultralytics 🚀 Test Header\n{spacing}{original}"
+
+
+def test_update_file_with_lowercase_doctype():
+    """Test that Prettier's lowercase HTML doctype remains first."""
+    with TemporaryDirectory() as tmp_dir:
+        test_file = Path(tmp_dir) / "index.html"
+        test_file.write_text("<!doctype html>\n<html></html>\n")
+
+        assert update_file(test_file, None, "<!-- ", " -->", "Ultralytics 🚀 Test Header") is True
+        assert test_file.read_text().startswith("<!doctype html>\n<!-- Ultralytics 🚀 Test Header -->\n\n")
+
+
 def test_update_file_no_changes():
     """Test updating file with no changes needed."""
     with TemporaryDirectory() as tmp_dir:
