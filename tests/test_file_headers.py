@@ -101,6 +101,48 @@ def test_update_file_with_lowercase_doctype():
         assert test_file.read_text().startswith("<!doctype html>\n<!-- Ultralytics 🚀 Test Header -->\n\n")
 
 
+def test_update_file_with_bom_xml_declaration():
+    """Test that a BOM-prefixed XML declaration remains first."""
+    with TemporaryDirectory() as tmp_dir:
+        test_file = Path(tmp_dir) / "layout.xml"
+        test_file.write_text('\ufeff<?xml version="1.0" encoding="utf-8"?>\n<root />\n')
+
+        assert update_file(test_file, None, "<!-- ", " -->", "Ultralytics 🚀 Test Header") is True
+        assert test_file.read_text().startswith(
+            '\ufeff<?xml version="1.0" encoding="utf-8"?>\n<!-- Ultralytics 🚀 Test Header -->\n\n'
+        )
+
+
+def test_update_file_with_shebang_and_encoding_cookie():
+    """Test that a Python encoding cookie remains on line two and the header stays idempotent."""
+    with TemporaryDirectory() as tmp_dir:
+        test_file = Path(tmp_dir) / "script.py"
+        test_file.write_text(
+            "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n# Ultralytics 🚀 AGPL-3.0 License\n\nprint('hello')\n"
+        )
+
+        assert update_file(test_file, "# ", None, None, "Ultralytics 🚀 Test Header") is True
+        assert test_file.read_text().startswith(
+            "#!/usr/bin/env python3\n# -*- coding: utf-8 -*-\n# Ultralytics 🚀 Test Header\n\n"
+        )
+        assert update_file(test_file, "# ", None, None, "Ultralytics 🚀 Test Header") is False
+
+
+def test_update_file_replaces_legacy_private_header():
+    """Test that the previously emitted private header is replaced rather than duplicated."""
+    with TemporaryDirectory() as tmp_dir:
+        test_file = Path(tmp_dir) / "app.py"
+        test_file.write_text(
+            "# Ultralytics Inc. 🚀 Copyright © 2014-2025 - CONFIDENTIAL - "
+            "https://ultralytics.com - All Rights Reserved\n\n"
+            "print('hello')\n"
+        )
+
+        assert update_file(test_file, "# ", None, None, "© 2014-2026 Ultralytics Inc. CONFIDENTIAL") is True
+        assert test_file.read_text().startswith("# © 2014-2026 Ultralytics Inc. CONFIDENTIAL\n\n")
+        assert "Copyright" not in test_file.read_text()
+
+
 def test_update_file_no_changes():
     """Test updating file with no changes needed."""
     with TemporaryDirectory() as tmp_dir:
