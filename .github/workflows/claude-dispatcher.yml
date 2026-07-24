@@ -19,12 +19,17 @@ jobs:
   dispatch:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.checkout.outputs.commit }}
     steps:
-      - uses: actions/checkout@v7
+      - id: checkout
+        uses: actions/checkout@v7
         with:
           repository: ${{ inputs.repo }}
           token: ${{ secrets._GITHUB_TOKEN }}
           persist-credentials: false
+
+      - run: mv .git "$RUNNER_TEMP/git"
 
       - run: npm install -g @anthropic-ai/claude-code@2.1.218
 
@@ -41,6 +46,8 @@ jobs:
 
       - name: Create patch
         run: |
+          [ ! -e .git ] || mv .git "$RUNNER_TEMP/untrusted-git"
+          mv "$RUNNER_TEMP/git" .git
           git add -A
           git diff --cached --binary > "$RUNNER_TEMP/changes.patch"
 
@@ -58,6 +65,7 @@ jobs:
           repository: ${{ inputs.repo }}
           token: ${{ secrets._GITHUB_TOKEN }}
           persist-credentials: false
+          ref: ${{ needs.dispatch.outputs.sha }}
 
       - uses: actions/download-artifact@v8
         with:
