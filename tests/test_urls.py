@@ -135,11 +135,14 @@ def test_urls_with_different_tlds(verbose):
 
 
 def test_replace_removes_unresolved_markdown_links(monkeypatch):
-    """Keep anchor text when Brave cannot replace a broken Markdown link."""
-    text = "[Redirect](https://old.test) and [Broken](https://broken.test)"
+    """Replace links by occurrence and retain anchor text when no valid replacement exists."""
+    text = (
+        "[Redirect](https://site.test) and [Broken](https://site.test/bad) and "
+        "[Punctuated](https://punct.test.) and <a href = 'https://html.test'>HTML</a>"
+    )
 
     def fake_is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
-        valid = url == "https://old.test"
+        valid = url == "https://site.test"
         result = "https://new.test" if valid else url
         return (valid, result) if return_url else valid
 
@@ -149,7 +152,7 @@ def test_replace_removes_unresolved_markdown_links(monkeypatch):
     ):
         result = check_links_in_string(text, verbose=False, return_bad=True, replace=True)
 
-    assert result == (True, [], "[Redirect](https://new.test) and Broken")
+    assert result == (True, [], "[Redirect](https://new.test) and Broken and Punctuated and HTML")
 
 
 def test_case_sensitivity(verbose):

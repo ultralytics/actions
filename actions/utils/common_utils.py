@@ -364,45 +364,70 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
 
         if replace:
             replacements = {}
-            modified_text = text
+            link_actions = {}
 
-            # Process all URLs for replacements
             brave_api_key = os.getenv("BRAVE_API_KEY")
             for (title, url), (valid, redirect) in zip(urls, results):
-                # Handle invalid URLs with Brave search
                 if not valid:
                     query = f"{(redirect or url)[:200]} {title[:199]}"
                     search_urls = brave_search(query, brave_api_key, count=3) if brave_api_key else []
                     best_url = next((alt_url for alt_url in search_urls if is_url(alt_url, session)), None)
+                    link_actions[url] = best_url
                     if best_url:
                         replacements[url] = best_url
-                        modified_text = modified_text.replace(url, best_url)
-                        continue
-                    if title:
-                        modified_text = modified_text.replace(f"[{title}]({url})", title)
-                    else:
-                        without_anchor = re.sub(
-                            rf'<a[^>]+href=["\']{re.escape(url)}["\'][^>]*>(.*?)</a>',
-                            r"\1",
-                            modified_text,
-                            flags=re.IGNORECASE | re.DOTALL,
-                        )
-                        modified_text = (
-                            without_anchor if without_anchor != modified_text else modified_text.replace(url, "")
-                        )
-                    if verbose:
+                    elif verbose:
                         print(f"WARNING ⚠️ removed broken link: {url}")
-                # Handle redirects for valid URLs
                 elif valid and redirect and redirect != url:
+                    link_actions[url] = redirect
                     replacements[url] = redirect
-                    modified_text = modified_text.replace(url, redirect)
 
             if verbose and replacements:
                 print(
                     f"WARNING ⚠️ replaced {len(replacements)} links:\n"
                     + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
                 )
-            text, bad_urls = modified_text, []
+
+            def replace_html_link(match):
+                """Replace an HTML link target or retain only its anchor content."""
+                url = clean_url(match.group(3))
+                if url not in link_actions:
+                    return match.group(0)
+                replacement = link_actions[url]
+                return (
+                    f"{match.group(1)}{match.group(2)}{replacement}{match.group(2)}{match.group(4)}"
+                    f"{match.group(5)}{match.group(6)}"
+                    if replacement
+                    else match.group(5)
+                )
+
+            def replace_link(match):
+                """Replace a matched URL or retain only its Markdown anchor text."""
+                url = clean_url(match.group(2) or match.group(3))
+                if url not in link_actions:
+                    return match.group(0)
+                replacement = link_actions[url]
+                return (
+                    f"[{match.group(1)}]({replacement})"
+                    if replacement and match.group(2)
+                    else replacement or match.group(1) or ""
+                )
+
+            text = re.sub(
+                r"(<a\b[^>]*\bhref\s*=\s*)([\"'])(.*?)\2([^>]*>)(.*?)(</a>)",
+                replace_html_link,
+                text,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+            text = re.sub(
+                r"<(https?://[^>\s]+)>",
+                lambda match: (
+                    ""
+                    if clean_url(match.group(1)) in link_actions and not link_actions[clean_url(match.group(1))]
+                    else match.group(0)
+                ),
+                text,
+            )
+            text, bad_urls = URL_PATTERN.sub(replace_link, text), []
 
     passing = not bad_urls
     if verbose and not passing:
