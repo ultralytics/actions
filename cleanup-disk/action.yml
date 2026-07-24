@@ -3,11 +3,6 @@
 name: "Disk Space Cleanup"
 author: "Ultralytics"
 description: "Cleans up disk space by removing unnecessary tool caches and swap space"
-inputs:
-  full:
-    description: "Also remove preinstalled SDKs and Docker images"
-    required: false
-    default: "false"
 runs:
   using: "composite"
   steps:
@@ -18,7 +13,7 @@ runs:
         df -h /
         echo "::endgroup::"
 
-        echo "::group::Remove Unused Files"
+        echo "::group::Remove Tool Cache and Swap"
         toolcache_pid=""
         if [ -e /opt/hostedtoolcache ]; then
           # Remove tool cache to free up ~15GB of space per https://github.com/ultralytics/ultralytics/pull/15848
@@ -30,18 +25,8 @@ runs:
           sudo swapoff -a
           sudo rm -f /swapfile /mnt/swapfile
         fi
-        if [ "${{ inputs.full }}" = "true" ]; then
-          sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc /usr/local/.ghcup &
-          full_pid=$!
-          docker image prune --all --force &
-          docker_pid=$!
-        fi
         if [ -n "$toolcache_pid" ]; then
           wait "$toolcache_pid" || true
-        fi
-        if [ "${{ inputs.full }}" = "true" ]; then
-          wait "$full_pid" || true
-          wait "$docker_pid" || true
         fi
         echo "::endgroup::"
 
