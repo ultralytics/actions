@@ -411,22 +411,25 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                     + "\n".join(f"  {k}: {v or 'REMOVED'}" for k, v in link_actions.items())
                 )
 
+            handled = set()  # URLs this pass actually rewrote or removed, the only ones it may certify as gone
+
             def replace_link(match):
                 """Point a matched link at its replacement URL, or remove it and retain any readable text."""
                 if match["a_text"] is not None:  # HTML anchor: keep the content, then rewrite or unwrap the tags
                     content = REPLACE_PATTERN.sub(replace_link, match["a_text"])
-                    href = match["a_href"]
-                    new_url = link_actions.get(clean_url(href), "")  # "" means no entry, None means remove
-                    if new_url is None:
+                    href, url = match["a_href"], clean_url(match["a_href"])
+                    if url not in link_actions:
+                        return f"{match['a_open']}{href}{match['a_tail']}{content}</a>"
+                    handled.add(url)
+                    if not (new_url := link_actions[url]):
                         return content
-                    if new_url:
-                        quote = href[0] if href.startswith(('"', "'")) else ""
-                        href = f"{quote}{new_url}{quote}"
-                    return f"{match['a_open']}{href}{match['a_tail']}{content}</a>"
+                    quote = href[0] if href.startswith(('"', "'")) else ""
+                    return f"{match['a_open']}{quote}{new_url}{quote}{match['a_tail']}{content}</a>"
                 raw_url = match["md_url"] or match["auto_url"] or match["plain_url"] or ""
                 url = clean_url(raw_url)
                 if url not in link_actions:
                     return match[0]
+                handled.add(url)
                 new_url = link_actions[url]
                 if match["md_url"]:
                     md_text = REPLACE_PATTERN.sub(replace_link, match["md_text"])  # text may repeat the same URL
@@ -437,11 +440,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                 return f"{match['space']}{new_url}{suffix}" if new_url else suffix
 
             text = REPLACE_PATTERN.sub(replace_link, text)
-            # Certify only URLs the pass actually removed, by re-detecting what survives rather than assuming
-            detected = {
-                clean_url(m["md_url"] or m["auto_url"] or m["plain_url"] or "") for m in URL_PATTERN.finditer(text)
-            }
-            bad_urls = [url for url in bad_urls if url in detected]
+            bad_urls = [url for url in bad_urls if url not in handled]  # a URL left as data is still a bad URL
 
     passing = not bad_urls
     if verbose and not passing:
