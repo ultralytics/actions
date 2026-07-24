@@ -415,7 +415,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                 )
 
             text = re.sub(
-                r"(<a\b[^>]*\bhref\s*=\s*)(?:([\"'])\s*(.*?)\s*\2|([^\s>]+))([^>]*>)(.*?)(</a>)",
+                r"(<a\b[^>]*\s+href\s*=\s*)(?:([\"'])\s*(.*?)\s*\2|([^\s>]+))([^>]*>)(.*?)(</a>)",
                 replace_html_link,
                 text,
                 flags=re.IGNORECASE | re.DOTALL,
