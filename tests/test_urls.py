@@ -168,6 +168,22 @@ def test_replace_removes_unresolved_links(monkeypatch):
     )
 
 
+def test_replace_keeps_links_when_search_unavailable(monkeypatch):
+    """Leave broken links in place when the search never answers, rather than deleting what could not be checked."""
+    text = "[Broken](https://site.test/bad) and `code https://site.test/bad` stay"
+
+    def fake_is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
+        return (False, url) if return_url else False
+
+    monkeypatch.setenv("BRAVE_API_KEY", "test-key")
+    with patch("actions.utils.common_utils.is_url", side_effect=fake_is_url), patch(
+        "actions.utils.common_utils.brave_search", return_value=None
+    ):
+        result = check_links_in_string(text, verbose=False, return_bad=True, replace=True)
+
+    assert result == (False, ["https://site.test/bad", "https://site.test/bad"], text)
+
+
 def test_case_sensitivity(verbose):
     """Tests URL case sensitivity by verifying that URLs with different cases are correctly identified and handled."""
     text = "Case test: HTTPS://err.com and https://err.com"

@@ -181,8 +181,8 @@ REDIRECT_END_IGNORE_LIST = frozenset(
         "githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
     }
 )
-URL_PATTERN = re.compile(
-    r"(?P<image>!?)\[(?P<md_text>[^]]+)]\((?P<md_url>[^)\s]+)[^)]*\)"  # Matches Markdown links and images
+URL_ALTERNATIVES = (
+    r"(?P<image>!?)\[(?P<md_text>[^]]+)]\(\s*(?P<md_url>[^)\s]+)[^)]*\)"  # Matches Markdown links and images
     r"|"
     r"(?P<space>[ \t]?)"  # Optional leading space, dropped along with a removed autolink or plaintext URL
     r"(?:"
@@ -197,10 +197,13 @@ URL_PATTERN = re.compile(
     r")"
     r")"
 )
-HTML_LINK_PATTERN = re.compile(
-    r"(?P<open><a\b[^>]*?\shref\s*=\s*)(?P<href>\"[^\"]*\"|'[^']*'|[^\s>]*)(?P<tail>[^>]*>)"
-    r"(?P<text>[^<]*(?:<(?!/?a\b)[^<]*)*)</a>",  # anchor text stops at the next <a>, so an unclosed tag stays local
-    flags=re.IGNORECASE,
+URL_PATTERN = re.compile(URL_ALTERNATIVES)  # finds every URL, including inside code samples and HTML attributes
+REPLACE_PATTERN = re.compile(  # one pass over the original text: rewrites hyperlinks, leaves URLs that are data
+    r"(?:```[\s\S]*?```|`[^`\n]*`)"  # code samples are copied verbatim, never edited
+    r"|(?i:"  # HTML anchors, whose text stops at the next <a> so an unclosed tag cannot swallow a later one
+    r"(?P<a_open><a\b[^>]*?\shref\s*=\s*)(?P<a_href>\"[^\"]*\"|'[^']*'|[^\s>]*)(?P<a_tail>[^>]*>)"
+    r"(?P<a_text>[^<]*(?:<(?!/?a\b)[^<]*)*)</a>)"
+    r"|" + URL_ALTERNATIVES + r"|<[^>]+>"  # an HTML attribute URL has no anchor to keep, so leave the tag alone
 )
 
 
@@ -296,16 +299,22 @@ def allow_redirect(start="", end=""):
 
 
 def brave_search(query, api_key, count=5):
-    """Search for alternative URLs using Brave Search API."""
+    """Search for alternative URLs using Brave Search API, returning None if the search itself did not answer."""
     if not api_key:
-        return
+        return None
     if len(query) > 400:
         print(f"WARNING ⚠️ Brave search query length {len(query)} exceed limit of 400 characters, truncating.")
     url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query.strip()[:400])}&count={count}"
-    response = requests.get(url, headers={"X-Subscription-Token": api_key, "Accept": "application/json"})
-    data = response.json() if response.status_code == 200 else {}
-    results = data.get("web", {}).get("results", []) if data else []
-    return [result.get("url") for result in results if result.get("url")]
+    try:
+        response = requests.get(
+            url, headers={"X-Subscription-Token": api_key, "Accept": "application/json"}, timeout=10
+        )
+        if response.status_code == 200:
+            return [r["url"] for r in response.json().get("web", {}).get("results", []) if r.get("url")]
+        print(f"WARNING ⚠️ Brave search HTTP {response.status_code}")
+    except Exception as e:
+        print(f"WARNING ⚠️ Brave search failed: {e}")
+    return None  # rate limited or unreachable, which is not the same as "no replacement exists"
 
 
 def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
@@ -378,10 +387,21 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
             for (title, url), (valid, redirect) in zip(urls, results):
                 if url in link_actions:  # decide once per URL, not once per occurrence
                     continue
-                if not valid:  # replace only with a search result that passes the same check, otherwise remove
-                    query = f"{(redirect or url)[:200]} {title[:199]}"
-                    search_urls = brave_search(query, brave_api_key, count=3) if brave_api_key else []
-                    link_actions[url] = next((u for u in search_urls if u != url and is_url(u, session)), None)
+                if not valid:
+                    # Two distinct queries, not two attempts: the dead URL biases the first toward the site root,
+                    # so the second drops it and searches the link text on the same domain instead.
+                    best, answered = None, False
+                    for query in (
+                        f"{(redirect or url)[:200]} {title[:199]}",
+                        f"{title[:199]} {parse.urlparse(url).netloc}",
+                    ):
+                        if (search_urls := brave_search(query, brave_api_key, count=3)) is None:
+                            continue  # search did not answer; a silent [] here would delete a fixable link
+                        answered = True
+                        if best := next((u for u in search_urls if u != url and is_url(u, session)), None):
+                            break
+                    if best or answered:  # leave the link untouched when no search ever answered
+                        link_actions[url] = best
                 elif redirect and redirect != url:
                     link_actions[url] = redirect
 
@@ -391,35 +411,32 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                     + "\n".join(f"  {k}: {v or 'REMOVED'}" for k, v in link_actions.items())
                 )
 
-            def replace_html_link(match):
-                """Point an HTML link at its replacement URL, or drop the tags and retain its anchor content."""
-                url = clean_url(match["href"])
-                if url not in link_actions:
-                    return match[0]
-                new_url = link_actions[url]
-                quote = match["href"][0] if match["href"][0] in "\"'" else ""
-                return (
-                    f"{match['open']}{quote}{new_url}{quote}{match['tail']}{match['text']}</a>"
-                    if new_url
-                    else match["text"]
-                )
-
             def replace_link(match):
-                """Point a Markdown or plaintext URL at its replacement, or remove it and retain any link text."""
+                """Point a matched link at its replacement URL, or remove it and retain any readable text."""
+                if match["a_text"] is not None:  # HTML anchor: keep the content, then rewrite or unwrap the tags
+                    content = REPLACE_PATTERN.sub(replace_link, match["a_text"])
+                    href = match["a_href"]
+                    new_url = link_actions.get(clean_url(href), "")  # "" means no entry, None means remove
+                    if new_url is None:
+                        return content
+                    if new_url:
+                        quote = href[0] if href.startswith(('"', "'")) else ""
+                        href = f"{quote}{new_url}{quote}"
+                    return f"{match['a_open']}{href}{match['a_tail']}{content}</a>"
                 raw_url = match["md_url"] or match["auto_url"] or match["plain_url"] or ""
                 url = clean_url(raw_url)
                 if url not in link_actions:
                     return match[0]
                 new_url = link_actions[url]
                 if match["md_url"]:
-                    md_text = URL_PATTERN.sub(replace_link, match["md_text"])  # link text may repeat the same URL
+                    md_text = REPLACE_PATTERN.sub(replace_link, match["md_text"])  # text may repeat the same URL
                     return f"{match['image']}[{md_text}]({new_url})" if new_url else md_text
                 if match["auto_url"]:
                     return f"{match['space']}<{new_url}>" if new_url else ""
                 suffix = raw_url[len(raw_url.rstrip(".,:;!?`\\")) :]  # trailing punctuation clean_url() dropped
                 return f"{match['space']}{new_url}{suffix}" if new_url else suffix
 
-            text = URL_PATTERN.sub(replace_link, HTML_LINK_PATTERN.sub(replace_html_link, text))
+            text = REPLACE_PATTERN.sub(replace_link, text)
             # Certify only URLs the pass actually removed, by re-detecting what survives rather than assuming
             detected = {
                 clean_url(m["md_url"] or m["auto_url"] or m["plain_url"] or "") for m in URL_PATTERN.finditer(text)
