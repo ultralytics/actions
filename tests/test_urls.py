@@ -135,7 +135,7 @@ def test_urls_with_different_tlds(verbose):
 
 
 def test_replace_keeps_unresolved_links(monkeypatch):
-    """Replace links the search can fix, keep and report the ones it cannot, and never touch a longer neighbour."""
+    """Replace links the search can fix, keep and report the ones it cannot, and never touch a longer neighbor."""
     text = "[Broken](https://site.test/bad) and [Fixed](https://site.test/gone) and https://site.test/gone/deeper"
 
     def fake_is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
