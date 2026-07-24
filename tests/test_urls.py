@@ -158,8 +158,10 @@ def test_replace_removes_unresolved_markdown_links(monkeypatch):
     assert result == (
         True,
         [],
-        "[Redirect](https://new.test) and Broken and redirect https://new.test. and plain . and HTML and Unquoted and "
-        "![Redirect image](https://new.test) and Broken image",
+        (
+            "[Redirect](https://new.test) and Broken and redirect https://new.test. and plain . and HTML and Unquoted and "
+            "![Redirect image](https://new.test) and Broken image"
+        ),
     )
 
 
