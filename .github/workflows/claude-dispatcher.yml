@@ -20,14 +20,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     outputs:
-      sha: ${{ steps.checkout.outputs.commit }}
+      sha: ${{ steps.sha.outputs.value }}
     steps:
-      - id: checkout
-        uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           repository: ${{ inputs.repo }}
           token: ${{ secrets._GITHUB_TOKEN }}
           persist-credentials: false
+
+      - id: sha
+        run: echo "value=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
 
       - run: mv .git "$RUNNER_TEMP/git"
 
