@@ -182,9 +182,9 @@ REDIRECT_END_IGNORE_LIST = frozenset(
     }
 )
 URL_PATTERN = re.compile(
-    r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
+    r"\[(?P<md_text>[^]]+)]\((?P<md_url>[^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
-    r"("  # Start capturing group for plaintext URLs
+    r"(?P<plain_url>"  # Start capturing group for plaintext URLs
     r"(?:https?://)?"  # Optional http:// or https://
     r"(?:www\.)?"  # Optional www.
     r"(?:[\w.-]+)?"  # Optional domain name and subdomains
@@ -292,8 +292,14 @@ def brave_search(query, api_key, count=5):
     if len(query) > 400:
         print(f"WARNING ⚠️ Brave search query length {len(query)} exceed limit of 400 characters, truncating.")
     url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query.strip()[:400])}&count={count}"
-    response = requests.get(url, headers={"X-Subscription-Token": api_key, "Accept": "application/json"})
-    data = response.json() if response.status_code == 200 else {}
+    try:
+        response = requests.get(
+            url, headers={"X-Subscription-Token": api_key, "Accept": "application/json"}, timeout=10
+        )
+        data = response.json() if response.status_code == 200 else {}
+    except Exception as e:  # a search outage must never block the caller from returning its text
+        print(f"WARNING ⚠️ Brave search failed: {e}")
+        return []
     results = data.get("web", {}).get("results", []) if data else []
     return [result.get("url") for result in results if result.get("url")]
 
@@ -351,10 +357,10 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
 def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
     """Process text, find URLs, check for 404s, and handle replacements with redirects or Brave search."""
     urls = []
-    for md_text, md_url, plain_url in URL_PATTERN.findall(text):
-        url = md_url or plain_url
+    for match in URL_PATTERN.finditer(text):
+        url = match["md_url"] or match["plain_url"]
         if url and parse.urlparse(url).scheme:
-            urls.append((md_text, clean_url(url)))
+            urls.append((match["md_text"] or "", clean_url(url)))
 
     with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
         session.headers.update(REQUESTS_HEADERS)
@@ -363,35 +369,47 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
         bad_urls = [url for (title, url), (valid, redirect) in zip(urls, results) if not valid]
 
         if replace:
-            replacements = {}
-            modified_text = text
+            replacements, searched = {}, set()
 
             # Process all URLs for replacements
             brave_api_key = os.getenv("BRAVE_API_KEY")
             for (title, url), (valid, redirect) in zip(urls, results):
-                # Handle invalid URLs with Brave search
-                if not valid and brave_api_key:
-                    query = f"{(redirect or url)[:200]} {title[:199]}"
-                    if search_urls := brave_search(query, brave_api_key, count=3):
-                        best_url = next(
-                            (alt_url for alt_url in search_urls if is_url(alt_url, session)),
-                            search_urls[0],
-                        )
-                        if url != best_url:
+                # Handle invalid URLs with Brave search. Two queries, not two attempts: the dead URL biases the
+                # first toward the site root, so the second drops it and searches the link text on its domain.
+                if not valid:
+                    if url in searched:  # search once per URL, however many times it occurs
+                        continue
+                    searched.add(url)
+                    for query in (
+                        f"{(redirect or url)[:200]} {title[:199]}",
+                        f"{title[:199]} {parse.urlparse(url).netloc}",
+                    ):
+                        search_urls = brave_search(query, brave_api_key, count=3) or []
+                        if best_url := next((u for u in search_urls if u != url and is_url(u, session)), None):
                             replacements[url] = best_url
-                            modified_text = modified_text.replace(url, best_url)
+                            break
                 # Handle redirects for valid URLs
-                elif valid and redirect and redirect != url:
+                elif redirect and redirect != url:
                     replacements[url] = redirect
-                    modified_text = modified_text.replace(url, redirect)
 
             if verbose and replacements:
                 print(
                     f"WARNING ⚠️ replaced {len(replacements)} links:\n"
                     + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
                 )
-            if replacements:
-                return (True, bad_urls, modified_text) if return_bad else modified_text
+
+            def replace_link(match):
+                """Swap a matched URL for its replacement, leaving the surrounding link syntax untouched."""
+                group = "md_url" if match["md_url"] else "plain_url"
+                raw_url = match[group]
+                if not (new_url := replacements.get(clean_url(raw_url))):
+                    return match[0]
+                start, end = (i - match.start() for i in match.span(group))
+                suffix = raw_url[len(raw_url.rstrip(".,:;!?`\\")) :]  # trailing punctuation clean_url() dropped
+                return f"{match[0][:start]}{new_url}{suffix}{match[0][end:]}"
+
+            text = URL_PATTERN.sub(replace_link, text)
+            bad_urls = [url for url in bad_urls if url not in replacements]  # unfixable links stay reported
 
     passing = not bad_urls
     if verbose and not passing:
