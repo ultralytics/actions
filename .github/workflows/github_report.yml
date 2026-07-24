@@ -2,7 +2,7 @@
 
 # Summarize failed default-branch GitHub Actions across Ultralytics repositories
 
-name: GitHub Report
+name: GitHub 
 
 on:
   workflow_dispatch:
