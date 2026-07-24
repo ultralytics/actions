@@ -122,7 +122,7 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
     special_line_index = -1
     first_line = lines[0].lstrip("\ufeff").lower() if lines else ""
     encoding_cookie = r"^[ \t\f]*#.*?coding[:=][ \t]*[-_.a-zA-Z0-9]+"
-    if first_line.startswith(("#!", "<?xml", "<!doctype")):
+    if first_line.startswith(("#!", "<?xml", "<!doctype")) or re.match(encoding_cookie, first_line):
         special_line_index = 0
         prefix_lines.append(lines[0])
     if first_line.startswith("#!") and len(lines) > 1 and re.match(encoding_cookie, lines[1]):
