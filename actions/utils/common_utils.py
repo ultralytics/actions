@@ -370,16 +370,28 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
             brave_api_key = os.getenv("BRAVE_API_KEY")
             for (title, url), (valid, redirect) in zip(urls, results):
                 # Handle invalid URLs with Brave search
-                if not valid and brave_api_key:
+                if not valid:
                     query = f"{(redirect or url)[:200]} {title[:199]}"
-                    if search_urls := brave_search(query, brave_api_key, count=3):
-                        best_url = next(
-                            (alt_url for alt_url in search_urls if is_url(alt_url, session)),
-                            search_urls[0],
+                    search_urls = brave_search(query, brave_api_key, count=3) if brave_api_key else []
+                    best_url = next((alt_url for alt_url in search_urls if is_url(alt_url, session)), None)
+                    if best_url:
+                        replacements[url] = best_url
+                        modified_text = modified_text.replace(url, best_url)
+                        continue
+                    if title:
+                        modified_text = modified_text.replace(f"[{title}]({url})", title)
+                    else:
+                        without_anchor = re.sub(
+                            rf'<a[^>]+href=["\']{re.escape(url)}["\'][^>]*>(.*?)</a>',
+                            r"\1",
+                            modified_text,
+                            flags=re.IGNORECASE | re.DOTALL,
                         )
-                        if url != best_url:
-                            replacements[url] = best_url
-                            modified_text = modified_text.replace(url, best_url)
+                        modified_text = (
+                            without_anchor if without_anchor != modified_text else modified_text.replace(url, "")
+                        )
+                    if verbose:
+                        print(f"WARNING ⚠️ removed broken link: {url}")
                 # Handle redirects for valid URLs
                 elif valid and redirect and redirect != url:
                     replacements[url] = redirect
@@ -390,8 +402,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                     f"WARNING ⚠️ replaced {len(replacements)} links:\n"
                     + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
                 )
-            if replacements:
-                return (True, bad_urls, modified_text) if return_bad else modified_text
+            text, bad_urls = modified_text, []
 
     passing = not bad_urls
     if verbose and not passing:
