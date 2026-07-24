@@ -292,8 +292,14 @@ def brave_search(query, api_key, count=5):
     if len(query) > 400:
         print(f"WARNING ⚠️ Brave search query length {len(query)} exceed limit of 400 characters, truncating.")
     url = f"https://api.search.brave.com/res/v1/web/search?q={parse.quote(query.strip()[:400])}&count={count}"
-    response = requests.get(url, headers={"X-Subscription-Token": api_key, "Accept": "application/json"}, timeout=10)
-    data = response.json() if response.status_code == 200 else {}
+    try:
+        response = requests.get(
+            url, headers={"X-Subscription-Token": api_key, "Accept": "application/json"}, timeout=10
+        )
+        data = response.json() if response.status_code == 200 else {}
+    except Exception as e:  # a search outage must never block the caller from returning its text
+        print(f"WARNING ⚠️ Brave search failed: {e}")
+        return []
     results = data.get("web", {}).get("results", []) if data else []
     return [result.get("url") for result in results if result.get("url")]
 
@@ -363,16 +369,17 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
         bad_urls = [url for (title, url), (valid, redirect) in zip(urls, results) if not valid]
 
         if replace:
-            replacements = {}
+            replacements, searched = {}, set()
 
             # Process all URLs for replacements
             brave_api_key = os.getenv("BRAVE_API_KEY")
             for (title, url), (valid, redirect) in zip(urls, results):
-                if url in replacements:  # decide once per URL, not once per occurrence
-                    continue
                 # Handle invalid URLs with Brave search. Two queries, not two attempts: the dead URL biases the
                 # first toward the site root, so the second drops it and searches the link text on its domain.
                 if not valid:
+                    if url in searched:  # search once per URL, however many times it occurs
+                        continue
+                    searched.add(url)
                     for query in (
                         f"{(redirect or url)[:200]} {title[:199]}",
                         f"{title[:199]} {parse.urlparse(url).netloc}",
