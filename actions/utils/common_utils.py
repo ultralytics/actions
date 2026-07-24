@@ -182,15 +182,24 @@ REDIRECT_END_IGNORE_LIST = frozenset(
     }
 )
 URL_PATTERN = re.compile(
-    r"(!?)\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links and images
+    r"(?P<image>!?)\[(?P<md_text>[^]]+)]\((?P<md_url>[^)]+)\)"  # Matches Markdown links and images
     r"|"
-    r"("  # Start capturing group for plaintext URLs
+    r"(?P<space>[ \t]?)"  # Optional leading space, dropped along with a removed autolink or plaintext URL
+    r"(?:"
+    r"<(?P<auto_url>https?://[^>\s]+)>"  # Matches Markdown autolinks
+    r"|"
+    r"(?P<plain_url>"  # Start capturing group for plaintext URLs
     r"(?:https?://)?"  # Optional http:// or https://
     r"(?:www\.)?"  # Optional www.
     r"(?:[\w.-]+)?"  # Optional domain name and subdomains
     r"\.[a-zA-Z]{2,}"  # TLD
     r"(?:/[^\s\"')\]<>]*)?"  # Optional path
     r")"
+    r")"
+)
+HTML_LINK_PATTERN = re.compile(
+    r"(?P<open><a\b[^>]*?\shref\s*=\s*)(?P<href>\"[^\"]*\"|'[^']*'|[^\s>]*)(?P<tail>[^>]*>)(?P<text>.*?)</a>",
+    flags=re.IGNORECASE | re.DOTALL,
 )
 
 
@@ -267,9 +276,9 @@ def format_skipped_files_note(skipped_files: list[str], max_files: int = 10) -> 
 
 def clean_url(url):
     """Remove extra characters from URL strings."""
-    url = str(url).strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
-    # Second pass for nested quotes/punctuation
-    url = url.strip('"').strip("'").rstrip(".,:;!?`\\")
+    url = str(url).strip().strip('"').strip("'").rstrip(".,:;!?`\\").replace(".git@main", "").replace("git+", "")
+    # Second pass for nested quotes/punctuation/whitespace, i.e. HTML href=" 'https://url.com' "
+    url = url.strip().strip('"').strip("'").rstrip(".,:;!?`\\")
     return url
 
 
@@ -349,12 +358,12 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
 
 
 def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
-    """Process text, find URLs, check for 404s, and handle replacements with redirects or Brave search."""
+    """Process text, find URLs, check for 404s, and replace or remove the broken ones."""
     urls = []
-    for _, md_text, md_url, plain_url in URL_PATTERN.findall(text):
-        url = md_url or plain_url
+    for match in URL_PATTERN.finditer(text):
+        url = clean_url(match["md_url"] or match["auto_url"] or match["plain_url"] or "")
         if url and parse.urlparse(url).scheme:
-            urls.append((md_text, clean_url(url)))
+            urls.append((match["md_text"] or "", url))
 
     with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
         session.headers.update(REQUESTS_HEADERS)
@@ -363,73 +372,51 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
         bad_urls = [url for (title, url), (valid, redirect) in zip(urls, results) if not valid]
 
         if replace:
-            replacements = {}
-            link_actions = {}
-
+            link_actions = {}  # {url: replacement URL, or None to remove the link and keep its anchor text}
             brave_api_key = os.getenv("BRAVE_API_KEY")
             for (title, url), (valid, redirect) in zip(urls, results):
-                if not valid:
+                if not valid:  # replace only with a search result that passes the same check, otherwise remove
                     query = f"{(redirect or url)[:200]} {title[:199]}"
                     search_urls = brave_search(query, brave_api_key, count=3) if brave_api_key else []
-                    best_url = next((alt_url for alt_url in search_urls if is_url(alt_url, session)), None)
-                    link_actions[url] = best_url
-                    if best_url:
-                        replacements[url] = best_url
-                    elif verbose:
-                        print(f"WARNING ⚠️ removed broken link: {url}")
-                elif valid and redirect and redirect != url:
+                    link_actions[url] = next((alt_url for alt_url in search_urls if is_url(alt_url, session)), None)
+                elif redirect and redirect != url:
                     link_actions[url] = redirect
-                    replacements[url] = redirect
 
-            if verbose and replacements:
+            if verbose and link_actions:
                 print(
-                    f"WARNING ⚠️ replaced {len(replacements)} links:\n"
-                    + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
+                    f"WARNING ⚠️ replaced {len(link_actions)} links:\n"
+                    + "\n".join(f"  {k}: {v or 'REMOVED'}" for k, v in link_actions.items())
                 )
 
             def replace_html_link(match):
-                """Replace an HTML link target or retain only its anchor content."""
-                url = clean_url((match.group(3) or match.group(4)).strip())
+                """Point an HTML link at its replacement URL, or drop the tags and retain its anchor content."""
+                url = clean_url(match["href"])
                 if url not in link_actions:
-                    return match.group(0)
-                replacement = link_actions[url]
+                    return match[0]
+                new_url = link_actions[url]
+                quote = match["href"][0] if match["href"][0] in "\"'" else ""
                 return (
-                    f"{match.group(1)}{match.group(2) or ''}{replacement}{match.group(2) or ''}{match.group(5)}"
-                    f"{match.group(6)}{match.group(7)}"
-                    if replacement
-                    else match.group(6)
+                    f"{match['open']}{quote}{new_url}{quote}{match['tail']}{match['text']}</a>"
+                    if new_url
+                    else match["text"]
                 )
 
             def replace_link(match):
-                """Replace a matched URL or retain only its Markdown anchor text."""
-                raw_url = match.group(3) or match.group(4)
+                """Point a Markdown or plaintext URL at its replacement, or remove it and retain any link text."""
+                raw_url = match["md_url"] or match["auto_url"] or match["plain_url"] or ""
                 url = clean_url(raw_url)
                 if url not in link_actions:
-                    return match.group(0)
-                replacement = link_actions[url]
-                suffix = raw_url[len(raw_url.rstrip(".,:;!?`\\")) :] if match.group(4) else ""
-                return (
-                    f"{match.group(1)}[{match.group(2)}]({replacement})"
-                    if replacement and match.group(3)
-                    else (replacement or match.group(2) or "") + suffix
-                )
+                    return match[0]
+                new_url = link_actions[url]
+                if match["md_url"]:
+                    return f"{match['image']}[{match['md_text']}]({new_url})" if new_url else match["md_text"]
+                if match["auto_url"]:
+                    return f"{match['space']}<{new_url}>" if new_url else ""
+                suffix = raw_url[len(raw_url.rstrip(".,:;!?`\\")) :]  # trailing punctuation clean_url() dropped
+                return f"{match['space']}{new_url}{suffix}" if new_url else suffix
 
-            text = re.sub(
-                r"(<a\b[^>]*\s+href\s*=\s*)(?:([\"'])\s*(.*?)\s*\2|([^\s>]+))([^>]*>)(.*?)(</a>)",
-                replace_html_link,
-                text,
-                flags=re.IGNORECASE | re.DOTALL,
-            )
-            text = re.sub(
-                r"<(https?://[^>\s]+)>",
-                lambda match: (
-                    ""
-                    if clean_url(match.group(1)) in link_actions and not link_actions[clean_url(match.group(1))]
-                    else match.group(0)
-                ),
-                text,
-            )
-            text, bad_urls = URL_PATTERN.sub(replace_link, text), []
+            text = URL_PATTERN.sub(replace_link, HTML_LINK_PATTERN.sub(replace_html_link, text))
+            bad_urls = [url for url in bad_urls if url in text]  # only certify what the replacement pass removed
 
     passing = not bad_urls
     if verbose and not passing:

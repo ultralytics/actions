@@ -134,13 +134,14 @@ def test_urls_with_different_tlds(verbose):
     assert mock_is_url.call_count == 5
 
 
-def test_replace_removes_unresolved_markdown_links(monkeypatch):
+def test_replace_removes_unresolved_links(monkeypatch):
     """Replace links by occurrence and retain anchor text when no valid replacement exists."""
     text = (
         "[Redirect](https://site.test) and [Broken](https://site.test/bad) and "
         "redirect https://site.test. and plain https://punct.test. and "
         "<a href = ' https://html.test '>HTML</a> and "
         "<a href=https://unquoted.test>Unquoted</a> and "
+        '<a href="">Empty</a> and autolink <https://auto.test> and '
         "![Redirect image](https://site.test) and ![Broken image](https://image.test)"
     )
 
@@ -159,8 +160,8 @@ def test_replace_removes_unresolved_markdown_links(monkeypatch):
         True,
         [],
         (
-            "[Redirect](https://new.test) and Broken and redirect https://new.test. and plain . and HTML and Unquoted and "
-            "![Redirect image](https://new.test) and Broken image"
+            "[Redirect](https://new.test) and Broken and redirect https://new.test. and plain. and HTML and Unquoted and "
+            '<a href="">Empty</a> and autolink and ![Redirect image](https://new.test) and Broken image'
         ),
     )
 
