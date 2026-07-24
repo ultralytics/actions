@@ -73,7 +73,7 @@ jobs:
           if [ ! -s "$RUNNER_TEMP/changes.patch" ]; then
             exit 0
           fi
-          BRANCH="claude/${GITHUB_RUN_ID}"
+          BRANCH="claude/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           TITLE="$(printf '%s' "$PROMPT" | tr '\n' ' ' | cut -c1-100)"
           git config user.name "UltralyticsAssistant"
           git config user.email "web@ultralytics.com"
