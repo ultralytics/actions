@@ -10,6 +10,9 @@ Cleans up disk space on Ubuntu GitHub Actions runners by removing unnecessary to
 
 Add as early step in jobs requiring disk space:
 
+> [!IMPORTANT]
+> Run cleanup before pulling or building Docker images because it removes all images unused by containers.
+
 ```yaml
 steps:
   - uses: ultralytics/actions/cleanup-disk@main
@@ -57,7 +60,7 @@ steps:
 ## 🗑️ What Gets Cleaned
 
 - `/opt/hostedtoolcache` - Tool cache (~15GB)
-- Preinstalled Docker images
+- Unused Docker images
 - `/swapfile` or `/mnt/swapfile` - Swap space (~4GB)
 
 ## 💡 When to Use
