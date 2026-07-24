@@ -182,7 +182,7 @@ REDIRECT_END_IGNORE_LIST = frozenset(
     }
 )
 URL_PATTERN = re.compile(
-    r"\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links [text](url)
+    r"(!?)\[([^]]+)]\(([^)]+)\)"  # Matches Markdown links and images
     r"|"
     r"("  # Start capturing group for plaintext URLs
     r"(?:https?://)?"  # Optional http:// or https://
@@ -351,7 +351,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
 def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
     """Process text, find URLs, check for 404s, and handle replacements with redirects or Brave search."""
     urls = []
-    for md_text, md_url, plain_url in URL_PATTERN.findall(text):
+    for _, md_text, md_url, plain_url in URL_PATTERN.findall(text):
         url = md_url or plain_url
         if url and parse.urlparse(url).scheme:
             urls.append((md_text, clean_url(url)))
@@ -402,16 +402,16 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
 
             def replace_link(match):
                 """Replace a matched URL or retain only its Markdown anchor text."""
-                raw_url = match.group(2) or match.group(3)
+                raw_url = match.group(3) or match.group(4)
                 url = clean_url(raw_url)
                 if url not in link_actions:
                     return match.group(0)
                 replacement = link_actions[url]
-                suffix = raw_url[len(raw_url.rstrip(".,:;!?`\\")) :] if match.group(3) else ""
+                suffix = raw_url[len(raw_url.rstrip(".,:;!?`\\")) :] if match.group(4) else ""
                 return (
-                    f"[{match.group(1)}]({replacement})"
-                    if replacement and match.group(2)
-                    else (replacement or match.group(1) or "") + suffix
+                    f"{match.group(1)}[{match.group(2)}]({replacement})"
+                    if replacement and match.group(3)
+                    else (replacement or match.group(2) or "") + suffix
                 )
 
             text = re.sub(

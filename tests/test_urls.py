@@ -140,7 +140,8 @@ def test_replace_removes_unresolved_markdown_links(monkeypatch):
         "[Redirect](https://site.test) and [Broken](https://site.test/bad) and "
         "redirect https://site.test. and plain https://punct.test. and "
         "<a href = ' https://html.test '>HTML</a> and "
-        "<a href=https://unquoted.test>Unquoted</a>"
+        "<a href=https://unquoted.test>Unquoted</a> and "
+        "![Redirect image](https://site.test) and ![Broken image](https://image.test)"
     )
 
     def fake_is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
@@ -157,7 +158,8 @@ def test_replace_removes_unresolved_markdown_links(monkeypatch):
     assert result == (
         True,
         [],
-        "[Redirect](https://new.test) and Broken and redirect https://new.test. and plain . and HTML and Unquoted",
+        "[Redirect](https://new.test) and Broken and redirect https://new.test. and plain . and HTML and Unquoted and "
+        "![Redirect image](https://new.test) and Broken image",
     )
 
 
