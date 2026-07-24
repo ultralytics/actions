@@ -46,7 +46,9 @@ jobs:
           REPO: ${{ inputs.repo }}
           PROMPT: ${{ inputs.prompt }}
         run: |
-          git status --porcelain | grep -q . || exit 0
+          if [ -z "$(git status --porcelain)" ]; then
+            exit 0
+          fi
           BRANCH="claude/${GITHUB_RUN_ID}"
           TITLE="$(printf '%s' "$PROMPT" | tr '\n' ' ' | cut -c1-100)"
           git config user.name "UltralyticsAssistant"
