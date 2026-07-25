@@ -120,13 +120,9 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
 
     # Check for special first line
     special_line_index = -1
-    first_line = lines[0].lstrip("\ufeff") if lines else ""
+    first_line = lines[0].lstrip("\ufeff").lower() if lines else ""
     encoding_cookie = r"^[ \t\f]*#.*?coding[:=][ \t]*[-_.a-zA-Z0-9]+"
-    if lines and (
-        first_line.startswith(("#!", "<?xml"))
-        or first_line.lower().startswith("<!doctype")
-        or re.match(encoding_cookie, first_line)
-    ):
+    if first_line.startswith(("#!", "<?xml", "<!doctype")) or re.match(encoding_cookie, first_line):
         special_line_index = 0
         prefix_lines.append(lines[0])
     if first_line.startswith("#!") and len(lines) > 1 and re.match(encoding_cookie, lines[1]):
@@ -136,14 +132,12 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
     start_idx = special_line_index + 1 if special_line_index >= 0 else 0
     end_idx = min(start_idx + 5, len(lines))  # Look in first few lines
 
-    # An existing header must be the first non-empty line and use the file's comment syntax.
     candidate_index = next((i for i in range(start_idx, end_idx) if lines[i].strip()), -1)
     candidate = lines[candidate_index].strip() if candidate_index >= 0 else ""
     comment_start = (prefix or block_start or "# ").strip()
-    known_header = candidate.startswith(comment_start) and re.search(
-        r"AGPL-3\.0 License|CONFIDENTIAL: Unauthorized use|©\s*2014[–-]\d{4}\s+Ultralytics Inc\.|"
-        r"Ultralytics Inc\..*Copyright ©\s*2014[–-]\d{4}\s*-\s*CONFIDENTIAL\s*-",
-        candidate,
+    header = candidate[len(comment_start) :].strip() if candidate.startswith(comment_start) else ""
+    known_header = header.startswith(("Ultralytics 🚀 AGPL-3.0 License", "Ultralytics Inc. 🚀 Copyright")) or (
+        header.startswith("© 2014-") and " Ultralytics Inc." in header
     )
     header_index = candidate_index if candidate == formatted_header.strip() or known_header else -1
 

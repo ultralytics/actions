@@ -134,6 +134,28 @@ def test_urls_with_different_tlds(verbose):
     assert mock_is_url.call_count == 5
 
 
+def test_replace_keeps_unresolved_links(monkeypatch):
+    """Replace links the search can fix, keep and report the ones it cannot, and never touch a longer neighbor."""
+    text = "[Broken](https://site.test/bad) and [Fixed](https://site.test/gone) and https://site.test/gone/deeper"
+
+    def fake_is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
+        valid = url in {"https://new.test", "https://site.test/gone/deeper"}
+        return (valid, url) if return_url else valid
+
+    monkeypatch.setenv("BRAVE_API_KEY", "test-key")
+    with patch("actions.utils.common_utils.is_url", side_effect=fake_is_url), patch(
+        "actions.utils.common_utils.brave_search",
+        side_effect=lambda query, *_, **__: [] if "Broken" in query else ["https://new.test"],
+    ):
+        result = check_links_in_string(text, verbose=False, return_bad=True, replace=True)
+
+    assert result == (
+        False,
+        ["https://site.test/bad"],
+        "[Broken](https://site.test/bad) and [Fixed](https://new.test) and https://site.test/gone/deeper",
+    )
+
+
 def test_case_sensitivity(verbose):
     """Tests URL case sensitivity by verifying that URLs with different cases are correctly identified and handled."""
     text = "Case test: HTTPS://err.com and https://err.com"
