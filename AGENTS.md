@@ -57,7 +57,7 @@ Key flow: GitHub workflow event → `action.yml` step (gated by `github.event_na
 `actions/utils/` is the shared core:
 
 - **`github_utils.py`** — the `Action` class, the central abstraction. Initializes from GitHub Actions env vars (`GITHUB_TOKEN`, `GITHUB_EVENT_NAME`, `GITHUB_EVENT_PATH`), wraps REST (`get`/`post`/`patch`/...) and GraphQL requests with unified status checking, and provides high-level operations (PR diffs, labels, comments, discussions, alerts).
-- **`openai_utils.py`** — AI provider abstraction supporting OpenAI and Anthropic. The provider/model is auto-detected from which API key env var is set; defaults live here as single source of truth (`OPENAI_MODEL_DEFAULT`, `ANTHROPIC_MODEL_DEFAULT`, `PR_REVIEW_MODEL_DEFAULT`, `MODEL_COSTS`). Also holds shared prompt-building and response sanitization.
+- **`openai_utils.py`** — AI provider abstraction supporting OpenAI and Anthropic. The provider/model is auto-detected from which API key env var is set; defaults live here as single source of truth (`OPENAI_MODEL_DEFAULT`, `ANTHROPIC_MODEL_DEFAULT`, `OPENAI_REVIEW_MODEL_DEFAULT`, `ANTHROPIC_REVIEW_MODEL_DEFAULT`, `MODEL_COSTS`). Also holds shared prompt-building and response sanitization.
 - **`common_utils.py`** — URL/redirect checking, diff filtering, file-skip patterns, HTML comment removal.
 - **`version_utils.py`** — PyPI/pub.dev version checks used for publish gating.
 

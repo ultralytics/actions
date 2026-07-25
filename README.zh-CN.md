@@ -47,12 +47,12 @@
 
 可选择 [OpenAI](https://developers.openai.com/) 或 [Anthropic](https://www.anthropic.com/) 启用 AI 功能：
 
-| 提供商    | 默认模型            | API Key             |
-| --------- | ------------------- | ------------------- |
-| OpenAI    | `gpt-5.6-luna`      | `openai_api_key`    |
-| Anthropic | `claude-sonnet-4-6` | `anthropic_api_key` |
+| 提供商    | 默认模型          | 默认 PR Review 模型 | API Key             |
+| --------- | ----------------- | ------------------- | ------------------- |
+| OpenAI    | `gpt-5.6-luna`    | `gpt-5.6-terra`     | `openai_api_key`    |
+| Anthropic | `claude-sonnet-5` | `claude-opus-5`     | `anthropic_api_key` |
 
-模型会根据提供的 API key 自动检测。可通过 `model` 输入覆盖默认模型，也可使用 `review_model` 仅覆盖 PR review 模型。
+提供商会根据提供的 API key 自动检测，PR review 默认使用比其他 AI 功能更强的模型。可通过 `model` 输入覆盖默认模型，也可使用 `review_model` 仅覆盖 PR review 模型。
 
 ### 🛠️ 工作方式
 
@@ -112,7 +112,7 @@ jobs:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # model: gpt-5.6-luna  # Optional: set model explicitly
-          # review_model: claude-opus-4-7  # Optional: override PR review model
+          # review_model: claude-opus-5  # Optional: override PR review model
           brave_api_key: ${{ secrets.BRAVE_API_KEY }} # Used for broken link resolution
 ```
 
