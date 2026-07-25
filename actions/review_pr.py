@@ -433,9 +433,9 @@ def generate_pr_review(
             "EVIDENCE - every finding needs it:\n"
             "- Start from the diff, then read the enclosing function, definitions, callers, and existing patterns before judging a hunk\n"
             "- A claim that a name, import, or reference in this repository is missing or wrong requires reading the file first\n"
-            "- A claim about anything outside it (model IDs, API parameters, package versions, vendor behavior) requires "
-            "web_search first: your knowledge predates this PR, so current docs outrank recall, an external claim the "
-            "search does not confirm is not a finding, and a version or identifier bump is never a finding on recall alone\n"
+            "- A claim about anything outside it (package versions, external identifiers, API parameters, vendor "
+            "behavior) requires web_search first: your knowledge predates this PR, so current docs outrank recall, and "
+            "an external claim the search does not confirm is not a finding\n"
             "- Batch independent tool calls into one turn (turns and cost are budgeted) and never quote large tool output back\n"
             "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
         )
@@ -444,7 +444,7 @@ def generate_pr_review(
             "LIMITED VISIBILITY - IMPORTANT:\n"
             "- You see only the diff and partial file contents, and you cannot verify anything beyond them\n"
             "- Assume the author is knowledgeable about: new package versions, imports to functions defined elsewhere, dependencies, and codebase architecture\n"
-            "- Do NOT flag: version or model-ID bumps, new imports that appear unused in the diff, or references to code outside the diff\n"
+            "- Do NOT flag what you cannot confirm from the diff itself: external names, versions, or behavior; imports that appear unused; references to code outside the diff\n"
             "- If unsure whether something is an error, assume the author knows what they're doing\n"
             "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
         )
