@@ -19,12 +19,12 @@ RUFF_CHECK = [
 RUFF_FORMAT = ["ruff", "format", "--line-length=120", "."]
 DOCSTRINGS = ["ultralytics-actions-format-python-docstrings", "."]
 PRETTIER = """
-npm install -g prettier@3.6.2 prettier-plugin-sh
+npm install -g prettier@3.6.2
+curl -fsSL "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" -o /usr/local/bin/shfmt && chmod +x /usr/local/bin/shfmt
 ultralytics-actions-update-markdown-code-blocks
 npx prettier --write --list-different --print-width 120 "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
-if find . -name "*.sh" -type f | grep -q .; then
-    npx prettier --write --list-different --print-width 120 --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs "**/*.sh"
-fi
+# Bash file format, matching the files Prettier's "**/*.sh" glob covered
+find . -name "*.sh" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" -exec shfmt -i 2 -sr -bn -ci -l -w {} +
 # Handle Markdown separately
 find . -name "*.md" -type f ! -path "*/docs/*" -exec npx prettier --write --list-different --print-width 120 {} +
 if [ -d "./docs" ]; then

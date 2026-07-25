@@ -117,8 +117,10 @@ runs:
         INPUTS_PRETTIER: ${{ inputs.prettier }}
         INPUTS_SWIFT: ${{ inputs.swift }}
       run: |
+        echo "::group::Start Tool Installs"
+        trap 'echo "::endgroup::"' EXIT
         if [ "$INPUTS_PRETTIER" = "true" ] || [ "$INPUTS_MARKDOWN" = "true" ]; then
-          (set +e; npm install -g prettier@3.6.2 prettier-plugin-sh > "$RUNNER_TEMP/prettier-install.log" 2>&1; echo $? > "$RUNNER_TEMP/prettier-install.done") &
+          (set +e; npm install -g prettier@3.6.2 > "$RUNNER_TEMP/prettier-install.log" 2>&1; echo $? > "$RUNNER_TEMP/prettier-install.done") &
         fi
         if [ "$INPUTS_SWIFT" = "true" ]; then
           (set +e; brew install swift-format > "$RUNNER_TEMP/swift-install.log" 2>&1; echo $? > "$RUNNER_TEMP/swift-install.done") &
@@ -236,13 +238,12 @@ runs:
         trap 'echo "::endgroup::"' EXIT
         for _ in $(seq 120); do [ -f "$RUNNER_TEMP/prettier-install.done" ] && break; sleep 0.5; done
         cat "$RUNNER_TEMP/prettier-install.log" 2>/dev/null || true
-        [ "$(cat "$RUNNER_TEMP/prettier-install.done" 2>/dev/null)" = "0" ] || npm install -g prettier@3.6.2 prettier-plugin-sh
+        [ "$(cat "$RUNNER_TEMP/prettier-install.done" 2>/dev/null)" = "0" ] || npm install -g prettier@3.6.2
+        curl -fsSL "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" -o /usr/local/bin/shfmt && chmod +x /usr/local/bin/shfmt
         ultralytics-actions-update-markdown-code-blocks
         npx prettier --write --list-different --print-width 120 "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
-        # Bash file format
-        if find . -name "*.sh" -type f | grep -q .; then
-          npx prettier --write --list-different --print-width 120 --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs "**/*.sh"
-        fi
+        # Bash file format, matching the files Prettier's "**/*.sh" glob covered
+        find . -name "*.sh" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" -exec shfmt -i 2 -sr -bn -ci -l -w {} +
         # Handle Markdown separately
         find . -name "*.md" -type f ! -path "*/docs/*" -exec npx prettier --write --list-different --print-width 120 {} +
         if [ -d "./docs" ]; then
