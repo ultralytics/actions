@@ -47,12 +47,12 @@ AI-powered formatting, labeling, and PR summaries for Python, JavaScript/TypeScr
 
 Choose between [OpenAI](https://developers.openai.com/) or [Anthropic](https://www.anthropic.com/) for AI-powered features:
 
-| Provider  | Default Model       | API Key             |
-| --------- | ------------------- | ------------------- |
-| OpenAI    | `gpt-5.6-luna`      | `openai_api_key`    |
-| Anthropic | `claude-sonnet-4-6` | `anthropic_api_key` |
+| Provider  | Default Model     | Default PR Review Model | API Key             |
+| --------- | ----------------- | ----------------------- | ------------------- |
+| OpenAI    | `gpt-5.6-luna`    | `gpt-5.6-terra`         | `openai_api_key`    |
+| Anthropic | `claude-sonnet-5` | `claude-opus-5`         | `anthropic_api_key` |
 
-The model is auto-detected based on which API key you provide. Override with the `model` input, or use `review_model` to override PR review only.
+The provider is auto-detected based on which API key you provide, and PR reviews default to a stronger model than the other AI features. Override with the `model` input, or use `review_model` to override PR review only.
 
 ### 🛠️ How It Works
 
@@ -112,7 +112,7 @@ jobs:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
           # anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           # model: gpt-5.6-luna  # Optional: set model explicitly
-          # review_model: claude-opus-4-7  # Optional: override PR review model
+          # review_model: claude-opus-5  # Optional: override PR review model
           brave_api_key: ${{ secrets.BRAVE_API_KEY }} # Used for broken link resolution
 ```
 

@@ -23,8 +23,9 @@ WEB_SEARCH_CALL_COST = 0.01  # $10 per 1K calls
 
 # Default models (single source of truth)
 OPENAI_MODEL_DEFAULT = "gpt-5.6-luna"
-ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-4-6"
-PR_REVIEW_MODEL_DEFAULT = "gpt-5.6-terra"
+ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-5"
+OPENAI_REVIEW_MODEL_DEFAULT = "gpt-5.6-terra"
+ANTHROPIC_REVIEW_MODEL_DEFAULT = "claude-opus-5"
 
 MODEL_COSTS = {  # (input, output) per 1M tokens
     # OpenAI models
@@ -44,12 +45,14 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     # Anthropic Claude models
     "claude-sonnet-4-5-20250929": (3.00, 15.00),
     "claude-sonnet-4-6": (3.00, 15.00),
+    "claude-haiku-4-5": (1.00, 5.00),
     "claude-haiku-4-5-20251001": (1.00, 5.00),
     "claude-opus-4-5-20251101": (5.00, 25.00),
     "claude-opus-4-6": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
-    "claude-sonnet-5": (2.00, 10.00),  # introductory pricing through 2026-08-31, then (3.00, 15.00)
     "claude-opus-4-8": (5.00, 25.00),
+    "claude-opus-5": (5.00, 25.00),
+    "claude-sonnet-5": (3.00, 15.00),  # standard rate; introductory (2.00, 10.00) expires 2026-08-31
     "claude-fable-5": (10.00, 50.00),
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
@@ -169,8 +172,10 @@ def _get_default_model() -> str:
 
 
 def get_review_model() -> str:
-    """Get model for PR reviews, using REVIEW_MODEL if set, otherwise PR_REVIEW_MODEL_DEFAULT."""
-    return REVIEW_MODEL or PR_REVIEW_MODEL_DEFAULT
+    """Get model for PR reviews: REVIEW_MODEL if set, else the review default of the auto-detected provider."""
+    if REVIEW_MODEL:
+        return REVIEW_MODEL
+    return ANTHROPIC_REVIEW_MODEL_DEFAULT if _is_anthropic_model(_get_default_model()) else OPENAI_REVIEW_MODEL_DEFAULT
 
 
 def _poll_openai_response(response_json: dict, headers: dict, timeout: int = 900) -> dict:

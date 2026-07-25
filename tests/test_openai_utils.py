@@ -6,9 +6,11 @@ import pytest
 import requests
 
 from actions.utils.openai_utils import (
+    ANTHROPIC_MODEL_DEFAULT,
+    ANTHROPIC_REVIEW_MODEL_DEFAULT,
     MODEL_COSTS,
     OPENAI_MODEL_DEFAULT,
-    PR_REVIEW_MODEL_DEFAULT,
+    OPENAI_REVIEW_MODEL_DEFAULT,
     _is_anthropic_model,
     _openai_usage_cost,
     _response_tool_calls,
@@ -22,9 +24,16 @@ from actions.utils.openai_utils import (
 def test_default_models():
     """Test canonical default models are priced so max_cost budgets stay enforceable."""
     assert OPENAI_MODEL_DEFAULT == "gpt-5.6-luna"
-    assert PR_REVIEW_MODEL_DEFAULT == "gpt-5.6-terra"
-    assert OPENAI_MODEL_DEFAULT in MODEL_COSTS  # unpriced models disable max_cost budgets
-    assert PR_REVIEW_MODEL_DEFAULT in MODEL_COSTS
+    assert OPENAI_REVIEW_MODEL_DEFAULT == "gpt-5.6-terra"
+    assert ANTHROPIC_MODEL_DEFAULT == "claude-sonnet-5"
+    assert ANTHROPIC_REVIEW_MODEL_DEFAULT == "claude-opus-5"
+    for model in (
+        OPENAI_MODEL_DEFAULT,
+        OPENAI_REVIEW_MODEL_DEFAULT,
+        ANTHROPIC_MODEL_DEFAULT,
+        ANTHROPIC_REVIEW_MODEL_DEFAULT,
+    ):
+        assert model in MODEL_COSTS  # unpriced models disable max_cost budgets and misreport cost telemetry
     assert MODEL_COSTS["gpt-5.6-sol"] == (5.00, 30.00)
     assert MODEL_COSTS["gpt-5.6-terra"] == (2.50, 15.00)
     assert MODEL_COSTS["gpt-5.6-luna"] == (1.00, 6.00)
@@ -95,9 +104,17 @@ def test_get_review_model_override():
 
 
 def test_get_review_model_fallback():
-    """Test review model fallback to default model."""
-    with patch("actions.utils.openai_utils.REVIEW_MODEL", None):
-        assert get_review_model() == PR_REVIEW_MODEL_DEFAULT
+    """Test review model falls back to the review default of the auto-detected provider."""
+    with patch("actions.utils.openai_utils.REVIEW_MODEL", None), patch("actions.utils.openai_utils.MODEL", None):
+        with patch("actions.utils.openai_utils.ANTHROPIC_API_KEY", None):
+            assert get_review_model() == OPENAI_REVIEW_MODEL_DEFAULT
+        with patch("actions.utils.openai_utils.ANTHROPIC_API_KEY", "test-key"):  # Anthropic-only setups must not
+            assert get_review_model() == ANTHROPIC_REVIEW_MODEL_DEFAULT  # fall back to a model needing an OpenAI key
+
+    with patch("actions.utils.openai_utils.REVIEW_MODEL", None), patch(
+        "actions.utils.openai_utils.MODEL", "claude-sonnet-5"
+    ):
+        assert get_review_model() == ANTHROPIC_REVIEW_MODEL_DEFAULT
 
 
 @patch("requests.post")
