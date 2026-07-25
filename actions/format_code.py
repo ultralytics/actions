@@ -19,17 +19,18 @@ RUFF_CHECK = [
 RUFF_FORMAT = ["ruff", "format", "--line-length=120", "."]
 DOCSTRINGS = ["ultralytics-actions-format-python-docstrings", "."]
 PRETTIER = """
-npm install -g prettier@3.6.2 prettier-plugin-sh
+npm install -g prettier@3.6.2
+curl -fsSL "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" -o "$(npm prefix -g)/bin/shfmt"
+chmod +x "$(npm prefix -g)/bin/shfmt"
 ultralytics-actions-update-markdown-code-blocks
 npx prettier --write --list-different --print-width 120 "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
-if find . -name "*.sh" -type f | grep -q .; then
-    npx prettier --write --list-different --print-width 120 --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs "**/*.sh"
-fi
 # Handle Markdown separately
 find . -name "*.md" -type f ! -path "*/docs/*" -exec npx prettier --write --list-different --print-width 120 {} +
 if [ -d "./docs" ]; then
     find ./docs -name "*.md" -type f ! -path "*/reference/*" -exec npx prettier --tab-width 4 --print-width 120 --write --list-different {} +
 fi
+# Bash last: shfmt exits non-zero when a script fails to parse, which would otherwise skip the formatting above
+find . -name "*.sh" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" -exec shfmt -i 2 -sr -bn -ci -l -w {} +
 """
 CODESPELL = [
     "codespell",

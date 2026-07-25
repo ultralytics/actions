@@ -96,26 +96,25 @@ def format_code_with_ruff(temp_dir):
         print(f"ERROR running Python docstring formatter ❌ {e}")
 
 
-def format_bash_with_prettier(temp_dir):
-    """Formats bash script files in the specified directory using prettier."""
+def format_bash_with_shfmt(temp_dir):
+    """Formats bash script files in the specified directory using shfmt."""
     if not next(Path(temp_dir).rglob("*.sh"), None):
         return
 
     try:
-        # Run prettier with explicit config path
+        # Flags reproduce prettier-plugin-sh output: 2-space indent, spaced redirects, binary ops and cases indented
         result = subprocess.run(
-            "npx prettier --write --print-width=120 --plugin=$(npm root -g)/prettier-plugin-sh/lib/index.cjs ./**/*.sh",
-            shell=True,  # must use shell=True to expand internal $(cmd)
+            ["shfmt", "-i", "2", "-sr", "-bn", "-ci", "-w", str(temp_dir)],
             capture_output=True,
             text=True,
             check=False,
         )
         if result.returncode != 0:
-            print(f"ERROR running prettier-plugin-sh ❌ {result.stderr}")
+            print(f"ERROR running shfmt ❌ {result.stderr}")
         else:
             print("Completed bash formatting ✅")
     except Exception as e:
-        print(f"ERROR running prettier-plugin-sh ❌ {e}")
+        print(f"ERROR running shfmt ❌ {e}")
 
 
 def process_markdown_string(
@@ -141,7 +140,7 @@ def process_markdown_string(
         if python_files_exist:
             format_code_with_ruff(temp_dir)
         if bash_files_exist:
-            format_bash_with_prettier(temp_dir)
+            format_bash_with_shfmt(temp_dir)
 
         update_markdown_file(temp_md, markdown_snapshot, temp_files)
         formatted_markdown = temp_md.read_text(encoding="utf-8")
@@ -244,7 +243,7 @@ def main(root_dir=None, process_python=True, process_bash=True, verbose=False):
     if process_python:
         format_code_with_ruff(temp_dir)  # Format Python files
     if process_bash:
-        format_bash_with_prettier(temp_dir)  # Format Bash files
+        format_bash_with_shfmt(temp_dir)  # Format Bash files
 
     # Update Markdown files with formatted code blocks
     for markdown_file, markdown_content, temp_files in all_temp_files:
