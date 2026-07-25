@@ -201,7 +201,7 @@ runs:
         echo "::group::Run Biome"
         trap 'echo "::endgroup::"' EXIT
         if [ -f "biome.json" ] || [ -f "biome.jsonc" ]; then
-          npm install -g @biomejs/biome@latest
+          npm install -g @biomejs/biome@2.5.5
           npx biome --version
           npx biome check --write --line-width=120 --max-diagnostics=1000 --diagnostic-level=error --unsafe .
         else
