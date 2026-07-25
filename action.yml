@@ -107,28 +107,19 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
-    # Start npm and brew installs in the background so their downloads overlap the steps below instead of blocking
-    # them. Each formatter step waits for its own marker file before running, and reinstalls if the download failed.
+    # Start the Prettier and swift-format installs in the background so their downloads overlap the steps below instead
+    # of blocking them. Each formatter step waits for its marker file before running, and reinstalls if the download
+    # failed. Biome is excluded because its install is conditional on a repository config file checked out later.
     - name: Start Tool Installs
       if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (github.event.action == 'opened' || github.event.action == 'synchronize')
       env:
-        INPUTS_BIOME: ${{ inputs.biome }}
         INPUTS_MARKDOWN: ${{ inputs.markdown }}
         INPUTS_PRETTIER: ${{ inputs.prettier }}
         INPUTS_SWIFT: ${{ inputs.swift }}
       run: |
-        # npm installs share a global prefix, so keep them in one background chain ordered by first use
-        (
-          set +e
-          if [ "$INPUTS_BIOME" = "true" ]; then
-            npm install -g @biomejs/biome@latest > "$RUNNER_TEMP/biome-install.log" 2>&1
-            echo $? > "$RUNNER_TEMP/biome-install.done"
-          fi
-          if [ "$INPUTS_PRETTIER" = "true" ] || [ "$INPUTS_MARKDOWN" = "true" ]; then
-            npm install -g prettier@3.6.2 prettier-plugin-sh > "$RUNNER_TEMP/prettier-install.log" 2>&1
-            echo $? > "$RUNNER_TEMP/prettier-install.done"
-          fi
-        ) &
+        if [ "$INPUTS_PRETTIER" = "true" ] || [ "$INPUTS_MARKDOWN" = "true" ]; then
+          (set +e; npm install -g prettier@3.6.2 prettier-plugin-sh > "$RUNNER_TEMP/prettier-install.log" 2>&1; echo $? > "$RUNNER_TEMP/prettier-install.done") &
+        fi
         if [ "$INPUTS_SWIFT" = "true" ]; then
           (set +e; brew install swift-format > "$RUNNER_TEMP/swift-install.log" 2>&1; echo $? > "$RUNNER_TEMP/swift-install.done") &
         fi
@@ -228,9 +219,7 @@ runs:
         echo "::group::Run Biome"
         trap 'echo "::endgroup::"' EXIT
         if [ -f "biome.json" ] || [ -f "biome.jsonc" ]; then
-          for _ in $(seq 120); do [ -f "$RUNNER_TEMP/biome-install.done" ] && break; sleep 0.5; done
-          cat "$RUNNER_TEMP/biome-install.log" 2>/dev/null || true
-          [ "$(cat "$RUNNER_TEMP/biome-install.done" 2>/dev/null)" = "0" ] || npm install -g @biomejs/biome@latest
+          npm install -g @biomejs/biome@latest
           npx biome --version
           npx biome check --write --line-width=120 --max-diagnostics=1000 --diagnostic-level=error --unsafe .
         else
