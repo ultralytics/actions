@@ -29,7 +29,7 @@ find . -name "*.md" -type f ! -path "*/docs/*" -exec npx prettier --write --list
 if [ -d "./docs" ]; then
     find ./docs -name "*.md" -type f ! -path "*/reference/*" -exec npx prettier --tab-width 4 --print-width 120 --write --list-different {} +
 fi
-# Bash last: shfmt exits non-zero on any unparseable script, which would otherwise skip the formatting above
+# Bash last: shfmt exits non-zero on any unparsable script, which would otherwise skip the formatting above
 find . -name "*.sh" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" -exec shfmt -i 2 -sr -bn -ci -l -w {} +
 """
 CODESPELL = [
