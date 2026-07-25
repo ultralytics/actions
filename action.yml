@@ -107,23 +107,50 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
+    # Start npm and brew installs in the background so their downloads overlap the steps below instead of blocking
+    # them. Each formatter step waits for its own marker file before running, and reinstalls if the download failed.
+    - name: Start Tool Installs
+      if: (github.event_name == 'pull_request' || github.event_name == 'pull_request_target') && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      env:
+        INPUTS_BIOME: ${{ inputs.biome }}
+        INPUTS_MARKDOWN: ${{ inputs.markdown }}
+        INPUTS_PRETTIER: ${{ inputs.prettier }}
+        INPUTS_SWIFT: ${{ inputs.swift }}
+      run: |
+        # npm installs share a global prefix, so keep them in one background chain ordered by first use
+        (
+          set +e
+          if [ "$INPUTS_BIOME" = "true" ]; then
+            npm install -g @biomejs/biome@latest > "$RUNNER_TEMP/biome-install.log" 2>&1
+            echo $? > "$RUNNER_TEMP/biome-install.done"
+          fi
+          if [ "$INPUTS_PRETTIER" = "true" ] || [ "$INPUTS_MARKDOWN" = "true" ]; then
+            npm install -g prettier@3.6.2 prettier-plugin-sh > "$RUNNER_TEMP/prettier-install.log" 2>&1
+            echo $? > "$RUNNER_TEMP/prettier-install.done"
+          fi
+        ) &
+        if [ "$INPUTS_SWIFT" = "true" ]; then
+          (set +e; brew install swift-format > "$RUNNER_TEMP/swift-install.log" 2>&1; echo $? > "$RUNNER_TEMP/swift-install.done") &
+        fi
+      shell: bash
+
     - uses: ultralytics/actions/setup-uv@main
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
         GITHUB_REPOSITORY: ${{ github.repository }}
-        GITHUB_REF: ${{ github.ref }}
+        GITHUB_SHA: ${{ github.sha }}
       run: |
         echo "::group::Install Dependencies"
         trap 'echo "::endgroup::"' EXIT
-        # Install from current git branch if testing in ultralytics/actions repo, otherwise from GitHub main branch
+        # Source tarballs install ~2x faster than git+ URLs, which clone the repository first. Test the current commit
+        # in the ultralytics/actions repo, otherwise install main.
         if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
-          echo "Installing from git branch: $GITHUB_REF"
-          packages="git+https://github.com/ultralytics/actions@${GITHUB_REF#refs/heads/}"
+          echo "Installing from commit: $GITHUB_SHA"
+          packages="https://github.com/ultralytics/actions/archive/${GITHUB_SHA}.tar.gz"
         else
-          # packages="ultralytics-actions"
-          packages="git+https://github.com/ultralytics/actions@main"
+          packages="https://github.com/ultralytics/actions/archive/refs/heads/main.tar.gz"
         fi
 
         if [ "$INPUTS_SPELLING" = "true" ]; then
@@ -201,7 +228,9 @@ runs:
         echo "::group::Run Biome"
         trap 'echo "::endgroup::"' EXIT
         if [ -f "biome.json" ] || [ -f "biome.jsonc" ]; then
-          npm install -g @biomejs/biome@latest
+          for _ in $(seq 120); do [ -f "$RUNNER_TEMP/biome-install.done" ] && break; sleep 0.5; done
+          cat "$RUNNER_TEMP/biome-install.log" 2>/dev/null || true
+          [ "$(cat "$RUNNER_TEMP/biome-install.done" 2>/dev/null)" = "0" ] || npm install -g @biomejs/biome@latest
           npx biome --version
           npx biome check --write --line-width=120 --max-diagnostics=1000 --diagnostic-level=error --unsafe .
         else
@@ -216,7 +245,9 @@ runs:
       run: |
         echo "::group::Run Prettier"
         trap 'echo "::endgroup::"' EXIT
-        npm install -g prettier@3.6.2 prettier-plugin-sh
+        for _ in $(seq 120); do [ -f "$RUNNER_TEMP/prettier-install.done" ] && break; sleep 0.5; done
+        cat "$RUNNER_TEMP/prettier-install.log" 2>/dev/null || true
+        [ "$(cat "$RUNNER_TEMP/prettier-install.done" 2>/dev/null)" = "0" ] || npm install -g prettier@3.6.2 prettier-plugin-sh
         ultralytics-actions-update-markdown-code-blocks
         npx prettier --write --list-different --print-width 120 "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
         # Bash file format
@@ -237,7 +268,9 @@ runs:
       run: |
         echo "::group::Run Swift Formatter"
         trap 'echo "::endgroup::"' EXIT
-        brew install swift-format
+        for _ in $(seq 120); do [ -f "$RUNNER_TEMP/swift-install.done" ] && break; sleep 0.5; done
+        cat "$RUNNER_TEMP/swift-install.log" 2>/dev/null || true
+        [ "$(cat "$RUNNER_TEMP/swift-install.done" 2>/dev/null)" = "0" ] || brew install swift-format
         swift-format --in-place --recursive .
       shell: bash
       continue-on-error: true
