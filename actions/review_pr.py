@@ -429,13 +429,13 @@ def generate_pr_review(
     diff_truncated = len(augmented_diff) > diff_budget
     is_large_pr = diff_truncated or len(file_list) > 30
     if is_agent_review_model:  # must match the get_agent_response fallback gate
-        visibility_section = (  # tool descriptions ship with the tool schemas; only cross-tool rules belong here
+        visibility_section = (  # function tools carry their own schema descriptions; only cross-tool rules belong here
             "EVIDENCE - every finding needs it:\n"
             "- Start from the diff, then read the enclosing function, definitions, callers, and existing patterns before judging a hunk\n"
-            "- A claim about this repository (a name, import, or reference is missing or wrong) requires reading the file first\n"
+            "- A claim that a name, import, or reference in this repository is missing or wrong requires reading the file first\n"
             "- A claim about anything outside it (model IDs, API parameters, package versions, vendor behavior) requires "
-            "web_search first: your knowledge predates this PR, so current docs outrank recall, an unconfirmed suspicion "
-            "is not a finding, and a version or identifier bump is never a finding by itself\n"
+            "web_search first: your knowledge predates this PR, so current docs outrank recall, an external claim the "
+            "search does not confirm is not a finding, and a version or identifier bump is never a finding on recall alone\n"
             "- Batch independent tool calls into one turn (turns and cost are budgeted) and never quote large tool output back\n"
             "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
         )
@@ -444,7 +444,7 @@ def generate_pr_review(
             "LIMITED VISIBILITY - IMPORTANT:\n"
             "- You see only the diff and partial file contents, and you cannot verify anything beyond them\n"
             "- Assume the author is knowledgeable about: new package versions, imports to functions defined elsewhere, dependencies, and codebase architecture\n"
-            "- Do NOT flag: version or identifier bumps, new imports that appear unused in the diff, or references to code outside the diff\n"
+            "- Do NOT flag: version or model-ID bumps, new imports that appear unused in the diff, or references to code outside the diff\n"
             "- If unsure whether something is an error, assume the author knows what they're doing\n"
             "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
         )
@@ -480,12 +480,13 @@ def generate_pr_review(
         '  L   45 -code here      <- \'L\' means LEFT (old file), number is 45, use {"line": 45, "side": "LEFT"}\n'
         "         context         <- no prefix = unchanged context, don't comment on these\n"
         "- Suggestions ONLY work on RIGHT (added) lines, never LEFT (removed) lines\n"
-        "- ONLY use line numbers you see explicitly prefixed with R or L in the initial diff or read_diff output\n\n"
+        f"- ONLY use line numbers you see explicitly prefixed with R or L in the initial diff"
+        f"{' or read_diff output' if is_agent_review_model else ''}\n\n"
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "side": "RIGHT", "severity": "HIGH", "message": "..."}], "summary": "..."}\n\n'
         "JSON rules: exact paths (no ./), severity: CRITICAL|HIGH|MEDIUM|LOW|SUGGESTION\n"
         f"Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''}), Lines: {lines_changed}\n"
-        f"{'Large or truncated PR: use list_changed_files and read_diff to inspect changed files not shown in the initial prompt. ' if is_large_pr else ''}\n"
+        f"{'Large or truncated PR: use list_changed_files and read_diff to inspect changed files not shown in the initial prompt. ' if is_large_pr and is_agent_review_model else ''}\n"
     )
 
     messages = [
