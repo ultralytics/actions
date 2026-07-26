@@ -177,7 +177,10 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, m
     assert kwargs["reasoning_effort"] == "medium"
     assert kwargs["request_timeout"] == (30, 120)
     assert "FULL FILE CONTENTS" not in mock_get_agent_response.call_args.args[0][1]["content"]
-    assert "Never flag package or version availability" in mock_get_agent_response.call_args.args[0][0]["content"]
+    assert (
+        "Do not flag package or version availability based on web search"
+        in mock_get_agent_response.call_args.args[0][0]["content"]
+    )
 
 
 def test_review_agent_search_scans_local_checkout_only(tmp_path, monkeypatch):
