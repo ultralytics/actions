@@ -439,6 +439,7 @@ def generate_pr_review(
     event: Action = None,
     head_sha: str | None = None,
     threads: dict[str, dict] | None = None,
+    settled: list[str] | None = None,
 ) -> dict:
     """Generate comprehensive PR review with line-specific comments and overall assessment."""
     head_sha = head_sha or (event.get_pr_head_sha() if event else None)
@@ -497,9 +498,23 @@ def generate_pr_review(
 
     threads = threads or {}
     threads_section, shown_threads = format_review_threads(threads)
+    settled_section = (
+        "SETTLED FINDINGS (resolved in earlier rounds - do not re-raise or rehash them in any form):\n"
+        + "\n".join(f"- {s}" for s in settled[:20])
+        + "\n\n"
+        if settled
+        else ""
+    )
 
     # Calculate remaining budget for diff and check if truncation needed
-    diff_budget = max(1000, MAX_PROMPT_CHARS - len(guidelines_section) - len(full_files_section) - len(threads_section))
+    diff_budget = max(
+        1000,
+        MAX_PROMPT_CHARS
+        - len(guidelines_section)
+        - len(full_files_section)
+        - len(threads_section)
+        - len(settled_section),
+    )
     diff_truncated = len(augmented_diff) > diff_budget
     is_large_pr = diff_truncated or len(file_list) > 30
     if is_agent_review_model:  # must match the get_agent_response fallback gate
@@ -538,6 +553,11 @@ def generate_pr_review(
             "pivot the thread to a narrower residue of the same concern\n"
             "- Accept a rebuttal only when it is technically substantiated (code, docs, measurements) - confident "
             "assertion alone changes nothing\n"
+            "- A 'reply' that keeps a finding alive must cite the current code (path and line) that sustains it; "
+            "if you cannot cite it, resolve\n"
+            "- Two replies per thread is the debate limit: if the author still disagrees after your second reply, "
+            "resolve with a brief dissent note for the record or leave the thread to the author - further argument "
+            "is not available\n"
             "- Never post a new comment for an issue that already has a thread - use a 'reply' thread action instead\n"
             "- 'message' is posted as a reply in the thread: required for 'reply', a brief reason or empty for 'resolve'\n\n"
         )
@@ -606,6 +626,7 @@ def generate_pr_review(
                 f"{guidelines_section}"
                 f"{full_files_section}"
                 f"{threads_section}"
+                f"{settled_section}"
                 f"DIFF:\n{augmented_diff[:diff_budget]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),
@@ -782,6 +803,10 @@ def generate_pr_review(
             if verb == "reply" and comments[-1]["author"] == comments[0]["author"]:
                 print(f"Filtered out thread action {ref}: reply (no new replies since the bot's last comment)")
                 continue
+            # Two standing replies end the debate: from here the bot may only concede or leave it to the author
+            if verb == "reply" and sum(c["author"] == comments[0]["author"] for c in comments[1:]) >= 2:
+                print(f"Filtered out thread action {ref}: reply (debate limit reached, resolve or stand aside)")
+                continue
             thread_actions[ref] = {"thread": ref, "action": verb, "message": message}
         # Only findings-level threads gate approval: LOW/SUGGESTION threads advise without blocking
         blocking = {ref for ref, t in threads.items() if t.get("severity") not in ("LOW", "SUGGESTION")}
@@ -857,11 +882,11 @@ def dismiss_previous_reviews(event: Action) -> None:
             )
 
 
-def get_review_threads(event: Action) -> dict[str, dict]:
-    """Fetch the bot's unresolved review threads keyed by short refs (T1, T2, ...) the model can echo back."""
+def get_review_threads(event: Action) -> tuple[dict[str, dict], list[str]]:
+    """Fetch the bot's unresolved review threads keyed by short refs (T1, T2, ...), plus settled finding summaries."""
     if not (bot_username := event.get_username()):  # never degrade to "no threads": that re-creates duplicates
         raise RuntimeError("Failed to resolve bot username for review threads")
-    threads, cursor = {}, None
+    threads, settled, cursor = {}, [], None
     while True:
         result = event.graphql_request(
             GRAPHQL_PR_REVIEW_THREADS,
@@ -874,11 +899,12 @@ def get_review_threads(event: Action) -> dict[str, dict]:
         ) or {}
         for node in connection.get("nodes") or []:
             root = ((node.get("root") or {}).get("nodes") or [{}])[0]
-            if (
-                node.get("isResolved")
-                or (root.get("author") or {}).get("login") != bot_username
-                or REVIEW_MARKER not in ((root.get("pullRequestReview") or {}).get("body") or "")
+            if (root.get("author") or {}).get("login") != bot_username or REVIEW_MARKER not in (
+                (root.get("pullRequestReview") or {}).get("body") or ""
             ):
+                continue
+            if node.get("isResolved"):
+                settled.append((root.get("body") or "")[:200])  # remembered so settled findings are never re-raised
                 continue
             comments = (node.get("latest") or {}).get("nodes") or []  # newest replies: the last-word guard needs them
             if not comments or comments[0].get("fullDatabaseId") != root.get("fullDatabaseId"):
@@ -899,7 +925,7 @@ def get_review_threads(event: Action) -> dict[str, dict]:
             }
         page_info = connection.get("pageInfo") or {}
         if not page_info.get("hasNextPage"):
-            return threads
+            return threads, settled
         cursor = page_info.get("endCursor")
 
 
@@ -909,7 +935,7 @@ def apply_thread_actions(event: Action, review_data: dict, threads: dict[str, di
         return
     if event.get_pr_head_sha() != review_data["head_sha"]:  # don't mutate threads from a stale review
         raise RuntimeError("PR head changed during review generation")
-    fresh = {t["id"]: t["comments"] for t in get_review_threads(event).values()}
+    fresh = {t["id"]: t["comments"] for t in get_review_threads(event)[0].values()}
     pr_number = event.pr["number"]
     applied = []
     for action in actions:
@@ -1041,11 +1067,18 @@ def main(*args, **kwargs):
         print(f"Skipping stale PR review: {e}")
         return
     dismiss_previous_reviews(event)
-    threads = get_review_threads(event)
-    if threads:
-        print(f"Found {len(threads)} unresolved review threads from previous reviews")
+    threads, settled = get_review_threads(event)
+    if threads or settled:
+        print(f"Found {len(threads)} unresolved and {len(settled)} settled review threads from previous reviews")
     review = generate_pr_review(
-        event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "", event, head_sha, threads
+        event.repository,
+        diff,
+        event.pr.get("title") or "",
+        event.pr.get("body") or "",
+        event,
+        head_sha,
+        threads,
+        settled,
     )
     apply_thread_actions(event, review, threads)  # before the summary, which claims these actions and may APPROVE
     post_review_summary(event, review)
