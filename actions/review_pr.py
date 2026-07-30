@@ -49,12 +49,19 @@ query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
                     diffSide
                     path
                     line
-                    comments(first: 30) {
+                    root: comments(first: 1) {
                         nodes {
                             fullDatabaseId
                             author { login }
                             body
                             pullRequestReview { body }
+                        }
+                    }
+                    latest: comments(last: 30) {
+                        nodes {
+                            fullDatabaseId
+                            author { login }
+                            body
                         }
                     }
                 }
@@ -850,14 +857,16 @@ def get_review_threads(event: Action) -> dict[str, dict]:
             "reviewThreads"
         ) or {}
         for node in connection.get("nodes") or []:
-            comments = (node.get("comments") or {}).get("nodes") or []
-            root = comments[0] if comments else {}
+            root = ((node.get("root") or {}).get("nodes") or [{}])[0]
             if (
                 node.get("isResolved")
                 or (root.get("author") or {}).get("login") != bot_username
                 or REVIEW_MARKER not in ((root.get("pullRequestReview") or {}).get("body") or "")
             ):
                 continue
+            comments = (node.get("latest") or {}).get("nodes") or []  # newest replies: the last-word guard needs them
+            if not comments or comments[0].get("fullDatabaseId") != root.get("fullDatabaseId"):
+                comments = [root, *comments]  # thread longer than the fetched tail: keep the root finding visible
             threads[f"T{len(threads) + 1}"] = {
                 "id": node["id"],
                 "root_comment_id": root.get("fullDatabaseId"),
@@ -878,8 +887,12 @@ def get_review_threads(event: Action) -> dict[str, dict]:
 
 def apply_thread_actions(event: Action, review_data: dict, threads: dict[str, dict]) -> None:
     """Reply to and resolve existing review threads as decided by the review model."""
+    if not (actions := review_data.get("thread_actions")):
+        return
+    if event.get_pr_head_sha() != review_data["head_sha"]:  # don't mutate threads from a stale review
+        raise RuntimeError("PR head changed during review generation")
     pr_number = event.pr["number"]
-    for action in review_data.get("thread_actions", []):
+    for action in actions:
         thread = threads[action["thread"]]
         if (message := action.get("message")) and (root_id := thread.get("root_comment_id")):
             event.post(
