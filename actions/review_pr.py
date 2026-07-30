@@ -414,7 +414,7 @@ def format_review_threads(threads: dict[str, dict]) -> tuple[str, set[str]]:
         comments = thread["comments"]
         if len(comments) > 7:  # root finding plus the newest replies; 7 clipped comments always fit the budget
             comments = [comments[0], *comments[-6:]]
-        convo = "\n".join(f"  {c['author']}: {c['body'][:1000]}" for c in comments)
+        convo = "\n".join(f"  {c['author']}: {_clip_tool_output(c['body'], 1000)}" for c in comments)
         block = f"[{ref}] {anchor}{outdated}\n{convo}"
         if total + len(block) > MAX_THREADS_SECTION_CHARS and blocks:  # whole threads only, never cut mid-thread
             print(f"Dropping {len(threads) - len(shown)} review threads from prompt (section budget)")
@@ -534,6 +534,8 @@ def generate_pr_review(
             "issue or a reply rebuts it on substance - never leave an addressed thread unresolved. 'reply' when the "
             "finding still stands and a reply deserves an answer; omit the thread only when it still stands and "
             "there is nothing new to say\n"
+            "- Judge each thread by its original finding: once its substantive risk is addressed, resolve - do not "
+            "pivot the thread to a narrower residue of the same concern\n"
             "- Accept a rebuttal only when it is technically substantiated (code, docs, measurements) - confident "
             "assertion alone changes nothing\n"
             "- Never post a new comment for an issue that already has a thread - use a 'reply' thread action instead\n"
@@ -555,12 +557,18 @@ def generate_pr_review(
         "- Style/formatting (handled by ruff/prettier)\n"
         "- Minor naming preferences\n"
         "- 'Consider using X' without clear benefit\n"
-        "- Issues in unchanged context lines\n\n"
+        "- Issues in unchanged context lines\n"
+        "- Residual hardening of a risk the code already guards: if the remaining worst case is a degraded message, "
+        "a cosmetic inaccuracy, or a narrower rerun of an addressed concern, it is not a finding - findings must "
+        "clear the same minimal-scope bar the PROJECT GUIDELINES set for code changes\n\n"
         f"{visibility_section}"
         "QUALITY OVER QUANTITY:\n"
         "- Zero comments is valid for clean PRs: never invent an issue, never withhold an evidence-backed one\n"
         "- Each comment must be actionable with clear reasoning\n"
         "- Combine related issues into one comment\n"
+        "- Severity reflects the worst realistic consequence: CRITICAL/HIGH require wrong behavior, data loss, "
+        "security exposure, or wrong merge decisions; degraded messages, rare-race cosmetics, and hardening "
+        "suggestions are LOW or SUGGESTION\n"
         f"- Hard cap: {MAX_REVIEW_COMMENTS} comments maximum\n\n"
         "SUGGESTIONS:\n"
         "- Provide 'suggestion' field with ready-to-merge code when you can confidently fix the issue\n"
@@ -770,14 +778,16 @@ def generate_pr_review(
                 print(f"Filtered out thread action {ref}: reply (no new replies since the bot's last comment)")
                 continue
             thread_actions[ref] = {"thread": ref, "action": verb, "message": message}
-        resolved = sum(a["action"] == "resolve" for a in thread_actions.values())
+        # Only findings-level threads gate approval: LOW/SUGGESTION threads advise without blocking
+        blocking = {ref for ref, t in threads.items() if t.get("blocking", True)}
+        resolved = {ref for ref, a in thread_actions.items() if a["action"] == "resolve"}
 
         response.update(
             {
                 "comments": filtered_comments,
                 "comments_before_filtering": comments_before_filtering,
                 "thread_actions": list(thread_actions.values()),
-                "open_threads": len(threads) - resolved,
+                "open_threads": len(blocking - resolved),
                 "diff_files": diff_files,
                 "diff_truncated": diff_truncated,
                 "skipped_files": skipped_files,
@@ -868,6 +878,7 @@ def get_review_threads(event: Action) -> dict[str, dict]:
             comments = (node.get("latest") or {}).get("nodes") or []  # newest replies: the last-word guard needs them
             if not comments or comments[0].get("fullDatabaseId") != root.get("fullDatabaseId"):
                 comments = [root, *comments]  # thread longer than the fetched tail: keep the root finding visible
+            severity = re.match(r"\S+ \*\*(\w+)\*\*:", root.get("body") or "")  # posted as "{emoji} **{severity}**:"
             threads[f"T{len(threads) + 1}"] = {
                 "id": node["id"],
                 "root_comment_id": root.get("fullDatabaseId"),
@@ -875,6 +886,7 @@ def get_review_threads(event: Action) -> dict[str, dict]:
                 "line": node.get("line"),
                 "side": node.get("diffSide") or "RIGHT",
                 "outdated": bool(node.get("isOutdated")),
+                "blocking": not severity or severity.group(1) not in ("LOW", "SUGGESTION"),
                 "comments": [
                     {"author": (c.get("author") or {}).get("login") or "unknown", "body": c.get("body") or ""}
                     for c in comments
@@ -900,7 +912,7 @@ def apply_thread_actions(event: Action, review_data: dict, threads: dict[str, di
         # New replies don't change the head SHA: never act on a conversation the model didn't see
         if fresh.get(thread["id"]) != thread["comments"]:
             print(f"Skipping {action['action']} on thread {thread['id']}: conversation changed during review")
-            if action["action"] == "resolve":
+            if action["action"] == "resolve" and thread.get("blocking", True):
                 review_data["open_threads"] += 1  # the thread stays open: keep the APPROVE gate honest
             continue
         if (message := action.get("message")) and (root_id := thread.get("root_comment_id")):
@@ -955,6 +967,9 @@ def post_review_summary(event: Action, review_data: dict) -> None:
 
     if thread_actions := review_data.get("thread_actions"):
         body += f"🧵 Updated {len(thread_actions)} existing review thread{'s' if len(thread_actions) != 1 else ''}\n"
+
+    if comments or review_data.get("open_threads"):
+        body += "🔁 Reply in the threads and re-request my review to continue the conversation\n"
 
     if review_data.get("diff_truncated"):
         body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
