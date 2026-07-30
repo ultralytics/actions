@@ -891,9 +891,14 @@ def apply_thread_actions(event: Action, review_data: dict, threads: dict[str, di
         return
     if event.get_pr_head_sha() != review_data["head_sha"]:  # don't mutate threads from a stale review
         raise RuntimeError("PR head changed during review generation")
+    fresh = {t["id"]: t["comments"] for t in get_review_threads(event).values()}
     pr_number = event.pr["number"]
     for action in actions:
         thread = threads[action["thread"]]
+        # New replies don't change the head SHA: never act on a conversation the model didn't see
+        if fresh.get(thread["id"]) != thread["comments"]:
+            print(f"Skipping {action['action']} on thread {thread['id']}: conversation changed during review")
+            continue
         if (message := action.get("message")) and (root_id := thread.get("root_comment_id")):
             event.post(
                 f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments/{root_id}/replies",
