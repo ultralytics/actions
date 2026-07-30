@@ -893,6 +893,7 @@ def apply_thread_actions(event: Action, review_data: dict, threads: dict[str, di
         raise RuntimeError("PR head changed during review generation")
     fresh = {t["id"]: t["comments"] for t in get_review_threads(event).values()}
     pr_number = event.pr["number"]
+    applied = []
     for action in actions:
         thread = threads[action["thread"]]
         # New replies don't change the head SHA: never act on a conversation the model didn't see
@@ -911,6 +912,8 @@ def apply_thread_actions(event: Action, review_data: dict, threads: dict[str, di
             result = event.graphql_request(GRAPHQL_RESOLVE_REVIEW_THREAD, variables={"threadId": thread["id"]})
             if "data" not in result or result.get("errors"):
                 raise RuntimeError(f"Failed to resolve review thread {thread['id']}: {result}")
+        applied.append(action)
+    review_data["thread_actions"] = applied  # the summary's thread count reports only what actually happened
 
 
 def post_review_summary(event: Action, review_data: dict) -> None:
