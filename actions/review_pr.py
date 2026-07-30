@@ -412,10 +412,10 @@ def format_review_threads(threads: dict[str, dict]) -> tuple[str, set[str]]:
         anchor = f"{thread['path']}:{thread['line']} ({thread['side']})" if thread.get("line") else thread["path"]
         outdated = " [outdated: the anchored code changed since]" if thread["outdated"] else ""
         comments = thread["comments"]
-        if len(comments) > 10:  # root finding plus the latest replies: the newest rebuttal matters most
-            comments = [comments[0], *comments[-9:]]
+        if len(comments) > 7:  # root finding plus the newest replies; 7 clipped comments always fit the budget
+            comments = [comments[0], *comments[-6:]]
         convo = "\n".join(f"  {c['author']}: {c['body'][:1000]}" for c in comments)
-        block = _clip_tool_output(f"[{ref}] {anchor}{outdated}\n{convo}", MAX_THREADS_SECTION_CHARS)
+        block = f"[{ref}] {anchor}{outdated}\n{convo}"
         if total + len(block) > MAX_THREADS_SECTION_CHARS and blocks:  # whole threads only, never cut mid-thread
             print(f"Dropping {len(threads) - len(shown)} review threads from prompt (section budget)")
             break
@@ -530,9 +530,10 @@ def generate_pr_review(
         (
             "EXISTING REVIEW THREADS:\n"
             "- The user prompt lists your unresolved threads from previous reviews with any replies to them\n"
-            "- For each thread return at most one thread_actions entry: 'resolve' when the current code fixes the "
-            "issue or a reply rebuts it on substance, 'reply' when the finding still stands and a reply deserves an "
-            "answer; omit the thread when there is nothing new to say\n"
+            "- Re-check every thread against the current code first: 'resolve' when the code now addresses the "
+            "issue or a reply rebuts it on substance - never leave an addressed thread unresolved. 'reply' when the "
+            "finding still stands and a reply deserves an answer; omit the thread only when it still stands and "
+            "there is nothing new to say\n"
             "- Accept a rebuttal only when it is technically substantiated (code, docs, measurements) - confident "
             "assertion alone changes nothing\n"
             "- Never post a new comment for an issue that already has a thread - use a 'reply' thread action instead\n"
