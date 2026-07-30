@@ -686,7 +686,11 @@ def generate_pr_review(
         print(f"AI generated {comments_before_filtering} comments")
 
         # Validate, filter, and deduplicate comments
-        thread_anchors = {(t["path"], t["side"], t["line"]) for t in threads.values() if t.get("line")}
+        thread_anchors = {
+            (t["path"], t["side"], t["line"]): SEVERITY_RANK.get(t.get("severity") or "CRITICAL", 0)
+            for t in threads.values()
+            if t.get("line")
+        }
         unique_comments = {}
         for c in response.get("comments", []):
             file_path, line_num = c.get("file"), c.get("line", 0)
@@ -706,8 +710,9 @@ def generate_pr_review(
                 print(f"Filtered out {file_path}:{line_num} (side={side}, available: {available})")
                 continue
 
-            # An existing thread already anchors here; the model must use a thread action, not a duplicate comment
-            if (file_path, side, line_num) in thread_anchors:
+            # An existing thread anchors here: only a strictly more severe new finding may share the anchor
+            anchor_rank = thread_anchors.get((file_path, side, line_num))
+            if anchor_rank is not None and SEVERITY_RANK.get(c.get("severity"), 5) >= anchor_rank:
                 print(f"Filtered out {file_path}:{line_num} (existing review thread anchors here)")
                 continue
 
@@ -779,7 +784,7 @@ def generate_pr_review(
                 continue
             thread_actions[ref] = {"thread": ref, "action": verb, "message": message}
         # Only findings-level threads gate approval: LOW/SUGGESTION threads advise without blocking
-        blocking = {ref for ref, t in threads.items() if t.get("blocking", True)}
+        blocking = {ref for ref, t in threads.items() if t.get("severity") not in ("LOW", "SUGGESTION")}
         resolved = {ref for ref, a in thread_actions.items() if a["action"] == "resolve"}
 
         response.update(
@@ -886,7 +891,7 @@ def get_review_threads(event: Action) -> dict[str, dict]:
                 "line": node.get("line"),
                 "side": node.get("diffSide") or "RIGHT",
                 "outdated": bool(node.get("isOutdated")),
-                "blocking": not severity or severity.group(1) not in ("LOW", "SUGGESTION"),
+                "severity": severity.group(1) if severity else None,
                 "comments": [
                     {"author": (c.get("author") or {}).get("login") or "unknown", "body": c.get("body") or ""}
                     for c in comments
@@ -912,7 +917,7 @@ def apply_thread_actions(event: Action, review_data: dict, threads: dict[str, di
         # New replies don't change the head SHA: never act on a conversation the model didn't see
         if fresh.get(thread["id"]) != thread["comments"]:
             print(f"Skipping {action['action']} on thread {thread['id']}: conversation changed during review")
-            if action["action"] == "resolve" and thread.get("blocking", True):
+            if action["action"] == "resolve" and thread.get("severity") not in ("LOW", "SUGGESTION"):
                 review_data["open_threads"] += 1  # the thread stays open: keep the APPROVE gate honest
             continue
         if (message := action.get("message")) and (root_id := thread.get("root_comment_id")):
