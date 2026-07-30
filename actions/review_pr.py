@@ -898,6 +898,8 @@ def apply_thread_actions(event: Action, review_data: dict, threads: dict[str, di
         # New replies don't change the head SHA: never act on a conversation the model didn't see
         if fresh.get(thread["id"]) != thread["comments"]:
             print(f"Skipping {action['action']} on thread {thread['id']}: conversation changed during review")
+            if action["action"] == "resolve":
+                review_data["open_threads"] += 1  # the thread stays open: keep the APPROVE gate honest
             continue
         if (message := action.get("message")) and (root_id := thread.get("root_comment_id")):
             event.post(
