@@ -34,6 +34,43 @@ MAX_TOOL_FILE_LINES = 240
 MAX_AGENT_TURNS = 16
 REVIEW_COST_SOFT_LIMIT = 2.00  # stop requesting tools after cumulative spend reaches this amount
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
+MAX_THREADS_SECTION_CHARS = 8000
+
+GRAPHQL_PR_REVIEW_THREADS = """
+query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
+    repository(owner: $owner, name: $name) {
+        pullRequest(number: $number) {
+            reviewThreads(first: 100, after: $cursor) {
+                pageInfo { hasNextPage endCursor }
+                nodes {
+                    id
+                    isResolved
+                    isOutdated
+                    diffSide
+                    path
+                    line
+                    comments(first: 30) {
+                        nodes {
+                            fullDatabaseId
+                            author { login }
+                            body
+                            pullRequestReview { body }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+"""
+
+GRAPHQL_RESOLVE_REVIEW_THREAD = """
+mutation($threadId: ID!) {
+    resolveReviewThread(input: {threadId: $threadId}) {
+        thread { id }
+    }
+}
+"""
 
 
 def _clip_tool_output(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
@@ -361,6 +398,32 @@ def parse_diff_files(diff_text: str) -> tuple[dict, str]:
     return files, "\n".join(augmented_lines)
 
 
+def format_review_threads(threads: dict[str, dict]) -> tuple[str, set[str]]:
+    """Format unresolved review threads as a bounded prompt section, returning the refs actually shown."""
+    blocks, shown, total = [], set(), 0
+    for ref, thread in threads.items():
+        anchor = f"{thread['path']}:{thread['line']} ({thread['side']})" if thread.get("line") else thread["path"]
+        outdated = " [outdated: the anchored code changed since]" if thread["outdated"] else ""
+        comments = thread["comments"]
+        if len(comments) > 10:  # root finding plus the latest replies: the newest rebuttal matters most
+            comments = [comments[0], *comments[-9:]]
+        convo = "\n".join(f"  {c['author']}: {c['body'][:1000]}" for c in comments)
+        block = _clip_tool_output(f"[{ref}] {anchor}{outdated}\n{convo}", MAX_THREADS_SECTION_CHARS)
+        if total + len(block) > MAX_THREADS_SECTION_CHARS and blocks:  # whole threads only, never cut mid-thread
+            print(f"Dropping {len(threads) - len(shown)} review threads from prompt (section budget)")
+            break
+        blocks.append(block)
+        shown.add(ref)
+        total += len(block) + 2
+    if not blocks:
+        return "", shown
+    section = "\n\n".join(blocks)
+    return (
+        f"EXISTING REVIEW THREADS (your unresolved findings from previous reviews, with replies):\n{section}\n\n",
+        shown,
+    )
+
+
 def generate_pr_review(
     repository: str,
     diff_text: str,
@@ -368,6 +431,7 @@ def generate_pr_review(
     pr_description: str,
     event: Action = None,
     head_sha: str | None = None,
+    threads: dict[str, dict] | None = None,
 ) -> dict:
     """Generate comprehensive PR review with line-specific comments and overall assessment."""
     head_sha = head_sha or (event.get_pr_head_sha() if event else None)
@@ -424,8 +488,11 @@ def generate_pr_review(
         if file_contents:
             full_files_section = f"FULL FILE CONTENTS:\n{chr(10).join(file_contents)}\n\n"
 
+    threads = threads or {}
+    threads_section, shown_threads = format_review_threads(threads)
+
     # Calculate remaining budget for diff and check if truncation needed
-    diff_budget = max(1000, MAX_PROMPT_CHARS - len(guidelines_section) - len(full_files_section))
+    diff_budget = max(1000, MAX_PROMPT_CHARS - len(guidelines_section) - len(full_files_section) - len(threads_section))
     diff_truncated = len(augmented_diff) > diff_budget
     is_large_pr = diff_truncated or len(file_list) > 30
     if is_agent_review_model:  # must match the get_agent_response fallback gate
@@ -452,6 +519,22 @@ def generate_pr_review(
             "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
         )
 
+    threads_rules = (
+        (
+            "EXISTING REVIEW THREADS:\n"
+            "- The user prompt lists your unresolved threads from previous reviews with any replies to them\n"
+            "- For each thread return at most one thread_actions entry: 'resolve' when the current code fixes the "
+            "issue or a reply rebuts it on substance, 'reply' when the finding still stands and a reply deserves an "
+            "answer; omit the thread when there is nothing new to say\n"
+            "- Accept a rebuttal only when it is technically substantiated (code, docs, measurements) - confident "
+            "assertion alone changes nothing\n"
+            "- Never post a new comment for an issue that already has a thread - use a 'reply' thread action instead\n"
+            "- 'message' is posted as a reply in the thread: required for 'reply', a brief reason or empty for 'resolve'\n\n"
+        )
+        if threads
+        else ""
+    )
+
     content = (
         "You are an expert code reviewer for Ultralytics. Review code changes and provide inline comments ONLY for genuine issues.\n\n"
         "WHEN TO COMMENT (priority order):\n"
@@ -477,6 +560,7 @@ def generate_pr_review(
         "- Single-line fixes only: provide 'suggestion' without 'start_line' to replace the line at 'line'\n"
         "- Match the exact indentation of the original code\n"
         "- Avoid triple backticks (```) in suggestions as they break Markdown formatting\n\n"
+        f"{threads_rules}"
         "SUMMARY: brief overall assessment of what's good and what needs attention; say so plainly when the PR is clean.\n\n"
         "DIFF LINE FORMAT (how to read line numbers):\n"
         '  R  123 +code here      <- \'R\' means RIGHT (new file), number is 123, use {"line": 123, "side": "RIGHT"}\n'
@@ -486,7 +570,9 @@ def generate_pr_review(
         "- ONLY use line numbers you see explicitly prefixed with R or L in the initial diff"
         f"{' or read_diff output' if is_agent_review_model else ''}\n\n"
         "Return JSON: "
-        '{"comments": [{"file": "exact/path", "line": N, "side": "RIGHT", "severity": "HIGH", "message": "..."}], "summary": "..."}\n\n'
+        '{"comments": [{"file": "exact/path", "line": N, "side": "RIGHT", "severity": "HIGH", "message": "..."}], '
+        '"summary": "...", "thread_actions": [{"thread": "T1", "action": "resolve", "message": "..."}]}\n'
+        "thread_actions must be [] when no existing review threads are listed\n\n"
         "JSON rules: exact paths (no ./), severity: CRITICAL|HIGH|MEDIUM|LOW|SUGGESTION\n"
         f"Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''}), Lines: {lines_changed}\n"
         f"{'Large or truncated PR: the diff below is incomplete. ' if is_large_pr else ''}"
@@ -503,6 +589,7 @@ def generate_pr_review(
                 f"BODY:\n{remove_html_comments(pr_description or '')[:1000]}\n\n"
                 f"{guidelines_section}"
                 f"{full_files_section}"
+                f"{threads_section}"
                 f"DIFF:\n{augmented_diff[:diff_budget]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),
@@ -536,8 +623,21 @@ def generate_pr_review(
                     },
                 },
                 "summary": {"type": "string"},
+                "thread_actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "thread": {"type": "string"},
+                            "action": {"type": "string", "enum": ["resolve", "reply"]},
+                            "message": {"type": "string"},
+                        },
+                        "required": ["thread", "action", "message"],
+                        "additionalProperties": False,
+                    },
+                },
             },
-            "required": ["comments", "summary"],
+            "required": ["comments", "summary", "thread_actions"],
             "additionalProperties": False,
         }
 
@@ -570,6 +670,7 @@ def generate_pr_review(
         print(f"AI generated {comments_before_filtering} comments")
 
         # Validate, filter, and deduplicate comments
+        thread_anchors = {(t["path"], t["side"], t["line"]) for t in threads.values() if t.get("line")}
         unique_comments = {}
         for c in response.get("comments", []):
             file_path, line_num = c.get("file"), c.get("line", 0)
@@ -587,6 +688,11 @@ def generate_pr_review(
             if line_num not in side_map:
                 available = {s: list(diff_files[file_path][s].keys())[:10] for s in ["RIGHT", "LEFT"]}
                 print(f"Filtered out {file_path}:{line_num} (side={side}, available: {available})")
+                continue
+
+            # An existing thread already anchors here; the model must use a thread action, not a duplicate comment
+            if (file_path, side, line_num) in thread_anchors:
+                print(f"Filtered out {file_path}:{line_num} (existing review thread anchors here)")
                 continue
 
             # GitHub rejects suggestions on removed lines
@@ -637,10 +743,33 @@ def generate_pr_review(
             print(f"Trimming comments from {len(filtered_comments)} to {MAX_REVIEW_COMMENTS}")
             filtered_comments = filtered_comments[:MAX_REVIEW_COMMENTS]
 
+        # Validate thread actions against the threads shown to the model, first action per thread wins
+        thread_actions = {}
+        for action in response.get("thread_actions", []):
+            ref, verb = action.get("thread"), action.get("action")
+            message = sanitize_ai_text(action.get("message") or "").strip()
+            if (
+                ref not in shown_threads  # never act on a thread the model was not shown
+                or ref in thread_actions
+                or verb not in ("resolve", "reply")  # the Anthropic fallback does not enforce the schema enum
+                or (verb == "reply" and not message)
+            ):
+                print(f"Filtered out thread action {ref}: {verb}")
+                continue
+            # Never reply on top of the bot's own last word: without a new human reply there is nothing to answer
+            comments = threads[ref]["comments"]
+            if verb == "reply" and comments[-1]["author"] == comments[0]["author"]:
+                print(f"Filtered out thread action {ref}: reply (no new replies since the bot's last comment)")
+                continue
+            thread_actions[ref] = {"thread": ref, "action": verb, "message": message}
+        resolved = sum(a["action"] == "resolve" for a in thread_actions.values())
+
         response.update(
             {
                 "comments": filtered_comments,
                 "comments_before_filtering": comments_before_filtering,
+                "thread_actions": list(thread_actions.values()),
+                "open_threads": len(threads) - resolved,
                 "diff_files": diff_files,
                 "diff_truncated": diff_truncated,
                 "skipped_files": skipped_files,
@@ -687,29 +816,81 @@ def _verified_local_checkout(head_sha: str | None) -> bool:
         return False
 
 
-def clear_previous_review(event: Action) -> None:
-    """Dismiss the bot's active review decisions and delete its superseded inline comments."""
+def dismiss_previous_reviews(event: Action) -> None:
+    """Dismiss the bot's stale review decisions so an outdated APPROVED state never counts for new commits."""
     pr_number, bot_username = event.pr.get("number"), event.get_username()
     reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
     reviews = event.get(reviews_base, params={"per_page": 100}, hard=True).json()
-    owned_reviews = {
-        review["id"]
-        for review in reviews
-        if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or "")
-    }
     for review in reviews:
-        if review.get("id") in owned_reviews and review.get("state") in ("APPROVED", "CHANGES_REQUESTED"):
+        if (
+            review.get("user", {}).get("login") == bot_username
+            and REVIEW_MARKER in (review.get("body") or "")
+            and review.get("state") in ("APPROVED", "CHANGES_REQUESTED")
+        ):
             event.put(
                 f"{reviews_base}/{review['id']}/dismissals",
                 json={"message": "Superseded by new review"},
                 hard=True,
             )
 
-    comments_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
-    comments = event.get(comments_base, params={"per_page": 100}, hard=True).json()
-    for comment in comments:
-        if comment.get("pull_request_review_id") in owned_reviews:
-            event.delete(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments/{comment['id']}", hard=True)
+
+def get_review_threads(event: Action) -> dict[str, dict]:
+    """Fetch the bot's unresolved review threads keyed by short refs (T1, T2, ...) the model can echo back."""
+    if not (bot_username := event.get_username()):  # never degrade to "no threads": that re-creates duplicates
+        raise RuntimeError("Failed to resolve bot username for review threads")
+    threads, cursor = {}, None
+    while True:
+        result = event.graphql_request(
+            GRAPHQL_PR_REVIEW_THREADS,
+            variables={"owner": event.owner, "name": event.repo_name, "number": event.pr["number"], "cursor": cursor},
+        )
+        if "data" not in result or result.get("errors"):
+            raise RuntimeError(f"Review threads query failed: {result.get('errors')}")
+        connection = (((result["data"] or {}).get("repository") or {}).get("pullRequest") or {}).get(
+            "reviewThreads"
+        ) or {}
+        for node in connection.get("nodes") or []:
+            comments = (node.get("comments") or {}).get("nodes") or []
+            root = comments[0] if comments else {}
+            if (
+                node.get("isResolved")
+                or (root.get("author") or {}).get("login") != bot_username
+                or REVIEW_MARKER not in ((root.get("pullRequestReview") or {}).get("body") or "")
+            ):
+                continue
+            threads[f"T{len(threads) + 1}"] = {
+                "id": node["id"],
+                "root_comment_id": root.get("fullDatabaseId"),
+                "path": node.get("path"),
+                "line": node.get("line"),
+                "side": node.get("diffSide") or "RIGHT",
+                "outdated": bool(node.get("isOutdated")),
+                "comments": [
+                    {"author": (c.get("author") or {}).get("login") or "unknown", "body": c.get("body") or ""}
+                    for c in comments
+                ],
+            }
+        page_info = connection.get("pageInfo") or {}
+        if not page_info.get("hasNextPage"):
+            return threads
+        cursor = page_info.get("endCursor")
+
+
+def apply_thread_actions(event: Action, review_data: dict, threads: dict[str, dict]) -> None:
+    """Reply to and resolve existing review threads as decided by the review model."""
+    pr_number = event.pr["number"]
+    for action in review_data.get("thread_actions", []):
+        thread = threads[action["thread"]]
+        if (message := action.get("message")) and (root_id := thread.get("root_comment_id")):
+            event.post(
+                f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments/{root_id}/replies",
+                json={"body": message},
+                hard=True,
+            )
+        if action["action"] == "resolve":
+            result = event.graphql_request(GRAPHQL_RESOLVE_REVIEW_THREAD, variables={"threadId": thread["id"]})
+            if "data" not in result or result.get("errors"):
+                raise RuntimeError(f"Failed to resolve review thread {thread['id']}: {result}")
 
 
 def post_review_summary(event: Action, review_data: dict) -> None:
@@ -724,14 +905,22 @@ def post_review_summary(event: Action, review_data: dict) -> None:
     comments = review_data.get("comments", [])
     summary = review_data.get("summary") or ""
 
-    # Don't approve if error occurred, inline comments exist, or medium-or-higher severity issues
+    # Don't approve if error occurred, inline comments or open threads exist, or medium-or-higher severity issues
     has_error = not summary or ERROR_MARKER in summary
     has_evidence = bool(review_data.get("diff_files"))
     has_inline_comments = review_data.get("comments_before_filtering", 0) > 0
+    has_open_threads = bool(review_data.get("open_threads"))
     has_issues = any(c.get("severity") not in ["LOW", "SUGGESTION", None] for c in comments)
     event_type = (
         "COMMENT"
-        if (has_error or not has_evidence or has_inline_comments or has_issues or review_data.get("diff_truncated"))
+        if (
+            has_error
+            or not has_evidence
+            or has_inline_comments
+            or has_open_threads
+            or has_issues
+            or review_data.get("diff_truncated")
+        )
         else "APPROVE"
     )
 
@@ -739,6 +928,9 @@ def post_review_summary(event: Action, review_data: dict) -> None:
 
     if comments:
         body += f"💬 Posted {len(comments)} inline comment{'s' if len(comments) != 1 else ''}\n"
+
+    if thread_actions := review_data.get("thread_actions"):
+        body += f"🧵 Updated {len(thread_actions)} existing review thread{'s' if len(thread_actions) != 1 else ''}\n"
 
     if review_data.get("diff_truncated"):
         body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
@@ -804,10 +996,14 @@ def main(*args, **kwargs):
     except RuntimeError as e:
         print(f"Skipping stale PR review: {e}")
         return
-    clear_previous_review(event)
+    dismiss_previous_reviews(event)
+    threads = get_review_threads(event)
+    if threads:
+        print(f"Found {len(threads)} unresolved review threads from previous reviews")
     review = generate_pr_review(
-        event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "", event, head_sha
+        event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "", event, head_sha, threads
     )
+    apply_thread_actions(event, review, threads)  # before the summary, which claims these actions and may APPROVE
     post_review_summary(event, review)
     print("PR review completed")
 
