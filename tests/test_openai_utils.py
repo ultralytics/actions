@@ -145,6 +145,7 @@ def test_get_response(mock_post):
 
     assert result == "Test response from OpenAI"
     mock_post.assert_called_once()
+    assert mock_post.call_args.kwargs["json"]["prompt_cache_options"] == {"mode": "explicit"}
 
 
 @patch("time.sleep")
@@ -311,7 +312,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
     printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
     assert "turn 1/6, 2 tools (lookup_value, web_search)" in printed
     assert "turn 2/6, 0 tools" in printed
-    assert "30→12 tokens (40% cached), $0.01" in printed
+    assert "30→12 tokens (40% cached, 30% cache write), $0.01" in printed
     assert "agent total, 2 turns, 2 tools (lookup_value, web_search)" in printed
     assert "Agent tool turn" not in printed  # tool names live in the per-turn usage line now
 

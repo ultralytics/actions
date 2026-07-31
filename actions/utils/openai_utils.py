@@ -288,15 +288,17 @@ def _format_tool_calls(calls: list[str]) -> str:
 def _print_openai_usage(
     response_json: dict, model: str, elapsed: float, metadata: str = "", billed_cost: float | None = None
 ) -> None:
-    """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, 31 thinking), $0.69, 8.9s'."""
+    """Print token/cost telemetry: 'model: 136036→289 tokens (72% cached, 8% cache write), $0.69, 8.9s'."""
     if usage := response_json.get("usage"):
-        input_tokens, cached_tokens, _ = _normalize_usage_tokens(usage)
+        input_tokens, cached_tokens, cache_write_tokens = _normalize_usage_tokens(usage)
         output_tokens = usage.get("output_tokens", 0)  # includes thinking, noted in the parenthetical
         thinking_tokens = (usage.get("output_tokens_details") or {}).get("reasoning_tokens", 0)
         cost = _openai_usage_cost(usage, model) if billed_cost is None else billed_cost
         notes = []
         if cached_tokens:
             notes.append(f"{round(100 * cached_tokens / input_tokens)}% cached")
+        if cache_write_tokens:
+            notes.append(f"{round(100 * cache_write_tokens / input_tokens)}% cache write")
         if thinking_tokens:
             notes.append(f"{thinking_tokens} thinking")
         note_str = f" ({', '.join(notes)})" if notes else ""
@@ -571,6 +573,8 @@ def get_response(
                 data["system"] = (data.get("system") or "") + json_instruction
         else:
             data = {"model": model, "input": messages, "store": background, "temperature": temperature}
+            if model.startswith("gpt-5.6-luna"):
+                data["prompt_cache_options"] = {"mode": "explicit"}  # disable costly implicit writes for one-shot calls
             if background:
                 data["background"] = True
             if "gpt-5" in model:
