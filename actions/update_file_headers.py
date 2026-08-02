@@ -12,9 +12,6 @@ from actions.utils import Action
 # Base header text
 HEADER = os.getenv("HEADER")
 
-# Applied to public repos, and to .github/ files in every repo including private ones
-AGPL_HEADER = "Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license"
-
 # Map file extensions to comment styles
 COMMENT_MAP = {
     # Python style
@@ -193,13 +190,12 @@ def main(*args, **kwargs):
     repository = (event.repository or "").lower()
 
     # Only process repos owned by the Ultralytics organization
-    org_repo = repository.startswith("ultralytics/")
-    if org_repo:
+    if repository.startswith("ultralytics/"):
         if event.is_repo_private():
             notice = f"© 2014-{current_year} Ultralytics Inc. 🚀"
             header = f"{notice} All rights reserved. CONFIDENTIAL: Unauthorized use or distribution prohibited."
         else:
-            header = AGPL_HEADER
+            header = "Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license"
     elif HEADER and str(HEADER).lower() not in {"true", "false", "none"}:
         header = HEADER
     else:
@@ -220,9 +216,7 @@ def main(*args, **kwargs):
                 continue
 
             total += 1
-            # .github/ files are public-facing org configuration, so they keep the AGPL header even in private repos
-            file_header = AGPL_HEADER if org_repo and relative_path.startswith(".github/") else header
-            if update_file(file_path, prefix, block_start, block_end, file_header):
+            if update_file(file_path, prefix, block_start, block_end, header):
                 print(f"Updated: {relative_path}")
                 changed += 1
             else:
