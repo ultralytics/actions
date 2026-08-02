@@ -29,6 +29,18 @@ URLS = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def mock_url_checks():
+    """Keep URL parsing tests independent of third-party website availability."""
+
+    def fake_is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
+        valid = url in URLS
+        return (valid, url) if return_url else valid
+
+    with patch("actions.utils.common_utils.is_url", side_effect=fake_is_url):
+        yield
+
+
 @pytest.fixture
 def verbose():
     """Fixture that provides a verbose logging utility for detailed output during testing and debugging."""
@@ -38,7 +50,7 @@ def verbose():
 def test_is_url():
     """Test each URL using is_url function."""
     for url in URLS:
-        assert is_url(url), f"URL check failed: {url}"
+        assert is_url(url, check=False), f"URL check failed: {url}"
 
 
 def test_links_in_string_func():
