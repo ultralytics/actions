@@ -214,13 +214,14 @@ def main(*args, **kwargs):
         prefix, block_start, block_end = comment_style
 
         for file_path in directory.rglob(f"*{ext}"):
-            if not file_path.is_file() or any(part in str(file_path) for part in IGNORE_PATHS):
+            # Match against the repo-relative POSIX path so directory entries behave the same on Windows
+            relative_path = file_path.relative_to(directory).as_posix()
+            if not file_path.is_file() or any(part in relative_path for part in IGNORE_PATHS):
                 continue
 
             total += 1
             # .github/ files are public-facing org configuration, so they keep the AGPL header even in private repos
-            relative_path = file_path.relative_to(directory)
-            file_header = AGPL_HEADER if org_repo and relative_path.as_posix().startswith(".github/") else header
+            file_header = AGPL_HEADER if org_repo and relative_path.startswith(".github/") else header
             if update_file(file_path, prefix, block_start, block_end, file_header):
                 print(f"Updated: {relative_path}")
                 changed += 1
