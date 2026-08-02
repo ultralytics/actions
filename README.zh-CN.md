@@ -171,6 +171,32 @@ jobs:
 
 [**📖 完整文档 →**](dependabot/README.md)
 
+### 5. CLA Action
+
+对照 Ultralytics 中央 CLA 签署记录，检查拉取请求中每个提交的作者。
+
+```yaml
+- uses: ultralytics/actions/cla@main
+  with:
+    github-token: ${{ secrets.GITHUB_TOKEN }}
+    cla-token: ${{ secrets._GITHUB_TOKEN }}
+```
+
+[**📖 完整文档 →**](cla/README.md)
+
+### 6. Setup uv Action
+
+安装最新版 uv 并支持重试，同时可选择激活 Python 环境。
+
+```yaml
+- uses: ultralytics/actions/setup-uv@main
+  with:
+    python-version: "3.14"
+    activate-environment: true
+```
+
+[**📖 完整文档 →**](setup-uv/README.md)
+
 ## Python 包
 
 在 [**Python>=3.8**](https://www.python.org/) 环境中安装 `ultralytics-actions` 包及其全部[依赖项](https://github.com/ultralytics/actions/blob/main/pyproject.toml)，以便通过代码使用 action 工具。
