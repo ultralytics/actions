@@ -31,6 +31,8 @@ body:
         - "Cleanup Disk Action"
         - "GitHub Report Action"
         - "Dependabot Action"
+        - "CLA Action"
+        - "Setup uv Action"
         - "Python package (`ultralytics-actions`)"
         - "Repository documentation / README"
         - "Other"
