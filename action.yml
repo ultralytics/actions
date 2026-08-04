@@ -79,7 +79,7 @@ inputs:
     description: "AI Model - defaults to gpt-5.6-luna or claude-sonnet-5 based on API key"
     required: false
   review_model:
-    description: "AI Model for PR reviews (optional, defaults to gpt-5.6-terra or claude-opus-5 based on API key)"
+    description: "AI Model for PR reviews (optional, defaults to gpt-5.6-luna or claude-opus-5 based on API key)"
     required: false
   first_issue_response:
     description: "Example response to a new issue"

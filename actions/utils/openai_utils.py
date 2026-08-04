@@ -24,7 +24,7 @@ WEB_SEARCH_CALL_COST = 0.01  # $10 per 1K calls
 # Default models (single source of truth)
 OPENAI_MODEL_DEFAULT = "gpt-5.6-luna"
 ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-5"
-OPENAI_REVIEW_MODEL_DEFAULT = "gpt-5.6-terra"
+OPENAI_REVIEW_MODEL_DEFAULT = "gpt-5.6-luna"
 ANTHROPIC_REVIEW_MODEL_DEFAULT = "claude-opus-5"
 
 MODEL_COSTS = {  # (input, output) per 1M tokens
@@ -38,8 +38,8 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "gpt-5.5": (5.00, 30.00),
     "gpt-5.4": (2.50, 15.00),
     "gpt-5.6-sol": (5.00, 30.00),
-    "gpt-5.6-terra": (2.50, 15.00),
-    "gpt-5.6-luna": (1.00, 6.00),
+    "gpt-5.6-terra": (2.00, 12.00),
+    "gpt-5.6-luna": (0.20, 1.20),
     "gpt-5-nano-2025-08-07": (0.05, 0.40),
     "gpt-5-mini-2025-08-07": (0.25, 2.00),
     # Anthropic Claude models
@@ -431,7 +431,7 @@ def get_agent_response(
         "context_management": [{"type": "compaction", "compact_threshold": 200_000}],
     }
     if "gpt-5" in model:
-        base_data["reasoning"] = {"effort": reasoning_effort or "low"}
+        base_data["reasoning"] = {"effort": reasoning_effort or "medium"}
     if text_format:
         base_data["text"] = text_format
 
@@ -578,7 +578,7 @@ def get_response(
             if background:
                 data["background"] = True
             if "gpt-5" in model:
-                data["reasoning"] = {"effort": reasoning_effort or "low"}
+                data["reasoning"] = {"effort": reasoning_effort or "medium"}
             if text_format:
                 data["text"] = text_format
             if tools:

@@ -49,10 +49,10 @@ Choose between [OpenAI](https://developers.openai.com/) or [Anthropic](https://w
 
 | Provider  | Default Model     | Default PR Review Model | API Key             |
 | --------- | ----------------- | ----------------------- | ------------------- |
-| OpenAI    | `gpt-5.6-luna`    | `gpt-5.6-terra`         | `openai_api_key`    |
+| OpenAI    | `gpt-5.6-luna`    | `gpt-5.6-luna`          | `openai_api_key`    |
 | Anthropic | `claude-sonnet-5` | `claude-opus-5`         | `anthropic_api_key` |
 
-The provider is auto-detected based on which API key you provide, and PR reviews default to a stronger model than the other AI features. Override with the `model` input, or use `review_model` to override PR review only.
+The provider is auto-detected based on which API key you provide. Override with the `model` input, or use `review_model` to override PR review only.
 
 ### 🛠️ How It Works
 

@@ -24,7 +24,7 @@ from actions.utils.openai_utils import (
 def test_default_models():
     """Test canonical default models are priced so max_cost budgets stay enforceable."""
     assert OPENAI_MODEL_DEFAULT == "gpt-5.6-luna"
-    assert OPENAI_REVIEW_MODEL_DEFAULT == "gpt-5.6-terra"
+    assert OPENAI_REVIEW_MODEL_DEFAULT == "gpt-5.6-luna"
     assert ANTHROPIC_MODEL_DEFAULT == "claude-sonnet-5"
     assert ANTHROPIC_REVIEW_MODEL_DEFAULT == "claude-opus-5"
     for model in (
@@ -35,8 +35,8 @@ def test_default_models():
     ):
         assert model in MODEL_COSTS  # unpriced models disable max_cost budgets and misreport cost telemetry
     assert MODEL_COSTS["gpt-5.6-sol"] == (5.00, 30.00)
-    assert MODEL_COSTS["gpt-5.6-terra"] == (2.50, 15.00)
-    assert MODEL_COSTS["gpt-5.6-luna"] == (1.00, 6.00)
+    assert MODEL_COSTS["gpt-5.6-terra"] == (2.00, 12.00)
+    assert MODEL_COSTS["gpt-5.6-luna"] == (0.20, 1.20)
 
 
 def test_gpt_56_cost_includes_cache_write_and_long_context_rates():
@@ -52,8 +52,8 @@ def test_gpt_56_cost_includes_cache_write_and_long_context_rates():
     expected = ((272001 - 200 * 0.9 + 300 * 0.25) * 5.00 * 2 + 100 * 30.00 * 1.5) / 1e6
     assert _openai_usage_cost(usage, "gpt-5.6-sol") == expected
     turns = [{"input_tokens": 150000, "output_tokens": 0}] * 2
-    assert sum(_openai_usage_cost(turn, "gpt-5.6-luna") for turn in turns) == 0.3
-    assert _openai_usage_cost({"input_tokens": 300000, "output_tokens": 0}, "gpt-5.6-luna") == 0.6
+    assert sum(_openai_usage_cost(turn, "gpt-5.6-luna") for turn in turns) == 0.06
+    assert _openai_usage_cost({"input_tokens": 300000, "output_tokens": 0}, "gpt-5.6-luna") == 0.12
     old_model_expected = ((1000 - 200 * 0.9) * 5.00 + 100 * 30.00) / 1e6
     assert _openai_usage_cost({**usage, "input_tokens": 1000}, "gpt-5.5") == old_model_expected
 
@@ -292,7 +292,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
     first_payload = mock_post.call_args_list[0].kwargs["json"]
     assert first_payload["store"] is True
     assert first_payload["service_tier"] == "default"
-    assert first_payload["reasoning"] == {"effort": "low"}
+    assert first_payload["reasoning"] == {"effort": "medium"}
     assert first_payload["context_management"] == [{"type": "compaction", "compact_threshold": 200_000}]
     assert first_payload["prompt_cache_key"].startswith("agent-run:")
     assert "include" not in first_payload
