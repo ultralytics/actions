@@ -292,7 +292,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
     first_payload = mock_post.call_args_list[0].kwargs["json"]
     assert first_payload["store"] is True
     assert first_payload["service_tier"] == "default"
-    assert first_payload["reasoning"] == {"effort": "low"}
+    assert first_payload["reasoning"] == {"effort": "medium"}
     assert first_payload["context_management"] == [{"type": "compaction", "compact_threshold": 200_000}]
     assert first_payload["prompt_cache_key"].startswith("agent-run:")
     assert "include" not in first_payload

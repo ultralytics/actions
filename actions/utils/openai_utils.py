@@ -431,7 +431,7 @@ def get_agent_response(
         "context_management": [{"type": "compaction", "compact_threshold": 200_000}],
     }
     if "gpt-5" in model:
-        base_data["reasoning"] = {"effort": reasoning_effort or "low"}
+        base_data["reasoning"] = {"effort": reasoning_effort or "medium"}
     if text_format:
         base_data["text"] = text_format
 
@@ -578,7 +578,7 @@ def get_response(
             if background:
                 data["background"] = True
             if "gpt-5" in model:
-                data["reasoning"] = {"effort": reasoning_effort or "low"}
+                data["reasoning"] = {"effort": reasoning_effort or "medium"}
             if text_format:
                 data["text"] = text_format
             if tools:
