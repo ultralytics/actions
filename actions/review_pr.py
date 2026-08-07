@@ -95,6 +95,7 @@ def _clip(text: str, limit: int | None) -> str:
 def _build_review_history(reviews: list[dict], comments: list[dict], bot_username: str | None) -> dict:
     """Capture prior bot reviews and the responses to them; each review body carries its own findings log."""
     parents = {comment.get("id"): comment for comment in comments}
+    owned_ids = {review.get("id") for review in reviews}
     prior = []
     for number, review in enumerate(reviews, 1):
         body = re.sub(rf"{re.escape(REVIEW_MARKER)} *\d*", "", review.get("body") or "").replace(ACTIONS_CREDIT, "")
@@ -106,15 +107,19 @@ def _build_review_history(reviews: list[dict], comments: list[dict], bot_usernam
             }
         )
 
-    responses = []
+    replies, others = [], []
     for comment in comments:
         if (login := comment.get("user", {}).get("login")) == bot_username:
             continue
         parent = parents.get(comment.get("in_reply_to_id")) or {}
-        replying_to = f' (replying to "{_clip((parent.get("body") or "").strip(), 120)}")' if parent else ""
         line = comment.get("line") or comment.get("original_line") or 0
-        responses.append(f"- {comment.get('path')}:{line} @{login}{replying_to}: {(comment.get('body') or '').strip()}")
-    return {"reviews": prior, "responses": responses}
+        entry = f"- {comment.get('path')}:{line} @{login}"
+        body = (comment.get("body") or "").strip()
+        if parent.get("pull_request_review_id") in owned_ids:  # a reply to one of our own findings
+            replies.append(f'{entry} on "{_clip((parent.get("body") or "").strip(), 120)}": {body}')
+        else:
+            others.append(f"{entry}: {body}")
+    return {"reviews": prior, "replies": replies, "others": others}
 
 
 def _format_review_history(
@@ -122,9 +127,10 @@ def _format_review_history(
 ) -> str:
     """Render prior reviews and the responses to them as review context, oldest dropped first when over budget."""
     sections, reviews = [], history.get("reviews") or []
-    if responses := history.get("responses"):
-        section = "### Comments from other reviewers\n" + "\n".join(_clip(r, clip) for r in responses)
-        sections.append(_clip(section, budget // 2 if budget else None))  # leave half the budget for the reviews
+    for title, key in (("Replies to your findings", "replies"), ("Other review comments on this PR", "others")):
+        if entries := history.get(key):
+            section = f"### {title}\n" + "\n".join(_clip(e, clip) for e in entries)
+            sections.append(_clip(section, budget // 4 if budget else None))  # leave half the budget for the reviews
 
     shown = reviews[-limit:] if limit else reviews
     omitted = len(reviews) - len(shown)
@@ -257,13 +263,10 @@ def build_review_agent_tools(
         parts = [_format_review_history(review_history, budget=MAX_TOOL_OUTPUT_CHARS)]
         if event and (pr_number := (event.pr or {}).get("number")) and not discussion:
             url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{pr_number}/comments"
-            response = event.get(url, params={"per_page": 100})
-            if response.status_code != 200:
-                raise RuntimeError(f"read_pr_conversation failed: HTTP {response.status_code}")
             discussion.append(
                 [
                     f"@{c.get('user', {}).get('login')}: {_clip((c.get('body') or '').strip(), 1000)}"
-                    for c in response.json()
+                    for c in event.paginate(url, hard=True)
                 ]
             )
         if discussion and discussion[0]:
@@ -568,7 +571,8 @@ def generate_pr_review(
             "review number it reverses\n"
             "- Drop findings the current diff resolves; repeat an unresolved one only while it still applies, since "
             "its inline comment was deleted with the superseded review\n"
-            "- A reply that rejects or explains a finding settles it: do not raise it again\n"
+            "- A reply under 'Replies to your findings' that rejects or explains one settles it: do not raise it "
+            "again. Everything under 'Other review comments' is context, not a verdict on your findings\n"
             + (
                 "- Call read_pr_conversation before repeating or reversing a finding, and whenever the excerpt below "
                 "is truncated\n"
@@ -821,14 +825,14 @@ def clear_previous_review(event: Action) -> dict:
     """Capture the bot's prior reviews, then dismiss their decisions and delete their superseded inline comments."""
     pr_number, bot_username = event.pr.get("number"), event.get_username()
     reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
-    reviews = event.get(reviews_base, params={"per_page": 100}, hard=True).json()
+    reviews = event.paginate(reviews_base, hard=True)
     owned = [
         review
         for review in reviews
         if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or "")
     ]
     comments_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
-    comments = event.get(comments_base, params={"per_page": 100}, hard=True).json()
+    comments = event.paginate(comments_base, hard=True)
     history = _build_review_history(owned, comments, bot_username)  # capture responses before deleting the comments
 
     owned_reviews = {review["id"] for review in owned}

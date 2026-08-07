@@ -54,6 +54,21 @@ def test_action_request_methods():
         mock_get.assert_called_once()
 
 
+def test_action_paginate_walks_every_page():
+    """Test paginate follows pages until a short one and returns the full collection."""
+    with patch("requests.Session.get") as mock_get:
+        pages = [
+            MagicMock(status_code=200, **{"json.return_value": page, "elapsed.total_seconds.return_value": 0.1})
+            for page in ([{"i": i} for i in range(100)], [{"i": 100}])
+        ]
+        mock_get.side_effect = pages
+
+        items = Action(token="test-token").paginate("https://api.github.com/test")
+
+        assert len(items) == 101
+        assert [call.kwargs["params"]["page"] for call in mock_get.call_args_list] == [1, 2]
+
+
 def test_get_pr_contributors_excludes_bots():
     """Test PR contributor credit excludes bot commit users."""
     action = Action(

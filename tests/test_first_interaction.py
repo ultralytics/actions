@@ -267,49 +267,53 @@ def test_clear_previous_review_captures_history_and_deletes_inline_comments():
     event.repository = "org/repo"
     event.pr = {"number": 7}
     event.get_username.return_value = "review-bot"
-    event.get.side_effect = [
-        MagicMock(
-            json=lambda: [
-                {
-                    "id": 1,
-                    "state": "APPROVED",
-                    "commit_id": "a" * 40,
-                    "body": f"{review_pr.REVIEW_MARKER} 1\n\nRetry loop needs a bound",
-                    "user": {"login": "review-bot"},
-                },
-                {
-                    "id": 2,
-                    "state": "COMMENTED",
-                    "commit_id": "b" * 40,
-                    "body": f"{review_pr.REVIEW_MARKER} 2\n\nBound is correct now",
-                    "user": {"login": "review-bot"},
-                },
-                {"id": 3, "state": "APPROVED", "body": "Human review", "user": {"login": "human"}},
-                {"id": 6, "state": "COMMENTED", "body": "Other automation", "user": {"login": "review-bot"}},
-            ]
-        ),
-        MagicMock(
-            json=lambda: [
-                {
-                    "id": 4,
-                    "pull_request_review_id": 1,
-                    "user": {"login": "review-bot"},
-                    "path": "a.py",
-                    "line": 3,
-                    "body": "⚠️ **HIGH**: retry loop never exits",
-                },
-                {"id": 5, "pull_request_review_id": 6, "user": {"login": "review-bot"}},
-                {
-                    "id": 8,
-                    "pull_request_review_id": 3,
-                    "in_reply_to_id": 4,
-                    "user": {"login": "human"},
-                    "path": "a.py",
-                    "line": 3,
-                    "body": "intentional, the caller times out",
-                },
-            ]
-        ),
+    event.paginate.side_effect = [
+        [
+            {
+                "id": 1,
+                "state": "APPROVED",
+                "commit_id": "a" * 40,
+                "body": f"{review_pr.REVIEW_MARKER} 1\n\nRetry loop needs a bound",
+                "user": {"login": "review-bot"},
+            },
+            {
+                "id": 2,
+                "state": "COMMENTED",
+                "commit_id": "b" * 40,
+                "body": f"{review_pr.REVIEW_MARKER} 2\n\nBound is correct now",
+                "user": {"login": "review-bot"},
+            },
+            {"id": 3, "state": "APPROVED", "body": "Human review", "user": {"login": "human"}},
+            {"id": 6, "state": "COMMENTED", "body": "Other automation", "user": {"login": "review-bot"}},
+        ],
+        [
+            {
+                "id": 4,
+                "pull_request_review_id": 1,
+                "user": {"login": "review-bot"},
+                "path": "a.py",
+                "line": 3,
+                "body": "⚠️ **HIGH**: retry loop never exits",
+            },
+            {"id": 5, "pull_request_review_id": 6, "user": {"login": "review-bot"}},
+            {
+                "id": 8,
+                "pull_request_review_id": 3,
+                "in_reply_to_id": 4,
+                "user": {"login": "human"},
+                "path": "a.py",
+                "line": 3,
+                "body": "intentional, the caller times out",
+            },
+            {
+                "id": 9,
+                "pull_request_review_id": 3,
+                "user": {"login": "human"},
+                "path": "b.py",
+                "line": 9,
+                "body": "unrelated comment on someone else's review",
+            },
+        ],
     ]
 
     history = review_pr.clear_previous_review(event)
@@ -317,9 +321,10 @@ def test_clear_previous_review_captures_history_and_deletes_inline_comments():
     assert [r["number"] for r in history["reviews"]] == [1, 2]
     assert history["reviews"][1]["commit"] == "b" * 7
     assert history["reviews"][1]["body"] == "Bound is correct now"
-    assert history["responses"] == [
-        '- a.py:3 @human (replying to "⚠️ **HIGH**: retry loop never exits"): intentional, the caller times out'
+    assert history["replies"] == [
+        '- a.py:3 @human on "⚠️ **HIGH**: retry loop never exits": intentional, the caller times out'
     ]
+    assert history["others"] == ["- b.py:9 @human: unrelated comment on someone else's review"]
     event.put.assert_called_once_with(
         "https://api.github.com/repos/org/repo/pulls/7/reviews/1/dismissals",
         json={"message": "Superseded by new review"},
