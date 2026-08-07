@@ -164,6 +164,16 @@ class Action:
         """Performs GET request with error handling."""
         return self._request("get", url, **kwargs)
 
+    def paginate(self, url, params=None, **kwargs) -> list:
+        """Fetch every page of a GitHub REST collection."""
+        items = []
+        for page in range(1, 102):  # one page past the cap, so an exactly-10,000-item collection still completes
+            page_items = self.get(url, params={**(params or {}), "per_page": 100, "page": page}, **kwargs).json()
+            items.extend(page_items)
+            if len(page_items) < 100:
+                return items
+        raise RuntimeError(f"GitHub collection exceeded 10,000 items: {url}")
+
     def post(self, url, **kwargs):
         """Performs POST request with error handling."""
         return self._request("post", url, **kwargs)

@@ -62,8 +62,7 @@ def test_get_event_content_pr():
     assert action == "opened"
 
 
-@patch("actions.first_interaction.review_pr.post_review_summary")
-@patch("actions.first_interaction.review_pr.generate_pr_review")
+@patch("actions.first_interaction.review_pr.run_review")
 @patch("actions.first_interaction.get_pr_open_response")
 @patch("actions.first_interaction.get_event_content")
 @patch("actions.first_interaction.Action")
@@ -80,11 +79,10 @@ def test_get_event_content_pr():
         ("", "Generated summary"),
     ],
 )
-def test_open_pr_review_description(mock_action, mock_content, mock_response, mock_review, mock_post, body, expected):
+def test_open_pr_review_description(mock_action, mock_content, mock_response, mock_review, body, expected):
     """Test automatic reviews use the best available author and generated description context."""
     mock_content.return_value = (456, "node456", "Test PR", body, "testuser", "pull request", "opened")
     mock_response.return_value = {"summary": "Generated summary", "labels": [], "first_comment": ""}
-    mock_review.return_value = {"head_sha": "headsha", "summary": "LGTM", "comments": []}
     event = mock_action.return_value
     event.should_skip_llm.return_value = False
     event.should_skip_pr_author.return_value = False
@@ -94,8 +92,7 @@ def test_open_pr_review_description(mock_action, mock_content, mock_response, mo
 
     first_interaction.main()
 
-    mock_review.assert_called_once_with(event.repository, "review diff", "Test PR", expected, event, "headsha")
-    mock_post.assert_called_once_with(event, mock_review.return_value)
+    mock_review.assert_called_once_with(event, "Test PR", expected)
 
 
 @patch("actions.first_interaction.get_response")
@@ -240,8 +237,8 @@ def test_review_snapshot_retries_until_diff_and_head_match():
     assert event.get_pr_head_sha.call_count == 4
 
 
-def test_post_review_summary_fails_when_github_rejects_review():
-    """Test review publication is a required operation rather than a silent best effort."""
+def test_post_review_summary_numbers_reviews_and_logs_findings():
+    """Test review publication is required and each review is numbered with a findings log that outlives it."""
     event = MagicMock()
     event.repository = "org/repo"
     event.pr = {"number": 7}
@@ -250,33 +247,81 @@ def test_post_review_summary_fails_when_github_rejects_review():
     review_pr.post_review_summary(event, {"head_sha": "abc", "summary": "LGTM", "comments": []})
 
     assert event.post.call_args.kwargs["hard"] is True
+    assert event.post.call_args.kwargs["json"]["body"].startswith(f"{review_pr.REVIEW_MARKER} 1")
+
+    comment = {"file": "a.py", "line": 3, "side": "RIGHT", "severity": "HIGH", "message": "retry loop never exits"}
+    review_pr.post_review_summary(event, {"head_sha": "abc", "summary": "Fix", "comments": [comment]}, 3)
+
+    body = event.post.call_args.kwargs["json"]["body"]
+    assert body.startswith(f"{review_pr.REVIEW_MARKER} 3")
+    assert "**HIGH** `a.py:3` retry loop never exits" in body
 
 
-def test_clear_previous_review_preserves_summaries_and_deletes_inline_comments():
-    """Test replacement reviews invalidate bot decisions and remove only bot inline comments."""
+def test_clear_previous_review_captures_history_and_deletes_inline_comments():
+    """Test replacement reviews capture prior context, invalidate bot decisions, and remove only bot inline comments."""
     event = MagicMock()
     event.repository = "org/repo"
     event.pr = {"number": 7}
     event.get_username.return_value = "review-bot"
-    event.get.side_effect = [
-        MagicMock(
-            json=lambda: [
-                {"id": 1, "state": "APPROVED", "body": review_pr.REVIEW_MARKER, "user": {"login": "review-bot"}},
-                {"id": 2, "state": "COMMENTED", "body": review_pr.REVIEW_MARKER, "user": {"login": "review-bot"}},
-                {"id": 3, "state": "APPROVED", "body": "Human review", "user": {"login": "human"}},
-                {"id": 6, "state": "COMMENTED", "body": "Other automation", "user": {"login": "review-bot"}},
-            ]
-        ),
-        MagicMock(
-            json=lambda: [
-                {"id": 4, "pull_request_review_id": 1, "user": {"login": "review-bot"}},
-                {"id": 5, "pull_request_review_id": 6, "user": {"login": "review-bot"}},
-            ]
-        ),
+    event.paginate.side_effect = [
+        [
+            {
+                "id": 1,
+                "state": "APPROVED",
+                "commit_id": "a" * 40,
+                "body": f"{review_pr.REVIEW_MARKER} 1\n\nRetry loop needs a bound",
+                "user": {"login": "review-bot"},
+            },
+            {
+                "id": 2,
+                "state": "COMMENTED",
+                "commit_id": "b" * 40,
+                "body": f"{review_pr.REVIEW_MARKER} 2\n\nBound is correct now",
+                "user": {"login": "review-bot"},
+            },
+            {"id": 3, "state": "APPROVED", "body": "Human review", "user": {"login": "human"}},
+            {"id": 6, "state": "COMMENTED", "body": "Other automation", "user": {"login": "review-bot"}},
+        ],
+        [
+            {
+                "id": 4,
+                "pull_request_review_id": 1,
+                "user": {"login": "review-bot"},
+                "path": "a.py",
+                "line": 3,
+                "body": "⚠️ **HIGH**: retry loop never exits",
+            },
+            {"id": 5, "pull_request_review_id": 6, "user": {"login": "review-bot"}},
+            {
+                "id": 8,
+                "pull_request_review_id": 3,
+                "in_reply_to_id": 4,
+                "user": {"login": "human"},
+                "path": "a.py",
+                "line": 3,
+                "body": "intentional, the caller times out",
+                "author_association": "MEMBER",
+            },
+            {
+                "id": 9,
+                "pull_request_review_id": 3,
+                "user": {"login": "human"},
+                "path": "b.py",
+                "line": 9,
+                "body": "unrelated comment on someone else's review",
+            },
+        ],
     ]
 
-    review_pr.clear_previous_review(event)
+    history = review_pr.clear_previous_review(event)
 
+    assert [r["number"] for r in history["reviews"]] == [1, 2]
+    assert history["reviews"][1]["commit"] == "b" * 7
+    assert history["reviews"][1]["body"] == "Bound is correct now"
+    assert history["replies"] == [
+        '- a.py:3 @human (MEMBER) on "⚠️ **HIGH**: retry loop never exits": intentional, the caller times out'
+    ]
+    assert history["others"] == ["- b.py:9 @human (NONE): unrelated comment on someone else's review"]
     event.put.assert_called_once_with(
         "https://api.github.com/repos/org/repo/pulls/7/reviews/1/dismissals",
         json={"message": "Superseded by new review"},
