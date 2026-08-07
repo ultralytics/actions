@@ -32,6 +32,10 @@ MAX_REVIEW_COMMENTS = 8
 MAX_TOOL_OUTPUT_CHARS = 20000
 MAX_TOOL_FILE_LINES = 240
 MAX_AGENT_TURNS = 16
+MAX_HISTORY_REVIEWS = 5  # prior reviews included in the prompt (the full history stays available via the tool)
+MAX_HISTORY_ITEM_CHARS = 4000  # per prior review or response in the prompt excerpt
+MAX_HISTORY_CHARS = 20000
+MAX_FINDING_LOG_CHARS = 500  # per finding logged in the review body, the record that outlives its inline comment
 REVIEW_COST_SOFT_LIMIT = 2.00  # stop requesting tools after cumulative spend reaches this amount
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
 
@@ -83,6 +87,48 @@ def search_repo(query: str, path_glob=None) -> str:
     return _clip_tool_output("\n".join(matches)) if matches else "No matches found."
 
 
+def _clip(text: str, limit: int | None) -> str:
+    """Clip text to a character limit, or return it unchanged when no limit is given."""
+    return text if not limit or len(text) <= limit else f"{text[:limit].rstrip()}…"
+
+
+def _build_review_history(reviews: list[dict], comments: list[dict], bot_username: str | None) -> dict:
+    """Capture prior bot reviews and the responses to them; each review body carries its own findings log."""
+    parents = {comment.get("id"): comment for comment in comments}
+    prior = []
+    for number, review in enumerate(reviews, 1):
+        body = re.sub(rf"{re.escape(REVIEW_MARKER)} *\d*", "", review.get("body") or "").replace(ACTIONS_CREDIT, "")
+        prior.append(
+            {
+                "number": number,
+                "commit": (review.get("commit_id") or "")[:7],
+                "body": body.split("<details><summary>📋 Skipped")[0].strip(),
+            }
+        )
+
+    responses = []
+    for comment in comments:
+        if (login := comment.get("user", {}).get("login")) == bot_username:
+            continue
+        parent = parents.get(comment.get("in_reply_to_id")) or {}
+        replying_to = f' (replying to "{_clip((parent.get("body") or "").strip(), 120)}")' if parent else ""
+        line = comment.get("line") or comment.get("original_line") or 0
+        responses.append(f"- {comment.get('path')}:{line} @{login}{replying_to}: {(comment.get('body') or '').strip()}")
+    return {"reviews": prior, "responses": responses}
+
+
+def _format_review_history(history: dict, limit: int | None = None, clip: int | None = None) -> str:
+    """Render prior reviews and the responses to them as review context."""
+    reviews = history.get("reviews") or []
+    sections = [
+        f"### Review {review['number']} (commit {review['commit']})\n{_clip(review['body'], clip)}"
+        for review in (reviews[-limit:] if limit else reviews)
+    ]
+    if responses := history.get("responses"):
+        sections.append("### Comments from other reviewers\n" + "\n".join(_clip(r, clip) for r in responses))
+    return "\n\n".join(sections)
+
+
 def _fetch_head_file(event: Action, sha: str, path: str) -> str | None:
     """Fetch one file's text from the PR head via the GitHub contents API; None only if it does not exist (404)."""
     url = f"{GITHUB_API_URL}/repos/{event.repository}/contents/{quote(path)}?ref={sha}"
@@ -131,11 +177,14 @@ def build_review_agent_tools(
     event: Action = None,
     head_sha: str | None = None,
     local_checkout: bool = False,
+    review_history: dict | None = None,
 ) -> tuple[list[dict], dict]:
     """Build read-only tools for the PR review agent, reading files from the PR head via the GitHub API."""
     diff_files = diff_files or {}
+    review_history = review_history or {}
     diff_chunks = _split_augmented_diff_by_file(augmented_diff)
     head_tree = []  # cached PR head file listing
+    discussion = []  # cached PR discussion comments
 
     def read_file(path: str, start_line=None, end_line=None) -> str:
         """Read a bounded line range from a file at the PR head."""
@@ -193,6 +242,28 @@ def build_review_agent_tools(
             return f"{path} has no diff lines in requested range {start}-{end}."
         return _clip_tool_output(f"{path} diff:{start}-{end}\n" + "\n".join(lines[start - 1 : end]))
 
+    def read_pr_conversation(review_number=None) -> str:
+        """Read prior reviews of this PR in full, plus the human discussion on it."""
+        selected = {
+            "reviews": [r for r in review_history.get("reviews") or [] if review_number in (None, r["number"])],
+            "responses": review_history.get("responses"),
+        }
+        parts = [_format_review_history(selected) or f"No prior review {review_number}."]
+        if event and (pr_number := (event.pr or {}).get("number")) and not discussion:
+            url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{pr_number}/comments"
+            response = event.get(url, params={"per_page": 100})
+            if response.status_code != 200:
+                raise RuntimeError(f"read_pr_conversation failed: HTTP {response.status_code}")
+            discussion.append(
+                [
+                    f"@{c.get('user', {}).get('login')}: {_clip((c.get('body') or '').strip(), 1000)}"
+                    for c in response.json()
+                ]
+            )
+        if discussion and discussion[0]:
+            parts.append("### PR discussion comments\n" + "\n".join(discussion[0]))
+        return _clip_tool_output("\n\n".join(parts))
+
     tools = [
         {"type": "web_search"},
         {
@@ -227,6 +298,24 @@ def build_review_agent_tools(
                     "end_line": {"type": ["integer", "null"], "description": "1-based diff output line, or null."},
                 },
                 "required": ["path", "start_line", "end_line"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+        {
+            "type": "function",
+            "name": "read_pr_conversation",
+            "description": (
+                "Read your earlier reviews of this PR in full - their summaries, inline findings, and the replies "
+                "to them - plus the PR discussion comments. Use this before repeating, contradicting, or "
+                "reversing an earlier finding, and whenever the PRIOR REVIEWS excerpt in the prompt is truncated."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "review_number": {"type": ["integer", "null"], "description": "One prior review number, or null."},
+                },
+                "required": ["review_number"],
                 "additionalProperties": False,
             },
             "strict": True,
@@ -289,12 +378,16 @@ def build_review_agent_tools(
         "list_changed_files": list_changed_files,
         "read_diff": read_diff,
         "read_file": read_file,
+        "read_pr_conversation": read_pr_conversation,
         "search_repo": search_repo,
         "list_files": list_files,
     }
     if not local_checkout:  # repo text search needs a checkout of the PR head; drop it instead of returning empty
         tools = [t for t in tools if t.get("name") != "search_repo"]
         del handlers["search_repo"]
+    if not review_history.get("reviews"):  # nothing to read back on a first review
+        tools = [t for t in tools if t.get("name") != "read_pr_conversation"]
+        del handlers["read_pr_conversation"]
     return tools, handlers
 
 
@@ -368,8 +461,11 @@ def generate_pr_review(
     pr_description: str,
     event: Action = None,
     head_sha: str | None = None,
+    review_history: dict | None = None,
 ) -> dict:
     """Generate comprehensive PR review with line-specific comments and overall assessment."""
+    review_history = review_history or {}
+    prior_reviews = review_history.get("reviews") or []
     head_sha = head_sha or (event.get_pr_head_sha() if event else None)
     if diff_text.startswith("ERROR:"):
         return {"comments": [], "summary": f"{ERROR_MARKER}: {diff_text}", "head_sha": head_sha}
@@ -404,10 +500,19 @@ def generate_pr_review(
         print(f"Reviewing PR head {head_sha[:7]} ({'local checkout' if local_checkout else 'via GitHub API'})")
     guidelines_section = get_repo_guidelines(review_model, event, head_sha, local_checkout)
 
+    # Carry prior reviews of this PR forward so findings are not repeated, contradicted, or silently reversed
+    history_section = ""
+    if prior_reviews:
+        excerpt = _format_review_history(review_history, limit=MAX_HISTORY_REVIEWS, clip=MAX_HISTORY_ITEM_CHARS)
+        if len(excerpt) > MAX_HISTORY_CHARS:
+            excerpt = f"{excerpt[:MAX_HISTORY_CHARS].rstrip()}\n... (truncated)"
+        history_section = f"PRIOR REVIEWS OF THIS PR (oldest first):\n{excerpt}\n\n"
+        print(f"Loaded {len(prior_reviews)} prior review(s) ({len(history_section)} chars) for review context")
+
     # Fetch full file contents for better context if within token budget
     full_files_section = ""
     if event and head_sha and not is_agent_review_model and len(file_list) <= 10:  # Reasonable file count limit
-        file_contents, total_chars = [], len(augmented_diff) + len(guidelines_section)
+        file_contents, total_chars = [], len(augmented_diff) + len(guidelines_section) + len(history_section)
         for file_path in file_list:  # already filtered by should_skip_file above
             text = _read_head_file(event, head_sha, local_checkout, file_path) or ""
             if not text or len(text) > 100_000:  # skip missing and >100KB files entirely
@@ -425,7 +530,7 @@ def generate_pr_review(
             full_files_section = f"FULL FILE CONTENTS:\n{chr(10).join(file_contents)}\n\n"
 
     # Calculate remaining budget for diff and check if truncation needed
-    diff_budget = max(1000, MAX_PROMPT_CHARS - len(guidelines_section) - len(full_files_section))
+    diff_budget = max(1000, MAX_PROMPT_CHARS - len(guidelines_section) - len(full_files_section) - len(history_section))
     diff_truncated = len(augmented_diff) > diff_budget
     is_large_pr = diff_truncated or len(file_list) > 30
     if is_agent_review_model:  # must match the get_agent_response fallback gate
@@ -452,6 +557,28 @@ def generate_pr_review(
             "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
         )
 
+    continuity_section = ""
+    if prior_reviews:
+        continuity_section = (
+            f"CONTINUITY - you already reviewed this PR {len(prior_reviews)} time(s), this is review "
+            f"{len(prior_reviews) + 1}:\n"
+            "- PRIOR REVIEWS below carries your earlier summaries and findings plus the replies to them; the diff "
+            "shows the current state\n"
+            "- Never contradict yourself without cause: a change made to satisfy an earlier finding is not a new "
+            "problem, and an earlier finding is reversed only with concrete new evidence, stated as such with the "
+            "review number it reverses\n"
+            "- Drop findings the current diff resolves; repeat an unresolved one only while it still applies, since "
+            "its inline comment was deleted with the superseded review\n"
+            "- A reply that rejects or explains a finding settles it: do not raise it again\n"
+            + (
+                "- Call read_pr_conversation before repeating or reversing a finding, and whenever the excerpt below "
+                "is truncated\n"
+                if is_agent_review_model
+                else ""
+            )
+            + "- Open the summary with what changed since the last review: addressed, still open, newly introduced\n\n"
+        )
+
     content = (
         "You are an expert code reviewer for Ultralytics. Review code changes and provide inline comments ONLY for genuine issues.\n\n"
         "WHEN TO COMMENT (priority order):\n"
@@ -466,6 +593,7 @@ def generate_pr_review(
         "- 'Consider using X' without clear benefit\n"
         "- Issues in unchanged context lines\n\n"
         f"{visibility_section}"
+        f"{continuity_section}"
         "QUALITY OVER QUANTITY:\n"
         "- Zero comments is valid for clean PRs: never invent an issue, never withhold an evidence-backed one\n"
         "- Each comment must be actionable with clear reasoning\n"
@@ -502,6 +630,7 @@ def generate_pr_review(
                 f"TITLE:\n{pr_title}\n\n"
                 f"BODY:\n{remove_html_comments(pr_description or '')[:1000]}\n\n"
                 f"{guidelines_section}"
+                f"{history_section}"
                 f"{full_files_section}"
                 f"DIFF:\n{augmented_diff[:diff_budget]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
@@ -541,7 +670,9 @@ def generate_pr_review(
             "additionalProperties": False,
         }
 
-        tools, tool_handlers = build_review_agent_tools(diff_files, augmented_diff, event, head_sha, local_checkout)
+        tools, tool_handlers = build_review_agent_tools(
+            diff_files, augmented_diff, event, head_sha, local_checkout, review_history
+        )
         response = get_agent_response(
             messages,
             text_format={"format": {"type": "json_schema", "name": "pr_review", "strict": True, "schema": schema}},
@@ -687,32 +818,35 @@ def _verified_local_checkout(head_sha: str | None) -> bool:
         return False
 
 
-def clear_previous_review(event: Action) -> None:
-    """Dismiss the bot's active review decisions and delete its superseded inline comments."""
+def clear_previous_review(event: Action) -> dict:
+    """Capture the bot's prior reviews, then dismiss their decisions and delete their superseded inline comments."""
     pr_number, bot_username = event.pr.get("number"), event.get_username()
     reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
     reviews = event.get(reviews_base, params={"per_page": 100}, hard=True).json()
-    owned_reviews = {
-        review["id"]
+    owned = [
+        review
         for review in reviews
         if review.get("user", {}).get("login") == bot_username and REVIEW_MARKER in (review.get("body") or "")
-    }
-    for review in reviews:
-        if review.get("id") in owned_reviews and review.get("state") in ("APPROVED", "CHANGES_REQUESTED"):
+    ]
+    comments_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
+    comments = event.get(comments_base, params={"per_page": 100}, hard=True).json()
+    history = _build_review_history(owned, comments, bot_username)  # capture responses before deleting the comments
+
+    owned_reviews = {review["id"] for review in owned}
+    for review in owned:
+        if review.get("state") in ("APPROVED", "CHANGES_REQUESTED"):
             event.put(
                 f"{reviews_base}/{review['id']}/dismissals",
                 json={"message": "Superseded by new review"},
                 hard=True,
             )
-
-    comments_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
-    comments = event.get(comments_base, params={"per_page": 100}, hard=True).json()
     for comment in comments:
         if comment.get("pull_request_review_id") in owned_reviews:
             event.delete(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments/{comment['id']}", hard=True)
+    return history
 
 
-def post_review_summary(event: Action, review_data: dict) -> None:
+def post_review_summary(event: Action, review_data: dict, review_number: int = 1) -> None:
     """Post overall review summary and inline comments as a single PR review."""
     if not (pr_number := event.pr.get("number")):
         return
@@ -735,10 +869,17 @@ def post_review_summary(event: Action, review_data: dict) -> None:
         else "APPROVE"
     )
 
-    body = f"{REVIEW_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary[:3000]}\n\n"
+    body = f"{REVIEW_MARKER} {review_number}\n\n{ACTIONS_CREDIT}\n\n{summary[:3000]}\n\n"
 
     if comments:
-        body += f"💬 Posted {len(comments)} inline comment{'s' if len(comments) != 1 else ''}\n"
+        # Log findings in the review body: inline comments are deleted when the next review supersedes this one
+        findings = "\n".join(
+            f"- {EMOJI_MAP.get(c.get('severity'), '💭')} **{c.get('severity') or 'SUGGESTION'}** "
+            f"`{c.get('file')}:{c.get('line')}` {_clip((c.get('message') or '').strip(), MAX_FINDING_LOG_CHARS)}"
+            for c in comments
+        )
+        summary_text = f"💬 Posted {len(comments)} inline comment{'s' if len(comments) != 1 else ''}"
+        body += f"<details><summary>{summary_text}</summary>\n\n{findings}\n</details>\n"
 
     if review_data.get("diff_truncated"):
         body += "\n⚠️ **Large PR**: Review focused on critical issues. Some details may not be covered.\n"
@@ -804,11 +945,11 @@ def main(*args, **kwargs):
     except RuntimeError as e:
         print(f"Skipping stale PR review: {e}")
         return
-    clear_previous_review(event)
+    history = clear_previous_review(event)
     review = generate_pr_review(
-        event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "", event, head_sha
+        event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "", event, head_sha, history
     )
-    post_review_summary(event, review)
+    post_review_summary(event, review, review_number=len(history["reviews"]) + 1)
     print("PR review completed")
 
 
