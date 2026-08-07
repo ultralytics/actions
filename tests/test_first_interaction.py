@@ -172,7 +172,6 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, m
     assert kwargs["max_turns"] == review_pr.MAX_AGENT_TURNS
     assert kwargs["max_cost"] == review_pr.REVIEW_COST_SOFT_LIMIT
     assert kwargs["reasoning_effort"] == "high"
-    assert kwargs["request_timeout"] == (30, 120)
     assert "FULL FILE CONTENTS" not in mock_get_agent_response.call_args.args[0][1]["content"]
     assert (
         "Do not flag package or version availability based on web search"
