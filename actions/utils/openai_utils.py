@@ -388,7 +388,7 @@ def get_agent_response(
     max_cost: float = 0.0,
     parallel_tools: bool = False,
     retries: int = 2,
-    request_timeout: tuple[int, int] = (30, 120),
+    request_timeout: tuple[int, int] = (30, 300),  # responses are unstreamed, so the read timeout caps generation
 ) -> str | dict:
     """Run an iterative OpenAI Responses API agent with application-managed function tools.
 
