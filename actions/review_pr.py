@@ -113,7 +113,7 @@ def _build_review_history(reviews: list[dict], comments: list[dict], bot_usernam
             continue
         parent = parents.get(comment.get("in_reply_to_id")) or {}
         line = comment.get("line") or comment.get("original_line") or 0
-        entry = f"- {comment.get('path')}:{line} @{login}"
+        entry = f"- {comment.get('path')}:{line} @{login} ({comment.get('author_association') or 'NONE'})"
         body = (comment.get("body") or "").strip()
         if parent.get("pull_request_review_id") in owned_ids:  # a reply to one of our own findings
             replies.append(f'{entry} on "{_clip((parent.get("body") or "").strip(), 120)}": {body}')

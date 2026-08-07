@@ -304,6 +304,7 @@ def test_clear_previous_review_captures_history_and_deletes_inline_comments():
                 "path": "a.py",
                 "line": 3,
                 "body": "intentional, the caller times out",
+                "author_association": "MEMBER",
             },
             {
                 "id": 9,
@@ -322,9 +323,9 @@ def test_clear_previous_review_captures_history_and_deletes_inline_comments():
     assert history["reviews"][1]["commit"] == "b" * 7
     assert history["reviews"][1]["body"] == "Bound is correct now"
     assert history["replies"] == [
-        '- a.py:3 @human on "⚠️ **HIGH**: retry loop never exits": intentional, the caller times out'
+        '- a.py:3 @human (MEMBER) on "⚠️ **HIGH**: retry loop never exits": intentional, the caller times out'
     ]
-    assert history["others"] == ["- b.py:9 @human: unrelated comment on someone else's review"]
+    assert history["others"] == ["- b.py:9 @human (NONE): unrelated comment on someone else's review"]
     event.put.assert_called_once_with(
         "https://api.github.com/repos/org/repo/pulls/7/reviews/1/dismissals",
         json={"message": "Superseded by new review"},
