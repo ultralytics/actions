@@ -882,7 +882,8 @@ def post_review_summary(event: Action, review_data: dict, review_number: int = 1
         else "APPROVE"
     )
 
-    body = f"{REVIEW_MARKER} {review_number}\n\n{ACTIONS_CREDIT}\n\n{summary[:3000]}\n\n"
+    title = REVIEW_MARKER if review_number < 2 else f"{REVIEW_MARKER} {review_number}"  # first review carries no number
+    body = f"{title}\n\n{ACTIONS_CREDIT}\n\n{summary[:3000]}\n\n"
 
     if comments:
         # Log findings in the review body: inline comments are deleted when the next review supersedes this one

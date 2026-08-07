@@ -238,7 +238,7 @@ def test_review_snapshot_retries_until_diff_and_head_match():
 
 
 def test_post_review_summary_numbers_reviews_and_logs_findings():
-    """Test review publication is required and each review is numbered with a findings log that outlives it."""
+    """Test review publication is required and re-reviews are numbered with a findings log that outlives them."""
     event = MagicMock()
     event.repository = "org/repo"
     event.pr = {"number": 7}
@@ -247,7 +247,7 @@ def test_post_review_summary_numbers_reviews_and_logs_findings():
     review_pr.post_review_summary(event, {"head_sha": "abc", "summary": "LGTM", "comments": []})
 
     assert event.post.call_args.kwargs["hard"] is True
-    assert event.post.call_args.kwargs["json"]["body"].startswith(f"{review_pr.REVIEW_MARKER} 1")
+    assert event.post.call_args.kwargs["json"]["body"].startswith(f"{review_pr.REVIEW_MARKER}\n")  # first: no number
 
     comment = {"file": "a.py", "line": 3, "side": "RIGHT", "severity": "HIGH", "message": "retry loop never exits"}
     review_pr.post_review_summary(event, {"head_sha": "abc", "summary": "Fix", "comments": [comment]}, 3)
