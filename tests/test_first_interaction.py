@@ -360,6 +360,14 @@ def test_incomplete_review_evidence_cannot_approve():
     )
     assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
 
+    # A push during review generation posts against the reviewed commit instead of approving or failing the job
+    event.get_pr_head_sha.return_value = "def"
+    review_pr.post_review_summary(
+        event, {"head_sha": "abc", "summary": "LGTM", "comments": [], "diff_files": {"a": {}}}
+    )
+    assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
+    assert event.post.call_args.kwargs["json"]["commit_id"] == "abc"
+
 
 def test_review_agent_tools_read_pr_head_via_api(tmp_path, monkeypatch):
     """Test review tools serve PR-head content via the GitHub API regardless of local checkout."""
