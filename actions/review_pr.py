@@ -122,27 +122,36 @@ def _build_review_history(reviews: list[dict], comments: list[dict], bot_usernam
     return {"reviews": prior, "replies": replies, "others": others}
 
 
+def _fit(entries: list[str], budget: int | None, separator: int = 1) -> tuple[list[str], int]:
+    """Keep the newest entries that fit the budget, oldest first, with the count of those dropped."""
+    kept, used = [], 0
+    for entry in reversed(entries):
+        if budget and used + len(entry) + separator > budget:
+            break
+        kept.append(entry)
+        used += len(entry) + separator
+    return kept[::-1], len(entries) - len(kept)
+
+
 def _format_review_history(
     history: dict, limit: int | None = None, clip: int | None = None, budget: int | None = None
 ) -> str:
     """Render prior reviews and the responses to them as review context, oldest dropped first when over budget."""
-    sections, reviews = [], history.get("reviews") or []
-    for title, key in (("Replies to your findings", "replies"), ("Other review comments on this PR", "others")):
+    sections = []
+    for title, key in (("Other review comments on this PR", "others"), ("Replies to your findings", "replies")):
         if entries := history.get(key):
-            section = f"### {title}\n" + "\n".join(_clip(e, clip) for e in entries)
-            sections.append(_clip(section, budget // 4 if budget else None))  # leave half the budget for the reviews
+            kept, dropped = _fit([_clip(e, clip) for e in entries], budget // 4 if budget else None)
+            note = f" ({dropped} older comment(s) omitted for length)" if dropped else ""
+            sections.append(f"### {title}{note}\n" + "\n".join(kept))
 
+    reviews = history.get("reviews") or []
     shown = reviews[-limit:] if limit else reviews
-    omitted = len(reviews) - len(shown)
-    for review in reversed(shown):  # newest first, so it survives the budget
-        section = f"### Review {review['number']} (commit {review['commit']})\n{_clip(review['body'], clip)}"
-        if budget and sum(len(s) + 2 for s in sections) + len(section) > budget:
-            omitted = review["number"]
-            break
-        sections.append(section)
-    if omitted:
-        sections.append(f"### {omitted} older review(s) omitted for length")
-    return "\n\n".join(reversed(sections))
+    rendered = [f"### Review {r['number']} (commit {r['commit']})\n{_clip(r['body'], clip)}" for r in shown]
+    remaining = budget - sum(len(s) + 2 for s in sections) if budget else None
+    kept, dropped = _fit(rendered, remaining, separator=2)
+    if omitted := dropped + len(reviews) - len(shown):
+        kept.insert(0, f"### {omitted} older review(s) omitted for length")
+    return "\n\n".join(kept + sections)
 
 
 def _fetch_head_file(event: Action, sha: str, path: str) -> str | None:
