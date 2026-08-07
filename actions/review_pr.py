@@ -33,7 +33,7 @@ MAX_TOOL_OUTPUT_CHARS = 20000
 MAX_TOOL_FILE_LINES = 240
 MAX_AGENT_TURNS = 16
 MAX_HISTORY_REVIEWS = 5  # prior reviews included in the prompt (the full history stays available via the tool)
-MAX_HISTORY_ITEM_CHARS = 4000  # per prior review or response in the prompt excerpt
+MAX_HISTORY_ITEM_CHARS = 8000  # per prior review or response, enough for a full summary plus its findings log
 MAX_HISTORY_CHARS = 20000
 MAX_FINDING_LOG_CHARS = 500  # per finding logged in the review body, the record that outlives its inline comment
 REVIEW_COST_SOFT_LIMIT = 2.00  # stop requesting tools after cumulative spend reaches this amount
@@ -117,16 +117,20 @@ def _build_review_history(reviews: list[dict], comments: list[dict], bot_usernam
     return {"reviews": prior, "responses": responses}
 
 
-def _format_review_history(history: dict, limit: int | None = None, clip: int | None = None) -> str:
-    """Render prior reviews and the responses to them as review context."""
-    reviews = history.get("reviews") or []
-    sections = [
-        f"### Review {review['number']} (commit {review['commit']})\n{_clip(review['body'], clip)}"
-        for review in (reviews[-limit:] if limit else reviews)
-    ]
+def _format_review_history(
+    history: dict, limit: int | None = None, clip: int | None = None, budget: int | None = None
+) -> str:
+    """Render prior reviews and the responses to them as review context, oldest dropped first when over budget."""
+    sections, reviews = [], history.get("reviews") or []
     if responses := history.get("responses"):
         sections.append("### Comments from other reviewers\n" + "\n".join(_clip(r, clip) for r in responses))
-    return "\n\n".join(sections)
+    for review in reversed(reviews[-limit:] if limit else reviews):  # newest first, so it survives the budget
+        section = f"### Review {review['number']} (commit {review['commit']})\n{_clip(review['body'], clip)}"
+        if budget and sum(len(s) + 2 for s in sections) + len(section) > budget:
+            sections.append(f"### {review['number']} older review(s) omitted for length")
+            break
+        sections.append(section)
+    return "\n\n".join(reversed(sections))
 
 
 def _fetch_head_file(event: Action, sha: str, path: str) -> str | None:
@@ -244,7 +248,7 @@ def build_review_agent_tools(
 
     def read_pr_conversation() -> str:
         """Read every prior review of this PR in full, plus the discussion on it."""
-        parts = [_format_review_history(review_history)]
+        parts = [_format_review_history(review_history, budget=MAX_TOOL_OUTPUT_CHARS)]
         if event and (pr_number := (event.pr or {}).get("number")) and not discussion:
             url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{pr_number}/comments"
             response = event.get(url, params={"per_page": 100})
@@ -492,9 +496,9 @@ def generate_pr_review(
     # Carry prior reviews of this PR forward so findings are not repeated, contradicted, or silently reversed
     history_section = ""
     if prior_reviews:
-        excerpt = _format_review_history(review_history, limit=MAX_HISTORY_REVIEWS, clip=MAX_HISTORY_ITEM_CHARS)
-        if len(excerpt) > MAX_HISTORY_CHARS:
-            excerpt = f"{excerpt[:MAX_HISTORY_CHARS].rstrip()}\n... (truncated)"
+        excerpt = _format_review_history(
+            review_history, limit=MAX_HISTORY_REVIEWS, clip=MAX_HISTORY_ITEM_CHARS, budget=MAX_HISTORY_CHARS
+        )
         history_section = f"PRIOR REVIEWS OF THIS PR (oldest first):\n{excerpt}\n\n"
         print(f"Loaded {len(prior_reviews)} prior review(s) ({len(history_section)} chars) for review context")
 
