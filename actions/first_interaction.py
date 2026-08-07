@@ -216,14 +216,7 @@ def main(*args, **kwargs):
         # Automatic PR review after first interaction
         if AUTO_PR_REVIEW:
             print("Starting automatic PR review...")
-            try:
-                review_diff, head_sha = event.get_pr_diff_snapshot()
-            except RuntimeError as e:
-                print(f"Skipping stale PR review: {e}")
-                return
-            review_data = review_pr.generate_pr_review(event.repository, review_diff, title, body, event, head_sha)
-            review_pr.post_review_summary(event, review_data)
-            print("PR review completed")
+            review_pr.run_review(event, title, body)
         return
 
     # Handle issues and discussions (NOT PRs)

@@ -935,6 +935,19 @@ def post_review_summary(event: Action, review_data: dict, review_number: int = 1
     event.post(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews", json=payload, hard=True)
 
 
+def run_review(event: Action, pr_title: str, pr_description: str) -> None:
+    """Supersede prior reviews, then generate and publish the next numbered review of the PR head."""
+    try:
+        diff, head_sha = event.get_pr_diff_snapshot()
+    except RuntimeError as e:
+        print(f"Skipping stale PR review: {e}")
+        return
+    history = clear_previous_review(event)
+    review = generate_pr_review(event.repository, diff, pr_title, pr_description, event, head_sha, history)
+    post_review_summary(event, review, review_number=len(history["reviews"]) + 1)
+    print("PR review completed")
+
+
 def main(*args, **kwargs):
     """Main entry point for PR review action."""
     event = Action(*args, **kwargs)
@@ -954,17 +967,7 @@ def main(*args, **kwargs):
         return
 
     print(f"Starting PR review for #{event.pr['number']}")
-    try:
-        diff, head_sha = event.get_pr_diff_snapshot()
-    except RuntimeError as e:
-        print(f"Skipping stale PR review: {e}")
-        return
-    history = clear_previous_review(event)
-    review = generate_pr_review(
-        event.repository, diff, event.pr.get("title") or "", event.pr.get("body") or "", event, head_sha, history
-    )
-    post_review_summary(event, review, review_number=len(history["reviews"]) + 1)
-    print("PR review completed")
+    run_review(event, event.pr.get("title") or "", event.pr.get("body") or "")
 
 
 if __name__ == "__main__":

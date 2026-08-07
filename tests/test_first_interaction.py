@@ -62,8 +62,7 @@ def test_get_event_content_pr():
     assert action == "opened"
 
 
-@patch("actions.first_interaction.review_pr.post_review_summary")
-@patch("actions.first_interaction.review_pr.generate_pr_review")
+@patch("actions.first_interaction.review_pr.run_review")
 @patch("actions.first_interaction.get_pr_open_response")
 @patch("actions.first_interaction.get_event_content")
 @patch("actions.first_interaction.Action")
@@ -80,11 +79,10 @@ def test_get_event_content_pr():
         ("", "Generated summary"),
     ],
 )
-def test_open_pr_review_description(mock_action, mock_content, mock_response, mock_review, mock_post, body, expected):
+def test_open_pr_review_description(mock_action, mock_content, mock_response, mock_review, body, expected):
     """Test automatic reviews use the best available author and generated description context."""
     mock_content.return_value = (456, "node456", "Test PR", body, "testuser", "pull request", "opened")
     mock_response.return_value = {"summary": "Generated summary", "labels": [], "first_comment": ""}
-    mock_review.return_value = {"head_sha": "headsha", "summary": "LGTM", "comments": []}
     event = mock_action.return_value
     event.should_skip_llm.return_value = False
     event.should_skip_pr_author.return_value = False
@@ -94,8 +92,7 @@ def test_open_pr_review_description(mock_action, mock_content, mock_response, mo
 
     first_interaction.main()
 
-    mock_review.assert_called_once_with(event.repository, "review diff", "Test PR", expected, event, "headsha")
-    mock_post.assert_called_once_with(event, mock_review.return_value)
+    mock_review.assert_called_once_with(event, "Test PR", expected)
 
 
 @patch("actions.first_interaction.get_response")
