@@ -123,13 +123,19 @@ def _format_review_history(
     """Render prior reviews and the responses to them as review context, oldest dropped first when over budget."""
     sections, reviews = [], history.get("reviews") or []
     if responses := history.get("responses"):
-        sections.append("### Comments from other reviewers\n" + "\n".join(_clip(r, clip) for r in responses))
-    for review in reversed(reviews[-limit:] if limit else reviews):  # newest first, so it survives the budget
+        section = "### Comments from other reviewers\n" + "\n".join(_clip(r, clip) for r in responses)
+        sections.append(_clip(section, budget // 2 if budget else None))  # leave half the budget for the reviews
+
+    shown = reviews[-limit:] if limit else reviews
+    omitted = len(reviews) - len(shown)
+    for review in reversed(shown):  # newest first, so it survives the budget
         section = f"### Review {review['number']} (commit {review['commit']})\n{_clip(review['body'], clip)}"
         if budget and sum(len(s) + 2 for s in sections) + len(section) > budget:
-            sections.append(f"### {review['number']} older review(s) omitted for length")
+            omitted = review["number"]
             break
         sections.append(section)
+    if omitted:
+        sections.append(f"### {omitted} older review(s) omitted for length")
     return "\n\n".join(reversed(sections))
 
 
