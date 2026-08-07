@@ -167,7 +167,7 @@ class Action:
     def paginate(self, url, params=None, **kwargs) -> list:
         """Fetch every page of a GitHub REST collection."""
         items = []
-        for page in range(1, 101):
+        for page in range(1, 102):  # one page past the cap, so an exactly-10,000-item collection still completes
             page_items = self.get(url, params={**(params or {}), "per_page": 100, "page": page}, **kwargs).json()
             items.extend(page_items)
             if len(page_items) < 100:

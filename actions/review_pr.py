@@ -88,8 +88,8 @@ def search_repo(query: str, path_glob=None) -> str:
 
 
 def _clip(text: str, limit: int | None) -> str:
-    """Clip text to a character limit, or return it unchanged when no limit is given."""
-    return text if not limit or len(text) <= limit else f"{text[:limit].rstrip()}…"
+    """Clip text to at most limit characters, or return it unchanged when no limit is given."""
+    return text if not limit or len(text) <= limit else f"{text[: limit - 1].rstrip()}…"
 
 
 def _build_review_history(reviews: list[dict], comments: list[dict], bot_username: str | None) -> dict:
@@ -126,10 +126,11 @@ def _fit(entries: list[str], budget: int | None, separator: int = 1) -> tuple[li
     """Keep the newest entries that fit the budget, oldest first, with the count of those dropped."""
     kept, used = [], 0
     for entry in reversed(entries):
-        if budget and used + len(entry) + separator > budget:
+        cost = len(entry) + (separator if kept else 0)  # separators only sit between entries
+        if budget and used + cost > budget:
             break
         kept.append(entry)
-        used += len(entry) + separator
+        used += cost
     return kept[::-1], len(entries) - len(kept)
 
 
@@ -138,9 +139,10 @@ def _format_review_history(
 ) -> str:
     """Render prior reviews and the responses to them as review context, oldest dropped first when over budget."""
     sections = []
+    share = budget // 4 if budget else None  # each response section gets a quarter, leaving half for the reviews
     for title, key in (("Other review comments on this PR", "others"), ("Replies to your findings", "replies")):
         if entries := history.get(key):
-            kept, dropped = _fit([_clip(e, clip) for e in entries], budget // 4 if budget else None)
+            kept, dropped = _fit([_clip(e, share or clip) for e in entries], share)  # clipped to fit, never dropped
             note = f" ({dropped} older comment(s) omitted for length)" if dropped else ""
             sections.append(f"### {title}{note}\n" + "\n".join(kept))
 
