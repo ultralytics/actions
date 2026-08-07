@@ -242,13 +242,9 @@ def build_review_agent_tools(
             return f"{path} has no diff lines in requested range {start}-{end}."
         return _clip_tool_output(f"{path} diff:{start}-{end}\n" + "\n".join(lines[start - 1 : end]))
 
-    def read_pr_conversation(review_number=None) -> str:
-        """Read prior reviews of this PR in full, plus the human discussion on it."""
-        selected = {
-            "reviews": [r for r in review_history.get("reviews") or [] if review_number in (None, r["number"])],
-            "responses": review_history.get("responses"),
-        }
-        parts = [_format_review_history(selected) or f"No prior review {review_number}."]
+    def read_pr_conversation() -> str:
+        """Read every prior review of this PR in full, plus the discussion on it."""
+        parts = [_format_review_history(review_history)]
         if event and (pr_number := (event.pr or {}).get("number")) and not discussion:
             url = f"{GITHUB_API_URL}/repos/{event.repository}/issues/{pr_number}/comments"
             response = event.get(url, params={"per_page": 100})
@@ -306,18 +302,11 @@ def build_review_agent_tools(
             "type": "function",
             "name": "read_pr_conversation",
             "description": (
-                "Read your earlier reviews of this PR in full - their summaries, inline findings, and the replies "
+                "Read every earlier review of this PR in full - their summaries, inline findings, and the replies "
                 "to them - plus the PR discussion comments. Use this before repeating, contradicting, or "
                 "reversing an earlier finding, and whenever the PRIOR REVIEWS excerpt in the prompt is truncated."
             ),
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "review_number": {"type": ["integer", "null"], "description": "One prior review number, or null."},
-                },
-                "required": ["review_number"],
-                "additionalProperties": False,
-            },
+            "parameters": {"type": "object", "properties": {}, "required": [], "additionalProperties": False},
             "strict": True,
         },
         {
