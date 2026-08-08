@@ -1,0 +1,95 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+name: Claude Dispatcher
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Target repo (owner/name)"
+        required: true
+      prompt:
+        description: "Task to implement"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.sha.outputs.value }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.repo }}
+          token: ${{ secrets._GITHUB_TOKEN }}
+          persist-credentials: false
+
+      - id: sha
+        run: echo "value=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - run: mv .git "$RUNNER_TEMP/git"
+
+      - run: npm install -g @anthropic-ai/claude-code@2.1.218
+
+      - name: Run Claude
+        env:
+          CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          PROMPT: ${{ inputs.prompt }}
+        run: |
+          unset ANTHROPIC_API_KEY
+          claude -p "Implement this task without committing, pushing, or opening a PR: $PROMPT" \
+            --safe-mode \
+            --allowedTools "Read,Edit,Write,Glob,Grep" \
+            --disallowedTools "Bash" "Edit(/.git/**)" "Read(//proc/**)" "Read(~/.claude/**)"
+
+      - name: Create patch
+        run: |
+          [ ! -e .git ] || mv .git "$RUNNER_TEMP/untrusted-git"
+          mv "$RUNNER_TEMP/git" .git
+          git add -A
+          git diff --cached --binary > "$RUNNER_TEMP/changes.patch"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: changes
+          path: ${{ runner.temp }}/changes.patch
+
+  pull-request:
+    needs: dispatch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: ${{ inputs.repo }}
+          token: ${{ secrets._GITHUB_TOKEN }}
+          persist-credentials: false
+          ref: ${{ needs.dispatch.outputs.sha }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: changes
+          path: ${{ runner.temp }}
+
+      - name: Open pull request
+        env:
+          GH_TOKEN: ${{ secrets._GITHUB_TOKEN }}
+          REPO: ${{ inputs.repo }}
+          PROMPT: ${{ inputs.prompt }}
+        run: |
+          if [ ! -s "$RUNNER_TEMP/changes.patch" ]; then
+            exit 0
+          fi
+          BRANCH="claude/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          TITLE="$(printf '%s' "$PROMPT" | tr '\n' ' ' | cut -c1-100)"
+          git config user.name "UltralyticsAssistant"
+          git config user.email "web@ultralytics.com"
+          git switch -c "$BRANCH"
+          git apply --index "$RUNNER_TEMP/changes.patch"
+          git commit -m "Claude: $TITLE"
+          gh auth setup-git
+          git push origin "$BRANCH"
+          gh pr create --repo "$REPO" --head "$BRANCH" --title "Claude: $TITLE" --body "$PROMPT"
