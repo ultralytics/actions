@@ -5,7 +5,18 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from actions import first_interaction, review_pr
-from actions.first_interaction import get_event_content, get_first_interaction_response
+from actions.first_interaction import get_event_content, get_first_interaction_response, get_pr_first_comment_template
+
+
+def test_pr_first_comment_preserves_contributor_guidance():
+    """Test PR acknowledgments retain the complete contributor checklist and links."""
+    comment = get_pr_first_comment_template("owner/repo", "contributor")
+
+    assert comment.count("- ✅") == 7
+    assert "[Continuous Integration (CI)](https://docs.ultralytics.com/help/CI)" in comment
+    assert "[Contributor License Agreement](https://docs.ultralytics.com/help/CLA)" in comment
+    assert "[Contributing Guide](https://docs.ultralytics.com/help/contributing)" in comment
+    assert "Bruce Lee" in comment
 
 
 def test_get_event_content_issue():
@@ -83,7 +94,7 @@ def test_get_event_content_pr():
 def test_open_pr_review_description(mock_action, mock_content, mock_response, mock_review, body, expected):
     """Test automatic reviews use the best available author and generated description context."""
     mock_content.return_value = (456, "node456", "Test PR", body, "testuser", "pull request", "opened")
-    mock_response.return_value = {"summary": "Generated summary", "labels": [], "first_comment": ""}
+    mock_response.return_value = {"summary": "Generated summary", "labels": []}
     event = mock_action.return_value
     event.should_skip_llm.return_value = False
     event.should_skip_pr_author.return_value = False
