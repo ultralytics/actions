@@ -42,14 +42,13 @@ def label_fixed_issues(event, pr_summary):
     if not data:
         return None
 
-    title = data.get("title") or "merged pull request"
     credit = f" by {pr_credit}" if pr_credit else ""
     synopsis = ""
     if "### 🌟 Summary" in pr_summary and "### 📊 Key Changes" in pr_summary:
         synopsis = pr_summary.split("### 🌟 Summary", 1)[1].split("### 📊 Key Changes", 1)[0].strip()
     details = f"\n\n{synopsis}" if synopsis else ""
     comment = (
-        f"A potential fix is now available in [{title}]({data['url']}){credit}.{details}\n\n"
+        f"A potential fix is now available in the [merged pull request]({data['url']}){credit}.{details}\n\n"
         "Please test the merged change using "
         "this repository's documented workflow. If the issue persists, "
         "share the updated behavior and any new diagnostic details. Thank you for reporting it! 🙏"

@@ -31,7 +31,7 @@ def test_label_fixed_issues_posts_repository_neutral_comment():
     summary = "## 🛠️ PR Summary\n\n### 🌟 Summary\nFixed launch handling.\n\n### 📊 Key Changes\n- Safer startup"
     assert label_fixed_issues(event, summary) == "@testuser"
     comment = event.post.call_args_list[1].kwargs["json"]["body"]
-    assert "[Fix launch crash](https://github.com/owner/swift-app/pull/123)" in comment
+    assert "[merged pull request](https://github.com/owner/swift-app/pull/123)" in comment
     assert "documented workflow" in comment
     assert "Fixed launch handling." in comment
     assert all(term not in comment for term in ("pip", "PyPI", "@main"))
