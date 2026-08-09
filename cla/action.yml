@@ -16,7 +16,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: ultralytics/actions/setup-uv@main
+    - uses: astral-sh/setup-uv@v9.0.0
 
     - name: Check CLA
       env:

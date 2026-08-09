@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import os
-import time
 
 from . import review_pr
 from .summarize_pr import SUMMARY_MARKER
 from .utils import (
     ACTIONS_CREDIT,
+    GITHUB_API_URL,
     Action,
     filter_labels,
     format_skipped_files_dropdown,
@@ -18,6 +18,8 @@ from .utils import (
 )
 
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
+AUTO_LABELS = os.getenv("LABELS", "true").lower() == "true"
+AUTO_PR_SUMMARY = os.getenv("SUMMARY", "true").lower() == "true"
 AUTO_PR_REVIEW = os.getenv("REVIEW", "true").lower() == "true"
 
 
@@ -31,7 +33,7 @@ def apply_and_check_labels(event, number, node_id, issue_type, username, labels,
     if normalized := [available.get(label.lower(), label) for label in labels if label.lower() in available]:
         print(f"Applying labels: {normalized}")
         event.apply_labels(number, node_id, normalized, issue_type)
-        if "Alert" in normalized and not event.is_org_member(username):
+        if any(label.lower() == "alert" for label in normalized) and not event.is_org_member(username):
             event.handle_alert(number, node_id, issue_type, username, block=BLOCK_USER)
 
 
@@ -44,8 +46,7 @@ def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
         item = data["issue"]
         issue_type = "issue"
     elif name in ["pull_request", "pull_request_target"]:
-        pr_number = data["pull_request"]["number"]
-        item = event.get_repo_data(f"pulls/{pr_number}")
+        item = data["pull_request"]
         issue_type = "pull request"
     elif name == "discussion":
         item = data["discussion"]
@@ -61,102 +62,54 @@ def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
     return number, node_id, title, body, username, issue_type, action
 
 
-def get_relevant_labels(
-    issue_type: str, title: str, body: str, available_labels: dict, current_labels: list
-) -> list[str]:
-    """Determines relevant labels for GitHub issues/discussions using AI."""
-    filtered_labels = filter_labels(available_labels, current_labels, is_pr=(issue_type == "pull request"))
+def get_first_interaction_response(
+    event,
+    issue_type: str,
+    title: str,
+    body: str,
+    username: str,
+    available_labels: dict,
+    current_labels: list,
+    repository_context: str,
+) -> dict:
+    """Generate labels and a first response for an issue or discussion in one LLM call."""
+    issue_discussion_response = f"""
+👋 Thanks @{username} for opening this `{event.repository}` {issue_type}. This is an automated first response; an Ultralytics engineer will assist soon.
+"""
+
+    configured_example = os.getenv("FIRST_ISSUE_RESPONSE")
+    example = configured_example or issue_discussion_response
+    org_name, repo_name = event.repository.split("/")
+    filtered_labels = filter_labels(available_labels, current_labels)
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
 
-    prompt = f"""Select the top 1-3 most relevant labels for the following GitHub {issue_type}.
-
-INSTRUCTIONS:
-1. Review the {issue_type} title and description.
-2. Consider the available labels and their descriptions.
-3. Choose 1-3 labels that best match the {issue_type} content.
-4. Only use the "Alert" label when you have high confidence that this is an inappropriate {issue_type}.
-5. Respond ONLY with the chosen label names (no descriptions), separated by commas.
-6. If no labels are relevant, respond with 'None'.
-{'7. Only use the "bug" label if the user provides a clear description of the bug, their environment with relevant package versions and a minimum reproducible example.' if issue_type == "issue" else ""}
-
-AVAILABLE LABELS:
-{labels_str}
-
-{issue_type.upper()} TITLE:
-{title}
-
-{issue_type.upper()} DESCRIPTION:
-{body[:16000]}
-
-YOUR RESPONSE (label names only):
-"""
-    messages = [
-        {
-            "role": "system",
-            "content": "You are an Ultralytics AI assistant that labels GitHub issues, PRs, and discussions.",
-        },
-        {"role": "user", "content": prompt},
-    ]
-    suggested_labels = get_response(messages, temperature=1.0)
-    if "none" in suggested_labels.lower():
-        return []
-
-    available_labels_lower = {name.lower(): name for name in filtered_labels}
-    return [
-        available_labels_lower[label.lower().strip()]
-        for label in suggested_labels.split(",")
-        if label.lower().strip() in available_labels_lower
-    ]
-
-
-def get_first_interaction_response(event, issue_type: str, title: str, body: str, username: str) -> str:
-    """Generates a custom LLM response for GitHub issues or discussions (NOT PRs - PRs use unified call)."""
-    issue_discussion_response = f"""
-👋 Hello @{username}, thank you for submitting a `{event.repository}` 🚀 {issue_type.capitalize()}. To help us address your concern efficiently, please ensure you've provided the following information:
-
-1. For bug reports:
-   - A clear and concise description of the bug
-   - A minimum reproducible example [MRE](https://docs.ultralytics.com/help/minimum-reproducible-example/) that demonstrates the issue
-   - Your environment details (OS, Python version, package versions)
-   - Expected behavior vs. actual behavior
-   - Any error messages or logs related to the issue
-
-2. For feature requests:
-   - A clear and concise description of the proposed feature
-   - The problem this feature would solve
-   - Any alternative solutions you've considered
-
-3. For questions:
-   - Provide as much context as possible about your question
-   - Include any research you've already done on the topic
-   - Specify which parts of the [documentation](https://docs.ultralytics.com/), if any, you've already consulted
-
-Please make sure you've searched existing {issue_type}s to avoid duplicates. If you need to add any additional information, please comment on this {issue_type}.
-
-Thank you for your contribution to improving our project!
-"""
-
-    example = os.getenv("FIRST_ISSUE_RESPONSE") or issue_discussion_response
-    org_name, repo_name = event.repository.split("/")
-
-    prompt = f"""Generate a customized response to the new GitHub {issue_type} below:
+    prompt = f"""Process the new GitHub {issue_type} below and return labels plus a first response.
 
 CONTEXT:
 - Repository: {repo_name}
 - Organization: {org_name}
-- Repository URL: https://github.com/{event.repository}
+- Repository metadata: {repository_context or "No additional metadata provided."}
 - User: {username}
 
-INSTRUCTIONS:
-- Do not answer the question or resolve the issue directly
-- Adapt the example {issue_type} response below as appropriate, keeping all badges, links and references provided
-- For bug reports, specifically request a minimum reproducible example (MRE) if not provided
-- INCLUDE ALL LINKS AND INSTRUCTIONS IN THE EXAMPLE BELOW, customized as appropriate
-- Mention to the user that this is an automated response and that an Ultralytics engineer will also assist soon
-- Do not add a sign-off or valediction like "best regards" at the end of your response
-- Do not add spaces between bullet points or numbered lists
-- Only link to files or URLs in the example below, do not add external links
-- Use a few emojis to enliven your response
+LABELS:
+- Select 0-3 labels only from the available names below; descriptions are authoritative
+- Use Alert only with high confidence for spam, abuse, or illegal content
+- Use bug only when the report describes concrete incorrect behavior with enough evidence to investigate; do not require a particular language, package manager, or reproduction format
+- Do not repeat a current label or guess from the repository name alone
+
+AVAILABLE LABELS:
+{labels_str}
+
+FIRST RESPONSE:
+- Acknowledge the concrete request or failure in the opening sentence without merely restating the title
+- Ask only for specific information that is materially missing; do not repeat a generic checklist or request details already supplied
+- For bugs, missing evidence may include minimal reproduction steps, observed and expected behavior, relevant environment/toolchain/dependency versions, and focused logs
+- For feature requests, ask at most one question that would materially change scope or behavior
+- Do not diagnose a cause or claim a resolution without evidence
+- Stay repository- and technology-aware; never assume Python, pip, PyPI, a branch name, or a release process
+- State that this is automated and an Ultralytics engineer will assist soon
+- {"Use the configured example as authoritative repository guidance; retain only instructions and links relevant to this report, and condense repetition" if configured_example else "Use at most 140 words"}
+- Do not add a heading, sign-off, or external links not present in the configured example
 
 EXAMPLE {issue_type.upper()} RESPONSE:
 {example}
@@ -167,7 +120,7 @@ EXAMPLE {issue_type.upper()} RESPONSE:
 {issue_type.upper()} DESCRIPTION:
 {body[:16000]}
 
-YOUR {issue_type.upper()} RESPONSE:
+Return the labels and final comment only.
 """
     messages = [
         {
@@ -176,7 +129,24 @@ YOUR {issue_type.upper()} RESPONSE:
         },
         {"role": "user", "content": prompt},
     ]
-    return get_response(messages)
+    schema = {
+        "type": "object",
+        "properties": {
+            "labels": {"type": "array", "items": {"type": "string"}},
+            "first_comment": {"type": "string"},
+        },
+        "required": ["labels", "first_comment"],
+        "additionalProperties": False,
+    }
+    response = get_response(
+        messages,
+        text_format={"format": {"type": "json_schema", "name": "first_interaction", "strict": True, "schema": schema}},
+    )
+    available = {name.lower(): name for name in filtered_labels}
+    response["labels"] = [
+        available[label.lower()] for label in response.get("labels", []) if label.lower() in available
+    ]
+    return response
 
 
 def main(*args, **kwargs):
@@ -186,32 +156,67 @@ def main(*args, **kwargs):
         return
 
     number, node_id, title, body, username, issue_type, action = get_event_content(event)
-    available_labels = event.get_repo_data("labels")
+    if issue_type == "pull request" and action == "opened" and event.should_skip_pr_author():
+        return
+    if issue_type != "pull request" and action not in {"opened", "created"}:
+        return
+
+    available_labels = (
+        event.paginate(f"{GITHUB_API_URL}/repos/{event.repository}/labels", hard=True) if AUTO_LABELS else []
+    )
     label_descriptions = {label["name"]: label.get("description") or "" for label in available_labels}
+    repository_data = event.event_data.get("repository", {})
+    repository_context = "; ".join(
+        str(value)
+        for value in (
+            repository_data.get("description"),
+            f"primary language: {repository_data['language']}" if repository_data.get("language") else None,
+            f"default branch: {repository_data['default_branch']}" if repository_data.get("default_branch") else None,
+        )
+        if value
+    )
 
     # Use unified PR open response for new PRs (summary + labels + first comment in 1 API call)
     if issue_type == "pull request" and action == "opened":
-        if event.should_skip_pr_author():
-            return
+        if AUTO_PR_SUMMARY or AUTO_LABELS:
+            print(f"Processing PR open by @{username} with unified API call...")
+            diff = event.get_pr_diff()
+            response = get_pr_open_response(
+                event.repository,
+                diff,
+                title,
+                username,
+                label_descriptions,
+                body,
+                repository_context,
+                summarize=AUTO_PR_SUMMARY,
+                acknowledge=AUTO_LABELS,
+                current_labels=[label["name"] for label in event.pr.get("labels", [])],
+            )
 
-        print(f"Processing PR open by @{username} with unified API call...")
-        diff = event.get_pr_diff()
-        response = get_pr_open_response(event.repository, diff, title, username, label_descriptions)
+            if AUTO_PR_SUMMARY and (summary := response.get("summary")):
+                print("Updating PR description with summary...")
+                skipped_dropdown = format_skipped_files_dropdown(response.get("skipped_files", []))
+                event.update_pr_description(
+                    number,
+                    f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}{skipped_dropdown}",
+                )
+                if sum(not char.isspace() for char in body) < 30:
+                    body = f"{body.rstrip()}\n\n{summary}".lstrip()
 
-        if summary := response.get("summary"):
-            print("Updating PR description with summary...")
-            skipped_dropdown = format_skipped_files_dropdown(response.get("skipped_files", []))
-            event.update_pr_description(number, f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}{skipped_dropdown}")
-            if sum(not char.isspace() for char in body) < 30:
-                body = f"{body.rstrip()}\n\n{summary}".lstrip()
-
-        if relevant_labels := response.get("labels", []):
-            apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
-
-        if first_comment := response.get("first_comment"):
-            print("Adding first interaction comment...")
-            time.sleep(1)  # sleep to ensure label added first
-            event.add_comment(number, node_id, first_comment, issue_type)
+            if AUTO_LABELS:
+                apply_and_check_labels(
+                    event,
+                    number,
+                    node_id,
+                    issue_type,
+                    username,
+                    response.get("labels", []),
+                    label_descriptions,
+                )
+                if first_comment := response.get("first_comment"):
+                    print("Adding first interaction comment...")
+                    event.add_comment(number, node_id, first_comment, issue_type)
 
         # Automatic PR review after first interaction
         if AUTO_PR_REVIEW:
@@ -220,17 +225,13 @@ def main(*args, **kwargs):
         return
 
     # Handle issues and discussions (NOT PRs)
-    current_labels = (
-        []
-        if issue_type == "discussion"
-        else [label["name"].lower() for label in event.get_repo_data(f"issues/{number}/labels")]
+    item = event.event_data.get("issue", {}) if issue_type == "issue" else {}
+    current_labels = [label["name"].lower() for label in item.get("labels", [])]
+    response = get_first_interaction_response(
+        event, issue_type, title, body, username, label_descriptions, current_labels, repository_context
     )
-
-    relevant_labels = get_relevant_labels(issue_type, title, body, label_descriptions, current_labels)
-    apply_and_check_labels(event, number, node_id, issue_type, username, relevant_labels, label_descriptions)
-
-    if action in {"opened", "created"}:
-        custom_response = get_first_interaction_response(event, issue_type, title, body, username)
+    apply_and_check_labels(event, number, node_id, issue_type, username, response.get("labels", []), label_descriptions)
+    if custom_response := response.get("first_comment"):
         event.add_comment(number, node_id, custom_response, issue_type)
 
 

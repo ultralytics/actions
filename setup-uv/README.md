@@ -1,6 +1,6 @@
 # Setup uv Action
 
-Installs the latest [uv](https://docs.astral.sh/uv/) release with retry support and optionally activates a Python virtual environment.
+Provides Ultralytics defaults for the official [uv setup action](https://github.com/astral-sh/setup-uv), with optional Python environment activation and dependency caching.
 
 ## Usage
 

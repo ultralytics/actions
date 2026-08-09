@@ -27,16 +27,17 @@ from .utils.openai_utils import _is_anthropic_model
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
-MAX_CONTEXT_FILE_CHARS = 5000
+MAX_CONTEXT_FILE_CHARS = 12000
 MAX_REVIEW_COMMENTS = 8
-MAX_TOOL_OUTPUT_CHARS = 20000
-MAX_TOOL_FILE_LINES = 240
-MAX_AGENT_TURNS = 16
+MAX_TOOL_OUTPUT_CHARS = 40000
+MAX_TOOL_FILE_LINES = 400
+MAX_AGENT_TURNS = 24
+REVIEW_PROMPT_CHARS = round(MAX_PROMPT_CHARS * 1.5)  # reviews favor evidence depth over one-shot cost
 MAX_HISTORY_REVIEWS = 5  # prior reviews included in the prompt (the full history stays available via the tool)
 MAX_HISTORY_ITEM_CHARS = 8000  # per prior review or response, enough for a full summary plus its findings log
 MAX_HISTORY_CHARS = 20000
 MAX_FINDING_LOG_CHARS = 500  # per finding logged in the review body, the record that outlives its inline comment
-REVIEW_COST_SOFT_LIMIT = 2.00  # stop requesting tools after cumulative spend reaches this amount
+REVIEW_COST_SOFT_LIMIT = 5.00  # quality-first budget; stop requesting tools after this soft limit
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
 
 
@@ -535,7 +536,7 @@ def generate_pr_review(
                 snippet = f"{snippet.rstrip()}\n... (truncated)"
             # Only include if within budget, include buffer for Markdown noise
             estimated_cost = len(snippet) + 200
-            if total_chars + estimated_cost >= MAX_PROMPT_CHARS:
+            if total_chars + estimated_cost >= REVIEW_PROMPT_CHARS:
                 break  # Stop when we hit budget limit
             file_contents.append(f"### {file_path}\n```\n{snippet}\n```")
             total_chars += estimated_cost
@@ -543,7 +544,9 @@ def generate_pr_review(
             full_files_section = f"FULL FILE CONTENTS:\n{chr(10).join(file_contents)}\n\n"
 
     # Calculate remaining budget for diff and check if truncation needed
-    diff_budget = max(1000, MAX_PROMPT_CHARS - len(guidelines_section) - len(full_files_section) - len(history_section))
+    diff_budget = max(
+        1000, REVIEW_PROMPT_CHARS - len(guidelines_section) - len(full_files_section) - len(history_section)
+    )
     diff_truncated = len(augmented_diff) > diff_budget
     is_large_pr = diff_truncated or len(file_list) > 30
     if is_agent_review_model:  # must match the get_agent_response fallback gate
@@ -596,21 +599,23 @@ def generate_pr_review(
     content = (
         "You are an expert code reviewer for Ultralytics. Review code changes and provide inline comments ONLY for genuine issues.\n\n"
         "WHEN TO COMMENT (priority order):\n"
-        "- Bugs and logic errors that will cause failures\n"
-        "- Performance issues with measurable impact\n"
-        "- Code best practices and maintainability\n"
-        "- Missing error handling for likely failure cases\n"
-        "- Security issues (only obvious vulnerabilities, not speculative)\n\n"
+        "- Security vulnerabilities, data loss, corruption, or irreversible behavior\n"
+        "- Bugs, broken contracts, race conditions, and compatibility regressions with a concrete failure path\n"
+        "- Performance regressions with a plausible workload and measurable impact\n"
+        "- Maintainability only when the change creates demonstrated duplication, conflicting owners, or unreachable behavior\n\n"
         "WHEN NOT TO COMMENT:\n"
         "- Style/formatting (handled by ruff/prettier)\n"
         "- Minor naming preferences\n"
-        "- 'Consider using X' without clear benefit\n"
+        "- Generic best practices, defensive guards for impossible states, or 'consider using X' without a concrete defect\n"
+        "- Missing tests unless a high-risk regression path is uncovered and existing coverage does not exercise it\n"
         "- Issues in unchanged context lines\n\n"
         f"{visibility_section}"
         f"{continuity_section}"
         "QUALITY OVER QUANTITY:\n"
         "- Zero comments is valid for clean PRs: never invent an issue, never withhold an evidence-backed one\n"
-        "- Each comment must be actionable with clear reasoning\n"
+        "- Before commenting, trace the changed value or control flow through its owner, callers, and tests; use repository tools when the diff alone cannot prove the claim\n"
+        "- Each comment must identify the triggering scenario, resulting incorrect behavior, and smallest owner-level correction\n"
+        "- Severity: CRITICAL enables compromise or broad irreversible loss; HIGH breaks a core path or loses data; MEDIUM breaks a realistic edge path; LOW is a bounded defect; SUGGESTION is non-blocking\n"
         "- Combine related issues into one comment\n"
         f"- Hard cap: {MAX_REVIEW_COMMENTS} comments maximum\n\n"
         "SUGGESTIONS:\n"
@@ -619,7 +624,7 @@ def generate_pr_review(
         "- Single-line fixes only: provide 'suggestion' without 'start_line' to replace the line at 'line'\n"
         "- Match the exact indentation of the original code\n"
         "- Avoid triple backticks (```) in suggestions as they break Markdown formatting\n\n"
-        "SUMMARY: brief overall assessment of what's good and what needs attention; say so plainly when the PR is clean.\n\n"
+        "SUMMARY: state the reviewed scope, the behavioral verdict, and any remaining risk in concise prose; say LGTM plainly when the PR is clean.\n\n"
         "DIFF LINE FORMAT (how to read line numbers):\n"
         '  R  123 +code here      <- \'R\' means RIGHT (new file), number is 123, use {"line": 123, "side": "RIGHT"}\n'
         '  L   45 -code here      <- \'L\' means LEFT (old file), number is 45, use {"line": 45, "side": "LEFT"}\n'
@@ -642,7 +647,7 @@ def generate_pr_review(
             "content": (
                 f"Review this PR in https://github.com/{repository}:\n\n"
                 f"TITLE:\n{pr_title}\n\n"
-                f"BODY:\n{remove_html_comments(pr_description or '')[:1000]}\n\n"
+                f"BODY:\n{remove_html_comments(pr_description or '')[:8000]}\n\n"
                 f"{guidelines_section}"
                 f"{history_section}"
                 f"{full_files_section}"

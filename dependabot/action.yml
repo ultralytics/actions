@@ -29,24 +29,17 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: ultralytics/actions/setup-uv@main
+    - uses: astral-sh/setup-uv@v9.0.0
 
     - name: Install ultralytics-actions
       env:
-        GITHUB_REPOSITORY: ${{ github.repository }}
-        GITHUB_SHA: ${{ github.sha }}
+        ACTION_PATH: ${{ github.action_path }}/..
       run: |
         echo "::group::Install ultralytics-actions"
-        if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
-          echo "Installing from commit: $GITHUB_SHA"
-          packages="https://github.com/ultralytics/actions/archive/${GITHUB_SHA}.tar.gz"
-        else
-          packages="https://github.com/ultralytics/actions/archive/refs/heads/main.tar.gz"
-        fi
         if [ "$(uname)" = "Darwin" ]; then
-          uv pip install --system --break-system-packages $packages
+          uv pip install --system --break-system-packages "$ACTION_PATH"
         else
-          sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
+          sudo env "PATH=$PATH" uv pip install --system --break-system-packages "$ACTION_PATH"
         fi
         echo "::endgroup::"
       shell: bash

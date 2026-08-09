@@ -5,7 +5,7 @@ from unittest.mock import MagicMock, call, patch
 import pytest
 
 from actions import first_interaction, review_pr
-from actions.first_interaction import get_event_content, get_first_interaction_response, get_relevant_labels
+from actions.first_interaction import get_event_content, get_first_interaction_response
 
 
 def test_get_event_content_issue():
@@ -40,15 +40,15 @@ def test_get_event_content_pr():
     # Create mock event
     mock_event = MagicMock()
     mock_event.event_name = "pull_request"
-    mock_event.event_data = {"action": "opened", "pull_request": {"number": 456}}
-
-    # Mock PR data returned from API
-    mock_event.get_repo_data.return_value = {
-        "number": 456,
-        "node_id": "node456",
-        "title": "Test PR",
-        "body": "PR description",
-        "user": {"login": "testuser"},
+    mock_event.event_data = {
+        "action": "opened",
+        "pull_request": {
+            "number": 456,
+            "node_id": "node456",
+            "title": "Test PR",
+            "body": "PR description",
+            "user": {"login": "testuser"},
+        },
     }
 
     number, node_id, title, body, username, issue_type, action = get_event_content(mock_event)
@@ -60,6 +60,7 @@ def test_get_event_content_pr():
     assert username == "testuser"
     assert issue_type == "pull request"
     assert action == "opened"
+    mock_event.get_repo_data.assert_not_called()
 
 
 @patch("actions.first_interaction.review_pr.run_review")
@@ -86,7 +87,8 @@ def test_open_pr_review_description(mock_action, mock_content, mock_response, mo
     event = mock_action.return_value
     event.should_skip_llm.return_value = False
     event.should_skip_pr_author.return_value = False
-    event.get_repo_data.return_value = []
+    event.paginate.return_value = []
+    event.pr = {"body": body}
     event.get_pr_diff.return_value = "diff"
     event.get_pr_diff_snapshot.return_value = ("review diff", "headsha")
 
@@ -96,42 +98,33 @@ def test_open_pr_review_description(mock_action, mock_content, mock_response, mo
 
 
 @patch("actions.first_interaction.get_response")
-def test_get_relevant_labels(mock_get_response):
-    """Test getting relevant labels for an issue."""
-    mock_get_response.return_value = "bug, enhancement"
-
-    available_labels = {
-        "bug": "A bug in the software",
-        "enhancement": "New feature or request",
-        "documentation": "Improvements to documentation",
-    }
-
-    labels = get_relevant_labels(
-        issue_type="issue",
-        title="Bug: App crashes on startup",
-        body="The application crashes when started",
-        available_labels=available_labels,
-        current_labels=[],
-    )
-
-    assert labels == ["bug", "enhancement"]
-    mock_get_response.assert_called_once()
-
-
-@patch("actions.first_interaction.get_response")
 def test_get_first_interaction_response(mock_get_response):
-    """Test generating first interaction response."""
-    mock_get_response.return_value = "Thank you for your issue"
+    """Test labels and first response share one structured model call."""
+    mock_get_response.return_value = {
+        "labels": ["BUG", "not-a-label"],
+        "first_comment": "Thank you for your issue",
+    }
 
     mock_event = MagicMock()
     mock_event.repository = "test/repo"
 
     response = get_first_interaction_response(
-        event=mock_event, issue_type="issue", title="Test Issue", body="Issue description", username="testuser"
+        event=mock_event,
+        issue_type="issue",
+        title="Test Issue",
+        body="Issue description",
+        username="testuser",
+        available_labels={"bug": "Something is broken"},
+        current_labels=[],
+        repository_context="A test repository; primary language: Rust",
     )
 
-    assert response == "Thank you for your issue"
+    assert response == {"labels": ["bug"], "first_comment": "Thank you for your issue"}
     mock_get_response.assert_called_once()
+    assert mock_get_response.call_args.kwargs["text_format"]["format"]["type"] == "json_schema"
+    prompt = mock_get_response.call_args.args[0][1]["content"]
+    assert "primary language: Rust" in prompt
+    assert "never assume Python, pip, PyPI" in prompt
 
 
 @patch("actions.review_pr._verified_local_checkout", return_value=True)
