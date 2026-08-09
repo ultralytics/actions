@@ -36,10 +36,12 @@ runs:
         ACTION_PATH: ${{ github.action_path }}/..
       run: |
         echo "::group::Install ultralytics-actions"
+        package_dir=$(mktemp -d "$RUNNER_TEMP/ultralytics-actions.XXXXXX")
+        uv build --wheel "$ACTION_PATH" --out-dir "$package_dir"
         if [ "$(uname)" = "Darwin" ]; then
-          uv pip install --system --break-system-packages "$ACTION_PATH"
+          uv pip install --system --break-system-packages "$package_dir"/*.whl
         else
-          sudo env "PATH=$PATH" uv pip install --system --break-system-packages "$ACTION_PATH"
+          sudo env "PATH=$PATH" uv pip install --system --break-system-packages "$package_dir"/*.whl
         fi
         echo "::endgroup::"
       shell: bash

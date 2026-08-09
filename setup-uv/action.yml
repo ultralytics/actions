@@ -29,3 +29,4 @@ runs:
         activate-environment: ${{ inputs.activate-environment }}
         enable-cache: ${{ inputs.enable-cache }}
         cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
+        ignore-nothing-to-cache: true
