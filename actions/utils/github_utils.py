@@ -319,10 +319,10 @@ class Action:
         import time
 
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{number}"
-        description = self.get(url, hard=True).json().get("body") or ""
+        description = self.get(url).json().get("body") or ""
         for _ in range(max_retries if not description and not fallback_description else 0):
             time.sleep(1)
-            description = self.get(url, hard=True).json().get("body") or ""
+            description = self.get(url).json().get("body") or ""
             if description:
                 break
         description = description or fallback_description

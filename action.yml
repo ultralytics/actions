@@ -61,7 +61,7 @@ inputs:
   review:
     description: "Run PR Review"
     required: false
-    default: "true"
+    default: "false"
   header:
     description: "File header"
     required: false
@@ -107,7 +107,7 @@ runs:
       with:
         python-version: ${{ inputs.python-version }}
 
-    - uses: astral-sh/setup-uv@v9.0.0
+    - uses: ultralytics/actions/setup-uv@main
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
       env:
@@ -136,9 +136,9 @@ runs:
       if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize' || github.event.action == 'review_requested')
       uses: actions/checkout@v7
       with:
-        repository: ${{ github.event.pull_request.head.repo.full_name || github.repository }}
+        repository: ${{ github.event.pull_request.head.repo.full_name }}
         token: ${{ inputs.token }}
-        ref: ${{ github.head_ref || github.ref }}
+        ref: ${{ github.event.pull_request.head.ref }}
         fetch-depth: 2
 
     # File header ------------------------------------------------------------------------------------------------------
@@ -384,7 +384,7 @@ runs:
 
     # Broken links -----------------------------------------------------------------------------------------------------
     - name: Broken Link Checker
-      if: inputs.links == 'true' && github.event_name != 'pull_request_target' && github.event.action != 'closed'
+      if: inputs.links == 'true' && github.event_name == 'pull_request' && github.event.action != 'closed'
       uses: lycheeverse/lychee-action@v2.9.0
       with:
         # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:

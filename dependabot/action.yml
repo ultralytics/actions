@@ -29,7 +29,7 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: astral-sh/setup-uv@v9.0.0
+    - uses: ultralytics/actions/setup-uv@main
 
     - name: Install ultralytics-actions
       env:
