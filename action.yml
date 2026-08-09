@@ -113,17 +113,12 @@ runs:
       env:
         INPUTS_SPELLING: ${{ inputs.spelling }}
         ACTION_PATH: ${{ github.action_path }}
-        GITHUB_EVENT_NAME: ${{ github.event_name }}
       run: |
         echo "::group::Install Dependencies"
         trap 'echo "::endgroup::"' EXIT
-        if [ "$GITHUB_EVENT_NAME" = "pull_request_target" ]; then
-          packages=("https://github.com/ultralytics/actions/archive/refs/heads/main.tar.gz")
-        else
-          package_dir=$(mktemp -d "$RUNNER_TEMP/ultralytics-actions.XXXXXX")
-          uv build --wheel "$ACTION_PATH" --out-dir "$package_dir"
-          packages=("$package_dir"/*.whl)
-        fi
+        package_dir=$(mktemp -d "$RUNNER_TEMP/ultralytics-actions.XXXXXX")
+        uv build --wheel "$ACTION_PATH" --out-dir "$package_dir"
+        packages=("$package_dir"/*.whl)
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages+=(codespell tomli)
         fi
