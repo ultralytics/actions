@@ -678,10 +678,9 @@ def get_pr_open_response(
     description: str = "",
     repository_context: str = "",
     summarize: bool = True,
-    acknowledge: bool = True,
     current_labels: list | None = None,
 ) -> dict:
-    """Generates unified PR response with summary, labels, and first comment in a single API call."""
+    """Generate a PR summary and labels in a single API call."""
     filtered_diff, skipped_files = filter_diff_text(diff_text)
     is_large = len(filtered_diff) > MAX_PROMPT_CHARS
 
@@ -728,7 +727,6 @@ Generate 2 outputs in a single JSON response for the PR titled '{title}' with th
         temperature=1.0,
         text_format={"format": {"type": "json_schema", "name": "pr_open_response", "strict": True, "schema": schema}},
     )
-    result["first_comment"] = get_pr_first_comment_template(repository, username) if acknowledge else ""
     if is_large and "summary" in result:
         result["summary"] = (
             "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + result["summary"]

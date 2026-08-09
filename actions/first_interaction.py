@@ -12,6 +12,7 @@ from .utils import (
     Action,
     filter_labels,
     format_skipped_files_dropdown,
+    get_pr_first_comment_template,
     get_pr_open_response,
     get_response,
     remove_html_comments,
@@ -194,7 +195,6 @@ def main(*args, **kwargs):
                 body,
                 repository_context,
                 summarize=AUTO_PR_SUMMARY,
-                acknowledge=AUTO_LABELS,
                 current_labels=[label["name"] for label in event.pr.get("labels", [])],
             )
 
@@ -219,9 +219,10 @@ def main(*args, **kwargs):
                     response.get("labels", []),
                     label_descriptions,
                 )
-                if first_comment := response.get("first_comment"):
-                    print("Adding first interaction comment...")
-                    event.add_comment(number, node_id, first_comment, issue_type)
+                print("Adding first interaction comment...")
+                event.add_comment(
+                    number, node_id, get_pr_first_comment_template(event.repository, username), issue_type
+                )
 
         # Automatic PR review after first interaction
         if AUTO_PR_REVIEW:

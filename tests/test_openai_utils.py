@@ -15,6 +15,7 @@ from actions.utils.openai_utils import (
     _openai_usage_cost,
     _response_tool_calls,
     get_agent_response,
+    get_pr_first_comment_template,
     get_pr_open_response,
     get_response,
     get_review_model,
@@ -25,9 +26,9 @@ from actions.utils.openai_utils import (
 @patch("actions.utils.openai_utils.get_response", return_value={"summary": "", "labels": []})
 def test_pr_open_response_preserves_contributor_guidance(mock_get_response):
     """Test PR acknowledgments always retain the complete contributor checklist and links."""
-    response = get_pr_open_response("owner/repo", "diff", "Title", "contributor", {}, summarize=False)
+    get_pr_open_response("owner/repo", "diff", "Title", "contributor", {}, summarize=False)
 
-    comment = response["first_comment"]
+    comment = get_pr_first_comment_template("owner/repo", "contributor")
     assert comment.count("- ✅") == 7
     assert "[Continuous Integration (CI)](https://docs.ultralytics.com/help/CI)" in comment
     assert "[Contributor License Agreement](https://docs.ultralytics.com/help/CLA)" in comment
