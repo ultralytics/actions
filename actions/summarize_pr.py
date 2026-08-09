@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-from urllib.parse import urlparse
-
 from .utils import (
     ACTIONS_CREDIT,
     GITHUB_API_URL,
@@ -11,82 +9,15 @@ from .utils import (
     format_skipped_files_dropdown,
     get_pr_summary_prompt,
     get_response,
+    remove_html_comments,
 )
 
 SUMMARY_MARKER = "## 🛠️ PR Summary"
 
 
-def generate_merge_message(pr_summary, pr_credit, pr_url):
-    """Generates a motivating thank-you message for merged PR contributors."""
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are an Ultralytics AI assistant. Your response is posted verbatim as a GitHub "
-                "comment on a merged PR. Respond with ONLY the final comment body, ready to post. "
-                "Do not include preambles (e.g. 'Absolutely', 'Sure', 'Here's a comment'), "
-                "explanations, sign-offs, or horizontal-rule separators ('---')."
-            ),
-        },
-        {
-            "role": "user",
-            "content": (
-                f"Compose the thank-you comment for the merged PR {pr_url} by {pr_credit}. "
-                f"Context:\n{pr_summary}\n\n"
-                f"Start with an enthusiastic note about the merge, incorporate a relevant inspirational quote from a historical "
-                f"figure, and connect it to the PR's impact. Keep it concise yet meaningful, ensuring contributors feel valued."
-            ),
-        },
-    ]
-    return get_response(messages)
-
-
-def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
-    """Generates personalized issue comment based on PR context."""
-    # pr_url is the GraphQL PullRequest.url HTML URL (https://github.com/owner/repo/pull/N) in production;
-    # REST API URLs (https://api.github.com/repos/owner/repo/pulls/N) are also supported
-    parsed = urlparse(pr_url)
-    if "/repos/" in pr_url and "/pulls/" in pr_url:
-        repo_parts = pr_url.split("/repos/", 1)[1].split("/pulls/", 1)[0]
-    elif parsed.hostname == "github.com" and "/pull/" in parsed.path:
-        repo_parts = parsed.path.lstrip("/").split("/pull/", 1)[0]
-    else:
-        repo_parts = ""
-    owner_repo = repo_parts.split("/")
-    repo_name = owner_repo[-1] if len(owner_repo) > 1 else "package"
-
-    messages = [
-        {
-            "role": "system",
-            "content": (
-                "You are an Ultralytics AI assistant. Your response is posted verbatim as a GitHub "
-                "issue comment. Respond with ONLY the final comment body, ready to post. Do not "
-                "include preambles (e.g. 'Absolutely', 'Sure', 'Here's a comment'), explanations, "
-                "sign-offs, or horizontal-rule separators ('---'). No @ mentions or direct addressing."
-            ),
-        },
-        {
-            "role": "user",
-            "content": f"Compose a GitHub issue comment announcing a potential fix for this issue is now merged in linked PR {pr_url} by {pr_credit}\n\n"
-            f"PR Title: {pr_title}\n\n"
-            f"Context from PR:\n{pr_summary}\n\n"
-            f"Include:\n"
-            f"1. An explanation of key changes from the PR that may resolve this issue\n"
-            f"2. Credit to the PR author and contributors\n"
-            f"3. Options for testing if PR changes have resolved this issue:\n"
-            f"   - If the PR mentions a specific version number (like v8.0.0 or 3.1.0), include: pip install -U {repo_name}>=VERSION\n"
-            f"   - Also suggest: pip install git+https://github.com/{repo_parts}.git@main\n"
-            f"   - If appropriate, mention they can also wait for the next official PyPI release\n"
-            f"4. Request feedback on whether the PR changes resolve the issue\n"
-            f"5. Thank 🙏 for reporting the issue and welcome any further feedback if the issue persists\n\n",
-        },
-    ]
-    return get_response(messages)
-
-
-def generate_pr_summary(repository, diff_text):
+def generate_pr_summary(repository, diff_text, title="", description=""):
     """Generates a concise, professional summary of a PR using the OpenAI or Anthropic API."""
-    prompt, is_large, skipped_files = get_pr_summary_prompt(repository, diff_text)
+    prompt, is_large, skipped_files = get_pr_summary_prompt(repository, diff_text, title, description)
 
     messages = [
         {
@@ -108,10 +39,20 @@ def generate_pr_summary(repository, diff_text):
 def label_fixed_issues(event, pr_summary):
     """Labels issues closed by PR when merged, notifies users, and returns PR contributors."""
     pr_credit, data = event.get_pr_contributors()
-    if not pr_credit:
+    if not data:
         return None
 
-    comment = generate_issue_comment(data["url"], pr_summary, pr_credit, data.get("title") or "")
+    credit = f" by {pr_credit}" if pr_credit else ""
+    synopsis = ""
+    if "### 🌟 Summary" in pr_summary and "### 📊 Key Changes" in pr_summary:
+        synopsis = pr_summary.split("### 🌟 Summary", 1)[1].split("### 📊 Key Changes", 1)[0].strip()
+    details = f"\n\n{synopsis}" if synopsis else ""
+    comment = (
+        f"A potential fix is now available in the [merged pull request]({data['url']}){credit}.{details}\n\n"
+        "Please test the merged change using "
+        "this repository's documented workflow. If the issue persists, "
+        "share the updated behavior and any new diagnostic details. Thank you for reporting it! 🙏"
+    )
 
     for issue in data["closingIssuesReferences"]["nodes"]:
         number = issue["number"]
@@ -136,11 +77,14 @@ def main(*args, **kwargs):
 
     # Generate PR summary
     print("Generating PR summary...")
-    summary = generate_pr_summary(event.repository, diff)
+    description = (event.pr.get("body") or "").split(SUMMARY_MARKER)[0]
+    summary = generate_pr_summary(
+        event.repository, diff, event.pr.get("title") or "", remove_html_comments(description)
+    )
 
     # Update PR description
     print("Updating PR description...")
-    event.update_pr_description(event.pr["number"], summary)
+    event.update_pr_description(event.pr["number"], summary, fallback_description=event.pr.get("body") or "")
 
     if event.pr.get("merged"):
         print("PR is merged, labeling fixed issues...")
@@ -149,9 +93,9 @@ def main(*args, **kwargs):
         event.remove_labels(event.pr["number"], labels=("TODO",))
         if pr_credit:
             print("Posting PR author thank you message...")
-            pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{event.pr['number']}"
-            message = generate_merge_message(summary, pr_credit, pr_url)
-            event.add_comment(event.pr["number"], None, message, "pull request")
+            event.add_comment(
+                event.pr["number"], None, f"🚀 Merged! Thank you {pr_credit} for the contribution.", "pull request"
+            )
 
 
 if __name__ == "__main__":

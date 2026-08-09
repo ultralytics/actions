@@ -312,19 +312,20 @@ class Action:
             print(result.get("errors"))
         return result
 
-    def update_pr_description(self, number: int, new_summary: str, max_retries: int = 2):
-        """Updates PR description with summary, retrying if description is None."""
+    def update_pr_description(
+        self, number: int, new_summary: str, max_retries: int = 2, fallback_description: str = ""
+    ):
+        """Update a PR description with a summary while preserving its current body."""
         import time
 
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{number}"
-        description = ""
-        for i in range(max_retries + 1):
+        description = self.get(url).json().get("body") or ""
+        for _ in range(max_retries if not description and not fallback_description else 0):
+            time.sleep(1)
             description = self.get(url).json().get("body") or ""
             if description:
                 break
-            if i < max_retries:
-                print("No current PR description found, retrying...")
-                time.sleep(1)
+        description = description or fallback_description
 
         start = "## 🛠️ PR Summary"
         if start in description:
@@ -347,7 +348,7 @@ class Action:
 
     def apply_labels(self, number: int, node_id: str, labels: list[str], issue_type: str):
         """Applies specified labels to a GitHub issue, pull request, or discussion."""
-        if "Alert" in labels:
+        if any(label.lower() == "alert" for label in labels):
             self.create_alert_label()
 
         if issue_type == "discussion":

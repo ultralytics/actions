@@ -63,9 +63,9 @@ SYSTEM_PROMPT_ADDITION = """Guidance:
   - Markdown: Reply in Markdown format.
   - Links: Use descriptive anchor text for all URLs.
   - Code:
-    - Provide minimal code examples if helpful.
-    - Enclose code in backticks: `pip install ultralytics` for inline code or e.g. ```python for larger code blocks.
-    - Think and verify the argument names, methods, class and files used in your code examples for accuracy.
+    - Provide minimal code examples only when supported by the repository context.
+    - Use inline backticks or a fenced block with the repository's appropriate language.
+    - Verify argument names, methods, classes, files, package managers, and commands before including them.
   - Use the "@" symbol to refer to GitHub users, e.g. @glenn-jocher.
   - Tone: Adopt a professional, friendly, and concise tone.
 """
@@ -89,28 +89,30 @@ def remove_outer_codeblocks(string):
 
 def filter_labels(available_labels: dict, current_labels: list | None = None, is_pr: bool = False) -> dict:
     """Filters labels by removing manually-assigned and mutually exclusive labels, adding an Alert label if absent."""
-    current_labels = current_labels or []
-    filtered = available_labels.copy()
-
-    for label in (
+    current_labels = {label.lower() for label in (current_labels or [])}
+    excluded = {
         "help wanted",
-        "TODO",
+        "todo",
         "research",
         "non-reproducible",
         "popular",
         "invalid",
-        "Stale",
+        "stale",
         "wontfix",
         "duplicate",
-    ):
-        filtered.pop(label, None)
+    }
+    filtered = {
+        name: description
+        for name, description in available_labels.items()
+        if name.lower() not in excluded | current_labels
+    }
 
     if "bug" in current_labels:
-        filtered.pop("question", None)
+        filtered = {name: description for name, description in filtered.items() if name.lower() != "question"}
     elif "question" in current_labels:
-        filtered.pop("bug", None)
+        filtered = {name: description for name, description in filtered.items() if name.lower() != "bug"}
 
-    if "Alert" not in filtered:
+    if "alert" not in current_labels and not any(name.lower() == "alert" for name in filtered):
         filtered["Alert"] = (
             "Potential spam, abuse, or illegal activity including advertising, unsolicited promotions, malware, "
             "phishing, crypto offers, pirated software or media, free movie downloads, cracks, keygens or any other "
@@ -122,39 +124,34 @@ def filter_labels(available_labels: dict, current_labels: list | None = None, is
 
 def get_pr_summary_guidelines() -> str:
     """Returns PR summary formatting guidelines (used by both unified PR open and PR update/merge)."""
-    return """Summarize this PR, focusing on major changes, their purpose, and potential impact. Keep the summary clear and concise, suitable for a broad audience. Add emojis to enliven the summary. Your response must include all 3 sections below with their H3 Markdown headers (do not use H1 or H2 headers):
+    return """Summarize the implemented change, not the author's intentions. Ground every statement in the diff and PR context; never invent behavior, test results, compatibility claims, or user impact. Name the concrete components and behaviors changed, consolidate related edits, and omit file-by-file narration and generic praise. Use concise plain language for maintainers and users. Your response must include exactly these 3 sections with H3 Markdown headers (do not use H1 or H2 headers):
 
 ### 🌟 Summary
-(single-line synopsis)
+(one sentence stating what changed and why)
 
 ### 📊 Key Changes
-- (bullet points highlighting major changes)
+- (2-5 specific bullets, ordered by importance)
 
 ### 🎯 Purpose & Impact
-- (bullet points explaining benefits and potential impact to users)"""
+- (specific behavior or workflow impact; say "No user-facing change" when appropriate)"""
 
 
-def get_pr_summary_prompt(repository: str, diff_text: str) -> tuple[str, bool, list[str]]:
+def get_pr_summary_prompt(
+    repository: str, diff_text: str, title: str = "", description: str = ""
+) -> tuple[str, bool, list[str]]:
     """Returns the complete PR summary generation prompt with filtered diff (used by PR update/merge)."""
     filtered_diff, skipped_files = filter_diff_text(diff_text)
-    prompt = f"{get_pr_summary_guidelines()}\n\nRepository: '{repository}'\n\nHere's the PR diff:\n\n{filtered_diff[:MAX_PROMPT_CHARS]}"
+    prompt = (
+        f"{get_pr_summary_guidelines()}\n\nRepository: {repository}\nPR title: {title}\n"
+        f"PR description:\n{description[:8000]}\n\nPR diff:\n{filtered_diff[:MAX_PROMPT_CHARS]}"
+    )
     prompt += format_skipped_files_note(skipped_files)
     return prompt, len(filtered_diff) > MAX_PROMPT_CHARS, skipped_files
 
 
 def get_pr_first_comment_template(repository: str, username: str) -> str:
-    """Returns the PR first comment template with checklist (used only by unified PR open)."""
-    return f"""👋 Hello @{username}, thank you for submitting a `{repository}` 🚀 PR! To ensure a seamless integration of your work, please review the following checklist:
-
-- ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{repository}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
-- ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{repository}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
-- ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI) checks are passing. If any checks fail, please address the issues.
-- ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com/) for any new or modified features.
-- ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
-- ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA) if this is your first Ultralytics PR by writing "I have read the CLA Document and I sign the CLA" in a new message.
-- ✅ **Minimize Changes**: Limit your changes to the **minimum** necessary for your bug fix or feature addition. _"It is not daily increase but daily decrease, hack away the unessential. The closer to the source, the less wastage there is."_  — Bruce Lee
-
-For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing). Don't hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀"""
+    """Return the concise acknowledgment that the PR-open model customizes."""
+    return f"👋 Thanks @{username} for the `{repository}` contribution! This is an automated first response; an Ultralytics engineer will review the PR soon."
 
 
 def _is_anthropic_model(model: str) -> bool:
@@ -662,46 +659,69 @@ def get_response(
             raise
 
 
-def get_pr_open_response(repository: str, diff_text: str, title: str, username: str, available_labels: dict) -> dict:
+def get_pr_open_response(
+    repository: str,
+    diff_text: str,
+    title: str,
+    username: str,
+    available_labels: dict,
+    description: str = "",
+    repository_context: str = "",
+    summarize: bool = True,
+    acknowledge: bool = True,
+    current_labels: list | None = None,
+) -> dict:
     """Generates unified PR response with summary, labels, and first comment in a single API call."""
     filtered_diff, skipped_files = filter_diff_text(diff_text)
     is_large = len(filtered_diff) > MAX_PROMPT_CHARS
 
-    filtered_labels = filter_labels(available_labels, is_pr=True)
+    filtered_labels = filter_labels(available_labels, current_labels) if available_labels else {}
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
+    summary_instructions = get_pr_summary_guidelines() if summarize else "Return an empty summary string."
+    label_instructions = (
+        "Array of 1-3 most relevant label names. Only use Alert with high confidence for inappropriate PRs. "
+        f"Return an empty array if no label is relevant. Available labels:\n{labels_str}"
+        if filtered_labels
+        else "Return an empty labels array."
+    )
+    comment_instructions = (
+        f"""Write a concise acknowledgment that:
+- Opens with one specific sentence showing what the PR changes; do not repeat the generated summary
+- Requests an action only when the description or diff provides concrete evidence it is missing
+- Never claims tests passed, asks for generic checklist work, or assumes a language, package manager, branch name, or release process
+- States that the response is automated and an Ultralytics engineer will review soon
+- Uses at most 90 words, no headings, sign-off, inspirational quote, or external links
+
+Base acknowledgment:
+{get_pr_first_comment_template(repository, username)}"""
+        if acknowledge
+        else "Return an empty first_comment string."
+    )
 
     prompt = f"""You are processing a new GitHub PR by @{username} for the {repository} repository.
+
+Repository context: {repository_context or "No additional metadata provided."}
+PR description: {description[:8000] or "No description provided."}
 
 Generate 3 outputs in a single JSON response for the PR titled '{title}' with the following diff:
 {filtered_diff[:MAX_PROMPT_CHARS]}{format_skipped_files_note(skipped_files)}
 
 
 --- FIRST JSON OUTPUT (PR SUMMARY) ---
-{get_pr_summary_guidelines()}
+{summary_instructions}
 
 --- SECOND JSON OUTPUT (PR LABELS) ---
-Array of 1-3 most relevant label names. Only use "Alert" with high confidence for inappropriate PRs. Return empty array if no labels relevant. Available labels:
-{labels_str}
+{label_instructions}
 
---- THIRD OUTPUT (PR FIRST COMMENT) ---
-Customized welcome message adapting the template below:
-- INCLUDE ALL LINKS AND INSTRUCTIONS from the template below, customized as appropriate
-- Keep all checklist items and links from template
-- Only link to files or URLs in the template below, do not add external links
-- Mention this is automated and an engineer will assist
-- Use a few emojis
-- No sign-off or "best regards"
-- No spaces between bullet points
-
-Example comment template (adapt as needed, keep all links):
-{get_pr_first_comment_template(repository, username)}"""
+--- THIRD JSON OUTPUT (PR FIRST COMMENT) ---
+{comment_instructions}"""
 
     schema = {
         "type": "object",
         "properties": {
             "summary": {"type": "string", "description": "PR summary with emoji sections"},
             "labels": {"type": "array", "items": {"type": "string"}, "description": "Array of label names"},
-            "first_comment": {"type": "string", "description": "Welcome comment with checklist"},
+            "first_comment": {"type": "string", "description": "Concise automated acknowledgment"},
         },
         "required": ["summary", "labels", "first_comment"],
         "additionalProperties": False,

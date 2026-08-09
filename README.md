@@ -186,7 +186,7 @@ Check every pull request commit author against the central Ultralytics CLA signa
 
 ### 6. Setup uv Action
 
-Install the latest uv with retry support and optionally activate a Python environment.
+Use the official uv setup action with Ultralytics defaults, optional Python environment activation, and dependency caching.
 
 ```yaml
 - uses: ultralytics/actions/setup-uv@main

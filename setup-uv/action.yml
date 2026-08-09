@@ -1,7 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 name: "Setup uv"
-description: "Install the latest uv with retry and optionally activate a Python environment"
+description: "Install uv with optional Python environment activation and dependency caching"
 inputs:
   python-version:
     description: "Python version for uv commands"
@@ -23,51 +23,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Install uv
-      uses: ultralytics/actions/retry@main
+    - uses: astral-sh/setup-uv@v9.0.0
       with:
-        run: |
-          set -o pipefail
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            powershell -NoProfile -ExecutionPolicy Bypass -Command '$env:UV_UNMANAGED_INSTALL = $env:RUNNER_TEMP + "\uv-bin"; irm https://astral.sh/uv/install.ps1 | iex'
-            echo "$RUNNER_TEMP\uv-bin" >> "$GITHUB_PATH"
-          else
-            curl -LsSf https://astral.sh/uv/install.sh | env UV_UNMANAGED_INSTALL="$RUNNER_TEMP/uv-bin" sh
-            echo "$RUNNER_TEMP/uv-bin" >> "$GITHUB_PATH"
-          fi
-
-    - name: Configure environment
-      shell: bash
-      env:
-        ACTIVATE_ENVIRONMENT: ${{ inputs.activate-environment }}
-        INPUT_PYTHON_VERSION: ${{ inputs.python-version }}
-      run: |
-        if [ -n "$INPUT_PYTHON_VERSION" ]; then
-          export UV_PYTHON="$INPUT_PYTHON_VERSION"
-          echo "UV_PYTHON=$INPUT_PYTHON_VERSION" >> "$GITHUB_ENV"
-        fi
-        if [ "$ACTIVATE_ENVIRONMENT" = "true" ]; then
-          uv venv --clear
-          if [ "$RUNNER_OS" = "Windows" ]; then
-            venv_path=$(cygpath -w "$PWD/.venv")
-            echo "VIRTUAL_ENV=$venv_path" >> "$GITHUB_ENV"
-            echo "$venv_path\Scripts" >> "$GITHUB_PATH"
-          else
-            echo "VIRTUAL_ENV=$PWD/.venv" >> "$GITHUB_ENV"
-            echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
-          fi
-        fi
-
-    - name: Find uv cache
-      if: inputs.enable-cache == 'true'
-      id: uv-cache
-      shell: bash
-      run: echo "path=$(uv cache dir)" >> "$GITHUB_OUTPUT"
-
-    - name: Cache uv
-      if: inputs.enable-cache == 'true'
-      uses: actions/cache@v6
-      with:
-        path: ${{ steps.uv-cache.outputs.path }}
-        key: uv-${{ runner.os }}-${{ runner.arch }}-${{ inputs.python-version }}-${{ hashFiles(inputs.cache-dependency-glob) }}
-        restore-keys: uv-${{ runner.os }}-${{ runner.arch }}-${{ inputs.python-version }}-
+        python-version: ${{ inputs.python-version }}
+        activate-environment: ${{ inputs.activate-environment }}
+        enable-cache: ${{ inputs.enable-cache }}
+        cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
+        ignore-nothing-to-cache: true

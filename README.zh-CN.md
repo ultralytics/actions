@@ -186,7 +186,7 @@ jobs:
 
 ### 6. Setup uv Action
 
-安装最新版 uv 并支持重试，同时可选择激活 Python 环境。
+使用带 Ultralytics 默认配置的官方 uv setup action，并可选择激活 Python 环境和启用依赖缓存。
 
 ```yaml
 - uses: ultralytics/actions/setup-uv@main

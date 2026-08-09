@@ -49,20 +49,15 @@ runs:
 
     - name: Install ultralytics-actions
       env:
-        GITHUB_REPOSITORY: ${{ github.repository }}
-        GITHUB_SHA: ${{ github.sha }}
+        ACTION_PATH: ${{ github.action_path }}/..
       run: |
         echo "::group::Install ultralytics-actions"
-        if [ "$GITHUB_REPOSITORY" = "ultralytics/actions" ]; then
-          echo "Installing from commit: $GITHUB_SHA"
-          packages="https://github.com/ultralytics/actions/archive/${GITHUB_SHA}.tar.gz"
-        else
-          packages="https://github.com/ultralytics/actions/archive/refs/heads/main.tar.gz"
-        fi
+        package_dir=$(mktemp -d "$RUNNER_TEMP/ultralytics-actions.XXXXXX")
+        uv build --wheel "$ACTION_PATH" --out-dir "$package_dir"
         if [ "$(uname)" = "Darwin" ]; then
-          uv pip install --system --break-system-packages $packages
+          uv pip install --system --break-system-packages "$package_dir"/*.whl
         else
-          sudo env "PATH=$PATH" uv pip install --system --break-system-packages $packages
+          sudo env "PATH=$PATH" uv pip install --system --break-system-packages "$package_dir"/*.whl
         fi
         echo "::endgroup::"
       shell: bash

@@ -66,7 +66,7 @@ Key flow: GitHub workflow event → `action.yml` step (gated by `github.event_na
 
 Most shared utilities are re-exported through `actions/utils/__init__.py` — keep `__all__` updated when adding exports.
 
-Self-hosting detail: `.github/workflows/format.yml` checks out the event's ref (PR head for pull requests, main for issue events) and runs `uses: ./` — so PRs here dogfood both the Python package and `action.yml` itself before merge.
+Security detail: `.github/workflows/format.yml` runs `ultralytics/actions@main` because it receives write credentials and AI secrets; never execute a PR checkout as a local action in that workflow. PR package changes are exercised by the test workflow before merge.
 
 ## Conventions
 
