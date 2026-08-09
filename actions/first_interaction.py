@@ -200,6 +200,7 @@ def main(*args, **kwargs):
                 event.update_pr_description(
                     number,
                     f"{SUMMARY_MARKER}\n\n{ACTIONS_CREDIT}\n\n{summary}{skipped_dropdown}",
+                    fallback_description=event.pr.get("body") or "",
                 )
                 if sum(not char.isspace() for char in body) < 30:
                     body = f"{body.rstrip()}\n\n{summary}".lstrip()

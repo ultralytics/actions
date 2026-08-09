@@ -84,7 +84,7 @@ def main(*args, **kwargs):
 
     # Update PR description
     print("Updating PR description...")
-    event.update_pr_description(event.pr["number"], summary)
+    event.update_pr_description(event.pr["number"], summary, fallback_description=event.pr.get("body") or "")
 
     if event.pr.get("merged"):
         print("PR is merged, labeling fixed issues...")

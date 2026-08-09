@@ -312,10 +312,10 @@ class Action:
             print(result.get("errors"))
         return result
 
-    def update_pr_description(self, number: int, new_summary: str):
+    def update_pr_description(self, number: int, new_summary: str, fallback_description: str = ""):
         """Update a PR description with a summary while preserving its current body."""
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{number}"
-        description = self.get(url, hard=True).json().get("body") or ""
+        description = self.get(url, hard=True).json().get("body") or fallback_description
 
         start = "## 🛠️ PR Summary"
         if start in description:
