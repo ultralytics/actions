@@ -2,7 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
-from actions.summarize_pr import generate_pr_summary, label_fixed_issues
+from actions.summarize_pr import generate_merge_message, generate_pr_summary, label_fixed_issues
 
 
 @patch("actions.summarize_pr.get_response")
@@ -14,6 +14,20 @@ def test_generate_pr_summary(mock_get_response):
     assert summary.startswith("## 🛠️ PR Summary")
     assert "Test PR summary content" in summary
     mock_get_response.assert_called_once()
+
+
+@patch("actions.summarize_pr.get_response")
+def test_generate_merge_message_requires_quote_and_pr_impact(mock_get_response):
+    """Test merged PR comments retain the personalized quote and impact requirements."""
+    mock_get_response.return_value = "Merged response with quote"
+
+    message = generate_merge_message("Improved export reliability", "@testuser", "https://github.com/test/repo/pull/1")
+
+    assert message == "Merged response with quote"
+    prompt = mock_get_response.call_args.args[0][1]["content"]
+    assert "exactly one short, accurately attributed inspirational quote" in prompt
+    assert "concrete impact" in prompt
+    assert "Improved export reliability" in prompt
 
 
 def test_label_fixed_issues_posts_repository_neutral_comment():

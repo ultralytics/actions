@@ -150,8 +150,18 @@ def get_pr_summary_prompt(
 
 
 def get_pr_first_comment_template(repository: str, username: str) -> str:
-    """Return the concise acknowledgment that the PR-open model customizes."""
-    return f"👋 Thanks @{username} for the `{repository}` contribution! This is an automated first response; an Ultralytics engineer will review the PR soon."
+    """Return the required contributor guidance for new pull requests."""
+    return f"""👋 Hello @{username}, thank you for submitting a `{repository}` 🚀 PR! This automated message confirms your contribution was received, and an Ultralytics engineer will assist with the review. To ensure a seamless integration of your work, please review the following checklist:
+
+- ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{repository}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
+- ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{repository}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
+- ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI) checks are passing. If any checks fail, please address the issues.
+- ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com/) for any new or modified features.
+- ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
+- ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA) if this is your first Ultralytics PR by writing "I have read the CLA Document and I sign the CLA" in a new message.
+- ✅ **Minimize Changes**: Limit your changes to the **minimum** necessary for your bug fix or feature addition. _"It is not daily increase but daily decrease, hack away the unessential. The closer to the source, the less wastage there is."_ — Bruce Lee
+
+For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing). Don't hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀"""
 
 
 def _is_anthropic_model(model: str) -> bool:
@@ -684,26 +694,12 @@ def get_pr_open_response(
         if filtered_labels
         else "Return an empty labels array."
     )
-    comment_instructions = (
-        f"""Write a concise acknowledgment that:
-- Opens with one specific sentence showing what the PR changes; do not repeat the generated summary
-- Requests an action only when the description or diff provides concrete evidence it is missing
-- Never claims tests passed, asks for generic checklist work, or assumes a language, package manager, branch name, or release process
-- States that the response is automated and an Ultralytics engineer will review soon
-- Uses at most 90 words, no headings, sign-off, inspirational quote, or external links
-
-Base acknowledgment:
-{get_pr_first_comment_template(repository, username)}"""
-        if acknowledge
-        else "Return an empty first_comment string."
-    )
-
     prompt = f"""You are processing a new GitHub PR by @{username} for the {repository} repository.
 
 Repository context: {repository_context or "No additional metadata provided."}
 PR description: {description[:8000] or "No description provided."}
 
-Generate 3 outputs in a single JSON response for the PR titled '{title}' with the following diff:
+Generate 2 outputs in a single JSON response for the PR titled '{title}' with the following diff:
 {filtered_diff[:MAX_PROMPT_CHARS]}{format_skipped_files_note(skipped_files)}
 
 
@@ -711,19 +707,15 @@ Generate 3 outputs in a single JSON response for the PR titled '{title}' with th
 {summary_instructions}
 
 --- SECOND JSON OUTPUT (PR LABELS) ---
-{label_instructions}
-
---- THIRD JSON OUTPUT (PR FIRST COMMENT) ---
-{comment_instructions}"""
+{label_instructions}"""
 
     schema = {
         "type": "object",
         "properties": {
             "summary": {"type": "string", "description": "PR summary with emoji sections"},
             "labels": {"type": "array", "items": {"type": "string"}, "description": "Array of label names"},
-            "first_comment": {"type": "string", "description": "Concise automated acknowledgment"},
         },
-        "required": ["summary", "labels", "first_comment"],
+        "required": ["summary", "labels"],
         "additionalProperties": False,
     }
 
@@ -736,6 +728,7 @@ Generate 3 outputs in a single JSON response for the PR titled '{title}' with th
         temperature=1.0,
         text_format={"format": {"type": "json_schema", "name": "pr_open_response", "strict": True, "schema": schema}},
     )
+    result["first_comment"] = get_pr_first_comment_template(repository, username) if acknowledge else ""
     if is_large and "summary" in result:
         result["summary"] = (
             "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + result["summary"]

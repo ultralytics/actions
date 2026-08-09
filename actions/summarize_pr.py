@@ -15,6 +15,45 @@ from .utils import (
 SUMMARY_MARKER = "## 🛠️ PR Summary"
 
 
+def generate_merge_message(pr_summary, pr_credit, pr_url):
+    """Generate a personalized thank-you message for a merged pull request."""
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are an Ultralytics AI assistant. Your response is posted verbatim as a GitHub comment on a "
+                "merged PR. Return only the final comment body with no preamble, sign-off, or horizontal rule."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"""Thank {pr_credit} for the merged PR {pr_url} using the verified context below.
+
+{pr_summary}
+
+- Start with an enthusiastic note that the PR was merged.
+- Include exactly one short, accurately attributed inspirational quote in a Markdown blockquote.
+- Connect the quote to the concrete impact described in the PR summary without inventing results or benefits.
+- Keep the complete comment concise and meaningful.""",
+        },
+    ]
+    return get_response(messages)
+
+
+def generate_issue_comment(pr_url, pr_summary, pr_credit, pr_title=""):
+    """Generate the repository-neutral notification posted to issues closed by a pull request."""
+    synopsis = ""
+    if "### 🌟 Summary" in pr_summary and "### 📊 Key Changes" in pr_summary:
+        synopsis = pr_summary.split("### 🌟 Summary", 1)[1].split("### 📊 Key Changes", 1)[0].strip()
+    details = f"\n\n{synopsis}" if synopsis else ""
+    credit = f" by {pr_credit}" if pr_credit else ""
+    return (
+        f"A potential fix is now available in the [merged pull request]({pr_url}){credit}.{details}\n\n"
+        "Please test the merged change using this repository's documented workflow. If the issue persists, "
+        "share the updated behavior and any new diagnostic details. Thank you for reporting it! 🙏"
+    )
+
+
 def generate_pr_summary(repository, diff_text, title="", description=""):
     """Generates a concise, professional summary of a PR using the OpenAI or Anthropic API."""
     prompt, is_large, skipped_files = get_pr_summary_prompt(repository, diff_text, title, description)
@@ -42,17 +81,7 @@ def label_fixed_issues(event, pr_summary):
     if not data:
         return None
 
-    credit = f" by {pr_credit}" if pr_credit else ""
-    synopsis = ""
-    if "### 🌟 Summary" in pr_summary and "### 📊 Key Changes" in pr_summary:
-        synopsis = pr_summary.split("### 🌟 Summary", 1)[1].split("### 📊 Key Changes", 1)[0].strip()
-    details = f"\n\n{synopsis}" if synopsis else ""
-    comment = (
-        f"A potential fix is now available in the [merged pull request]({data['url']}){credit}.{details}\n\n"
-        "Please test the merged change using "
-        "this repository's documented workflow. If the issue persists, "
-        "share the updated behavior and any new diagnostic details. Thank you for reporting it! 🙏"
-    )
+    comment = generate_issue_comment(data["url"], pr_summary, pr_credit, data.get("title") or "")
 
     for issue in data["closingIssuesReferences"]["nodes"]:
         number = issue["number"]
@@ -93,8 +122,9 @@ def main(*args, **kwargs):
         event.remove_labels(event.pr["number"], labels=("TODO",))
         if pr_credit:
             print("Posting PR author thank you message...")
+            pr_url = event.pr.get("html_url") or f"https://github.com/{event.repository}/pull/{event.pr['number']}"
             event.add_comment(
-                event.pr["number"], None, f"🚀 Merged! Thank you {pr_credit} for the contribution.", "pull request"
+                event.pr["number"], None, generate_merge_message(summary, pr_credit, pr_url), "pull request"
             )
 
 

@@ -15,10 +15,26 @@ from actions.utils.openai_utils import (
     _openai_usage_cost,
     _response_tool_calls,
     get_agent_response,
+    get_pr_open_response,
     get_response,
     get_review_model,
     remove_outer_codeblocks,
 )
+
+
+@patch("actions.utils.openai_utils.get_response", return_value={"summary": "", "labels": []})
+def test_pr_open_response_preserves_contributor_guidance(mock_get_response):
+    """Test PR acknowledgments always retain the complete contributor checklist and links."""
+    response = get_pr_open_response("owner/repo", "diff", "Title", "contributor", {}, summarize=False)
+
+    comment = response["first_comment"]
+    assert comment.count("- ✅") == 7
+    assert "[Continuous Integration (CI)](https://docs.ultralytics.com/help/CI)" in comment
+    assert "[Contributor License Agreement](https://docs.ultralytics.com/help/CLA)" in comment
+    assert "[Contributing Guide](https://docs.ultralytics.com/help/contributing)" in comment
+    assert "Bruce Lee" in comment
+    schema = mock_get_response.call_args.kwargs["text_format"]["format"]["schema"]
+    assert "first_comment" not in schema["properties"]
 
 
 def test_default_models():

@@ -17,6 +17,18 @@ permissions:
   id-token: write # Required for Codecov OIDC uploads
 
 jobs:
+  Main-Action:
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./
+        with:
+          token: ${{ github.token }}
+          python_docstrings: false
+          review: false
+
   Setup-uv-Windows:
     runs-on: windows-latest
     steps:
