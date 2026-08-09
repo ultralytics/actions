@@ -24,6 +24,21 @@ AUTO_PR_SUMMARY = os.getenv("SUMMARY", "true").lower() == "true"
 AUTO_PR_REVIEW = os.getenv("REVIEW", "true").lower() == "true"
 
 
+def get_pr_first_comment_template(repository: str, username: str) -> str:
+    """Return the required contributor guidance for new pull requests."""
+    return f"""👋 Hello @{username}, thank you for submitting a `{repository}` 🚀 PR! This automated message confirms your contribution was received, and an Ultralytics engineer will assist with the review. To ensure a seamless integration of your work, please review the following checklist:
+
+- ✅ **Define a Purpose**: Clearly explain the purpose of your fix or feature in your PR description, and link to any [relevant issues](https://github.com/{repository}/issues). Ensure your commit messages are clear, concise, and adhere to the project's conventions.
+- ✅ **Synchronize with Source**: Confirm your PR is synchronized with the `{repository}` `main` branch. If it's behind, update it by clicking the 'Update branch' button or by running `git pull` and `git merge main` locally.
+- ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI) checks are passing. If any checks fail, please address the issues.
+- ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com/) for any new or modified features.
+- ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
+- ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA) if this is your first Ultralytics PR by writing "I have read the CLA Document and I sign the CLA" in a new message.
+- ✅ **Minimize Changes**: Limit your changes to the **minimum** necessary for your bug fix or feature addition. _"It is not daily increase but daily decrease, hack away the unessential. The closer to the source, the less wastage there is."_ — Bruce Lee
+
+For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing). Don't hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀"""
+
+
 def apply_and_check_labels(event, number, node_id, issue_type, username, labels, label_descriptions):
     """Normalizes, applies labels, and handles Alert label if present."""
     if not labels:
@@ -194,7 +209,6 @@ def main(*args, **kwargs):
                 body,
                 repository_context,
                 summarize=AUTO_PR_SUMMARY,
-                acknowledge=AUTO_LABELS,
                 current_labels=[label["name"] for label in event.pr.get("labels", [])],
             )
 
@@ -219,9 +233,10 @@ def main(*args, **kwargs):
                     response.get("labels", []),
                     label_descriptions,
                 )
-                if first_comment := response.get("first_comment"):
-                    print("Adding first interaction comment...")
-                    event.add_comment(number, node_id, first_comment, issue_type)
+                print("Adding first interaction comment...")
+                event.add_comment(
+                    number, node_id, get_pr_first_comment_template(event.repository, username), issue_type
+                )
 
         # Automatic PR review after first interaction
         if AUTO_PR_REVIEW:

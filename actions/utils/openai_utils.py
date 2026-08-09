@@ -149,11 +149,6 @@ def get_pr_summary_prompt(
     return prompt, len(filtered_diff) > MAX_PROMPT_CHARS, skipped_files
 
 
-def get_pr_first_comment_template(repository: str, username: str) -> str:
-    """Return the concise acknowledgment that the PR-open model customizes."""
-    return f"👋 Thanks @{username} for the `{repository}` contribution! This is an automated first response; an Ultralytics engineer will review the PR soon."
-
-
 def _is_anthropic_model(model: str) -> bool:
     """Check if the model is an Anthropic model."""
     return model.startswith("claude")
@@ -668,10 +663,9 @@ def get_pr_open_response(
     description: str = "",
     repository_context: str = "",
     summarize: bool = True,
-    acknowledge: bool = True,
     current_labels: list | None = None,
 ) -> dict:
-    """Generates unified PR response with summary, labels, and first comment in a single API call."""
+    """Generate a PR summary and labels in a single API call."""
     filtered_diff, skipped_files = filter_diff_text(diff_text)
     is_large = len(filtered_diff) > MAX_PROMPT_CHARS
 
@@ -684,26 +678,12 @@ def get_pr_open_response(
         if filtered_labels
         else "Return an empty labels array."
     )
-    comment_instructions = (
-        f"""Write a concise acknowledgment that:
-- Opens with one specific sentence showing what the PR changes; do not repeat the generated summary
-- Requests an action only when the description or diff provides concrete evidence it is missing
-- Never claims tests passed, asks for generic checklist work, or assumes a language, package manager, branch name, or release process
-- States that the response is automated and an Ultralytics engineer will review soon
-- Uses at most 90 words, no headings, sign-off, inspirational quote, or external links
-
-Base acknowledgment:
-{get_pr_first_comment_template(repository, username)}"""
-        if acknowledge
-        else "Return an empty first_comment string."
-    )
-
     prompt = f"""You are processing a new GitHub PR by @{username} for the {repository} repository.
 
 Repository context: {repository_context or "No additional metadata provided."}
 PR description: {description[:8000] or "No description provided."}
 
-Generate 3 outputs in a single JSON response for the PR titled '{title}' with the following diff:
+Generate 2 outputs in a single JSON response for the PR titled '{title}' with the following diff:
 {filtered_diff[:MAX_PROMPT_CHARS]}{format_skipped_files_note(skipped_files)}
 
 
@@ -711,19 +691,15 @@ Generate 3 outputs in a single JSON response for the PR titled '{title}' with th
 {summary_instructions}
 
 --- SECOND JSON OUTPUT (PR LABELS) ---
-{label_instructions}
-
---- THIRD JSON OUTPUT (PR FIRST COMMENT) ---
-{comment_instructions}"""
+{label_instructions}"""
 
     schema = {
         "type": "object",
         "properties": {
             "summary": {"type": "string", "description": "PR summary with emoji sections"},
             "labels": {"type": "array", "items": {"type": "string"}, "description": "Array of label names"},
-            "first_comment": {"type": "string", "description": "Concise automated acknowledgment"},
         },
-        "required": ["summary", "labels", "first_comment"],
+        "required": ["summary", "labels"],
         "additionalProperties": False,
     }
 

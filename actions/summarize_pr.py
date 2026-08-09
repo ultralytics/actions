@@ -15,6 +15,31 @@ from .utils import (
 SUMMARY_MARKER = "## 🛠️ PR Summary"
 
 
+def generate_merge_message(pr_summary, pr_credit, pr_url):
+    """Generate a personalized thank-you message for a merged pull request."""
+    messages = [
+        {
+            "role": "system",
+            "content": (
+                "You are an Ultralytics AI assistant. Your response is posted verbatim as a GitHub comment on a "
+                "merged PR. Return only the final comment body with no preamble, sign-off, or horizontal rule."
+            ),
+        },
+        {
+            "role": "user",
+            "content": f"""Thank {pr_credit} for the merged PR {pr_url} using the verified context below.
+
+{pr_summary}
+
+- Start with an enthusiastic note that the PR was merged.
+- Include exactly one short, accurately attributed inspirational quote in a Markdown blockquote.
+- Connect the quote to the concrete impact described in the PR summary without inventing results or benefits.
+- Keep the complete comment concise and meaningful.""",
+        },
+    ]
+    return get_response(messages)
+
+
 def generate_pr_summary(repository, diff_text, title="", description=""):
     """Generates a concise, professional summary of a PR using the OpenAI or Anthropic API."""
     prompt, is_large, skipped_files = get_pr_summary_prompt(repository, diff_text, title, description)
@@ -94,7 +119,10 @@ def main(*args, **kwargs):
         if pr_credit:
             print("Posting PR author thank you message...")
             event.add_comment(
-                event.pr["number"], None, f"🚀 Merged! Thank you {pr_credit} for the contribution.", "pull request"
+                event.pr["number"],
+                None,
+                generate_merge_message(summary, pr_credit, event.pr["html_url"]),
+                "pull request",
             )
 
 
