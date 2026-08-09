@@ -77,8 +77,9 @@ def main(*args, **kwargs):
 
     # Generate PR summary
     print("Generating PR summary...")
+    description = (event.pr.get("body") or "").split(SUMMARY_MARKER)[0]
     summary = generate_pr_summary(
-        event.repository, diff, event.pr.get("title") or "", remove_html_comments(event.pr.get("body") or "")
+        event.repository, diff, event.pr.get("title") or "", remove_html_comments(description)
     )
 
     # Update PR description

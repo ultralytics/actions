@@ -97,8 +97,9 @@ def test_open_pr_review_description(mock_action, mock_content, mock_response, mo
     mock_review.assert_called_once_with(event, "Test PR", expected)
 
 
+@patch("actions.first_interaction.check_links_in_string", return_value="Thank you for your issue")
 @patch("actions.first_interaction.get_response")
-def test_get_first_interaction_response(mock_get_response):
+def test_get_first_interaction_response(mock_get_response, mock_check_links):
     """Test labels and first response share one structured model call."""
     mock_get_response.return_value = {
         "labels": ["BUG", "not-a-label"],
@@ -121,6 +122,7 @@ def test_get_first_interaction_response(mock_get_response):
 
     assert response == {"labels": ["bug"], "first_comment": "Thank you for your issue"}
     mock_get_response.assert_called_once()
+    mock_check_links.assert_called_once_with("Thank you for your issue", replace=True)
     assert mock_get_response.call_args.kwargs["text_format"]["format"]["type"] == "json_schema"
     prompt = mock_get_response.call_args.args[0][1]["content"]
     assert "primary language: Rust" in prompt

@@ -16,6 +16,7 @@ from .utils import (
     get_response,
     remove_html_comments,
 )
+from .utils.common_utils import check_links_in_string
 
 BLOCK_USER = os.getenv("BLOCK_USER", "false").lower() == "true"
 AUTO_LABELS = os.getenv("LABELS", "true").lower() == "true"
@@ -141,6 +142,9 @@ Return the labels and final comment only.
     response = get_response(
         messages,
         text_format={"format": {"type": "json_schema", "name": "first_interaction", "strict": True, "schema": schema}},
+    )
+    response["first_comment"] = check_links_in_string(
+        response.get("first_comment", "").replace(" @giscus[bot]", ""), replace=True
     )
     available = {name.lower(): name for name in filtered_labels}
     response["labels"] = [
