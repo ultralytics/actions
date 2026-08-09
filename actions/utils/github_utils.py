@@ -316,8 +316,16 @@ class Action:
         self, number: int, new_summary: str, max_retries: int = 2, fallback_description: str = ""
     ):
         """Update a PR description with a summary while preserving its current body."""
+        import time
+
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{number}"
-        description = self.get(url, hard=True).json().get("body") or fallback_description
+        description = self.get(url, hard=True).json().get("body") or ""
+        for _ in range(max_retries if not description and not fallback_description else 0):
+            time.sleep(1)
+            description = self.get(url, hard=True).json().get("body") or ""
+            if description:
+                break
+        description = description or fallback_description
 
         start = "## 🛠️ PR Summary"
         if start in description:
