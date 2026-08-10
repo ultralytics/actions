@@ -28,7 +28,6 @@ dynamic = ["version"]
 description = "Ultralytics Actions for GitHub automation and PR management."
 readme = "README.md"
 requires-python = ">=3.8"
-license = { text = "AGPL-3.0" }
 keywords = [
     "github-actions",
     "ci-cd",
@@ -50,7 +49,6 @@ maintainers = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU Affero General Public License v3 or later (AGPLv3+)",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
