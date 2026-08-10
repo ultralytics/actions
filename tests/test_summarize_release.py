@@ -24,7 +24,7 @@ def test_get_release_diff():
 
     diff = get_release_diff(mock_event, "v1.0.0", "v1.1.0")
 
-    assert diff == "diff content"
+    assert diff == ("diff content", [])
     mock_event.get.assert_called_once_with(
         "https://api.github.com/repos/test/repo/compare/v1.0.0...v1.1.0", headers=mock_event.headers_diff
     )
@@ -105,7 +105,7 @@ def test_generate_release_summary(mock_get_response):
     # Mock new contributors function
     with patch("actions.summarize_release.get_new_contributors", return_value=["newuser"]):
         summary = generate_release_summary(
-            event=mock_event, diff="diff content", prs=test_prs, latest_tag="v1.1.0", previous_tag="v1.0.0"
+            event=mock_event, diff=("diff content", []), prs=test_prs, latest_tag="v1.1.0", previous_tag="v1.0.0"
         )
 
     assert "Release summary content" in summary

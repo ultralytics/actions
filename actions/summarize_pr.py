@@ -40,9 +40,10 @@ def generate_merge_message(pr_summary, pr_credit, pr_url):
     return get_response(messages)
 
 
-def generate_pr_summary(repository, diff_text, title="", description=""):
+def generate_pr_summary(repository, diff, title="", description=""):
     """Generates a concise, professional summary of a PR using the OpenAI or Anthropic API."""
-    prompt, is_large, skipped_files = get_pr_summary_prompt(repository, diff_text, title, description)
+    prompt, is_large = get_pr_summary_prompt(repository, diff, title, description)
+    skipped_files = diff[1]
 
     messages = [
         {

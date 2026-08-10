@@ -9,7 +9,7 @@ from actions.summarize_pr import generate_merge_message, generate_pr_summary, la
 def test_generate_pr_summary(mock_get_response):
     """Test generating PR summary with expected formatting."""
     mock_get_response.return_value = "Test PR summary content"
-    summary = generate_pr_summary("test/repo", "diff content")
+    summary = generate_pr_summary("test/repo", ("diff content", []))
 
     assert summary.startswith("## 🛠️ PR Summary")
     assert "Test PR summary content" in summary

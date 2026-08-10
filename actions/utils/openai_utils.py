@@ -12,7 +12,7 @@ from uuid import uuid4
 
 import requests
 
-from actions.utils.common_utils import check_links_in_string, filter_diff_text, format_skipped_files_note
+from actions.utils.common_utils import check_links_in_string, format_skipped_files_note
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
@@ -137,16 +137,16 @@ def get_pr_summary_guidelines() -> str:
 
 
 def get_pr_summary_prompt(
-    repository: str, diff_text: str, title: str = "", description: str = ""
-) -> tuple[str, bool, list[str]]:
-    """Returns the complete PR summary generation prompt with filtered diff (used by PR update/merge)."""
-    filtered_diff, skipped_files = filter_diff_text(diff_text)
+    repository: str, diff: tuple[str, list[str]], title: str = "", description: str = ""
+) -> tuple[str, bool]:
+    """Return the complete PR summary generation prompt."""
+    diff_text, skipped_files = diff
     prompt = (
         f"{get_pr_summary_guidelines()}\n\nRepository: {repository}\nPR title: {title}\n"
-        f"PR description:\n{description[:8000]}\n\nPR diff:\n{filtered_diff[:MAX_PROMPT_CHARS]}"
+        f"PR description:\n{description[:8000]}\n\nPR diff:\n{diff_text[:MAX_PROMPT_CHARS]}"
     )
     prompt += format_skipped_files_note(skipped_files)
-    return prompt, len(filtered_diff) > MAX_PROMPT_CHARS, skipped_files
+    return prompt, len(diff_text) > MAX_PROMPT_CHARS
 
 
 def _is_anthropic_model(model: str) -> bool:
@@ -656,7 +656,7 @@ def get_response(
 
 def get_pr_open_response(
     repository: str,
-    diff_text: str,
+    diff: tuple[str, list[str]],
     title: str,
     username: str,
     available_labels: dict,
@@ -666,8 +666,8 @@ def get_pr_open_response(
     current_labels: list | None = None,
 ) -> dict:
     """Generate a PR summary and labels in a single API call."""
-    filtered_diff, skipped_files = filter_diff_text(diff_text)
-    is_large = len(filtered_diff) > MAX_PROMPT_CHARS
+    diff_text, skipped_files = diff
+    is_large = len(diff_text) > MAX_PROMPT_CHARS
 
     filtered_labels = filter_labels(available_labels, current_labels) if available_labels else {}
     labels_str = "\n".join(f"- {name}: {description}" for name, description in filtered_labels.items())
@@ -684,7 +684,7 @@ Repository context: {repository_context or "No additional metadata provided."}
 PR description: {description[:8000] or "No description provided."}
 
 Generate 2 outputs in a single JSON response for the PR titled '{title}' with the following diff:
-{filtered_diff[:MAX_PROMPT_CHARS]}{format_skipped_files_note(skipped_files)}
+{diff_text[:MAX_PROMPT_CHARS]}{format_skipped_files_note(skipped_files)}
 
 
 --- FIRST JSON OUTPUT (PR SUMMARY) ---

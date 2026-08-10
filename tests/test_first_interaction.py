@@ -100,8 +100,8 @@ def test_open_pr_review_description(mock_action, mock_content, mock_response, mo
     event.should_skip_pr_author.return_value = False
     event.paginate.return_value = []
     event.pr = {"body": body}
-    event.get_pr_diff.return_value = "diff"
-    event.get_pr_diff_snapshot.return_value = ("review diff", "headsha")
+    event.get_pr_diff.return_value = ("diff", [])
+    event.get_pr_diff_snapshot.return_value = (("review diff", []), "headsha")
 
     first_interaction.main()
 
@@ -160,7 +160,7 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, m
 +old = False
 """
 
-    review = review_pr.generate_pr_review("ultralytics/actions", diff, "Test PR", "", event=mock_event)
+    review = review_pr.generate_pr_review("ultralytics/actions", (diff, []), "Test PR", "", event=mock_event)
 
     assert review["summary"] == "LGTM"
     mock_get_agent_response.assert_called_once()
@@ -190,6 +190,7 @@ def test_review_agent_search_scans_local_checkout_only(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "secret.py").write_text("secret = True\n", encoding="utf-8")
     (tmp_path / "patterns.py").write_text("literal = '(a+)+$'\n", encoding="utf-8")
+    (tmp_path / "large.json").write_text("x" * 500_001, encoding="utf-8")
     workflow = tmp_path / ".github" / "workflows" / "format.yml"
     workflow.parent.mkdir(parents=True)
     workflow.write_text("workflow = True\n", encoding="utf-8")
@@ -209,6 +210,7 @@ def test_review_agent_search_scans_local_checkout_only(tmp_path, monkeypatch):
     assert "secret.py:1:secret = True" in handlers["search_repo"](query="secret = True", path_glob=None)
     assert "No matches found." == handlers["search_repo"](query="secret.*True", path_glob=None)
     assert "patterns.py:1:literal = '(a+)+$'" in handlers["search_repo"](query="(a+)+$", path_glob=None)
+    assert "too large" in handlers["read_file"](path="large.json", start_line=None, end_line=None)
     assert ".github/workflows/format.yml:1:workflow = True" in handlers["search_repo"](
         query="workflow = True", path_glob=".github/**"
     )
@@ -236,11 +238,26 @@ def test_review_snapshot_retries_until_diff_and_head_match():
     """Test review snapshots refetch the diff when a push races the first request."""
     event = MagicMock()
     event.get_pr_head_sha.side_effect = ["old", "new", "new", "new"]
-    event.get_pr_diff.side_effect = ["old diff", "new diff"]
+    event.get_pr_diff.side_effect = [("old diff", []), ("new diff", ["generated/client.py"])]
 
-    assert review_pr.Action.get_pr_diff_snapshot(event) == ("new diff", "new")
+    assert review_pr.Action.get_pr_diff_snapshot(event) == (("new diff", ["generated/client.py"]), "new")
     assert event.get_pr_diff.call_args_list == [call(refresh=True), call(refresh=True)]
     assert event.get_pr_head_sha.call_count == 4
+
+
+def test_pr_diff_is_filtered_at_retrieval():
+    """Test every PR diff consumer receives the same filtered diff and skipped-file list."""
+    event = MagicMock(repository="org/repo", pr={"number": 1}, headers_diff={}, _pr_diff_cache=None)
+    event.get.return_value = MagicMock(
+        status_code=200,
+        text="diff --git a/code.py b/code.py\n+kept\ndiff --git a/generated/client.py b/generated/client.py\n+omitted",
+    )
+
+    diff, skipped_files = review_pr.Action.get_pr_diff(event)
+
+    assert "+kept" in diff
+    assert "generated/client.py" not in diff
+    assert skipped_files == ["generated/client.py"]
 
 
 def test_post_review_summary_numbers_reviews_and_logs_findings():
@@ -346,15 +363,14 @@ def test_incomplete_review_evidence_cannot_approve():
     event.pr = {"number": 7}
     event.get_pr_head_sha.return_value = "abc"
 
-    error = review_pr.generate_pr_review("org/repo", "ERROR: UNABLE TO RETRIEVE DIFF.", "PR", "", event, "abc")
+    error = review_pr.generate_pr_review("org/repo", ("ERROR: UNABLE TO RETRIEVE DIFF.", []), "PR", "", event, "abc")
     review_pr.post_review_summary(event, error)
     assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
 
     review_pr.post_review_summary(event, {"head_sha": "abc", "summary": "LGTM", "comments": [], "diff_truncated": True})
     assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
 
-    binary = "diff --git a/image.png b/image.png\nBinary files a/image.png and b/image.png differ"
-    binary_review = review_pr.generate_pr_review("org/repo", binary, "PR", "", event, "abc")
+    binary_review = review_pr.generate_pr_review("org/repo", ("", ["image.png"]), "PR", "", event, "abc")
     review_pr.post_review_summary(event, binary_review)
     assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
 

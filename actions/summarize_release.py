@@ -8,18 +8,18 @@ import subprocess
 import time
 from datetime import datetime, timezone
 
-from .utils import GITHUB_API_URL, Action, get_response, remove_html_comments
+from .utils import GITHUB_API_URL, Action, filter_diff_text, get_response, remove_html_comments
 
 # Environment variables
 CURRENT_TAG = os.getenv("CURRENT_TAG")
 PREVIOUS_TAG = os.getenv("PREVIOUS_TAG")
 
 
-def get_release_diff(event, previous_tag: str, latest_tag: str) -> str:
+def get_release_diff(event, previous_tag: str, latest_tag: str) -> tuple[str, list[str]]:
     """Retrieves the differences between two specified Git tags in a GitHub repository."""
     url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{latest_tag}"
     r = event.get(url, headers=event.headers_diff)
-    return r.text if r.status_code == 200 else f"Failed to get diff: {r.text}"
+    return filter_diff_text(r.text if r.status_code == 200 else f"Failed to get diff: {r.text}")
 
 
 def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
@@ -95,12 +95,13 @@ def get_new_contributors(event, prs: list) -> set:
 
 def generate_release_summary(
     event,
-    diff: str,
+    diff: tuple[str, list[str]],
     prs: list,
     latest_tag: str,
     previous_tag: str,
 ) -> str:
     """Generate a concise release summary with key changes, purpose, and impact for a new Ultralytics version."""
+    diff_text = diff[0]
     pr_summaries = "\n\n".join(
         [f"PR #{pr['number']}: {pr['title']} by @{pr['author']}\n{pr['body'][:1000]}" for pr in prs]
     )
@@ -146,7 +147,7 @@ def generate_release_summary(
             f"## 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n\n\n"
             f"Here's the information about the current PR:\n\n{current_pr_summary}\n\n"
             f"Here's the information about PRs merged between the previous release and this one:\n\n{pr_summaries[:30000]}\n\n"
-            f"Here's the release diff:\n\n{diff[:300000]}",
+            f"Here's the release diff:\n\n{diff_text[:300000]}",
         },
     ]
     return get_response(messages, temperature=1.0) + release_suffix
