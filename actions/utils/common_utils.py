@@ -43,6 +43,7 @@ SKIP_PATTERN_STRINGS = [
     r"\.bundle\.(js|css)$",
     r"(^|/)dist/",  # Generated/vendored directories
     r"(^|/)build/",
+    r"(^|/)generated/",
     r"(^|/)vendor/",
     r"(^|/)node_modules/",
     r"(^|/)coverage/",  # Coverage reports

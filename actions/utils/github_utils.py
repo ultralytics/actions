@@ -9,6 +9,7 @@ from pathlib import Path
 import requests
 
 from actions import __version__
+from actions.utils.common_utils import filter_diff_text
 
 GITHUB_API_URL = "https://api.github.com"
 GITHUB_GRAPHQL_URL = "https://api.github.com/graphql"
@@ -246,19 +247,20 @@ class Action:
             return True
         return False
 
-    def get_pr_diff(self, refresh: bool = False) -> str:
-        """Retrieves the diff content for a specified pull request with caching."""
+    def get_pr_diff(self, refresh: bool = False) -> tuple[str, list[str]]:
+        """Retrieve and filter a pull request diff with caching."""
         if self._pr_diff_cache and not refresh:
             return self._pr_diff_cache
 
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr.get('number')}"
         response = self.get(url, headers=self.headers_diff)
         if response.status_code == 200:
-            self._pr_diff_cache = response.text or "ERROR: EMPTY DIFF, NO CODE CHANGES IN THIS PR."
+            diff = response.text or "ERROR: EMPTY DIFF, NO CODE CHANGES IN THIS PR."
         elif response.status_code == 406:
-            self._pr_diff_cache = "ERROR: PR diff exceeds GitHub's 20,000 line limit, unable to retrieve diff."
+            diff = "ERROR: PR diff exceeds GitHub's 20,000 line limit, unable to retrieve diff."
         else:
-            self._pr_diff_cache = "ERROR: UNABLE TO RETRIEVE DIFF."
+            diff = "ERROR: UNABLE TO RETRIEVE DIFF."
+        self._pr_diff_cache = filter_diff_text(diff)
         return self._pr_diff_cache
 
     def get_pr_head_sha(self) -> str | None:
@@ -270,7 +272,7 @@ class Action:
             return sha
         return None
 
-    def get_pr_diff_snapshot(self) -> tuple[str, str]:
+    def get_pr_diff_snapshot(self) -> tuple[tuple[str, list[str]], str]:
         """Fetch a diff whose PR head stayed unchanged for the full request."""
         for _ in range(2):
             head_before = self.get_pr_head_sha()

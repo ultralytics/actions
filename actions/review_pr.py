@@ -177,8 +177,6 @@ def _read_head_file(event: Action, head_sha: str | None, local_checkout: bool, p
         target.relative_to(root)  # raises ValueError for paths or symlinks escaping the checkout
         if not target.is_file():
             return None
-        if target.stat().st_size > 500_000:
-            raise RuntimeError(f"{path} is too large to read")
         return target.read_text(encoding="utf-8", errors="ignore")
     if not (event and head_sha):
         return None
@@ -470,7 +468,7 @@ def parse_diff_files(diff_text: str) -> tuple[dict, str]:
 
 def generate_pr_review(
     repository: str,
-    diff_text: str,
+    diff: tuple[str, list[str]],
     pr_title: str,
     pr_description: str,
     event: Action = None,
@@ -478,30 +476,25 @@ def generate_pr_review(
     review_history: dict | None = None,
 ) -> dict:
     """Generate comprehensive PR review with line-specific comments and overall assessment."""
+    diff_text, skipped_files = diff
     review_history = review_history or {}
     prior_reviews = review_history.get("reviews") or []
     head_sha = head_sha or (event.get_pr_head_sha() if event else None)
     if diff_text.startswith("ERROR:"):
         return {"comments": [], "summary": f"{ERROR_MARKER}: {diff_text}", "head_sha": head_sha}
     if not diff_text:
+        if skipped_files:
+            return {
+                "comments": [],
+                "summary": f"All {len(skipped_files)} changed files are generated/vendored (skipped review)",
+                "skipped_files": skipped_files,
+                "head_sha": head_sha,
+            }
         return {"comments": [], "summary": "No changes detected in diff", "head_sha": head_sha}
 
     diff_files, augmented_diff = parse_diff_files(diff_text)
     if not diff_files:
         return {"comments": [], "summary": "No reviewable text changes detected in diff", "head_sha": head_sha}
-
-    # Filter out generated/vendored files
-    filtered_files = {p: s for p, s in diff_files.items() if not should_skip_file(p)}
-    skipped_files = [p for p in diff_files if p not in filtered_files]
-    diff_files = filtered_files
-
-    if not diff_files:
-        return {
-            "comments": [],
-            "summary": f"All {len(skipped_files)} changed files are generated/vendored (skipped review)",
-            "skipped_files": skipped_files,
-            "head_sha": head_sha,
-        }
 
     file_list = list(diff_files.keys())
     lines_changed = sum(len(sides["RIGHT"]) + len(sides["LEFT"]) for sides in diff_files.values())
@@ -527,7 +520,7 @@ def generate_pr_review(
     full_files_section = ""
     if event and head_sha and not is_agent_review_model and len(file_list) <= 10:  # Reasonable file count limit
         file_contents, total_chars = [], len(augmented_diff) + len(guidelines_section) + len(history_section)
-        for file_path in file_list:  # already filtered by should_skip_file above
+        for file_path in file_list:
             text = _read_head_file(event, head_sha, local_checkout, file_path) or ""
             if not text or len(text) > 100_000:  # skip missing and >100KB files entirely
                 continue
