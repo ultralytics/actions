@@ -108,6 +108,8 @@ runs:
         python-version: ${{ inputs.python-version }}
 
     - uses: ultralytics/actions/setup-uv@main
+      with:
+        ignore-empty-workdir: true
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml
       env:
