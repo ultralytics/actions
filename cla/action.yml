@@ -17,6 +17,8 @@ runs:
   using: "composite"
   steps:
     - uses: ultralytics/actions/setup-uv@main
+      with:
+        ignore-empty-workdir: true
 
     - name: Check CLA
       env:
