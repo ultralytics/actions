@@ -21,3 +21,4 @@ Provides Ultralytics defaults for the official [uv setup action](https://github.
 | `activate-environment`  | Create and activate a `.venv` environment | No       | `false`      |
 | `enable-cache`          | Cache uv downloads between workflow runs  | No       | `false`      |
 | `cache-dependency-glob` | Dependency files used to invalidate cache | No       | `**/uv.lock` |
+| `ignore-empty-workdir`  | Suppress warnings for an empty workdir    | No       | `false`      |

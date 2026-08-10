@@ -19,6 +19,10 @@ inputs:
     description: "Dependency files used to invalidate the uv cache"
     required: false
     default: "**/uv.lock"
+  ignore-empty-workdir:
+    description: "Suppress the warning when the working directory is intentionally empty"
+    required: false
+    default: "false"
 
 runs:
   using: "composite"
@@ -29,4 +33,5 @@ runs:
         activate-environment: ${{ inputs.activate-environment }}
         enable-cache: ${{ inputs.enable-cache }}
         cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
+        ignore-empty-workdir: ${{ inputs.ignore-empty-workdir }}
         ignore-nothing-to-cache: true
