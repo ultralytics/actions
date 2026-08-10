@@ -114,7 +114,7 @@ def main(*args, **kwargs):
     if event.pr.get("merged"):
         print("PR is merged, labeling fixed issues...")
         pr_credit = label_fixed_issues(event, summary)
-        if any(label["name"] == "TODO" for label in event.pr.get("labels", [])):
+        if any(label["name"].casefold() == "todo" for label in event.pr.get("labels", [])):
             print("Removing TODO label from PR...")
             event.remove_labels(event.pr["number"], labels=("TODO",))
         if pr_credit:
