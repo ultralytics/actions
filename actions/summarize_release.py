@@ -8,7 +8,14 @@ import subprocess
 import time
 from datetime import datetime, timezone
 
-from .utils import GITHUB_API_URL, Action, filter_diff_text, get_response, remove_html_comments
+from .utils import (
+    GITHUB_API_URL,
+    Action,
+    filter_diff_text,
+    format_skipped_files_note,
+    get_response,
+    remove_html_comments,
+)
 
 # Environment variables
 CURRENT_TAG = os.getenv("CURRENT_TAG")
@@ -101,7 +108,7 @@ def generate_release_summary(
     previous_tag: str,
 ) -> str:
     """Generate a concise release summary with key changes, purpose, and impact for a new Ultralytics version."""
-    diff_text = diff[0]
+    diff_text, skipped_files = diff
     pr_summaries = "\n\n".join(
         [f"PR #{pr['number']}: {pr['title']} by @{pr['author']}\n{pr['body'][:1000]}" for pr in prs]
     )
@@ -147,7 +154,7 @@ def generate_release_summary(
             f"## 🎯 Purpose & Impact (bullet points explaining any benefits and potential impact to users)\n\n\n"
             f"Here's the information about the current PR:\n\n{current_pr_summary}\n\n"
             f"Here's the information about PRs merged between the previous release and this one:\n\n{pr_summaries[:30000]}\n\n"
-            f"Here's the release diff:\n\n{diff_text[:300000]}",
+            f"Here's the release diff:\n\n{diff_text[:300000]}{format_skipped_files_note(skipped_files)}",
         },
     ]
     return get_response(messages, temperature=1.0) + release_suffix

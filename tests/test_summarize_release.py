@@ -105,12 +105,17 @@ def test_generate_release_summary(mock_get_response):
     # Mock new contributors function
     with patch("actions.summarize_release.get_new_contributors", return_value=["newuser"]):
         summary = generate_release_summary(
-            event=mock_event, diff=("diff content", []), prs=test_prs, latest_tag="v1.1.0", previous_tag="v1.0.0"
+            event=mock_event,
+            diff=("diff content", ["generated/client.py"]),
+            prs=test_prs,
+            latest_tag="v1.1.0",
+            previous_tag="v1.0.0",
         )
 
     assert "Release summary content" in summary
     assert "What's Changed" in summary
     assert "https://github.com/test/repo/compare/v1.0.0...v1.1.0" in summary
+    assert "generated/client.py" in mock_get_response.call_args.args[0][1]["content"]
     mock_get_response.assert_called_once()
 
 
