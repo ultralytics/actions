@@ -67,6 +67,7 @@ IGNORE_PATHS = {
     # Auto-generated files
     "generated/",
     "auto_gen/",
+    "next-env.d.ts",
     "Package.swift",
     ".eslintrc.js",
     ".prettierrc.js",
