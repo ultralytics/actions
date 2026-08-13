@@ -1,6 +1,6 @@
 # Setup uv Action
 
-Provides Ultralytics defaults for the official [uv setup action](https://github.com/astral-sh/setup-uv), with optional Python environment activation and dependency caching. Installs its latest checksum-verified uv release without a manifest request.
+Provides Ultralytics defaults for the official [uv setup action](https://github.com/astral-sh/setup-uv), with optional Python environment activation and dependency caching. Set `version: latest-known` to select the newest checksum-verified uv release without a manifest request.
 
 ## Usage
 
@@ -17,6 +17,7 @@ Provides Ultralytics defaults for the official [uv setup action](https://github.
 
 | Input                   | Description                               | Required | Default      |
 | ----------------------- | ----------------------------------------- | -------- | ------------ |
+| `version`               | uv version or selector to install         | No       | -            |
 | `python-version`        | Python version for uv commands            | No       | -            |
 | `activate-environment`  | Create and activate a `.venv` environment | No       | `false`      |
 | `enable-cache`          | Cache uv downloads between workflow runs  | No       | `false`      |
