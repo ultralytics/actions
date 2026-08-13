@@ -27,7 +27,20 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: astral-sh/setup-uv@v9.0.0
+    - id: setup-uv-r2
+      continue-on-error: true
+      uses: astral-sh/setup-uv@v9.0.0
+      with:
+        manifest-file: https://releases.astral.sh/github/versions/main/v1/uv.ndjson
+        python-version: ${{ inputs.python-version }}
+        activate-environment: ${{ inputs.activate-environment }}
+        enable-cache: ${{ inputs.enable-cache }}
+        cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
+        ignore-empty-workdir: ${{ inputs.ignore-empty-workdir }}
+        ignore-nothing-to-cache: true
+
+    - if: steps.setup-uv-r2.outcome == 'failure'
+      uses: astral-sh/setup-uv@v9.0.0
       with:
         python-version: ${{ inputs.python-version }}
         activate-environment: ${{ inputs.activate-environment }}

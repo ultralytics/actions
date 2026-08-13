@@ -1,6 +1,6 @@
 # Setup uv Action
 
-Provides Ultralytics defaults for the official [uv setup action](https://github.com/astral-sh/setup-uv), with optional Python environment activation and dependency caching.
+Provides Ultralytics defaults for the official [uv setup action](https://github.com/astral-sh/setup-uv), with optional Python environment activation and dependency caching. Release metadata is fetched from Astral's mirror with raw GitHub as a fallback.
 
 ## Usage
 
