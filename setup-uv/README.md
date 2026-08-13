@@ -17,7 +17,6 @@ Provides Ultralytics defaults for the official [uv setup action](https://github.
 
 | Input                   | Description                               | Required | Default      |
 | ----------------------- | ----------------------------------------- | -------- | ------------ |
-| `version`               | uv version or selector to install         | No       | `latest`     |
 | `python-version`        | Python version for uv commands            | No       | -            |
 | `activate-environment`  | Create and activate a `.venv` environment | No       | `false`      |
 | `enable-cache`          | Cache uv downloads between workflow runs  | No       | `false`      |
