@@ -3,6 +3,10 @@
 name: "Setup uv"
 description: "Install uv with optional Python environment activation and dependency caching"
 inputs:
+  version:
+    description: "uv version or selector to install"
+    required: false
+    default: ""
   python-version:
     description: "Python version for uv commands"
     required: false
@@ -27,8 +31,9 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: astral-sh/setup-uv@v9.0.0
+    - uses: astral-sh/setup-uv@v10.0.0
       with:
+        version: ${{ inputs.version }}
         python-version: ${{ inputs.python-version }}
         activate-environment: ${{ inputs.activate-environment }}
         enable-cache: ${{ inputs.enable-cache }}
