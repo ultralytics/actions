@@ -6,7 +6,7 @@ inputs:
   version:
     description: "uv version or selector to install"
     required: false
-    default: ""
+    default: "latest-known"
   python-version:
     description: "Python version for uv commands"
     required: false
