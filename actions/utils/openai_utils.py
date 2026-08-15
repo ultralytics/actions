@@ -425,8 +425,8 @@ def get_agent_response(
         "parallel_tool_calls": True,  # batched tool calls share one turn, so the history is re-billed fewer times
         "prompt_cache_key": f"agent-run:{uuid4().hex}",
         # Overflow guard only: compaction collapses the run to a few thousand tokens and drops the evidence gathered so
-        # far, so it must sit above a large review's working set yet below every GPT-5 context window (400k+)
-        "context_management": [{"type": "compaction", "compact_threshold": 350_000}],
+        # far, so it only fires at the long-context billing boundary (2x input above 272k tokens on gpt-5.6)
+        "context_management": [{"type": "compaction", "compact_threshold": 272_000}],
     }
     if "gpt-5" in model:
         base_data["reasoning"] = {"effort": reasoning_effort or "medium"}
