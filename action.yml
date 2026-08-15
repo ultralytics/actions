@@ -254,9 +254,12 @@ runs:
       run: |
         echo "::group::Run Dart Formatter"
         trap 'echo "::endgroup::"' EXIT
-        echo ".dart_tool/" >> .git/info/exclude # keep resolution artifacts out of the auto-format commit
-        find . -name pubspec.yaml -not -path '*/.*' -execdir flutter pub get \;
+        for pubspec in $(find . -name pubspec.yaml -not -path '*/.*'); do
+          (cd "$(dirname "$pubspec")" && flutter pub get)
+        done
         dart format .
+        git clean -fdq # formatting never creates files, so drop generated pub and Flutter metadata
+        git ls-files -z '*pubspec.lock' | xargs -0 -r git checkout --
       shell: bash
       continue-on-error: true # Important so that commit step can pick up changes
 
