@@ -424,7 +424,9 @@ def get_agent_response(
         "tools": tools,
         "parallel_tool_calls": True,  # batched tool calls share one turn, so the history is re-billed fewer times
         "prompt_cache_key": f"agent-run:{uuid4().hex}",
-        "context_management": [{"type": "compaction", "compact_threshold": 200_000}],
+        # Overflow guard only: compaction collapses the run to a few thousand tokens and drops the evidence gathered so
+        # far, so it only fires at the long-context billing boundary (2x input above 272k tokens on gpt-5.6)
+        "context_management": [{"type": "compaction", "compact_threshold": 272_000}],
     }
     if "gpt-5" in model:
         base_data["reasoning"] = {"effort": reasoning_effort or "medium"}
@@ -452,6 +454,8 @@ def get_agent_response(
         total_usage = _add_openai_usage(total_usage, response_json)
         previous_response_id = response_json.get("id")
         output_items = response_json.get("output", [])
+        if any(item.get("type") == "compaction" for item in output_items):
+            print("WARNING ⚠️ context compacted server-side; earlier tool results are summarized, not verbatim")
         turn_calls = _response_tool_calls(output_items)
         turn_cost = (
             _openai_usage_cost(response_json.get("usage") or {}, model)
