@@ -1,5 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import json
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -396,6 +397,51 @@ def test_get_agent_response_summarizes_after_max_turns(mock_post):
         "output": "raw tool output for abc",
     }
     assert "Synthesize the gathered tool results" in final_payload["input"][-1]["content"]
+
+
+@patch("requests.post")
+def test_get_agent_response_repairs_malformed_json(mock_post):
+    """Test a completed reply with cut-off structured JSON gets one tool-free repair turn before failing."""
+    truncated = MagicMock(status_code=200)
+    truncated.elapsed.total_seconds.return_value = 1.0
+    truncated.json.return_value = {
+        "id": "resp_truncated",
+        "status": "completed",
+        "output": [
+            {"type": "message", "content": [{"type": "output_text", "text": '{"comments": [], "summary": "cut'}]}
+        ],
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+    repaired = MagicMock(status_code=200)
+    repaired.elapsed.total_seconds.return_value = 1.0
+    repaired.json.return_value = {
+        "id": "resp_repaired",
+        "status": "completed",
+        "output": [
+            {"type": "message", "content": [{"type": "output_text", "text": '{"comments": [], "summary": "ok"}'}]}
+        ],
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+    mock_post.side_effect = [truncated, repaired]
+    text_format = {"format": {"type": "json_schema", "name": "review", "strict": True, "schema": {"type": "object"}}}
+
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
+        result = get_agent_response(
+            [{"role": "user", "content": "review"}], tools=[], tool_handlers={}, text_format=text_format, retries=0
+        )
+
+    assert result == {"comments": [], "summary": "ok"}
+    assert mock_post.call_count == 2
+    repair_payload = mock_post.call_args_list[1].kwargs["json"]
+    assert repair_payload["tool_choice"] == "none"
+    assert repair_payload["previous_response_id"] == "resp_truncated"
+    assert "not valid JSON" in repair_payload["input"][0]["content"]
+
+    mock_post.side_effect = [truncated, truncated]
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"), pytest.raises(json.JSONDecodeError):
+        get_agent_response(
+            [{"role": "user", "content": "review"}], tools=[], tool_handlers={}, text_format=text_format, retries=0
+        )
 
 
 @patch("requests.post")

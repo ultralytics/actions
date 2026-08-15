@@ -417,7 +417,6 @@ def get_agent_response(
         "store": True,
         "temperature": temperature,
         "tools": tools,
-        "tool_choice": "auto",
         "parallel_tool_calls": True,  # batched tool calls share one turn, so the history is re-billed fewer times
         "prompt_cache_key": f"agent-run:{uuid4().hex}",
         "context_management": [{"type": "compaction", "compact_threshold": 200_000}],
@@ -433,12 +432,17 @@ def get_agent_response(
     total_usage = None
     previous_response_id = None
     next_input = conversation
-    turn = -1
-    for turn in range(max_turns):
-        data = {**base_data, "input": next_input}
+    tool_choice = "auto"
+    repaired = False
+    # Up to two tool-free turns follow the tool turns: a forced synthesis once max_turns is spent, then one repair
+    # of a malformed structured reply. Every path returns or raises before the range is exhausted.
+    for turn in range(max_turns + 2):
+        data = {**base_data, "input": next_input, "tool_choice": tool_choice}
         if previous_response_id:
             data["previous_response_id"] = previous_response_id
-        response_json, elapsed = _post_openai_response(data, headers, retries, request_timeout)
+        response_json, elapsed = _post_openai_response(
+            data, headers, retries if tool_choice == "auto" else max(retries, 2), request_timeout
+        )
         total_elapsed += elapsed
         total_usage = _add_openai_usage(total_usage, response_json)
         previous_response_id = response_json.get("id")
@@ -454,55 +458,64 @@ def get_agent_response(
             response_json,
             model,
             elapsed,
-            f"turn {turn + 1}/{max_turns}, {_format_tool_calls(turn_calls)}",
+            f"turn {turn + 1 if tool_choice == 'auto' else 'final'}/{max_turns}, {_format_tool_calls(turn_calls)}",
             turn_cost,
         )
         function_calls = [item for item in output_items if item.get("type") == "function_call"]
 
-        if not function_calls:
-            _print_openai_usage(
-                {"usage": total_usage},
-                model,
-                total_elapsed,
-                f"agent total, {turn + 1} turns, {_format_tool_calls(tool_calls)}",
-                total_cost,
-            )
-            return _finalize_response_content(response_json, text_format)
+        if function_calls:
+            if not previous_response_id:
+                raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
+            if max_cost and total_cost >= max_cost:
+                raise RuntimeError(f"Agent cost budget ${max_cost:.2f} reached before requested tools could run")
+            if parallel_tools and len(function_calls) > 1:  # opt-in contract: handlers must be thread-safe
+                with ThreadPoolExecutor(max_workers=min(8, len(function_calls))) as pool:
+                    next_input = list(pool.map(lambda call: _handle_function_call(call, tool_handlers), function_calls))
+            else:
+                next_input = [_handle_function_call(call, tool_handlers) for call in function_calls]
+            if turn + 1 >= max_turns:  # tool turns are spent: the next turn must synthesize from what was gathered
+                next_input.append(
+                    {
+                        "role": "user",
+                        "content": (
+                            "You have used all available tool-calling steps. Do not call tools. Synthesize the "
+                            "gathered tool results and return the best final answer now in the required response "
+                            "format. If the gathered context is incomplete, say so in the final answer instead of "
+                            "dumping raw tool output."
+                        ),
+                    }
+                )
+                tool_choice = "none"
+            continue
 
-        if not previous_response_id:
-            raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
-        if max_cost and total_cost >= max_cost:
-            raise RuntimeError(f"Agent cost budget ${max_cost:.2f} reached before requested tools could run")
-        if parallel_tools and len(function_calls) > 1:  # opt-in contract: handlers must be thread-safe
-            with ThreadPoolExecutor(max_workers=min(8, len(function_calls))) as pool:
-                next_input = list(pool.map(lambda call: _handle_function_call(call, tool_handlers), function_calls))
-        else:
-            next_input = [_handle_function_call(call, tool_handlers) for call in function_calls]
-
-    final_instruction = {
-        "role": "user",
-        "content": (
-            "You have used all available tool-calling steps. Do not call tools. Synthesize the gathered tool results "
-            "and return the best final answer now in the required response format. If the gathered context is "
-            "incomplete, say so in the final answer instead of dumping raw tool output."
-        ),
-    }
-    data = {**base_data, "input": [*next_input, final_instruction], "tool_choice": "none"}
-    if previous_response_id:
-        data["previous_response_id"] = previous_response_id
-    response_json, elapsed = _post_openai_response(data, headers, max(retries, 2), request_timeout)
-    total_elapsed += elapsed
-    total_usage = _add_openai_usage(total_usage, response_json)
-    total_cost += _openai_usage_cost(response_json.get("usage") or {}, model)
-    _print_openai_usage(response_json, model, elapsed, f"turn final/{max_turns}, 0 tools")
-    _print_openai_usage(
-        {"usage": total_usage},
-        model,
-        total_elapsed,
-        f"agent total, {turn + 2} turns, {_format_tool_calls(tool_calls)}",
-        total_cost,
-    )
-    return _finalize_response_content(response_json, text_format)
+        try:
+            content = _finalize_response_content(response_json, text_format)
+        except json.JSONDecodeError as e:
+            # A completed reply can still carry malformed or cut-off JSON; ask once for the full object before failing
+            text = _openai_response_text(response_json)
+            print(f"Malformed structured output ({e}) in {len(text)} chars ending {text[-200:]!r}")
+            if repaired or not previous_response_id:
+                raise
+            repaired = True
+            next_input = [
+                {
+                    "role": "user",
+                    "content": (
+                        f"Your previous reply was not valid JSON for the required response format ({e}). "
+                        "Return the complete JSON object now, and nothing else."
+                    ),
+                }
+            ]
+            tool_choice = "none"
+            continue
+        _print_openai_usage(
+            {"usage": total_usage},
+            model,
+            total_elapsed,
+            f"agent total, {turn + 1} turns, {_format_tool_calls(tool_calls)}",
+            total_cost,
+        )
+        return content
 
 
 def get_response(
