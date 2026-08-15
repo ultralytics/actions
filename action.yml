@@ -238,18 +238,30 @@ runs:
       continue-on-error: true
 
     # Dart formatting --------------------------------------------------------------------------------------------------
-    - name: Setup Dart SDK
+    # Flutter bundles Dart and resolves Flutter packages; without `pub get`, `dart format` cannot read the package
+    # language version and silently falls back to the pre-3.7 short style.
+    - name: Setup Flutter SDK
       if: github.event_name == 'pull_request' && inputs.dart == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
-      uses: dart-lang/setup-dart@v1
-      with:
-        sdk: stable
+      run: |
+        echo "::group::Setup Flutter SDK"
+        trap 'echo "::endgroup::"' EXIT
+        git clone --depth 1 --branch stable https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+        echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      shell: bash
 
     - name: Run Dart Formatter
       if: github.event_name == 'pull_request' && inputs.dart == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
         echo "::group::Run Dart Formatter"
         trap 'echo "::endgroup::"' EXIT
-        dart format .
+        ok=true
+        while IFS= read -r -d '' pubspec; do
+          (cd "$(dirname "$pubspec")" && flutter pub get) || ok=false
+        done < <(find . -name pubspec.yaml -not -path '*/.*' -print0)
+        $ok && dart format . || ok=false # never format with an unresolved language version
+        git clean -fdq # formatting never creates files, so drop generated pub and Flutter metadata
+        git ls-files -z '*pubspec.lock' | xargs -0 -r git checkout --
+        $ok
       shell: bash
       continue-on-error: true # Important so that commit step can pick up changes
 
