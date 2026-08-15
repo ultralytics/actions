@@ -24,13 +24,13 @@ jobs:
       - name: Run Ultralytics Actions
         uses: ultralytics/actions@main
         with:
-          token: ${{ secrets._GITHUB_TOKEN || github.token }} # Auto-generated fallback
+          token: ${{ secrets._GITHUB_TOKEN || secrets.GITHUB_TOKEN }} # Auto-generated token
           labels: true # Auto-label issues/PRs using AI
           python: true # Format Python with Ruff
           python_docstrings: true # Format Python docstrings
           prettier: true # Format YAML, JSON, Markdown, CSS
           spelling: true # Check spelling with codespell
-          links: false # Check broken links with Lychee
+          links: true # Check broken links with Lychee
           summary: true # Generate AI-powered PR summaries
           review: true # PR reviews
           openai_api_key: ${{ secrets.OPENAI_API_KEY }}
