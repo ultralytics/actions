@@ -12,7 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: ultralytics/actions/setup-uv@main
-      - run: uv pip install --system --break-system-packages -e .
+      - run: sudo env "PATH=$PATH" uv pip install --system --break-system-packages .
       - env:
           GITHUB_TOKEN: ${{ github.token }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
