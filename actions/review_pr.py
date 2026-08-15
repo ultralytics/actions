@@ -32,7 +32,7 @@ MAX_REVIEW_COMMENTS = 8
 MAX_TOOL_OUTPUT_CHARS = 40000
 MAX_TOOL_FILE_LINES = 400
 MAX_AGENT_TURNS = 24
-REVIEW_PROMPT_CHARS = round(MAX_PROMPT_CHARS * 3)  # ~5k diff lines inline; larger PRs page the rest via read_diff
+REVIEW_PROMPT_CHARS = round(MAX_PROMPT_CHARS * 1.5)  # reviews favor evidence depth over one-shot cost
 MAX_HISTORY_REVIEWS = 5  # prior reviews included in the prompt (the full history stays available via the tool)
 MAX_HISTORY_ITEM_CHARS = 8000  # per prior review or response, enough for a full summary plus its findings log
 MAX_HISTORY_CHARS = 20000
@@ -536,10 +536,10 @@ def generate_pr_review(
         if file_contents:
             full_files_section = f"FULL FILE CONTENTS:\n{chr(10).join(file_contents)}\n\n"
 
-    # Calculate remaining budget for diff and check if truncation needed
-    diff_budget = max(
-        1000, REVIEW_PROMPT_CHARS - len(guidelines_section) - len(full_files_section) - len(history_section)
-    )
+    # Remaining budget for the diff: agent turns cache the prompt and page any remainder via read_diff, so the agent
+    # inlines ~5k diff lines while single-shot models keep the one-request ceiling
+    prompt_chars = REVIEW_PROMPT_CHARS * (2 if is_agent_review_model else 1)
+    diff_budget = max(1000, prompt_chars - len(guidelines_section) - len(full_files_section) - len(history_section))
     diff_truncated = len(augmented_diff) > diff_budget
     if is_agent_review_model:  # must match the get_agent_response fallback gate
         visibility_section = (  # function tools carry their own schema descriptions; only cross-tool rules belong here
