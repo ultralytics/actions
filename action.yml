@@ -242,9 +242,12 @@ runs:
     # language version and silently falls back to the pre-3.7 short style.
     - name: Setup Flutter SDK
       if: github.event_name == 'pull_request' && inputs.dart == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
-      uses: subosito/flutter-action@v2
-      with:
-        channel: stable
+      run: |
+        echo "::group::Setup Flutter SDK"
+        trap 'echo "::endgroup::"' EXIT
+        git clone --depth 1 --branch stable https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+        echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
+      shell: bash
 
     - name: Run Dart Formatter
       if: github.event_name == 'pull_request' && inputs.dart == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
