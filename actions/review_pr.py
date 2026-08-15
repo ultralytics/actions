@@ -32,7 +32,7 @@ MAX_REVIEW_COMMENTS = 8
 MAX_TOOL_OUTPUT_CHARS = 40000
 MAX_TOOL_FILE_LINES = 400
 MAX_AGENT_TURNS = 24
-REVIEW_PROMPT_CHARS = round(MAX_PROMPT_CHARS * 1.5)  # reviews favor evidence depth over one-shot cost
+REVIEW_PROMPT_CHARS = round(MAX_PROMPT_CHARS * 3)  # ~5k diff lines inline; larger PRs page the rest via read_diff
 MAX_HISTORY_REVIEWS = 5  # prior reviews included in the prompt (the full history stays available via the tool)
 MAX_HISTORY_ITEM_CHARS = 8000  # per prior review or response, enough for a full summary plus its findings log
 MAX_HISTORY_CHARS = 20000
@@ -541,7 +541,7 @@ def generate_pr_review(
         1000, REVIEW_PROMPT_CHARS - len(guidelines_section) - len(full_files_section) - len(history_section)
     )
     diff_truncated = len(augmented_diff) > diff_budget
-    is_large_pr = diff_truncated or len(file_list) > 30
+    is_large_pr = diff_truncated
     if is_agent_review_model:  # must match the get_agent_response fallback gate
         visibility_section = (  # function tools carry their own schema descriptions; only cross-tool rules belong here
             "EVIDENCE - every finding needs it:\n"

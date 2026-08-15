@@ -294,7 +294,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
     assert first_payload["store"] is True
     assert first_payload["service_tier"] == "default"
     assert first_payload["reasoning"] == {"effort": "medium"}
-    assert first_payload["context_management"] == [{"type": "compaction", "compact_threshold": 200_000}]
+    assert first_payload["context_management"] == [{"type": "compaction", "compact_threshold": 350_000}]
     assert first_payload["prompt_cache_key"].startswith("agent-run:")
     assert "include" not in first_payload
     assert "previous_response_id" not in first_payload
