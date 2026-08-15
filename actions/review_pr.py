@@ -541,7 +541,6 @@ def generate_pr_review(
         1000, REVIEW_PROMPT_CHARS - len(guidelines_section) - len(full_files_section) - len(history_section)
     )
     diff_truncated = len(augmented_diff) > diff_budget
-    is_large_pr = diff_truncated
     if is_agent_review_model:  # must match the get_agent_response fallback gate
         visibility_section = (  # function tools carry their own schema descriptions; only cross-tool rules belong here
             "EVIDENCE - every finding needs it:\n"
@@ -629,8 +628,8 @@ def generate_pr_review(
         '{"comments": [{"file": "exact/path", "line": N, "side": "RIGHT", "severity": "HIGH", "message": "..."}], "summary": "..."}\n\n'
         "JSON rules: exact paths (no ./), severity: CRITICAL|HIGH|MEDIUM|LOW|SUGGESTION\n"
         f"Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''}), Lines: {lines_changed}\n"
-        f"{'Large or truncated PR: the diff below is incomplete. ' if is_large_pr else ''}"
-        f"{'Use list_changed_files and read_diff to inspect changed files not shown in the initial prompt. ' if is_large_pr and is_agent_review_model else ''}\n"
+        f"{'Large PR: the diff below is truncated. ' if diff_truncated else ''}"
+        f"{'Use list_changed_files and read_diff to inspect changed files not shown in the initial prompt. ' if diff_truncated and is_agent_review_model else ''}\n"
     )
 
     messages = [
