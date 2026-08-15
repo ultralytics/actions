@@ -254,6 +254,7 @@ runs:
       run: |
         echo "::group::Run Dart Formatter"
         trap 'echo "::endgroup::"' EXIT
+        echo ".dart_tool/" >> .git/info/exclude # keep resolution artifacts out of the auto-format commit
         find . -name pubspec.yaml -not -path '*/.*' -execdir flutter pub get \;
         dart format .
       shell: bash
