@@ -406,7 +406,7 @@ runs:
           Darwin-arm64) target=aarch64-apple-darwin ;;
           Darwin-x86_64) target=x86_64-apple-darwin ;;
         esac
-        curl -sfL "https://github.com/lycheeverse/lychee/releases/download/lychee-v0.24.2/lychee-${target}.tar.gz" | tar -xz -C "$RUNNER_TEMP"
+        curl -sfL "https://github.com/lycheeverse/lychee/releases/latest/download/lychee-${target}.tar.gz" | tar -xz -C "$RUNNER_TEMP"
         "$RUNNER_TEMP/lychee-${target}/lychee" \
         --scheme https \
         --timeout 60 \
