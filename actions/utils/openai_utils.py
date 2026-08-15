@@ -432,7 +432,7 @@ def get_agent_response(
     total_usage = None
     previous_response_id = None
     next_input = conversation
-    tool_choice = "auto"
+    tool_choice = "auto" if max_turns > 0 else "none"
     repaired = False
     # Up to two tool-free turns follow the tool turns: a forced synthesis once max_turns is spent, then one repair
     # of a malformed structured reply. Every path returns or raises before the range is exhausted.
