@@ -255,9 +255,9 @@ runs:
         echo "::group::Run Dart Formatter"
         # Formatting never creates files: always drop generated pub/Flutter metadata and restore tracked lockfiles
         trap 'git clean -fdqx; git ls-files -z "*pubspec.lock" | xargs -0 -r git checkout --; echo "::endgroup::"' EXIT
-        for pubspec in $(find . -name pubspec.yaml -not -path '*/.*'); do
+        while IFS= read -r -d '' pubspec; do
           (cd "$(dirname "$pubspec")" && flutter pub get)
-        done
+        done < <(find . -name pubspec.yaml -not -path '*/.*' -print0)
         dart format .
       shell: bash
       continue-on-error: true # Important so that commit step can pick up changes
