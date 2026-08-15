@@ -259,7 +259,7 @@ runs:
           (cd "$(dirname "$pubspec")" && flutter pub get) || ok=false
         done < <(find . -name pubspec.yaml -not -path '*/.*' -print0)
         $ok && dart format . || ok=false # never format with an unresolved language version
-        git clean -fdqx # formatting never creates files, so drop generated pub and Flutter metadata
+        git clean -fdq # formatting never creates files, so drop generated pub and Flutter metadata
         git ls-files -z '*pubspec.lock' | xargs -0 -r git checkout --
         $ok
       shell: bash
