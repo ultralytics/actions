@@ -569,27 +569,39 @@ def test_get_response_rejects_incomplete_response(mock_post):
 
 
 @patch("requests.post")
-def test_get_agent_response_rejects_failed_tool(mock_post):
-    """Test failed evidence tools abort the agent run."""
-    response = MagicMock(status_code=200)
-    response.elapsed.total_seconds.return_value = 1.0
-    response.json.return_value = {
+def test_get_agent_response_feeds_back_failed_tool(mock_post):
+    """Test a failed tool call is returned to the model as tool output instead of aborting the agent run."""
+    tool_response = MagicMock(status_code=200)
+    tool_response.elapsed.total_seconds.return_value = 1.0
+    tool_response.json.return_value = {
         "id": "resp_tool",
         "status": "completed",
         "output": [{"type": "function_call", "call_id": "call_123", "name": "read_file", "arguments": "{}"}],
         "usage": {"input_tokens": 10, "output_tokens": 5},
     }
-    mock_post.return_value = response
+    final_response = MagicMock(status_code=200)
+    final_response.elapsed.total_seconds.return_value = 1.0
+    final_response.json.return_value = {
+        "id": "resp_final",
+        "status": "completed",
+        "output": [{"type": "message", "content": [{"type": "output_text", "text": "could not read the file"}]}],
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+    mock_post.side_effect = [tool_response, final_response]
 
     def failed_read():
         raise RuntimeError("read failed")
 
-    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"), pytest.raises(
-        RuntimeError, match="read failed"
-    ):
-        get_agent_response(
-            [{"role": "user", "content": "review"}],
-            tools=[],
-            tool_handlers={"read_file": failed_read},
-            retries=0,
+    with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
+        result = get_agent_response(
+            [{"role": "user", "content": "review"}], tools=[], tool_handlers={"read_file": failed_read}, retries=0
         )
+
+    assert result == "could not read the file"
+    assert mock_post.call_args_list[1].kwargs["json"]["input"] == [
+        {
+            "type": "function_call_output",
+            "call_id": "call_123",
+            "output": "Tool read_file failed: RuntimeError: read failed",
+        }
+    ]

@@ -852,8 +852,9 @@ def clear_previous_review(event: Action) -> dict:
                 hard=True,
             )
     for comment in comments:
-        if comment.get("pull_request_review_id") in owned_reviews:
-            event.delete(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments/{comment['id']}", hard=True)
+        if comment.get("pull_request_review_id") in owned_reviews:  # 404: already deleted by a person or another run
+            url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments/{comment['id']}"
+            event.delete(url, expected_status=[200, 204, 404], hard=True)
     return history
 
 
@@ -933,11 +934,15 @@ def post_review_summary(event: Action, review_data: dict, review_number: int = 1
         review_comments.append(review_comment)
 
     # Submit review with inline comments
+    url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
     payload = {"commit_id": commit_sha, "body": body.strip(), "event": event_type}
     if review_comments:
-        payload["comments"] = review_comments
-
-    event.post(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews", json=payload, hard=True)
+        # One anchor GitHub cannot resolve rejects the whole review; the body logs every finding, so post it alone
+        response = event.post(url, json={**payload, "comments": review_comments}, expected_status=[200, 422], hard=True)
+        if response.status_code != 422:
+            return
+        print("GitHub rejected the inline comments; posting the review body alone")
+    event.post(url, json=payload, hard=True)
 
 
 def run_review(event: Action, pr_title: str, pr_description: str) -> None:

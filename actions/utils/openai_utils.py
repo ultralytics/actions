@@ -360,11 +360,16 @@ def _handle_function_call(call: dict, tool_handlers: dict[str, Callable]) -> dic
     """Execute one model-requested function call and return a Responses API output item."""
     name = call.get("name")
     call_id = call.get("call_id")
-    if name not in tool_handlers:
-        raise KeyError(f"Unknown tool: {name}")
-    output = tool_handlers[name](**_parse_tool_arguments(call))
-    if not isinstance(output, str):
-        output = json.dumps(output)
+    try:
+        if name not in tool_handlers:
+            raise KeyError(f"Unknown tool: {name}")
+        output = tool_handlers[name](**_parse_tool_arguments(call))
+        if not isinstance(output, str):
+            output = json.dumps(output)
+    except Exception as e:
+        # The model owns a failed call: it can correct the arguments, use another tool, or report the evidence gap
+        print(f"Tool {name} failed: {e!r}")
+        output = f"Tool {name} failed: {type(e).__name__}: {e}"
     return {"type": "function_call_output", "call_id": call_id, "output": output}
 
 
