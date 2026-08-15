@@ -35,9 +35,9 @@ def get_pr_branch(event) -> tuple[str, str | None]:
         fork_repo = head["repo"]["full_name"]
         fork_branch = head["ref"]
         base_repo = event.repository
-        token = os.environ.get("GITHUB_TOKEN")
+        token = event.token
         if not token:
-            raise ValueError("GITHUB_TOKEN environment variable is not set")
+            raise ValueError("A GitHub token is required to push the temporary branch")
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             repo_dir = os.path.join(tmp_dir, "repo")
@@ -73,9 +73,11 @@ def get_pr_branch(event) -> tuple[str, str | None]:
 
 
 def trigger_and_get_workflow_info(
-    event, branch: str, workflow_files: list[str], temp_branch: str | None = None
+    event, branch: str, workflow_files: list[str], temp_branch: str | None = None, inputs: dict | None = None
 ) -> list[dict]:
-    """Triggers workflows and returns their information, deleting temp branch if provided."""
+    """Triggers workflows with optional workflow_dispatch inputs and returns their information, deleting temp branch if
+    provided.
+    """
     repo = event.repository
     results = []
     failed = {}
@@ -84,7 +86,8 @@ def trigger_and_get_workflow_info(
         # Trigger all workflows
         for file in workflow_files:
             response = event.post(
-                f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches", json={"ref": branch}
+                f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches",
+                json={"ref": branch, **({"inputs": inputs} if inputs else {})},
             )
             if isinstance(response.status_code, int) and response.status_code != 204:
                 failed[file] = response.json().get("message", "workflow dispatch failed")

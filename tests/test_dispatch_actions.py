@@ -3,6 +3,8 @@
 from datetime import datetime, timezone
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from actions.dispatch_actions import (
     RUN_ALL_KEYWORD,
     RUN_CI_KEYWORD,
@@ -40,9 +42,8 @@ def test_get_pr_branch_fork():
         "base": {"repo": {"id": 1}},
     }
 
-    with patch("time.time", return_value=1234567.890), patch("subprocess.run") as mock_run, patch(
-        "os.environ.get", return_value="test-token"
-    ):
+    mock_event.token = "test-token"
+    with patch("time.time", return_value=1234567.890), patch("subprocess.run") as mock_run:
         branch, temp_branch = get_pr_branch(mock_event)
 
     assert branch == "temp-ci-456-1234567890"
@@ -60,13 +61,9 @@ def test_get_pr_branch_fork_requires_token():
         "base": {"repo": {"id": 1}},
     }
 
-    try:
-        with patch("os.environ.get", return_value=None):
-            get_pr_branch(mock_event)
-    except ValueError as e:
-        assert str(e) == "GITHUB_TOKEN environment variable is not set"
-    else:
-        raise AssertionError("Expected missing token to raise")
+    mock_event.token = None
+    with pytest.raises(ValueError, match="token is required"):
+        get_pr_branch(mock_event)
 
 
 def test_get_pr_branch_fork_sanitizes_git_errors():
@@ -82,8 +79,9 @@ def test_get_pr_branch_fork_sanitizes_git_errors():
     }
     error = subprocess.CalledProcessError(128, ["git"], stderr=b"https://x-access-token:test-token@github.com")
 
+    mock_event.token = "test-token"
     try:
-        with patch("subprocess.run", side_effect=error), patch("os.environ.get", return_value="test-token"):
+        with patch("subprocess.run", side_effect=error):
             get_pr_branch(mock_event)
     except RuntimeError as e:
         assert "test-token" not in str(e)
@@ -123,9 +121,10 @@ def test_trigger_and_get_workflow_info():
 
     # Use patch to skip time.sleep and limit to one workflow
     with patch("time.sleep"):
-        results = trigger_and_get_workflow_info(mock_event, "feature-branch", ["ci.yml"])
+        results = trigger_and_get_workflow_info(mock_event, "feature-branch", ["ci.yml"], inputs={"tests": "true"})
 
     # Check results
+    assert mock_event.post.call_args.kwargs["json"] == {"ref": "feature-branch", "inputs": {"tests": "true"}}
     assert len(results) == 1
     assert results[0]["name"] == "CI Workflow"
     assert results[0]["run_number"] == 42
