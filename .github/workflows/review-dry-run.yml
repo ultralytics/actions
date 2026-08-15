@@ -3,16 +3,8 @@
 name: Review Dry Run
 
 on:
-  workflow_dispatch:
-    inputs:
-      repo:
-        description: "owner/repo"
-        required: true
-        default: "ultralytics/sdk"
-      pr:
-        description: "PR number"
-        required: true
-        default: "24"
+  push:
+    branches: [review-large-pr-robustness]
 
 jobs:
   review:
@@ -24,8 +16,8 @@ jobs:
       - env:
           GITHUB_TOKEN: ${{ github.token }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          REPO: ${{ inputs.repo }}
-          PR: ${{ inputs.pr }}
+          REPO: ultralytics/sdk
+          PR: "24"
         run: |
           python - <<'PY'
           import json, os
