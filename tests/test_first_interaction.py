@@ -352,6 +352,7 @@ def test_clear_previous_review_captures_history_and_deletes_inline_comments():
     )
     event.delete.assert_called_once_with(
         "https://api.github.com/repos/org/repo/pulls/comments/4",
+        expected_status=[200, 204, 404],
         hard=True,
     )
 

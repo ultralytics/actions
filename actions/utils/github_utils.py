@@ -7,6 +7,8 @@ import os
 from pathlib import Path
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from actions import __version__
 from actions.utils.common_utils import filter_diff_text
@@ -126,6 +128,16 @@ class Action:
         self.headers = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github+json"}
         self.headers_diff = {"Authorization": f"Bearer {self.token}", "Accept": "application/vnd.github.v3.diff"}
         self.session = requests.Session()
+        # Retry transient GitHub failures: connection errors for every method, 5xx only for idempotent methods so a
+        # retried POST can never double-post; the final response still flows through the status checks below
+        retry = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["GET", "PUT", "DELETE"],
+            raise_on_status=False,
+        )
+        self.session.mount("https://", HTTPAdapter(max_retries=retry))
         self.verbose = verbose
         self.eyes_reaction_id = None
         self._pr_diff_cache = None
