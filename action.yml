@@ -394,27 +394,36 @@ runs:
       continue-on-error: true
 
     # Broken links -----------------------------------------------------------------------------------------------------
+    # lychee-action only ships Linux binaries, so install lychee directly to support macOS runners (Swift repos) too.
     - name: Broken Link Checker
       if: inputs.links == 'true' && github.event_name == 'pull_request' && github.event.action != 'closed'
-      uses: lycheeverse/lychee-action@v2.9.0
-      with:
-        # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:
-        #   - 401(generic, "unauthorized")
-        #   - 403(OpenVINO, "forbidden")
-        #   - 429(Instagram, "too many requests")
-        #   - 500(Zenodo, "cached")
-        #   - 502(Zenodo, "bad gateway")
-        #   - 999(LinkedIn, "unknown status code")
-        args: |
-          --scheme https
-          --timeout 60
-          --insecure
-          --accept 100..=103,200..=299,401,403,429,500,502,999
-          --exclude-all-private
-          --exclude "https?://(www\.)?(github\.com|linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)"
-          "./**/*.md"
-          "./**/*.html"
-        token: ${{ inputs.token }}
-        output: ../lychee/results.md
-        fail: true
-      continue-on-error: false
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:
+      #   - 401(generic, "unauthorized")
+      #   - 403(OpenVINO, "forbidden")
+      #   - 429(Instagram, "too many requests")
+      #   - 500(Zenodo, "cached")
+      #   - 502(Zenodo, "bad gateway")
+      #   - 999(LinkedIn, "unknown status code")
+      run: |
+        echo "::group::Broken Link Checker"
+        trap 'echo "::endgroup::"' EXIT
+        case "$(uname -s)-$(uname -m)" in
+          Linux-x86_64) target=x86_64-unknown-linux-gnu ;;
+          Linux-aarch64) target=aarch64-unknown-linux-gnu ;;
+          Darwin-arm64) target=aarch64-apple-darwin ;;
+          Darwin-x86_64) target=x86_64-apple-darwin ;;
+        esac
+        mkdir -p "$RUNNER_TEMP/lychee"
+        curl -sfL "https://github.com/lycheeverse/lychee/releases/latest/download/lychee-${target}.tar.gz" | tar -xz -C "$RUNNER_TEMP/lychee"
+        "$(find "$RUNNER_TEMP/lychee" -type f -name lychee)" \
+        --scheme https \
+        --timeout 60 \
+        --insecure \
+        --accept 100..=103,200..=299,401,403,429,500,502,999 \
+        --exclude-all-private \
+        --exclude "https?://(www\.)?(github\.com|linkedin\.com|twitter\.com|instagram\.com|kaggle\.com|fonts\.gstatic\.com|url\.com)" \
+        "./**/*.md" \
+        "./**/*.html"
+      shell: bash
