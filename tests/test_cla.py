@@ -168,6 +168,7 @@ def test_persist_surfaces_final_exhausted_error(monkeypatch, statuses, message):
 
     with pytest.raises(RuntimeError, match=message):
         cla._persist(store, [{"name": "new", "id": 2}], source, 7)
+    assert store.put.call_count == len(statuses)
 
 
 def test_run_records_exact_sentence_and_updates_legacy_comment():
