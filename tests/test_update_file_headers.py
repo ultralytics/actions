@@ -57,11 +57,12 @@ def test_main_selects_header_by_repository(tmp_path, monkeypatch, capsys):
         event.is_repo_private.return_value = False
         update_file_headers.main()
         assert f"# {AGPL}\n\nx = 1\n" == (tmp_path / "a.py").read_text()
+        capsys.readouterr()
 
         event.repository = "other/repo"
         monkeypatch.setattr(update_file_headers, "HEADER", "true")
         update_file_headers.main()
-        assert capsys.readouterr().out.count("Headers:") == 1
+        assert capsys.readouterr().out == ""
 
         monkeypatch.setattr(update_file_headers, "HEADER", "© 2014-2020 Custom")
         update_file_headers.main()

@@ -587,7 +587,7 @@ def test_auto_merge_actions_prs_conflicts_failures_and_repo_limit(monkeypatch):
                 pr(5, "MERGEABLE", "Other"),
             ]
             return SimpleNamespace(returncode=0, stdout=json.dumps(prs), stderr="")
-        return SimpleNamespace(returncode=cmd[3] == "2", stdout="", stderr="boom")
+        return SimpleNamespace(returncode=int(cmd[3] == "2"), stdout="", stderr="boom")
 
     monkeypatch.setattr(github_report.subprocess, "run", fake_run)
     report = github_report.auto_merge_actions_prs("ultralytics", {"repo": "url"})

@@ -356,8 +356,7 @@ def test_read_paginate_and_ledger_guards(monkeypatch):
     with pytest.raises(RuntimeError, match="exceeded 10,000 items"):
         cla._paginate(source, "url")
 
-    content = base64.b64encode(json.dumps({"signedContributors": {}}).encode()).decode()
-    source.get.return_value = response(data={"content": content, "sha": "sha"})
+    source.get.return_value = ledger_response({})
     with pytest.raises(TypeError, match="invalid schema"):
         cla._ledger(source)
 
@@ -374,8 +373,9 @@ def test_persist_comment_and_rerun_edge_cases(monkeypatch):
     with pytest.raises(RuntimeError, match="did not return"):
         cla._update_comment(source, 7, [], "body")
 
+    source.get.reset_mock()
     cla._rerun_pr_check(source, 7)
-    source.get.assert_called_once()
+    source.get.assert_not_called()
 
     source = action("issue_comment")
     monkeypatch.setenv("GITHUB_WORKFLOW_REF", "ultralytics/example/.github/workflows/cla.yml@refs/heads/main")
@@ -391,12 +391,17 @@ def test_main_builds_source_and_ledger_actions(monkeypatch):
     """Run the CLA check with separate source and ledger tokens from the environment."""
     monkeypatch.setenv("GITHUB_TOKEN", "token")
     monkeypatch.setenv("CLA_TOKEN", "cla-token")
+    source, store = action(), action()
     run = MagicMock()
     monkeypatch.setattr("actions.cla.run", run)
-    monkeypatch.setattr("actions.cla.Action", MagicMock())
+    monkeypatch.setattr("actions.cla.Action", MagicMock(side_effect=[source, store]))
 
     cla.main()
 
-    assert cla.Action.call_args_list[0].kwargs["token"] == "token"
-    assert cla.Action.call_args_list[1].kwargs["token"] == "cla-token"
-    run.assert_called_once()
+    assert cla.Action.call_args_list[0].kwargs == {"token": "token"}
+    assert cla.Action.call_args_list[1].kwargs == {
+        "token": "cla-token",
+        "event_name": source.event_name,
+        "event_data": source.event_data,
+    }
+    run.assert_called_once_with(source, store)

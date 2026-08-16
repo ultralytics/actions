@@ -56,6 +56,9 @@ def test_format_main_runs_all_formatters(mock_run, monkeypatch, capsys):
     format_code.main()
     assert mock_run.call_args_list == [call(format_code.PRETTIER, shell=True, check=True)]
 
+    mock_run.reset_mock()
     mock_run.side_effect = RuntimeError("boom")
+    monkeypatch.setenv("INPUTS_SPELLING", "true")
     format_code.main()
+    assert mock_run.call_count == 2
     assert "Formatter script failed but continuing: boom" in capsys.readouterr().out
