@@ -39,8 +39,8 @@ def test_markdown_prettier_skips_symlinks():
 
 
 @patch("actions.format_code.subprocess.run")
-def test_format_main_runs_all_formatters(mock_run, monkeypatch):
-    """Test format CLI runs every formatter by default and respects INPUTS_* opt-outs."""
+def test_format_main_runs_all_formatters(mock_run, monkeypatch, capsys):
+    """Test format CLI runs every formatter by default, respects INPUTS_* opt-outs, and continues on failure."""
     format_code.main()
     assert mock_run.call_args_list == [
         call(format_code.RUFF_CHECK, shell=False, check=True),
@@ -55,3 +55,10 @@ def test_format_main_runs_all_formatters(mock_run, monkeypatch):
     monkeypatch.setenv("INPUTS_SPELLING", "false")
     format_code.main()
     assert mock_run.call_args_list == [call(format_code.PRETTIER, shell=True, check=True)]
+
+    mock_run.reset_mock()
+    mock_run.side_effect = RuntimeError("boom")
+    monkeypatch.setenv("INPUTS_SPELLING", "true")
+    format_code.main()
+    assert mock_run.call_count == 2
+    assert "Formatter script failed but continuing: boom" in capsys.readouterr().out

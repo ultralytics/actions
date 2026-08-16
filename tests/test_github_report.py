@@ -1,7 +1,9 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import json
 import urllib.error
 from datetime import datetime, timedelta, timezone
+from types import SimpleNamespace
 
 from actions import failed_scheduled_actions, github_report
 
@@ -522,3 +524,75 @@ def test_failed_scheduled_actions_summary_appends_section_break(tmp_path, monkey
     failed_scheduled_actions.run()
 
     assert "Skipped 0\n\n# Failed Default Branch Actions" in summary.read_text()
+
+
+def test_github_report_helpers_and_open_prs(monkeypatch):
+    """Status check shapes, age phases, and open PR filtering are handled for each input form."""
+    assert github_report.get_status_checks({"contexts": [{"state": "SUCCESS"}]}) == [{"state": "SUCCESS"}]
+    assert github_report.get_status_checks(None) == []
+    assert [github_report.get_phase_emoji(days)[0] for days in (0, 7, 30, 31)] == ["🆕", "🟢", "🟡", "🔴"]
+    assert github_report.get_age_days(datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")) == 0
+    stdout = '[{"repository": {"name": "repo"}}, {"repository": {"name": "other"}}]'
+    monkeypatch.setattr(github_report.subprocess, "run", lambda *args, **kwargs: SimpleNamespace(stdout=stdout))
+    assert github_report.collect_open_prs("ultralytics", {"repo": "url"}) == [{"repository": {"name": "repo"}}]
+
+
+def test_format_pr_report_empty_and_truncated(monkeypatch):
+    """The PR report handles no PRs and truncates long per-repo lists."""
+    assert "No open PRs found" in github_report.format_pr_report([], {}, "public")
+    monkeypatch.setattr(github_report, "get_age_days", lambda created_at: 0)
+    prs = [{"repository": {"name": "repo"}, "number": i, "title": "t", "url": "u", "createdAt": ""} for i in range(31)]
+    assert "- ... 1 more PRs" in github_report.format_pr_report(prs, {"repo": "url"}, "public")
+
+
+def test_run_pr_report_writes_step_summary(tmp_path, monkeypatch):
+    """The PR report is appended to the step summary with auto-merge enabled or disabled."""
+    summary = tmp_path / "summary.md"
+    monkeypatch.setenv("GITHUB_STEP_SUMMARY", str(summary))
+    monkeypatch.setenv("AUTO_MERGE_ACTIONS_PRS", "false")
+    monkeypatch.setattr(github_report, "collect_repos", lambda *args: ({}, "public"))
+    github_report.run_pr_report()
+    assert "Auto-merge disabled" in summary.read_text()
+
+    monkeypatch.setenv("AUTO_MERGE_ACTIONS_PRS", "true")
+    monkeypatch.setattr(github_report, "collect_repos", lambda *args: ({"repo": "url"}, "public"))
+    monkeypatch.setattr(github_report, "collect_open_prs", lambda *args: [])
+    monkeypatch.setattr(github_report, "auto_merge_actions_prs", lambda *args: "merged\n")
+    github_report.run_pr_report()
+    assert summary.read_text().endswith("merged\n")
+
+
+def test_auto_merge_actions_prs_conflicts_failures_and_repo_limit(monkeypatch):
+    """Conflicting, failed, unrelated, and second-per-repo PRs are skipped while one eligible PR merges."""
+
+    def pr(number, mergeable, title="Bump actions/cache in /.github/workflows/ci.yml"):
+        rollup = {"contexts": [{"context": "CI", "state": "SUCCESS"}]}
+        return {
+            "number": number,
+            "title": title,
+            "files": [{"path": "action.yml"}],
+            "mergeable": mergeable,
+            "statusCheckRollup": rollup,
+        }
+
+    def fake_run(cmd, **kwargs):
+        if cmd[:3] == ["gh", "pr", "list"]:
+            if "app/dependabot" not in cmd:
+                return SimpleNamespace(returncode=1, stdout="", stderr="")
+            prs = [
+                pr(1, "CONFLICTING"),
+                pr(2, "MERGEABLE"),
+                pr(3, "MERGEABLE"),
+                pr(4, "MERGEABLE"),
+                pr(5, "MERGEABLE", "Other"),
+            ]
+            return SimpleNamespace(returncode=0, stdout=json.dumps(prs), stderr="")
+        return SimpleNamespace(returncode=int(cmd[3] == "2"), stdout="", stderr="boom")
+
+    monkeypatch.setattr(github_report.subprocess, "run", fake_run)
+    report = github_report.auto_merge_actions_prs("ultralytics", {"repo": "url"})
+
+    assert "- ❌ ultralytics/repo#1: merge conflicts" in report
+    assert "- ❌ ultralytics/repo#2: boom" in report
+    assert "- ✅ Merged ultralytics/repo#3" in report
+    assert "**Summary:** Found 4 | Merged 1 | Skipped 3" in report
