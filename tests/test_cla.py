@@ -155,7 +155,7 @@ def test_persist_honors_retry_after_for_transient_write(monkeypatch):
 
 @pytest.mark.parametrize(
     ("statuses", "message"),
-    [([502, 502, 502, 502], "502 Bad Gateway"), ([502, 502, 502, 409], "409 Conflict")],
+    [([502, 502, 502, 502], "502 Bad Gateway"), ([502, 502, 502, 409], "409 Conflict"), ([422], "422 Unprocessable")],
 )
 def test_persist_surfaces_final_exhausted_error(monkeypatch, statuses, message):
     """Preserve the final HTTP error when mixed write retries are exhausted."""
@@ -340,3 +340,63 @@ def test_rerun_leaves_queued_exact_head_to_complete(monkeypatch):
     cla._rerun_pr_check(source, 7)
 
     source.post.assert_not_called()
+
+
+def test_read_paginate_and_ledger_guards(monkeypatch):
+    """Surface exhausted read retries, oversized collections, and invalid ledger schemas."""
+    source = action()
+    monkeypatch.setattr("actions.cla.time.sleep", MagicMock())
+    source.get.return_value = response(502)
+    source.get.return_value.raise_for_status.side_effect = RuntimeError("502")
+    with pytest.raises(RuntimeError, match="502"):
+        cla._read(source, "get", "url")
+    assert source.get.call_count == 4
+
+    source.get.return_value = response(data=[{}] * 100)
+    with pytest.raises(RuntimeError, match="exceeded 10,000 items"):
+        cla._paginate(source, "url")
+
+    content = base64.b64encode(json.dumps({"signedContributors": {}}).encode()).decode()
+    source.get.return_value = response(data={"content": content, "sha": "sha"})
+    with pytest.raises(TypeError, match="invalid schema"):
+        cla._ledger(source)
+
+
+def test_persist_comment_and_rerun_edge_cases(monkeypatch):
+    """Skip already-signed records, fail missing created comments, and require a PR-head run to rerun."""
+    source, store = action(), action()
+    store.get.return_value = ledger_response([{"id": 2}])
+    cla._persist(store, [{"name": "new", "id": 2}], source, 7)
+    store.put.assert_not_called()
+
+    source.post.return_value = response(201)
+    source.get.return_value = response(data=[])
+    with pytest.raises(RuntimeError, match="did not return"):
+        cla._update_comment(source, 7, [], "body")
+
+    cla._rerun_pr_check(source, 7)
+    source.get.assert_called_once()
+
+    source = action("issue_comment")
+    monkeypatch.setenv("GITHUB_WORKFLOW_REF", "ultralytics/example/.github/workflows/cla.yml@refs/heads/main")
+    source.get.side_effect = [
+        response(data={"head": {"ref": "feature", "sha": "exact"}}),
+        response(data={"workflow_runs": []}),
+    ]
+    with pytest.raises(RuntimeError, match="Could not find"):
+        cla._rerun_pr_check(source, 7)
+
+
+def test_main_builds_source_and_ledger_actions(monkeypatch):
+    """Run the CLA check with separate source and ledger tokens from the environment."""
+    monkeypatch.setenv("GITHUB_TOKEN", "token")
+    monkeypatch.setenv("CLA_TOKEN", "cla-token")
+    run = MagicMock()
+    monkeypatch.setattr("actions.cla.run", run)
+    monkeypatch.setattr("actions.cla.Action", MagicMock())
+
+    cla.main()
+
+    assert cla.Action.call_args_list[0].kwargs["token"] == "token"
+    assert cla.Action.call_args_list[1].kwargs["token"] == "cla-token"
+    run.assert_called_once()
