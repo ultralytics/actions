@@ -126,7 +126,7 @@ runs:
                 echo "::group::Retry $((attempt - 1)) of $retries"
             fi
 
-            # Execute the script with a deadline, terminating its entire process tree on timeout.
+            # Execute the script with a deadline, terminating its process group and tracked descendants on timeout.
             timeout_marker="${TEMP_SCRIPT}.timeout"
             rm -f "$timeout_marker"
             if [ "$RETRY_RUNNER_OS" = "Windows" ]; then

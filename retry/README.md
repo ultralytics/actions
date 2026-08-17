@@ -12,9 +12,9 @@ Retry failed step up to 3 times (default):
 
 ```yaml
 steps:
-  - uses: ultralytics/actions/retry@main
-    with:
-      run: python train.py
+    - uses: ultralytics/actions/retry@main
+      with:
+          run: python train.py
 ```
 
 ### Advanced Usage
@@ -23,31 +23,31 @@ Full configuration with custom retries, timeout, backoff, and jitter:
 
 ```yaml
 steps:
-  - uses: ultralytics/actions/retry@main
-    with:
-      run: |
-        python setup.py install
-        pytest tests/
-      retries: 2 # Retry twice after initial attempt (3 total runs)
-      timeout_minutes: 30 # Maximum time for each attempt
-      retry_delay_seconds: 10 # Base delay between retries
-      backoff: exponential # exponential (10s, 20s, 40s, ...) or fixed
-      jitter: true # Randomize delay to 80-120% to avoid thundering herd
-      shell: bash # Use python or bash shell
+    - uses: ultralytics/actions/retry@main
+      with:
+          run: |
+              python setup.py install
+              pytest tests/
+          retries: 2 # Retry twice after initial attempt (3 total runs)
+          timeout_minutes: 30 # Maximum time for each attempt
+          retry_delay_seconds: 10 # Base delay between retries
+          backoff: exponential # exponential (10s, 20s, 40s, ...) or fixed
+          jitter: true # Randomize delay to 80-120% to avoid thundering herd
+          shell: bash # Use python or bash shell
 ```
 
 ### Python Shell Example
 
 ```yaml
 steps:
-  - uses: ultralytics/actions/retry@main
-    with:
-      shell: python
-      retries: 5
-      run: |
-        import requests
-        response = requests.get('https://api.example.com/data')
-        response.raise_for_status()
+    - uses: ultralytics/actions/retry@main
+      with:
+          shell: python
+          retries: 5
+          run: |
+              import requests
+              response = requests.get('https://api.example.com/data')
+              response.raise_for_status()
 ```
 
 ## 📋 Inputs
@@ -69,3 +69,7 @@ steps:
 - Configurable per-attempt timeout that terminates hung process trees
 - GitHub Actions grouping for retry attempts
 - Supports both Bash and Python shells
+
+Timeout supervision requires Python 3 on Linux and macOS. It terminates the attempt process group and descendants that
+retain the inherited environment; deliberately detached processes that also clear their environment are outside the
+action's portable containment boundary.
