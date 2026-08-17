@@ -74,8 +74,8 @@ runs:
         jitter="${{ inputs.jitter }}"
         timeout_mins=${{ inputs.timeout_minutes }}
         shell_type="${{ inputs.shell }}"
-        python_executable=python3
-        [ "$RETRY_RUNNER_OS" = "Windows" ] && python_executable=python
+        python_command=(python3)
+        [ "$RETRY_RUNNER_OS" = "Windows" ] && python_command=(py -3)
         exit_code=0
 
         # Validate backoff strategy
@@ -129,7 +129,7 @@ runs:
             fi
 
             # Execute the script with a deadline, terminating its entire process tree on timeout.
-            "$python_executable" - "$shell_type" "$TEMP_SCRIPT" "$timeout_seconds" <<'PY'
+            "${python_command[@]}" - "$shell_type" "$TEMP_SCRIPT" "$timeout_seconds" <<'PY'
         import os
         import signal
         import subprocess
