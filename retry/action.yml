@@ -178,7 +178,6 @@ runs:
             else
                 python3 - "$shell_type" "$TEMP_SCRIPT" "$timeout_seconds" "$timeout_marker" <<'PY'
         import os
-        import select
         import signal
         import subprocess
         import sys
@@ -229,16 +228,7 @@ runs:
             if ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0) != 0:
                 raise OSError(ctypes.get_errno(), "Unable to enable child subreaper")
         process = subprocess.Popen(command, env=environment, start_new_session=True)
-        process_queue, process_ids = None, set()
-        if sys.platform == "darwin":
-            process_queue = select.kqueue()
-            event = select.kevent(
-                process.pid,
-                filter=select.KQ_FILTER_PROC,
-                flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE,
-                fflags=select.KQ_NOTE_FORK | select.KQ_NOTE_TRACK | select.KQ_NOTE_EXIT,
-            )
-            process_queue.control([event], 0, 0)
+        process_ids = set()
         try:
             return_code = process.wait(timeout=timeout)
             sys.exit(128 - return_code if return_code < 0 else return_code)
@@ -246,16 +236,12 @@ runs:
             open(timeout_marker, "w").close()
             if sys.platform.startswith("linux"):
                 process_ids.update(descendants(os.getpid()))
-            elif process_queue:
-                process_ids.update(event.ident for event in process_queue.control(None, 1024, 0))
             process_ids.update(tracked_processes(token))
             send_signal(process.pid, process_ids, signal.SIGTERM)
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
                 if sys.platform.startswith("linux"):
                     process_ids.update(descendants(os.getpid()))
-                elif process_queue:
-                    process_ids.update(event.ident for event in process_queue.control(None, 1024, 0))
                 process_ids.update(tracked_processes(token))
                 process_ids = {pid for pid in process_ids if pid != os.getpid()}
                 if not process_ids:
