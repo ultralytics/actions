@@ -70,6 +70,4 @@ steps:
 - GitHub Actions grouping for retry attempts
 - Supports both Bash and Python shells
 
-Timeout supervision requires Python 3 on Linux and macOS. It terminates the attempt process group and descendants that
-retain the inherited environment; deliberately detached processes that also clear their environment are outside the
-action's portable containment boundary.
+Timeout supervision requires Python 3 on Linux and macOS.

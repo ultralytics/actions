@@ -87,6 +87,11 @@ runs:
             ''|*[!0-9]*) echo "::error::retries, retry_delay_seconds, timeout_minutes must be non-negative integers"; exit 1 ;;
         esac
 
+        if { [ "$RETRY_RUNNER_OS" != "Windows" ] || [ "$shell_type" = "python" ]; } && ! command -v python3 >/dev/null; then
+            echo "::error::Python 3 is required for timeout supervision on this runner"
+            exit 1
+        fi
+
         # Create temporary script file with appropriate extension
         if [ "$shell_type" = "python" ]; then
             if ! TEMP_SCRIPT=$(mktemp --suffix=.py 2>/dev/null); then
@@ -130,8 +135,10 @@ runs:
             timeout_marker="${TEMP_SCRIPT}.timeout"
             rm -f "$timeout_marker"
             if [ "$RETRY_RUNNER_OS" = "Windows" ]; then
+                retry_python=""
+                [ "$shell_type" = "python" ] && retry_python=$(cygpath -w "$(command -v python3)")
                 RETRY_EXECUTABLE=$(cygpath -w "$BASH") \
-                RETRY_PYTHON=$(cygpath -w "$(command -v python3)") \
+                RETRY_PYTHON="$retry_python" \
                 RETRY_SCRIPT=$(cygpath -w "$TEMP_SCRIPT") \
                 RETRY_SHELL_TYPE="$shell_type" \
                 RETRY_TIMEOUT_MARKER=$(cygpath -w "$timeout_marker") \
@@ -151,7 +158,18 @@ runs:
         [void]$process.Start()
         if (-not $process.WaitForExit([int]$env:RETRY_TIMEOUT_SECONDS * 1000)) {
             [System.IO.File]::WriteAllText($env:RETRY_TIMEOUT_MARKER, "")
-            taskkill.exe /PID $process.Id /T /F | Out-Null
+            $allProcesses = @(Get-CimInstance Win32_Process)
+            $descendants = @()
+            $parents = @($process.Id)
+            while ($parents.Count -gt 0) {
+                $children = @($allProcesses | Where-Object { $parents -contains [int]$_.ParentProcessId })
+                $parents = @($children | ForEach-Object { [int]$_.ProcessId })
+                $descendants += $parents
+            }
+            foreach ($id in @($process.Id) + $descendants) {
+                taskkill.exe /PID $id /T /F 2>$null | Out-Null
+                Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+            }
             exit 124
         }
         $process.WaitForExit()
@@ -160,11 +178,27 @@ runs:
             else
                 python3 - "$shell_type" "$TEMP_SCRIPT" "$timeout_seconds" "$timeout_marker" <<'PY'
         import os
+        import select
         import signal
         import subprocess
         import sys
         import time
         import uuid
+
+        def descendants(root_pid):
+            """Return all current descendants of a process."""
+            children = {}
+            processes = subprocess.check_output(["ps", "ax", "-o", "pid=", "-o", "ppid="], text=True)
+            for line in processes.splitlines():
+                pid, parent = map(int, line.split())
+                children.setdefault(parent, []).append(pid)
+            found, pending = set(), [root_pid]
+            while pending:
+                for pid in children.get(pending.pop(), []):
+                    if pid not in found:
+                        found.add(pid)
+                        pending.append(pid)
+            return found
 
         def tracked_processes(token):
             """Return processes carrying the attempt's unique inherited environment marker."""
@@ -189,22 +223,46 @@ runs:
         token = uuid.uuid4().hex
         environment = os.environ.copy()
         environment["ULTRALYTICS_RETRY_TOKEN"] = token
+        if sys.platform.startswith("linux"):
+            import ctypes
+
+            if ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0) != 0:
+                raise OSError(ctypes.get_errno(), "Unable to enable child subreaper")
         process = subprocess.Popen(command, env=environment, start_new_session=True)
+        process_queue, process_ids = None, set()
+        if sys.platform == "darwin":
+            process_queue = select.kqueue()
+            event = select.kevent(
+                process.pid,
+                filter=select.KQ_FILTER_PROC,
+                flags=select.KQ_EV_ADD | select.KQ_EV_ENABLE,
+                fflags=select.KQ_NOTE_FORK | select.KQ_NOTE_TRACK | select.KQ_NOTE_EXIT,
+            )
+            process_queue.control([event], 0, 0)
         try:
             return_code = process.wait(timeout=timeout)
             sys.exit(128 - return_code if return_code < 0 else return_code)
         except subprocess.TimeoutExpired:
             open(timeout_marker, "w").close()
-            process_ids = tracked_processes(token)
+            if sys.platform.startswith("linux"):
+                process_ids.update(descendants(os.getpid()))
+            elif process_queue:
+                process_ids.update(event.ident for event in process_queue.control(None, 1024, 0))
+            process_ids.update(tracked_processes(token))
             send_signal(process.pid, process_ids, signal.SIGTERM)
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
-                process_ids = tracked_processes(token)
+                if sys.platform.startswith("linux"):
+                    process_ids.update(descendants(os.getpid()))
+                elif process_queue:
+                    process_ids.update(event.ident for event in process_queue.control(None, 1024, 0))
+                process_ids.update(tracked_processes(token))
+                process_ids = {pid for pid in process_ids if pid != os.getpid()}
                 if not process_ids:
                     break
                 send_signal(process.pid, process_ids, signal.SIGTERM)
                 time.sleep(0.1)
-            process_ids = tracked_processes(token)
+            process_ids.update(tracked_processes(token))
             send_signal(process.pid, process_ids, signal.SIGKILL)
             process.wait()
             sys.exit(124)

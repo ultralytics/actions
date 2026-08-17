@@ -82,7 +82,7 @@ jobs:
                 child_file=$(cygpath -w /tmp/retry_child)
                 powershell.exe -NoProfile -Command "[IO.File]::WriteAllText('$child_file', [string]\$PID); Start-Sleep 120" &
               else
-                python3 -c 'import os, signal, time; os.fork() and os._exit(0); os.setsid(); os.fork() and os._exit(0); open("/tmp/retry_child", "w").write(str(os.getpid())); signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(120)'
+                python3 -c 'import os, signal, time; os.fork() and os._exit(0); os.setsid(); os.fork() and os._exit(0); open("/tmp/retry_child", "w").write(str(os.getpid())); os.environ.clear(); signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(120)'
                 sleep 120 &
               fi
               wait $!
