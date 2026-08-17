@@ -187,10 +187,14 @@ runs:
         def descendants(root_pid):
             """Return all current descendants of a process."""
             children = {}
-            processes = subprocess.check_output(["ps", "ax", "-o", "pid=", "-o", "ppid="], text=True)
-            for line in processes.splitlines():
-                pid, parent = map(int, line.split())
-                children.setdefault(parent, []).append(pid)
+            for entry in os.scandir("/proc"):
+                if entry.name.isdigit():
+                    try:
+                        with open(f"{entry.path}/stat") as file:
+                            stat = file.read()
+                        children.setdefault(int(stat[stat.rfind(")") + 2 :].split()[1]), []).append(int(entry.name))
+                    except (FileNotFoundError, PermissionError, ValueError):
+                        pass
             found, pending = set(), [root_pid]
             while pending:
                 for pid in children.get(pending.pop(), []):
@@ -235,20 +239,26 @@ runs:
         except subprocess.TimeoutExpired:
             open(timeout_marker, "w").close()
             if sys.platform.startswith("linux"):
-                process_ids.update(descendants(os.getpid()))
-            process_ids.update(tracked_processes(token))
+                process_ids = descendants(os.getpid())
+            process_ids |= tracked_processes(token)
             send_signal(process.pid, process_ids, signal.SIGTERM)
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
                 if sys.platform.startswith("linux"):
-                    process_ids.update(descendants(os.getpid()))
-                process_ids.update(tracked_processes(token))
+                    process_ids = descendants(os.getpid())
+                else:
+                    process_ids = set()
+                process_ids |= tracked_processes(token)
                 process_ids = {pid for pid in process_ids if pid != os.getpid()}
                 if not process_ids:
                     break
                 send_signal(process.pid, process_ids, signal.SIGTERM)
                 time.sleep(0.1)
-            process_ids.update(tracked_processes(token))
+            if sys.platform.startswith("linux"):
+                process_ids = descendants(os.getpid())
+            else:
+                process_ids = set()
+            process_ids |= tracked_processes(token)
             send_signal(process.pid, process_ids, signal.SIGKILL)
             process.wait()
             sys.exit(124)
