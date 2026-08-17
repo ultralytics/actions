@@ -142,6 +142,7 @@ runs:
             taskkill.exe /PID $process.Id /T /F | Out-Null
             exit 124
         }
+        $process.WaitForExit()
         exit $process.ExitCode
         '
             else
