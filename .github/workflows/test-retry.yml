@@ -86,7 +86,7 @@ jobs:
               echo $! > /tmp/retry_child
               wait $!
             fi
-            if kill -0 "$(cat /tmp/retry_child)" 2>/dev/null; then
+            if [ "$RUNNER_OS" != "Windows" ] && kill -0 "$(cat /tmp/retry_child)" 2>/dev/null; then
               echo "::error::Timed-out child is still running"
               exit 1
             fi
