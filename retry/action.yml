@@ -138,8 +138,8 @@ runs:
                 powershell.exe -NoProfile -Command '
         $startInfo = New-Object System.Diagnostics.ProcessStartInfo
         if ($env:RETRY_SHELL_TYPE -eq "python") {
-            $startInfo.FileName = "py.exe"
-            $startInfo.Arguments = "-3 `"$env:RETRY_SCRIPT`""
+            $startInfo.FileName = "python.exe"
+            $startInfo.Arguments = "`"$env:RETRY_SCRIPT`""
         } else {
             $startInfo.FileName = $env:RETRY_EXECUTABLE
             $startInfo.Arguments = "-e `"$env:RETRY_SCRIPT`""
@@ -164,6 +164,32 @@ runs:
         import sys
         import time
 
+        def descendants(root_pid):
+            """Return all descendants of a process, including children in other process groups."""
+            children = {}
+            for line in subprocess.check_output(["ps", "-eo", "pid=,ppid="], text=True).splitlines():
+                pid, parent = map(int, line.split())
+                children.setdefault(parent, []).append(pid)
+            found, pending = set(), [root_pid]
+            while pending:
+                for pid in children.get(pending.pop(), []):
+                    if pid not in found:
+                        found.add(pid)
+                        pending.append(pid)
+            return found
+
+        def send_signal(process_group, process_ids, sig):
+            """Signal the process group and descendants that detached from it."""
+            try:
+                os.killpg(process_group, sig)
+            except (PermissionError, ProcessLookupError):
+                pass
+            for pid in process_ids:
+                try:
+                    os.kill(pid, sig)
+                except (PermissionError, ProcessLookupError):
+                    pass
+
         shell_type, script, timeout, timeout_marker = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
         command = [sys.executable, script] if shell_type == "python" else ["bash", "-e", script]
         process = subprocess.Popen(command, start_new_session=True)
@@ -172,22 +198,22 @@ runs:
             sys.exit(128 - return_code if return_code < 0 else return_code)
         except subprocess.TimeoutExpired:
             open(timeout_marker, "w").close()
-            try:
-                os.killpg(process.pid, signal.SIGTERM)
-            except ProcessLookupError:
-                pass
+            process_ids = descendants(process.pid)
+            send_signal(process.pid, process_ids, signal.SIGTERM)
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
-                try:
-                    os.killpg(process.pid, 0)
-                except (PermissionError, ProcessLookupError):
+                alive = set()
+                for pid in process_ids:
+                    try:
+                        os.kill(pid, 0)
+                        alive.add(pid)
+                    except (PermissionError, ProcessLookupError):
+                        pass
+                process_ids = alive
+                if process.poll() is not None and not process_ids:
                     break
                 time.sleep(0.1)
-            else:
-                try:
-                    os.killpg(process.pid, signal.SIGKILL)
-                except (PermissionError, ProcessLookupError):
-                    pass
+            send_signal(process.pid, process_ids, signal.SIGKILL)
             process.wait()
             sys.exit(124)
         PY

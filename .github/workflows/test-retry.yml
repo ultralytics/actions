@@ -24,7 +24,7 @@ jobs:
       - uses: actions/checkout@v7
 
       - name: Cleanup any leftover test files
-        run: rm -f /tmp/retry_attempt /tmp/retry_attempt_py
+        run: rm -f /tmp/retry_attempt /tmp/retry_attempt_py /tmp/retry_child
 
       - name: Test successful command
         uses: ./retry
@@ -78,10 +78,19 @@ jobs:
           run: |
             if [ ! -f /tmp/retry_attempt ]; then
               touch /tmp/retry_attempt
-              bash -c 'trap "" TERM; sleep 120' &
+              if [ "$RUNNER_OS" = "Windows" ]; then
+                bash -c 'trap "" TERM; sleep 120' &
+              else
+                python3 -c 'import os, signal, time; os.setsid(); signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(120)' &
+              fi
+              echo $! > /tmp/retry_child
               wait $!
             fi
-            rm -f /tmp/retry_attempt
+            if kill -0 "$(cat /tmp/retry_child)" 2>/dev/null; then
+              echo "::error::Timed-out child is still running"
+              exit 1
+            fi
+            rm -f /tmp/retry_attempt /tmp/retry_child
 
       - name: Test multi-line failure
         uses: ./retry
