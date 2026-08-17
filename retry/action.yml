@@ -74,8 +74,6 @@ runs:
         jitter="${{ inputs.jitter }}"
         timeout_mins=${{ inputs.timeout_minutes }}
         shell_type="${{ inputs.shell }}"
-        python_command=(python3)
-        [ "$RETRY_RUNNER_OS" = "Windows" ] && python_command=(py -3)
         exit_code=0
 
         # Validate backoff strategy
@@ -129,7 +127,25 @@ runs:
             fi
 
             # Execute the script with a deadline, terminating its entire process tree on timeout.
-            "${python_command[@]}" - "$shell_type" "$TEMP_SCRIPT" "$timeout_seconds" <<'PY'
+            if [ "$RETRY_RUNNER_OS" = "Windows" ]; then
+                RETRY_EXECUTABLE=$(cygpath -w "$BASH") \
+                RETRY_SCRIPT=$(cygpath -w "$TEMP_SCRIPT") \
+                RETRY_SHELL_TYPE="$shell_type" \
+                RETRY_TIMEOUT_SECONDS="$timeout_seconds" \
+                powershell.exe -NoProfile -Command '
+        if ($env:RETRY_SHELL_TYPE -eq "python") {
+            $process = Start-Process py.exe -ArgumentList "-3", $env:RETRY_SCRIPT -NoNewWindow -PassThru
+        } else {
+            $process = Start-Process $env:RETRY_EXECUTABLE -ArgumentList "-e", $env:RETRY_SCRIPT -NoNewWindow -PassThru
+        }
+        if (-not $process.WaitForExit([int]$env:RETRY_TIMEOUT_SECONDS * 1000)) {
+            taskkill.exe /PID $process.Id /T /F | Out-Null
+            exit 124
+        }
+        exit $process.ExitCode
+        '
+            else
+                python3 - "$shell_type" "$TEMP_SCRIPT" "$timeout_seconds" <<'PY'
         import os
         import signal
         import subprocess
@@ -170,6 +186,7 @@ runs:
                 process.wait()
             sys.exit(124)
         PY
+            fi
             exit_code=$?
 
             if [ "$exit_code" -eq 124 ]; then
