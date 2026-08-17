@@ -164,20 +164,13 @@ runs:
         import subprocess
         import sys
         import time
+        import uuid
 
-        def descendants(root_pid):
-            """Return all descendants of a process, including children in other process groups."""
-            children = {}
-            for line in subprocess.check_output(["ps", "-eo", "pid=,ppid="], text=True).splitlines():
-                pid, parent = map(int, line.split())
-                children.setdefault(parent, []).append(pid)
-            found, pending = set(), [root_pid]
-            while pending:
-                for pid in children.get(pending.pop(), []):
-                    if pid not in found:
-                        found.add(pid)
-                        pending.append(pid)
-            return found
+        def tracked_processes(token):
+            """Return processes carrying the attempt's unique inherited environment marker."""
+            marker = f"ULTRALYTICS_RETRY_TOKEN={token}"
+            processes = subprocess.check_output(["ps", "eww", "-axo", "pid=,command="], text=True)
+            return {int(line.split(None, 1)[0]) for line in processes.splitlines() if marker in line}
 
         def send_signal(process_group, process_ids, sig):
             """Signal the process group and descendants that detached from it."""
@@ -193,27 +186,25 @@ runs:
 
         shell_type, script, timeout, timeout_marker = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
         command = [sys.executable, script] if shell_type == "python" else ["bash", "-e", script]
-        process = subprocess.Popen(command, start_new_session=True)
+        token = uuid.uuid4().hex
+        environment = os.environ.copy()
+        environment["ULTRALYTICS_RETRY_TOKEN"] = token
+        process = subprocess.Popen(command, env=environment, start_new_session=True)
         try:
             return_code = process.wait(timeout=timeout)
             sys.exit(128 - return_code if return_code < 0 else return_code)
         except subprocess.TimeoutExpired:
             open(timeout_marker, "w").close()
-            process_ids = descendants(process.pid)
+            process_ids = tracked_processes(token)
             send_signal(process.pid, process_ids, signal.SIGTERM)
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
-                alive = set()
-                for pid in process_ids:
-                    try:
-                        os.kill(pid, 0)
-                        alive.add(pid)
-                    except (PermissionError, ProcessLookupError):
-                        pass
-                process_ids = alive
-                if process.poll() is not None and not process_ids:
+                process_ids = tracked_processes(token)
+                if not process_ids:
                     break
+                send_signal(process.pid, process_ids, signal.SIGTERM)
                 time.sleep(0.1)
+            process_ids = tracked_processes(token)
             send_signal(process.pid, process_ids, signal.SIGKILL)
             process.wait()
             sys.exit(124)
