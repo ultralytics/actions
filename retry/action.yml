@@ -131,6 +131,7 @@ runs:
             rm -f "$timeout_marker"
             if [ "$RETRY_RUNNER_OS" = "Windows" ]; then
                 RETRY_EXECUTABLE=$(cygpath -w "$BASH") \
+                RETRY_PYTHON=$(cygpath -w "$(command -v python3)") \
                 RETRY_SCRIPT=$(cygpath -w "$TEMP_SCRIPT") \
                 RETRY_SHELL_TYPE="$shell_type" \
                 RETRY_TIMEOUT_MARKER=$(cygpath -w "$timeout_marker") \
@@ -138,7 +139,7 @@ runs:
                 powershell.exe -NoProfile -Command '
         $startInfo = New-Object System.Diagnostics.ProcessStartInfo
         if ($env:RETRY_SHELL_TYPE -eq "python") {
-            $startInfo.FileName = "python.exe"
+            $startInfo.FileName = $env:RETRY_PYTHON
             $startInfo.Arguments = "`"$env:RETRY_SCRIPT`""
         } else {
             $startInfo.FileName = $env:RETRY_EXECUTABLE
