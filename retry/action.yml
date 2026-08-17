@@ -17,6 +17,7 @@
 #         pytest tests/
 #       retries: 2               # Retry twice after initial attempt (3 total runs)
 #       timeout_minutes: 30      # Total timeout for all attempts combined
+#       attempt_timeout_minutes: 10  # Maximum time for each attempt (0 disables)
 #       retry_delay_seconds: 10  # Base delay between retries in seconds
 #       backoff: exponential     # exponential (10s, 20s, 40s, ...) or fixed
 #       jitter: true             # Randomize delay to 80-120% to avoid thundering herd
@@ -33,6 +34,10 @@ inputs:
     description: "Number of retry attempts after initial run"
     required: false
     default: "3"
+  attempt_timeout_minutes:
+    description: "Maximum time in minutes for each attempt; 0 disables the per-attempt timeout"
+    required: false
+    default: "0"
   retry_delay_seconds:
     description: "Base delay between retries in seconds"
     required: false
@@ -66,6 +71,7 @@ runs:
 
         start_time=$(date +%s)
         timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
+        attempt_timeout_seconds=$(( ${{ inputs.attempt_timeout_minutes }} * 60 ))
         attempt=1
         max_attempts=$(( 1 + ${{ inputs.retries }} ))  # Initial run + retries
         retries=${{ inputs.retries }}
@@ -73,6 +79,7 @@ runs:
         backoff="${{ inputs.backoff }}"
         jitter="${{ inputs.jitter }}"
         timeout_mins=${{ inputs.timeout_minutes }}
+        attempt_timeout_mins=${{ inputs.attempt_timeout_minutes }}
         shell_type="${{ inputs.shell }}"
         exit_code=0
 
@@ -83,8 +90,8 @@ runs:
         fi
 
         # Validate numeric inputs are non-negative integers
-        case "$retries$retry_delay$timeout_mins" in
-            ''|*[!0-9]*) echo "::error::retries, retry_delay_seconds, timeout_minutes must be non-negative integers"; exit 1 ;;
+        case "$retries$retry_delay$timeout_mins$attempt_timeout_mins" in
+            ''|*[!0-9]*) echo "::error::retries, retry_delay_seconds, timeout_minutes, and attempt_timeout_minutes must be non-negative integers"; exit 1 ;;
         esac
 
         # Create temporary script file with appropriate extension
@@ -134,13 +141,46 @@ runs:
                 exit 1
             fi
 
-            # Execute the script with appropriate interpreter
-            if [ "$shell_type" = "python" ]; then
+            # Execute the script with an optional deadline, terminating its entire process tree on timeout.
+            if [ "$attempt_timeout_seconds" -gt 0 ]; then
+                python3 - "$shell_type" "$TEMP_SCRIPT" "$attempt_timeout_seconds" <<'PY'
+        import os
+        import signal
+        import subprocess
+        import sys
+
+        shell_type, script, timeout = sys.argv[1], sys.argv[2], int(sys.argv[3])
+        command = ["python3", script] if shell_type == "python" else ["bash", "-e", script]
+        kwargs = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
+        process = subprocess.Popen(command, **kwargs)
+        try:
+            sys.exit(process.wait(timeout=timeout))
+        except subprocess.TimeoutExpired:
+            if os.name == "nt":
+                subprocess.run(
+                    ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    check=False,
+                )
+            else:
+                os.killpg(process.pid, signal.SIGTERM)
+                try:
+                    process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    os.killpg(process.pid, signal.SIGKILL)
+            sys.exit(124)
+        PY
+            elif [ "$shell_type" = "python" ]; then
                 python3 "$TEMP_SCRIPT"
             else
                 bash -e "$TEMP_SCRIPT"
             fi
             exit_code=$?
+
+            if [ "$exit_code" -eq 124 ] && [ "$attempt_timeout_seconds" -gt 0 ]; then
+                echo "::error::Attempt timed out after $attempt_timeout_mins minutes"
+            fi
 
             if [ "$exit_code" -eq 0 ]; then
                 [ "$attempt" -gt 1 ] && echo "::endgroup::"

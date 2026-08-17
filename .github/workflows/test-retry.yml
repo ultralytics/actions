@@ -55,6 +55,19 @@ jobs:
             rm -f /tmp/retry_attempt
             echo "Success on attempt $((count + 1))!"
 
+      - name: Test hung command retry
+        uses: ./retry
+        with:
+          retries: 1
+          retry_delay_seconds: 0
+          attempt_timeout_minutes: 1
+          run: |
+            if [ ! -f /tmp/retry_attempt ]; then
+              touch /tmp/retry_attempt
+              sleep 120
+            fi
+            rm -f /tmp/retry_attempt
+
       - name: Test multi-line failure
         uses: ./retry
         continue-on-error: true
