@@ -169,7 +169,7 @@ runs:
         def tracked_processes(token):
             """Return processes carrying the attempt's unique inherited environment marker."""
             marker = f"ULTRALYTICS_RETRY_TOKEN={token}"
-            processes = subprocess.check_output(["ps", "eww", "-axo", "pid=,command="], text=True)
+            processes = subprocess.check_output(["ps", "axeww", "-o", "pid=", "-o", "command="], text=True)
             return {int(line.split(None, 1)[0]) for line in processes.splitlines() if marker in line}
 
         def send_signal(process_group, process_ids, sig):
