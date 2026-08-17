@@ -12,12 +12,19 @@ on:
 
 jobs:
   test-bash:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v7
 
       - name: Cleanup any leftover test files
-        run: rm -f /tmp/retry_attempt /tmp/retry_attempt_py
+        run: rm -f /tmp/retry_attempt /tmp/retry_attempt_py /tmp/retry_child
 
       - name: Test successful command
         uses: ./retry
@@ -25,6 +32,13 @@ jobs:
           run: |
             echo "This should succeed first try"
             true
+
+      - name: Test Python shell on Windows
+        if: matrix.os == 'windows-latest'
+        uses: ./retry
+        with:
+          shell: python
+          run: print("Python shell works")
 
       - name: Test retry with eventual success
         uses: ./retry
@@ -54,6 +68,38 @@ jobs:
             fi
             rm -f /tmp/retry_attempt
             echo "Success on attempt $((count + 1))!"
+
+      - name: Test hung command retry
+        uses: ./retry
+        with:
+          retries: 1
+          retry_delay_seconds: 0
+          timeout_minutes: 1
+          run: |
+            if [ ! -f /tmp/retry_attempt ]; then
+              touch /tmp/retry_attempt
+              if [ "$RUNNER_OS" = "Windows" ]; then
+                child_file=$(cygpath -w /tmp/retry_child)
+                powershell.exe -NoProfile -Command "[IO.File]::WriteAllText('$child_file', [string]\$PID); Start-Sleep 120" &
+              elif [ "$RUNNER_OS" = "Linux" ]; then
+                python3 -c 'import os, signal, time; os.fork() and os._exit(0); os.setsid(); os.fork() and os._exit(0); open("/tmp/retry_child", "w").write(str(os.getpid())); os.environ.clear(); signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(120)'
+                sleep 120 &
+              else
+                python3 -c 'import os, signal, time; os.fork() and os._exit(0); os.setsid(); os.fork() and os._exit(0); open("/tmp/retry_child", "w").write(str(os.getpid())); signal.signal(signal.SIGTERM, signal.SIG_IGN); time.sleep(120)'
+                sleep 120 &
+              fi
+              wait $!
+            fi
+            if [ "$RUNNER_OS" = "Windows" ]; then
+              powershell.exe -NoProfile -Command "if (Get-Process -Id $(cat /tmp/retry_child) -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }" && child_alive=true
+            elif kill -0 "$(cat /tmp/retry_child)" 2>/dev/null; then
+              child_alive=true
+            fi
+            if [ "$child_alive" = true ]; then
+              echo "::error::Timed-out child is still running"
+              exit 1
+            fi
+            rm -f /tmp/retry_attempt /tmp/retry_child
 
       - name: Test multi-line failure
         uses: ./retry

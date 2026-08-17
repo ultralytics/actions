@@ -16,7 +16,7 @@
 #         python setup.py install
 #         pytest tests/
 #       retries: 2               # Retry twice after initial attempt (3 total runs)
-#       timeout_minutes: 30      # Total timeout for all attempts combined
+#       timeout_minutes: 30      # Maximum time for each attempt
 #       retry_delay_seconds: 10  # Base delay between retries in seconds
 #       backoff: exponential     # exponential (10s, 20s, 40s, ...) or fixed
 #       jitter: true             # Randomize delay to 80-120% to avoid thundering herd
@@ -26,7 +26,7 @@ name: "Step-Level Retry"
 description: "Retries a step while preserving its full context"
 inputs:
   timeout_minutes:
-    description: "Maximum total time in minutes for all attempts (checked between attempts; does not interrupt a running attempt)"
+    description: "Maximum time in minutes for each attempt"
     required: false
     default: "360"
   retries:
@@ -38,7 +38,7 @@ inputs:
     required: false
     default: "10"
   backoff:
-    description: "Backoff strategy: exponential (base * 2^n) or fixed. Delays are bounded by timeout_minutes."
+    description: "Backoff strategy: exponential (base * 2^n) or fixed"
     required: false
     default: "exponential"
   jitter:
@@ -59,12 +59,12 @@ runs:
     - name: Execute with retry
       shell: bash
       env:
-        # Note: Workflow env vars are automatically inherited. Only RETRY_COMMANDS is added here.
+        # Note: Workflow env vars are automatically inherited.
         RETRY_COMMANDS: ${{ inputs.run }}
+        RETRY_RUNNER_OS: ${{ runner.os }}
       run: |
         set +e  # Don't exit on error - we handle errors manually
 
-        start_time=$(date +%s)
         timeout_seconds=$(( ${{ inputs.timeout_minutes }} * 60 ))
         attempt=1
         max_attempts=$(( 1 + ${{ inputs.retries }} ))  # Initial run + retries
@@ -86,6 +86,11 @@ runs:
         case "$retries$retry_delay$timeout_mins" in
             ''|*[!0-9]*) echo "::error::retries, retry_delay_seconds, timeout_minutes must be non-negative integers"; exit 1 ;;
         esac
+
+        if { [ "$RETRY_RUNNER_OS" != "Windows" ] || [ "$shell_type" = "python" ]; } && ! command -v python3 >/dev/null; then
+            echo "::error::Python 3 is required for timeout supervision on this runner"
+            exit 1
+        fi
 
         # Create temporary script file with appropriate extension
         if [ "$shell_type" = "python" ]; then
@@ -110,7 +115,7 @@ runs:
         fi
 
         # Ensure cleanup on exit
-        trap 'rm -f "$TEMP_SCRIPT"' EXIT
+        trap 'rm -f "$TEMP_SCRIPT" "${TEMP_SCRIPT}.timeout"' EXIT
 
         # Write the user's commands to the temp script
         printf '%s\n' "$RETRY_COMMANDS" > "$TEMP_SCRIPT"
@@ -126,21 +131,144 @@ runs:
                 echo "::group::Retry $((attempt - 1)) of $retries"
             fi
 
-            current_time=$(date +%s)
-            elapsed=$((current_time - start_time))
-            if [ "$elapsed" -gt "$timeout_seconds" ]; then
-                echo "::error::Step timed out after $timeout_mins minutes"
-                [ "$attempt" -gt 1 ] && echo "::endgroup::"
-                exit 1
-            fi
-
-            # Execute the script with appropriate interpreter
-            if [ "$shell_type" = "python" ]; then
-                python3 "$TEMP_SCRIPT"
+            # Execute the script with a deadline, terminating its process group and tracked descendants on timeout.
+            timeout_marker="${TEMP_SCRIPT}.timeout"
+            rm -f "$timeout_marker"
+            if [ "$RETRY_RUNNER_OS" = "Windows" ]; then
+                retry_python=""
+                [ "$shell_type" = "python" ] && retry_python=$(cygpath -w "$(command -v python3)")
+                RETRY_EXECUTABLE=$(cygpath -w "$BASH") \
+                RETRY_PYTHON="$retry_python" \
+                RETRY_SCRIPT=$(cygpath -w "$TEMP_SCRIPT") \
+                RETRY_SHELL_TYPE="$shell_type" \
+                RETRY_TIMEOUT_MARKER=$(cygpath -w "$timeout_marker") \
+                RETRY_TIMEOUT_SECONDS="$timeout_seconds" \
+                powershell.exe -NoProfile -Command '
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
+        if ($env:RETRY_SHELL_TYPE -eq "python") {
+            $startInfo.FileName = $env:RETRY_PYTHON
+            $startInfo.Arguments = "`"$env:RETRY_SCRIPT`""
+        } else {
+            $startInfo.FileName = $env:RETRY_EXECUTABLE
+            $startInfo.Arguments = "-e `"$env:RETRY_SCRIPT`""
+        }
+        $startInfo.UseShellExecute = $false
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $startInfo
+        [void]$process.Start()
+        if (-not $process.WaitForExit([int]$env:RETRY_TIMEOUT_SECONDS * 1000)) {
+            [System.IO.File]::WriteAllText($env:RETRY_TIMEOUT_MARKER, "")
+            $allProcesses = @(Get-CimInstance Win32_Process)
+            $descendants = @()
+            $parents = @($process.Id)
+            while ($parents.Count -gt 0) {
+                $children = @($allProcesses | Where-Object { $parents -contains [int]$_.ParentProcessId })
+                $parents = @($children | ForEach-Object { [int]$_.ProcessId })
+                $descendants += $parents
+            }
+            foreach ($id in @($process.Id) + $descendants) {
+                taskkill.exe /PID $id /T /F 2>$null | Out-Null
+                Stop-Process -Id $id -Force -ErrorAction SilentlyContinue
+            }
+            exit 124
+        }
+        $process.WaitForExit()
+        exit $process.ExitCode
+        '
             else
-                bash -e "$TEMP_SCRIPT"
+                python3 - "$shell_type" "$TEMP_SCRIPT" "$timeout_seconds" "$timeout_marker" <<'PY'
+        import os
+        import signal
+        import subprocess
+        import sys
+        import time
+        import uuid
+
+        def descendants(root_pid):
+            """Return all current descendants of a process."""
+            children = {}
+            for entry in os.scandir("/proc"):
+                if entry.name.isdigit():
+                    try:
+                        with open(f"{entry.path}/stat") as file:
+                            stat = file.read()
+                        children.setdefault(int(stat[stat.rfind(")") + 2 :].split()[1]), []).append(int(entry.name))
+                    except (FileNotFoundError, PermissionError, ValueError):
+                        pass
+            found, pending = set(), [root_pid]
+            while pending:
+                for pid in children.get(pending.pop(), []):
+                    if pid not in found:
+                        found.add(pid)
+                        pending.append(pid)
+            return found
+
+        def tracked_processes(token):
+            """Return processes carrying the attempt's unique inherited environment marker."""
+            marker = f"ULTRALYTICS_RETRY_TOKEN={token}"
+            processes = subprocess.check_output(["ps", "axeww", "-o", "pid=", "-o", "command="], text=True)
+            return {int(line.split(None, 1)[0]) for line in processes.splitlines() if marker in line}
+
+        def send_signal(process_group, process_ids, sig):
+            """Signal the process group and descendants that detached from it."""
+            try:
+                os.killpg(process_group, sig)
+            except (PermissionError, ProcessLookupError):
+                pass
+            for pid in process_ids:
+                try:
+                    os.kill(pid, sig)
+                except (PermissionError, ProcessLookupError):
+                    pass
+
+        shell_type, script, timeout, timeout_marker = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
+        command = [sys.executable, script] if shell_type == "python" else ["bash", "-e", script]
+        token = uuid.uuid4().hex
+        environment = os.environ.copy()
+        environment["ULTRALYTICS_RETRY_TOKEN"] = token
+        if sys.platform.startswith("linux"):
+            import ctypes
+
+            if ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0) != 0:
+                raise OSError(ctypes.get_errno(), "Unable to enable child subreaper")
+        process = subprocess.Popen(command, env=environment, start_new_session=True)
+        process_ids = set()
+        try:
+            return_code = process.wait(timeout=timeout)
+            sys.exit(128 - return_code if return_code < 0 else return_code)
+        except subprocess.TimeoutExpired:
+            open(timeout_marker, "w").close()
+            if sys.platform.startswith("linux"):
+                process_ids = descendants(os.getpid())
+            process_ids |= tracked_processes(token)
+            send_signal(process.pid, process_ids, signal.SIGTERM)
+            deadline = time.monotonic() + 5
+            while time.monotonic() < deadline:
+                if sys.platform.startswith("linux"):
+                    process_ids = descendants(os.getpid())
+                else:
+                    process_ids = set()
+                process_ids |= tracked_processes(token)
+                process_ids = {pid for pid in process_ids if pid != os.getpid()}
+                if not process_ids:
+                    break
+                send_signal(process.pid, process_ids, signal.SIGTERM)
+                time.sleep(0.1)
+            if sys.platform.startswith("linux"):
+                process_ids = descendants(os.getpid())
+            else:
+                process_ids = set()
+            process_ids |= tracked_processes(token)
+            send_signal(process.pid, process_ids, signal.SIGKILL)
+            process.wait()
+            sys.exit(124)
+        PY
             fi
             exit_code=$?
+
+            if [ -f "$timeout_marker" ]; then
+                echo "::error::Attempt timed out after $timeout_mins minutes"
+            fi
 
             if [ "$exit_code" -eq 0 ]; then
                 [ "$attempt" -gt 1 ] && echo "::endgroup::"
@@ -175,12 +303,6 @@ runs:
                 delay=$((low + rand))
                 [ "$delay" -lt 1 ] && delay=1  # integer division floor; never collapse to 0
             fi
-
-            # Cap sleep at remaining timeout budget; no point sleeping past deadline.
-            # Refresh timestamp — the attempt may have taken significant time.
-            remaining=$((timeout_seconds - ($(date +%s) - start_time)))
-            [ "$delay" -gt "$remaining" ] && delay=$remaining
-            [ "$delay" -lt 0 ] && delay=0
 
             echo "Retrying in $delay seconds..."
             sleep "$delay"

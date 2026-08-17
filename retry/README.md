@@ -29,7 +29,7 @@ steps:
         python setup.py install
         pytest tests/
       retries: 2 # Retry twice after initial attempt (3 total runs)
-      timeout_minutes: 30 # Total timeout across all attempts
+      timeout_minutes: 30 # Maximum time for each attempt
       retry_delay_seconds: 10 # Base delay between retries
       backoff: exponential # exponential (10s, 20s, 40s, ...) or fixed
       jitter: true # Randomize delay to 80-120% to avoid thundering herd
@@ -56,7 +56,7 @@ steps:
 | --------------------- | ------------------------------------------------------------ | -------- | ------------- |
 | `run`                 | Command to run                                               | Yes      | -             |
 | `retries`             | Number of retry attempts after initial run                   | No       | `3`           |
-| `timeout_minutes`     | Maximum total time in minutes, checked between attempts      | No       | `360`         |
+| `timeout_minutes`     | Maximum time in minutes for each attempt                     | No       | `360`         |
 | `retry_delay_seconds` | Base delay between retries in seconds                        | No       | `10`          |
 | `backoff`             | Backoff strategy: `exponential` (base \* 2^n) or `fixed`     | No       | `exponential` |
 | `jitter`              | Randomize delay to 80-120% of value to avoid thundering herd | No       | `true`        |
@@ -66,6 +66,9 @@ steps:
 
 - Preserves environment variables and step context
 - Exponential backoff with ±20% jitter (best-practice defaults)
-- Configurable total timeout across all attempts (individual sleeps auto-capped to remaining budget)
+- Configurable per-attempt timeout that terminates hung process trees
 - GitHub Actions grouping for retry attempts
 - Supports both Bash and Python shells
+
+Timeout supervision requires Python 3 on Linux and macOS. macOS descendants that deliberately detach and clear their
+inherited environment are outside the platform's portable containment boundary.
