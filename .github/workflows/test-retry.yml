@@ -12,7 +12,14 @@ on:
 
 jobs:
   test-bash:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v7
 
@@ -60,7 +67,7 @@ jobs:
         with:
           retries: 1
           retry_delay_seconds: 0
-          attempt_timeout_minutes: 1
+          timeout_minutes: 1
           run: |
             if [ ! -f /tmp/retry_attempt ]; then
               touch /tmp/retry_attempt
