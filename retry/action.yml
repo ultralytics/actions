@@ -59,8 +59,9 @@ runs:
     - name: Execute with retry
       shell: bash
       env:
-        # Note: Workflow env vars are automatically inherited. Only RETRY_COMMANDS is added here.
+        # Note: Workflow env vars are automatically inherited.
         RETRY_COMMANDS: ${{ inputs.run }}
+        RETRY_RUNNER_OS: ${{ runner.os }}
       run: |
         set +e  # Don't exit on error - we handle errors manually
 
@@ -74,7 +75,7 @@ runs:
         timeout_mins=${{ inputs.timeout_minutes }}
         shell_type="${{ inputs.shell }}"
         python_executable=python3
-        [ "${RUNNER_OS:-}" = "Windows" ] && python_executable=python
+        [ "$RETRY_RUNNER_OS" = "Windows" ] && python_executable=python
         exit_code=0
 
         # Validate backoff strategy
