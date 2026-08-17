@@ -71,7 +71,8 @@ jobs:
           run: |
             if [ ! -f /tmp/retry_attempt ]; then
               touch /tmp/retry_attempt
-              sleep 120
+              bash -c 'trap "" TERM; sleep 120' &
+              wait $!
             fi
             rm -f /tmp/retry_attempt
 

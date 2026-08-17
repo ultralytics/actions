@@ -131,6 +131,7 @@ runs:
         import signal
         import subprocess
         import sys
+        import time
 
         shell_type, script, timeout = sys.argv[1], sys.argv[2], int(sys.argv[3])
         command = ["python3", script] if shell_type == "python" else ["bash", "-e", script]
@@ -147,11 +148,23 @@ runs:
                     check=False,
                 )
             else:
-                os.killpg(process.pid, signal.SIGTERM)
                 try:
-                    process.wait(timeout=5)
-                except subprocess.TimeoutExpired:
-                    os.killpg(process.pid, signal.SIGKILL)
+                    os.killpg(process.pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    pass
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
+                    try:
+                        os.killpg(process.pid, 0)
+                    except ProcessLookupError:
+                        break
+                    time.sleep(0.1)
+                else:
+                    try:
+                        os.killpg(process.pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                process.wait()
             sys.exit(124)
         PY
             exit_code=$?
