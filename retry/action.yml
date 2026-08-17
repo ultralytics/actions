@@ -133,11 +133,18 @@ runs:
                 RETRY_SHELL_TYPE="$shell_type" \
                 RETRY_TIMEOUT_SECONDS="$timeout_seconds" \
                 powershell.exe -NoProfile -Command '
+        $startInfo = New-Object System.Diagnostics.ProcessStartInfo
         if ($env:RETRY_SHELL_TYPE -eq "python") {
-            $process = Start-Process py.exe -ArgumentList "-3", $env:RETRY_SCRIPT -NoNewWindow -PassThru
+            $startInfo.FileName = "py.exe"
+            $startInfo.Arguments = "-3 `"$env:RETRY_SCRIPT`""
         } else {
-            $process = Start-Process $env:RETRY_EXECUTABLE -ArgumentList "-e", $env:RETRY_SCRIPT -NoNewWindow -PassThru
+            $startInfo.FileName = $env:RETRY_EXECUTABLE
+            $startInfo.Arguments = "-e `"$env:RETRY_SCRIPT`""
         }
+        $startInfo.UseShellExecute = $false
+        $process = New-Object System.Diagnostics.Process
+        $process.StartInfo = $startInfo
+        [void]$process.Start()
         if (-not $process.WaitForExit([int]$env:RETRY_TIMEOUT_SECONDS * 1000)) {
             taskkill.exe /PID $process.Id /T /F | Out-Null
             exit 124
