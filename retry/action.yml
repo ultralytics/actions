@@ -73,6 +73,8 @@ runs:
         jitter="${{ inputs.jitter }}"
         timeout_mins=${{ inputs.timeout_minutes }}
         shell_type="${{ inputs.shell }}"
+        python_executable=python3
+        [ "${RUNNER_OS:-}" = "Windows" ] && python_executable=python
         exit_code=0
 
         # Validate backoff strategy
@@ -126,7 +128,7 @@ runs:
             fi
 
             # Execute the script with a deadline, terminating its entire process tree on timeout.
-            python3 - "$shell_type" "$TEMP_SCRIPT" "$timeout_seconds" <<'PY'
+            "$python_executable" - "$shell_type" "$TEMP_SCRIPT" "$timeout_seconds" <<'PY'
         import os
         import signal
         import subprocess
@@ -134,7 +136,7 @@ runs:
         import time
 
         shell_type, script, timeout = sys.argv[1], sys.argv[2], int(sys.argv[3])
-        command = ["python3", script] if shell_type == "python" else ["bash", "-e", script]
+        command = [sys.executable, script] if shell_type == "python" else ["bash", "-e", script]
         kwargs = {"creationflags": subprocess.CREATE_NEW_PROCESS_GROUP} if os.name == "nt" else {"start_new_session": True}
         process = subprocess.Popen(command, **kwargs)
         try:
