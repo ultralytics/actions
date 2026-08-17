@@ -33,6 +33,13 @@ jobs:
             echo "This should succeed first try"
             true
 
+      - name: Test Python shell on Windows
+        if: matrix.os == 'windows-latest'
+        uses: ./retry
+        with:
+          shell: python
+          run: print("Python shell works")
+
       - name: Test retry with eventual success
         uses: ./retry
         env:
