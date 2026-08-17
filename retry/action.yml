@@ -110,7 +110,7 @@ runs:
         fi
 
         # Ensure cleanup on exit
-        trap 'rm -f "$TEMP_SCRIPT"' EXIT
+        trap 'rm -f "$TEMP_SCRIPT" "${TEMP_SCRIPT}.timeout"' EXIT
 
         # Write the user's commands to the temp script
         printf '%s\n' "$RETRY_COMMANDS" > "$TEMP_SCRIPT"
@@ -127,10 +127,13 @@ runs:
             fi
 
             # Execute the script with a deadline, terminating its entire process tree on timeout.
+            timeout_marker="${TEMP_SCRIPT}.timeout"
+            rm -f "$timeout_marker"
             if [ "$RETRY_RUNNER_OS" = "Windows" ]; then
                 RETRY_EXECUTABLE=$(cygpath -w "$BASH") \
                 RETRY_SCRIPT=$(cygpath -w "$TEMP_SCRIPT") \
                 RETRY_SHELL_TYPE="$shell_type" \
+                RETRY_TIMEOUT_MARKER=$(cygpath -w "$timeout_marker") \
                 RETRY_TIMEOUT_SECONDS="$timeout_seconds" \
                 powershell.exe -NoProfile -Command '
         $startInfo = New-Object System.Diagnostics.ProcessStartInfo
@@ -146,6 +149,7 @@ runs:
         $process.StartInfo = $startInfo
         [void]$process.Start()
         if (-not $process.WaitForExit([int]$env:RETRY_TIMEOUT_SECONDS * 1000)) {
+            [System.IO.File]::WriteAllText($env:RETRY_TIMEOUT_MARKER, "")
             taskkill.exe /PID $process.Id /T /F | Out-Null
             exit 124
         }
@@ -153,19 +157,21 @@ runs:
         exit $process.ExitCode
         '
             else
-                python3 - "$shell_type" "$TEMP_SCRIPT" "$timeout_seconds" <<'PY'
+                python3 - "$shell_type" "$TEMP_SCRIPT" "$timeout_seconds" "$timeout_marker" <<'PY'
         import os
         import signal
         import subprocess
         import sys
         import time
 
-        shell_type, script, timeout = sys.argv[1], sys.argv[2], int(sys.argv[3])
+        shell_type, script, timeout, timeout_marker = sys.argv[1], sys.argv[2], int(sys.argv[3]), sys.argv[4]
         command = [sys.executable, script] if shell_type == "python" else ["bash", "-e", script]
         process = subprocess.Popen(command, start_new_session=True)
         try:
-            sys.exit(process.wait(timeout=timeout))
+            return_code = process.wait(timeout=timeout)
+            sys.exit(128 - return_code if return_code < 0 else return_code)
         except subprocess.TimeoutExpired:
+            open(timeout_marker, "w").close()
             try:
                 os.killpg(process.pid, signal.SIGTERM)
             except ProcessLookupError:
@@ -174,13 +180,13 @@ runs:
             while time.monotonic() < deadline:
                 try:
                     os.killpg(process.pid, 0)
-                except ProcessLookupError:
+                except (PermissionError, ProcessLookupError):
                     break
                 time.sleep(0.1)
             else:
                 try:
                     os.killpg(process.pid, signal.SIGKILL)
-                except ProcessLookupError:
+                except (PermissionError, ProcessLookupError):
                     pass
             process.wait()
             sys.exit(124)
@@ -188,7 +194,7 @@ runs:
             fi
             exit_code=$?
 
-            if [ "$exit_code" -eq 124 ]; then
+            if [ -f "$timeout_marker" ]; then
                 echo "::error::Attempt timed out after $timeout_mins minutes"
             fi
 
