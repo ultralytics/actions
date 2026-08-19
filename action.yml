@@ -208,14 +208,18 @@ runs:
     # Prettier (JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML) -------------
     - name: Run Prettier
       if: github.event_name == 'pull_request' && (inputs.prettier == 'true' || inputs.markdown == 'true') && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      env:
+        INPUTS_BIOME: ${{ inputs.biome }}
       run: |
         echo "::group::Run Prettier"
         trap 'echo "::endgroup::"' EXIT
-        npm install -g prettier@3.8.5
+        npm install -g prettier@latest
         curl -fsSL "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" -o "$(npm prefix -g)/bin/shfmt"
         chmod +x "$(npm prefix -g)/bin/shfmt"
         ultralytics-actions-update-markdown-code-blocks
-        npx prettier --write --list-different --print-width 120 "**/*.{js,jsx,ts,tsx,css,less,scss,json,yml,yaml,html,vue,svelte}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
+        extensions="css,less,scss,yml,yaml,html,vue,svelte"
+        [ "${INPUTS_BIOME:-false}" = "true" ] && { [ -f "biome.json" ] || [ -f "biome.jsonc" ]; } || extensions="js,jsx,ts,tsx,json,$extensions"
+        npx prettier --write --list-different --print-width 120 "**/*.{$extensions}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
         # Handle Markdown separately
         find . -name "*.md" -type f ! -path "*/docs/*" -exec npx prettier --write --list-different --print-width 120 {} +
         if [ -d "./docs" ]; then
