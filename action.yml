@@ -218,7 +218,7 @@ runs:
         chmod +x "$(npm prefix -g)/bin/shfmt"
         ultralytics-actions-update-markdown-code-blocks
         extensions="css,less,scss,yml,yaml,html,vue,svelte"
-        [ "${INPUTS_BIOME:-false}" = "true" ] || extensions="js,jsx,ts,tsx,json,$extensions"
+        [ "${INPUTS_BIOME:-false}" = "true" ] && { [ -f "biome.json" ] || [ -f "biome.jsonc" ]; } || extensions="js,jsx,ts,tsx,json,$extensions"
         npx prettier --write --list-different --print-width 120 "**/*.{$extensions}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
         # Handle Markdown separately
         find . -name "*.md" -type f ! -path "*/docs/*" -exec npx prettier --write --list-different --print-width 120 {} +
