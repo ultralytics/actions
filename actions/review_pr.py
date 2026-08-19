@@ -95,12 +95,18 @@ def _clip(text: str, limit: int | None) -> str:
 
 
 def _oversized_files(
-    paths: list[str], event: Action, head_sha: str, local_checkout: bool
+    changed_files: list[dict], event: Action, head_sha: str, local_checkout: bool
 ) -> tuple[list[str], list[str]]:
     """Return changed files over the approval limit and files whose size could not be verified."""
     root = Path.cwd().resolve()
     oversized, unverified = [], []
-    for path in sorted(set(paths)):
+    for file in changed_files:
+        path, status = file.get("filename"), file.get("status")
+        if not path or not status:
+            unverified.append(path or "unknown changed file")
+            continue
+        if status == "removed":
+            continue
         if local_checkout:
             target = (root / path).resolve()
             try:
@@ -108,7 +114,8 @@ def _oversized_files(
             except ValueError:
                 unverified.append(path)
                 continue
-            if not target.exists():  # deleted file
+            if not target.exists():
+                unverified.append(path)
                 continue
             try:
                 size = target.stat().st_size
@@ -118,8 +125,6 @@ def _oversized_files(
         else:
             url = f"{GITHUB_API_URL}/repos/{event.repository}/contents/{quote(path, safe='/')}?ref={head_sha}"
             response = event.get(url)
-            if response.status_code == 404:  # deleted file
-                continue
             if response.status_code != 200 or not isinstance((size := response.json().get("size")), int):
                 unverified.append(path)
                 continue
@@ -522,7 +527,9 @@ def generate_pr_review(
     local_checkout = _verified_local_checkout(head_sha)
     if head_sha:
         print(f"Reviewing PR head {head_sha[:7]} ({'local checkout' if local_checkout else 'via GitHub API'})")
-    oversized_files, unverified_sizes = _oversized_files(file_list + skipped_files, event, head_sha, local_checkout)
+    files_url = f"{GITHUB_API_URL}/repos/{repository}/pulls/{event.pr.get('number')}/files"
+    changed_files = event.paginate(files_url, hard=True)
+    oversized_files, unverified_sizes = _oversized_files(changed_files, event, head_sha, local_checkout)
     if oversized_files or unverified_sizes:
         details = []
         if oversized_files:
