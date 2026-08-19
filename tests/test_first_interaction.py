@@ -186,6 +186,34 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, m
     assert "Never approve any added file larger than 1 MB" in mock_get_agent_response.call_args.args[0][0]["content"]
 
 
+@patch("actions.review_pr._verified_local_checkout", return_value=True)
+@patch("actions.review_pr.get_agent_response")
+def test_generate_pr_review_never_approves_oversized_files(
+    mock_get_agent_response, mock_checkout, tmp_path, monkeypatch
+):
+    """Test an oversized skipped file blocks approval before model review."""
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "test.py").write_text("new = True\n")
+    with (tmp_path / "image.png").open("wb") as file:
+        file.truncate(review_pr.MAX_APPROVED_FILE_SIZE + 1)
+    event = MagicMock(repository="org/repo", pr={"number": 7})
+    event.get_pr_head_sha.return_value = "abc"
+    diff = """diff --git a/test.py b/test.py
+--- a/test.py
++++ b/test.py
+@@ -1 +1 @@
+-old = True
++new = True
+"""
+
+    review = review_pr.generate_pr_review("org/repo", (diff, ["image.png"]), "PR", "", event, "abc")
+    review_pr.post_review_summary(event, review)
+
+    assert review["oversized_files"] == ["image.png"]
+    assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
+    mock_get_agent_response.assert_not_called()
+
+
 def test_review_agent_search_scans_local_checkout_only(tmp_path, monkeypatch):
     """Test repo search scans the local checkout without escaping it and is dropped without a checkout."""
     monkeypatch.chdir(tmp_path)

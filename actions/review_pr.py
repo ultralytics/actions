@@ -38,6 +38,7 @@ MAX_HISTORY_ITEM_CHARS = 8000  # per prior review or response, enough for a full
 MAX_HISTORY_CHARS = 20000
 MAX_FINDING_LOG_CHARS = 500  # per finding logged in the review body, the record that outlives its inline comment
 REVIEW_COST_SOFT_LIMIT = 5.00  # quality-first budget; stop requesting tools after this soft limit
+MAX_APPROVED_FILE_SIZE = 1_000_000
 SEVERITY_RANK = {"CRITICAL": 0, "HIGH": 1, "MEDIUM": 2, "LOW": 3, "SUGGESTION": 4, None: 5}
 
 
@@ -91,6 +92,40 @@ def search_repo(query: str, path_glob=None) -> str:
 def _clip(text: str, limit: int | None) -> str:
     """Clip text to at most limit characters, or return it unchanged when no limit is given."""
     return text if not limit or len(text) <= limit else f"{text[: limit - 1].rstrip()}…"
+
+
+def _oversized_files(
+    paths: list[str], event: Action, head_sha: str, local_checkout: bool
+) -> tuple[list[str], list[str]]:
+    """Return changed files over the approval limit and files whose size could not be verified."""
+    root = Path.cwd().resolve()
+    oversized, unverified = [], []
+    for path in sorted(set(paths)):
+        if local_checkout:
+            target = (root / path).resolve()
+            try:
+                target.relative_to(root)
+            except ValueError:
+                unverified.append(path)
+                continue
+            if not target.exists():  # deleted file
+                continue
+            try:
+                size = target.stat().st_size
+            except OSError:
+                unverified.append(path)
+                continue
+        else:
+            url = f"{GITHUB_API_URL}/repos/{event.repository}/contents/{quote(path, safe='/')}?ref={head_sha}"
+            response = event.get(url)
+            if response.status_code == 404:  # deleted file
+                continue
+            if response.status_code != 200 or not isinstance((size := response.json().get("size")), int):
+                unverified.append(path)
+                continue
+        if size > MAX_APPROVED_FILE_SIZE:
+            oversized.append(path)
+    return oversized, unverified
 
 
 def _build_review_history(reviews: list[dict], comments: list[dict], bot_username: str | None) -> dict:
@@ -482,29 +517,40 @@ def generate_pr_review(
     head_sha = head_sha or (event.get_pr_head_sha() if event else None)
     if diff_text.startswith("ERROR:"):
         return {"comments": [], "summary": f"{ERROR_MARKER}: {diff_text}", "head_sha": head_sha}
-    if not diff_text:
-        if skipped_files:
-            return {
-                "comments": [],
-                "summary": f"All {len(skipped_files)} changed files are generated/vendored (skipped review)",
-                "skipped_files": skipped_files,
-                "head_sha": head_sha,
-            }
-        return {"comments": [], "summary": "No changes detected in diff", "head_sha": head_sha}
-
-    diff_files, augmented_diff = parse_diff_files(diff_text)
-    if not diff_files:
-        return {"comments": [], "summary": "No reviewable text changes detected in diff", "head_sha": head_sha}
-
+    diff_files, augmented_diff = parse_diff_files(diff_text) if diff_text else ({}, "")
     file_list = list(diff_files.keys())
+    local_checkout = _verified_local_checkout(head_sha)
+    if head_sha:
+        print(f"Reviewing PR head {head_sha[:7]} ({'local checkout' if local_checkout else 'via GitHub API'})")
+    oversized_files, unverified_sizes = _oversized_files(file_list + skipped_files, event, head_sha, local_checkout)
+    if oversized_files or unverified_sizes:
+        details = []
+        if oversized_files:
+            details.append(f"Files larger than 1 MB: {', '.join(f'`{path}`' for path in oversized_files)}")
+        if unverified_sizes:
+            details.append(f"File sizes could not be verified: {', '.join(f'`{path}`' for path in unverified_sizes)}")
+        return {
+            "comments": [],
+            "summary": "Cannot approve this PR. " + " ".join(details),
+            "diff_files": diff_files,
+            "oversized_files": oversized_files,
+            "unverified_sizes": unverified_sizes,
+            "skipped_files": skipped_files,
+            "head_sha": head_sha,
+        }
+    if not diff_files:
+        summary = (
+            f"All {len(skipped_files)} changed files are generated/vendored (skipped review)"
+            if skipped_files
+            else "No changes detected in diff"
+        )
+        return {"comments": [], "summary": summary, "skipped_files": skipped_files, "head_sha": head_sha}
+
     lines_changed = sum(len(sides["RIGHT"]) + len(sides["LEFT"]) for sides in diff_files.values())
 
     # Read model-appropriate guidelines from the PR head for project-specific review context
     review_model = get_review_model()
     is_agent_review_model = not _is_anthropic_model(review_model)
-    local_checkout = _verified_local_checkout(head_sha)
-    if head_sha:
-        print(f"Reviewing PR head {head_sha[:7]} ({'local checkout' if local_checkout else 'via GitHub API'})")
     guidelines_section = get_repo_guidelines(review_model, event, head_sha, local_checkout)
 
     # Carry prior reviews of this PR forward so findings are not repeated, contradicted, or silently reversed
@@ -884,6 +930,8 @@ def post_review_summary(event: Action, review_data: dict, review_number: int = 1
             or has_inline_comments
             or has_issues
             or review_data.get("diff_truncated")
+            or review_data.get("oversized_files")
+            or review_data.get("unverified_sizes")
         )
         else "APPROVE"
     )
