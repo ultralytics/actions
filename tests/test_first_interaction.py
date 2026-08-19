@@ -254,6 +254,28 @@ def test_generate_pr_review_treats_missing_added_file_as_unverified(mock_get_age
     mock_get_agent_response.assert_not_called()
 
 
+@patch("actions.review_pr._verified_local_checkout", return_value=True)
+@patch("actions.review_pr.get_agent_response")
+def test_generate_pr_review_treats_capped_file_list_as_unverified(mock_get_agent_response, mock_checkout):
+    """Test the Pull Files API ceiling cannot hide an oversized file from review."""
+    event = MagicMock(repository="org/repo", pr={"number": 7})
+    event.paginate.return_value = [
+        {"filename": f"file-{index}.py", "status": "modified"} for index in range(review_pr.MAX_PULL_FILES)
+    ]
+    diff = """diff --git a/test.py b/test.py
+--- a/test.py
++++ b/test.py
+@@ -1 +1 @@
+-old = True
++new = True
+"""
+
+    review = review_pr.generate_pr_review("org/repo", (diff, []), "PR", "", event, "abc")
+
+    assert review["unverified_sizes"] == ["PR file list reached GitHub's 3,000-file limit"]
+    mock_get_agent_response.assert_not_called()
+
+
 def test_review_agent_search_scans_local_checkout_only(tmp_path, monkeypatch):
     """Test repo search scans the local checkout without escaping it and is dropped without a checkout."""
     monkeypatch.chdir(tmp_path)

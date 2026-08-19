@@ -29,6 +29,7 @@ ERROR_MARKER = "⚠️ Review generation encountered an error"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
 MAX_CONTEXT_FILE_CHARS = 12000
 MAX_REVIEW_COMMENTS = 8
+MAX_PULL_FILES = 3000
 MAX_TOOL_OUTPUT_CHARS = 40000
 MAX_TOOL_FILE_LINES = 400
 MAX_AGENT_TURNS = 24
@@ -529,7 +530,10 @@ def generate_pr_review(
         print(f"Reviewing PR head {head_sha[:7]} ({'local checkout' if local_checkout else 'via GitHub API'})")
     files_url = f"{GITHUB_API_URL}/repos/{repository}/pulls/{event.pr.get('number')}/files"
     changed_files = event.paginate(files_url, hard=True)
-    oversized_files, unverified_sizes = _oversized_files(changed_files, event, head_sha, local_checkout)
+    if len(changed_files) >= MAX_PULL_FILES:
+        oversized_files, unverified_sizes = [], ["PR file list reached GitHub's 3,000-file limit"]
+    else:
+        oversized_files, unverified_sizes = _oversized_files(changed_files, event, head_sha, local_checkout)
     if oversized_files or unverified_sizes:
         details = []
         if oversized_files:
