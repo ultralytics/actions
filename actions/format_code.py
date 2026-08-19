@@ -19,7 +19,7 @@ RUFF_CHECK = [
 RUFF_FORMAT = ["ruff", "format", "--line-length=120", "."]
 DOCSTRINGS = ["ultralytics-actions-format-python-docstrings", "."]
 PRETTIER = """
-npm install -g prettier@latest
+npm install -g prettier@3.8.5
 curl -fsSL "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" -o "$(npm prefix -g)/bin/shfmt"
 chmod +x "$(npm prefix -g)/bin/shfmt"
 ultralytics-actions-update-markdown-code-blocks
