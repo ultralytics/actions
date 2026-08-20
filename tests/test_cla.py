@@ -69,6 +69,7 @@ def test_contributors_paginates_and_requires_verified_github_identity():
         {"name": "Alias", "email": "2+alias@users.noreply.github.com", "user": None},
         {"name": "Unknown", "email": "private@example.com", "user": None},
         {"user": {"databaseId": 3, "login": "dependabot[bot]"}},
+        {"user": {"databaseId": 6, "login": "Copilot"}},
         {"user": {"databaseId": 4, "login": "other[bot]"}},
         {"user": {"databaseId": 5, "login": "bot-attacker"}},
     ]
