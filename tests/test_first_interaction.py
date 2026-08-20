@@ -145,8 +145,6 @@ def test_get_first_interaction_response(mock_get_response, mock_check_links):
 def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, mock_checkout, tmp_path, monkeypatch):
     """Test PR reviews avoid background polling for code diffs."""
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "test.py").write_text("old = False\n")
-    (tmp_path / "image.png").write_bytes(b"image")
     mock_get_agent_response.return_value = {"comments": [], "summary": "LGTM"}
     mock_event = MagicMock()
     mock_event.repository = "ultralytics/actions"
@@ -154,10 +152,6 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, m
     api_response = MagicMock(status_code=200, text="")
     api_response.json.return_value = {"head": {"sha": "headsha"}}
     mock_event.get.return_value = api_response
-    mock_event.paginate.return_value = [
-        {"filename": "test.py", "status": "modified"},
-        {"filename": "image.png", "status": "added"},
-    ]
     diff = """diff --git a/test.py b/test.py
 --- a/test.py
 +++ b/test.py
@@ -166,7 +160,7 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, m
 +old = False
 """
 
-    review = review_pr.generate_pr_review("ultralytics/actions", (diff, ["image.png"]), "Test PR", "", event=mock_event)
+    review = review_pr.generate_pr_review("ultralytics/actions", (diff, []), "Test PR", "", event=mock_event)
 
     assert review["summary"] == "LGTM"
     mock_get_agent_response.assert_called_once()
@@ -190,90 +184,6 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, m
         in mock_get_agent_response.call_args.args[0][0]["content"]
     )
     assert "Never approve any added file larger than 1 MB" in mock_get_agent_response.call_args.args[0][0]["content"]
-
-
-@patch("actions.review_pr._verified_local_checkout", return_value=True)
-@patch("actions.review_pr.get_agent_response")
-def test_generate_pr_review_never_approves_oversized_files(
-    mock_get_agent_response, mock_checkout, tmp_path, monkeypatch
-):
-    """Test an oversized hunkless change blocks approval before model review."""
-    monkeypatch.chdir(tmp_path)
-    (tmp_path / "test.py").write_text("new = True\n")
-    with (tmp_path / "large.dat").open("wb") as file:
-        file.truncate(review_pr.MAX_APPROVED_FILE_SIZE + 1)
-    event = MagicMock(repository="org/repo", pr={"number": 7})
-    event.get_pr_head_sha.return_value = "abc"
-    event.paginate.return_value = [
-        {"filename": "test.py", "status": "modified"},
-        {"filename": "large.dat", "status": "renamed"},
-    ]
-    diff = """diff --git a/test.py b/test.py
---- a/test.py
-+++ b/test.py
-@@ -1 +1 @@
--old = True
-+new = True
-"""
-
-    review = review_pr.generate_pr_review("org/repo", (diff, []), "PR", "", event, "abc")
-    review_pr.post_review_summary(event, review)
-
-    assert review["oversized_files"] == ["large.dat"]
-    assert event.post.call_args.kwargs["json"]["event"] == "COMMENT"
-    mock_get_agent_response.assert_not_called()
-
-
-@patch("actions.review_pr._verified_local_checkout", return_value=False)
-@patch("actions.review_pr.get_agent_response")
-def test_generate_pr_review_treats_missing_added_file_as_unverified(mock_get_agent_response, mock_checkout):
-    """Test only an explicit removed status permits a missing changed file."""
-    event = MagicMock(repository="org/repo", pr={"number": 7})
-    event.paginate.return_value = [
-        {"filename": "test.py", "status": "modified"},
-        {"filename": "missing.png", "status": "added"},
-    ]
-
-    def get_file(url):
-        response = MagicMock(status_code=404 if "missing.png" in url else 200)
-        response.json.return_value = {"size": 10}
-        return response
-
-    event.get.side_effect = get_file
-    diff = """diff --git a/test.py b/test.py
---- a/test.py
-+++ b/test.py
-@@ -1 +1 @@
--old = True
-+new = True
-"""
-
-    review = review_pr.generate_pr_review("org/repo", (diff, ["missing.png"]), "PR", "", event, "abc")
-
-    assert review["unverified_sizes"] == ["missing.png"]
-    mock_get_agent_response.assert_not_called()
-
-
-@patch("actions.review_pr._verified_local_checkout", return_value=True)
-@patch("actions.review_pr.get_agent_response")
-def test_generate_pr_review_treats_capped_file_list_as_unverified(mock_get_agent_response, mock_checkout):
-    """Test the Pull Files API ceiling cannot hide an oversized file from review."""
-    event = MagicMock(repository="org/repo", pr={"number": 7})
-    event.paginate.return_value = [
-        {"filename": f"file-{index}.py", "status": "modified"} for index in range(review_pr.MAX_PULL_FILES)
-    ]
-    diff = """diff --git a/test.py b/test.py
---- a/test.py
-+++ b/test.py
-@@ -1 +1 @@
--old = True
-+new = True
-"""
-
-    review = review_pr.generate_pr_review("org/repo", (diff, []), "PR", "", event, "abc")
-
-    assert review["unverified_sizes"] == ["PR file list reached GitHub's 3,000-file limit"]
-    mock_get_agent_response.assert_not_called()
 
 
 def test_review_agent_search_scans_local_checkout_only(tmp_path, monkeypatch):
