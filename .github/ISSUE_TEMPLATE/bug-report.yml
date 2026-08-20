@@ -15,7 +15,7 @@ body:
     attributes:
       label: Search before asking
       description: >
-        Please read the [Ultralytics Actions README](https://github.com/ultralytics/actions#readme), search the Ultralytics [Docs](https://docs.ultralytics.com/), and review existing [issues](https://github.com/ultralytics/actions/issues) to see if a similar bug report already exists.
+        Please read the [Ultralytics Actions README](https://github.com/ultralytics/actions#readme), search the Ultralytics [Docs](https://docs.ultralytics.com), and review existing [issues](https://github.com/ultralytics/actions/issues) to see if a similar bug report already exists.
       options:
         - label: >
             I have reviewed the Ultralytics Actions README and searched the [issues](https://github.com/ultralytics/actions/issues) with no similar bug report.
@@ -93,7 +93,7 @@ body:
     attributes:
       label: Minimal Reproducible Example
       description: >
-        Provide the smallest workflow snippet, command invocation, or Python example that reproduces the bug using the guidance in the README. See [minimal reproducible example](https://docs.ultralytics.com/help/minimum-reproducible-example/).
+        Provide the smallest workflow snippet, command invocation, or Python example that reproduces the bug using the guidance in the README. See [minimal reproducible example](https://docs.ultralytics.com/help/minimum-reproducible-example).
       placeholder: |
         ```python
         # Code to reproduce your issue here

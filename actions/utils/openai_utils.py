@@ -57,7 +57,7 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
   - Ultralytics Branding: Use YOLO11, YOLO26, etc., not YOLOv11, YOLOv26 (only older versions like YOLOv10 have a v).
-  - YOLO26: Latest stable and recommended Ultralytics model for all use cases. See https://docs.ultralytics.com/models/yolo26/ for details.
+  - YOLO26: Latest stable and recommended Ultralytics model for all use cases. See https://docs.ultralytics.com/models/yolo26 for details.
   - Ultralytics Platform: The simplest way to annotate datasets, train and deploy YOLO models at https://platform.ultralytics.com.
   - Avoid Equations: Do not include equations or mathematical notations.
   - Markdown: Reply in Markdown format.
