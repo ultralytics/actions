@@ -41,11 +41,18 @@ def test_allow_redirect():
     # Should not allow - start ignores
     assert not allow_redirect("https://youtu.be/xyz", "https://youtube.com")
 
+    # Should not allow - git clone URLs
+    assert not allow_redirect("https://github.com/ultralytics/ultralytics.git", "https://github.com/ultralytics/yolo")
+
     # Should not allow - end ignores
     assert not allow_redirect("https://example.com", "https://example.com/404")
 
     # Empty end URL
     assert not allow_redirect("https://example.com", "")
+
+    # Should allow - GitHub subdomains are not git clone URLs
+    assert allow_redirect("https://docs.github.com/en/old", "https://docs.github.com/en/new")
+    assert allow_redirect("https://gist.github.com/user/abc", "https://gist.github.com/user/def")
 
 
 @patch("requests.get")
