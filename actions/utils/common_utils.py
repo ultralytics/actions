@@ -147,7 +147,6 @@ REDIRECT_START_IGNORE_LIST = frozenset(
         "ultralytics.com/assets",
         "app.gong.io/call?",
         "docs.openvino.ai",
-        ".git",
         "/raw/",  # GitHub images
         ".slack.com",  # Slack URLs to private channels
         "https://maps.app.goo.gl/nxB8YygRQeXSS9G18",  # Ultralytics Madrid office - Cra de San Jeronimo 15
@@ -281,6 +280,7 @@ def allow_redirect(start="", end=""):
     return (
         end
         and end.startswith("https://")
+        and not start_lower.endswith(".git")  # git clone URLs, i.e. https://github.com/org/repo.git
         and all(item not in end_lower for item in REDIRECT_END_IGNORE_LIST)
         and all(item not in start_lower for item in REDIRECT_START_IGNORE_LIST)
     )
