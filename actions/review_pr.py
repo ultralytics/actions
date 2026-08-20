@@ -594,6 +594,7 @@ def generate_pr_review(
         "- Security vulnerabilities, data loss, corruption, or irreversible behavior\n"
         "- Bugs, broken contracts, race conditions, and compatibility regressions with a concrete failure path\n"
         "- Performance regressions with a plausible workload and measurable impact\n"
+        "- Never approve any added file larger than 1 MB, regardless of type\n"
         "- Maintainability only when the change creates demonstrated duplication, conflicting owners, or unreachable behavior\n\n"
         "WHEN NOT TO COMMENT:\n"
         "- Style/formatting (handled by ruff/prettier)\n"

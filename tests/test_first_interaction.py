@@ -183,6 +183,7 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, m
         "Do not flag package or version availability based on web search"
         in mock_get_agent_response.call_args.args[0][0]["content"]
     )
+    assert "Never approve any added file larger than 1 MB" in mock_get_agent_response.call_args.args[0][0]["content"]
 
 
 def test_review_agent_search_scans_local_checkout_only(tmp_path, monkeypatch):
