@@ -6,7 +6,7 @@ import os
 import re
 import subprocess
 
-import requests
+from actions.utils import Action
 
 # Matches: `uses: owner/repo@ref` or `uses: owner/repo/path@ref` with optional `# comment`
 USES_PATTERN = re.compile(
@@ -55,14 +55,13 @@ def ref_version(ref, comment=""):
     return ref
 
 
-def get_latest_release(action, token, cache):
+def get_latest_release(action, client, cache):
     """Get latest release tag and its commit SHA for an action, using cache."""
     repo = "/".join(action.split("/")[:2])
     if repo in cache:
         return cache[repo]
 
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
-    r = requests.get(f"https://api.github.com/repos/{repo}/releases/latest", headers=headers)
+    r = client.get(f"https://api.github.com/repos/{repo}/releases/latest")
     if r.status_code != 200:
         print(f"  Could not resolve latest version for {repo}")
         return None
@@ -73,11 +72,11 @@ def get_latest_release(action, token, cache):
 
     # Resolve tag to commit SHA (handles annotated tags)
     sha = None
-    r2 = requests.get(f"https://api.github.com/repos/{repo}/git/ref/tags/{tag}", headers=headers)
+    r2 = client.get(f"https://api.github.com/repos/{repo}/git/ref/tags/{tag}")
     if r2.status_code == 200:
         obj = r2.json().get("object", {})
         if obj.get("type") == "tag":
-            r3 = requests.get(obj["url"], headers=headers)
+            r3 = client.get(obj["url"])
             sha = r3.json().get("object", {}).get("sha") if r3.status_code == 200 else None
         else:
             sha = obj.get("sha")
@@ -87,7 +86,7 @@ def get_latest_release(action, token, cache):
     major_tag = f"{major_match.group(1)}{major_match.group(2)}" if major_match else None
     has_major_tag = False
     if major_tag and major_tag != tag:
-        r3 = requests.get(f"https://api.github.com/repos/{repo}/git/ref/tags/{major_tag}", headers=headers)
+        r3 = client.get(f"https://api.github.com/repos/{repo}/git/ref/tags/{major_tag}")
         has_major_tag = r3.status_code == 200
 
     cache[repo] = {"tag": tag, "sha": sha, "major_tag": major_tag if major_tag == tag or has_major_tag else None}
@@ -128,29 +127,28 @@ def compute_update(current_ref, comment, latest):
     return None
 
 
-def get_workflow_files(org, repo, token):
+def get_workflow_files(org, repo, client):
     """Fetch workflow file paths and action.yml from a repo using the GitHub API."""
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
     files = []
 
-    r = requests.get(f"https://api.github.com/repos/{org}/{repo}/contents/.github/workflows", headers=headers)
+    r = client.get(f"https://api.github.com/repos/{org}/{repo}/contents/.github/workflows")
     if r.status_code == 200:
         files.extend(
             f["path"] for f in r.json() if isinstance(f, dict) and f.get("name", "").endswith((".yml", ".yaml"))
         )
 
     for name in ("action.yml", "action.yaml"):
-        r = requests.get(f"https://api.github.com/repos/{org}/{repo}/contents/{name}", headers=headers)
+        r = client.get(f"https://api.github.com/repos/{org}/{repo}/contents/{name}")
         if r.status_code == 200:
             files.append(name)
 
     return files
 
 
-def get_file_content(org, repo, path, token):
+def get_file_content(org, repo, path, client):
     """Fetch raw file content from a repo."""
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github.v3.raw"}
-    r = requests.get(f"https://api.github.com/repos/{org}/{repo}/contents/{path}", headers=headers)
+    headers = {**client.headers, "Accept": "application/vnd.github.v3.raw"}
+    r = client.get(f"https://api.github.com/repos/{org}/{repo}/contents/{path}", headers=headers)
     return r.text if r.status_code == 200 else None
 
 
@@ -186,24 +184,23 @@ def get_open_pr_titles(org, repo):
     return {pr["title"] for pr in json.loads(result.stdout)}
 
 
-def create_pr(org, repo, title, file_updates, token):
+def create_pr(org, repo, title, file_updates, client):
     """Create a PR with a single commit updating one or more files using the Git Data API."""
-    headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
     api = f"https://api.github.com/repos/{org}/{repo}"
 
     # Get default branch and its HEAD commit SHA
-    r = requests.get(api, headers=headers)
+    r = client.get(api)
     if r.status_code != 200:
         return None
     default_branch = r.json()["default_branch"]
 
-    r = requests.get(f"{api}/git/ref/heads/{default_branch}", headers=headers)
+    r = client.get(f"{api}/git/ref/heads/{default_branch}")
     if r.status_code != 200:
         return None
     base_sha = r.json()["object"]["sha"]
 
     # Get base tree SHA
-    r = requests.get(f"{api}/git/commits/{base_sha}", headers=headers)
+    r = client.get(f"{api}/git/commits/{base_sha}")
     if r.status_code != 200:
         return None
     base_tree_sha = r.json()["tree"]["sha"]
@@ -211,23 +208,22 @@ def create_pr(org, repo, title, file_updates, token):
     # Create blobs for each file and build tree entries
     tree_entries = []
     for path, content in file_updates:
-        r = requests.post(f"{api}/git/blobs", headers=headers, json={"content": content, "encoding": "utf-8"})
+        r = client.post(f"{api}/git/blobs", json={"content": content, "encoding": "utf-8"})
         if r.status_code not in (200, 201):
             print(f"    Failed to create blob for {path}, aborting PR")
             return None
         tree_entries.append({"path": path, "mode": "100644", "type": "blob", "sha": r.json()["sha"]})
 
     # Create tree
-    r = requests.post(f"{api}/git/trees", headers=headers, json={"base_tree": base_tree_sha, "tree": tree_entries})
+    r = client.post(f"{api}/git/trees", json={"base_tree": base_tree_sha, "tree": tree_entries})
     if r.status_code not in (200, 201):
         print(f"    Failed to create tree: {r.json().get('message', '')}")
         return None
     tree_sha = r.json()["sha"]
 
     # Create single commit
-    r = requests.post(
+    r = client.post(
         f"{api}/git/commits",
-        headers=headers,
         json={"message": title, "tree": tree_sha, "parents": [base_sha]},
     )
     if r.status_code not in (200, 201):
@@ -238,15 +234,14 @@ def create_pr(org, repo, title, file_updates, token):
     # Create branch pointing to the commit
     slug = re.sub(r"[^a-zA-Z0-9]+", "-", title).strip("-").lower()[:60]
     branch = f"dependabot/github_actions/{slug}"
-    r = requests.post(f"{api}/git/refs", headers=headers, json={"ref": f"refs/heads/{branch}", "sha": commit_sha})
+    r = client.post(f"{api}/git/refs", json={"ref": f"refs/heads/{branch}", "sha": commit_sha})
     if r.status_code not in (200, 201):
         print(f"    Failed to create branch: {r.json().get('message', '')}")
         return None
 
     # Create PR
-    r = requests.post(
+    r = client.post(
         f"{api}/pulls",
-        headers=headers,
         json={
             "title": title,
             "body": (
@@ -277,6 +272,7 @@ def run():
     if not token:
         print("Error: GH_TOKEN or GITHUB_TOKEN required")
         return
+    client = Action(token=token, event_data={"repository": {}}, verbose=False)
 
     # Build visibility filter from env vars (all on by default)
     visibility = {v for v in ("public", "private", "internal") if os.getenv(v.upper(), "true").lower() == "true"}
@@ -303,7 +299,7 @@ def run():
     for repo_name in repos:
         print(f"📦 {org}/{repo_name}")
 
-        workflow_files = get_workflow_files(org, repo_name, token)
+        workflow_files = get_workflow_files(org, repo_name, client)
         if not workflow_files:
             print("  No workflow files found")
             continue
@@ -314,7 +310,7 @@ def run():
         file_cache = {}  # path -> original content
 
         for path in workflow_files:
-            content = get_file_content(org, repo_name, path, token)
+            content = get_file_content(org, repo_name, path, client)
             if not content:
                 continue
             file_cache[path] = content
@@ -327,7 +323,7 @@ def run():
                 if is_branch(ref):
                     continue
 
-                latest = get_latest_release(action, token, cache)
+                latest = get_latest_release(action, client, cache)
                 update = compute_update(ref, comment, latest)
                 if update is None:
                     continue
@@ -371,7 +367,7 @@ def run():
                 file_updates[path] = content[:start] + new_line + content[end:]
                 print(f"  {path}: {action} -> {nref}{ncomment}")
 
-            pr_url = create_pr(org, repo_name, title, list(file_updates.items()), token)
+            pr_url = create_pr(org, repo_name, title, list(file_updates.items()), client)
             if pr_url:
                 print(f"    ✅ Created PR: {pr_url}")
                 summary.append(f"- ✅ [{org}/{repo_name}]({pr_url}): {title}")

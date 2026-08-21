@@ -152,6 +152,7 @@ class Action:
 
     def _request(self, method: str, url: str, headers=None, expected_status=None, hard=False, **kwargs):
         """Unified request handler with error checking."""
+        kwargs.setdefault("timeout", (10, 60))
         r = getattr(self.session, method)(url, headers=headers or self.headers, **kwargs)
         expected = expected_status or self._default_status[method]
         status_expected = r.status_code in expected
