@@ -429,8 +429,9 @@ runs:
         mkdir -p "$RUNNER_TEMP/lychee"
         archive="lychee-${target}.tar.gz"
         url="https://github.com/lycheeverse/lychee/releases/latest/download/$archive"
-        curl --retry 3 --retry-all-errors --retry-max-time 60 -fsSL "$url" -o "$RUNNER_TEMP/lychee/$archive"
-        curl --retry 3 --retry-all-errors --retry-max-time 60 -fsSL "$url.sha256" -o "$RUNNER_TEMP/lychee/$archive.sha256"
+        curl_args=(--retry 3 --retry-all-errors --retry-max-time 180 --connect-timeout 10 --max-time 60 -fsSL)
+        curl "${curl_args[@]}" "$url" -o "$RUNNER_TEMP/lychee/$archive"
+        curl "${curl_args[@]}" "$url.sha256" -o "$RUNNER_TEMP/lychee/$archive.sha256"
         if command -v sha256sum >/dev/null; then
           (cd "$RUNNER_TEMP/lychee" && sha256sum -c "$archive.sha256")
         else
