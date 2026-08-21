@@ -121,7 +121,9 @@ class Action:
         """Initializes a GitHub Actions API handler with token and event data for processing events."""
         self.token = token or os.getenv("GITHUB_TOKEN")
         self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
-        self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
+        self.event_data = (
+            event_data if event_data is not None else self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
+        )
         self.pr = self.event_data.get("pull_request", {})
         self.repository = self.event_data.get("repository", {}).get("full_name")
         self.owner, self.repo_name = self.repository.split("/") if self.repository else (None, None)
@@ -152,6 +154,7 @@ class Action:
 
     def _request(self, method: str, url: str, headers=None, expected_status=None, hard=False, **kwargs):
         """Unified request handler with error checking."""
+        kwargs.setdefault("timeout", (10, 60))
         r = getattr(self.session, method)(url, headers=headers or self.headers, **kwargs)
         expected = expected_status or self._default_status[method]
         status_expected = r.status_code in expected

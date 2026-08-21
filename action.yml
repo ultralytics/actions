@@ -246,12 +246,16 @@ runs:
     # language version and silently falls back to the pre-3.7 short style.
     - name: Setup Flutter SDK
       if: github.event_name == 'pull_request' && inputs.dart == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
-      run: |
-        echo "::group::Setup Flutter SDK"
-        trap 'echo "::endgroup::"' EXIT
-        git clone --depth 1 --branch stable https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
-        echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
-      shell: bash
+      uses: ultralytics/actions/retry@main
+      with:
+        retries: 2
+        timeout_minutes: 15
+        run: |
+          echo "::group::Setup Flutter SDK"
+          trap 'echo "::endgroup::"' EXIT
+          rm -rf "$RUNNER_TEMP/flutter"
+          git clone --depth 1 --branch stable https://github.com/flutter/flutter.git "$RUNNER_TEMP/flutter"
+          echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
 
     - name: Run Dart Formatter
       if: github.event_name == 'pull_request' && inputs.dart == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
@@ -423,7 +427,16 @@ runs:
           Darwin-x86_64) target=x86_64-apple-darwin ;;
         esac
         mkdir -p "$RUNNER_TEMP/lychee"
-        curl -sfL "https://github.com/lycheeverse/lychee/releases/latest/download/lychee-${target}.tar.gz" | tar -xz -C "$RUNNER_TEMP/lychee"
+        archive="lychee-${target}.tar.gz"
+        url="https://github.com/lycheeverse/lychee/releases/latest/download/$archive"
+        curl --retry 3 --retry-all-errors --retry-max-time 180 --connect-timeout 10 --max-time 60 -fsSL "$url" -o "$RUNNER_TEMP/lychee/$archive"
+        curl --retry 3 --retry-all-errors --retry-max-time 180 --connect-timeout 10 --max-time 60 -fsSL "$url.sha256" -o "$RUNNER_TEMP/lychee/$archive.sha256"
+        if command -v sha256sum >/dev/null; then
+          (cd "$RUNNER_TEMP/lychee" && sha256sum -c "$archive.sha256")
+        else
+          (cd "$RUNNER_TEMP/lychee" && shasum -a 256 -c "$archive.sha256")
+        fi
+        tar -xzf "$RUNNER_TEMP/lychee/$archive" -C "$RUNNER_TEMP/lychee"
         "$(find "$RUNNER_TEMP/lychee" -type f -name lychee)" \
         --scheme https \
         --timeout 60 \
