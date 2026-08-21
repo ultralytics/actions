@@ -121,7 +121,9 @@ class Action:
         """Initializes a GitHub Actions API handler with token and event data for processing events."""
         self.token = token or os.getenv("GITHUB_TOKEN")
         self.event_name = event_name or os.getenv("GITHUB_EVENT_NAME")
-        self.event_data = event_data or self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
+        self.event_data = (
+            event_data if event_data is not None else self._load_event_data(os.getenv("GITHUB_EVENT_PATH"))
+        )
         self.pr = self.event_data.get("pull_request", {})
         self.repository = self.event_data.get("repository", {}).get("full_name")
         self.owner, self.repo_name = self.repository.split("/") if self.repository else (None, None)

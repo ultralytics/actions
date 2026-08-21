@@ -1,10 +1,8 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 """Update GitHub Actions versions across organization repositories with cached version resolution."""
 
-import json
 import os
 import re
-import subprocess
 
 from actions.utils import Action
 
@@ -171,17 +169,10 @@ def title_exists(open_titles, action, new_ref, new_comment, old_versions):
     return any(pattern.fullmatch(title) for title in open_titles)
 
 
-def get_open_pr_titles(org, repo):
-    """Get titles of all open PRs in a repo using gh CLI."""
-    result = subprocess.run(
-        ["gh", "pr", "list", "--repo", f"{org}/{repo}", "--state", "open", "--json", "title", "--limit", "100"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if result.returncode != 0:
-        return set()
-    return {pr["title"] for pr in json.loads(result.stdout)}
+def get_open_pr_titles(org, repo, client):
+    """Get titles of all open PRs in a repo."""
+    prs = client.paginate(f"https://api.github.com/repos/{org}/{repo}/pulls", params={"state": "open"}, hard=True)
+    return {pr["title"] for pr in prs}
 
 
 def create_pr(org, repo, title, file_updates, client):
@@ -272,7 +263,7 @@ def run():
     if not token:
         print("Error: GH_TOKEN or GITHUB_TOKEN required")
         return
-    client = Action(token=token, event_data={"repository": {}}, verbose=False)
+    client = Action(token=token, event_data={}, verbose=False)
 
     # Build visibility filter from env vars (all on by default)
     visibility = {v for v in ("public", "private", "internal") if os.getenv(v.upper(), "true").lower() == "true"}
@@ -280,15 +271,8 @@ def run():
         visibility = {"public", "private", "internal"}
     print(f"🔍 Scanning {', '.join(sorted(visibility))} repos in {org} for outdated GitHub Actions...")
 
-    result = subprocess.run(
-        ["gh", "repo", "list", org, "--limit", "1000", "--json", "name,isArchived,visibility"],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-    repos = sorted(
-        r["name"] for r in json.loads(result.stdout) if not r["isArchived"] and r["visibility"].lower() in visibility
-    )
+    org_repos = client.paginate(f"https://api.github.com/orgs/{org}/repos", params={"type": "all"}, hard=True)
+    repos = sorted(r["name"] for r in org_repos if not r["archived"] and r["visibility"].lower() in visibility)
     print(f"Found {len(repos)} active repos\n")
 
     cache = {}
@@ -347,7 +331,7 @@ def run():
             continue
 
         # Phase 2: create one PR per action update
-        open_titles = get_open_pr_titles(org, repo_name)
+        open_titles = get_open_pr_titles(org, repo_name, client)
 
         for (action_repo, new_ref), info in updates.items():
             title = make_pr_title(action_repo, new_ref, info["new_comment"], info["old_versions"])
