@@ -27,9 +27,38 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - uses: astral-sh/setup-uv@v10.0.0
+    - name: Install latest uv
+      id: latest
+      continue-on-error: true
+      uses: astral-sh/setup-uv@v10.0.0
       with:
         version: latest
+        python-version: ${{ inputs.python-version }}
+        activate-environment: ${{ inputs.activate-environment }}
+        enable-cache: ${{ inputs.enable-cache }}
+        cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
+        ignore-empty-workdir: ${{ inputs.ignore-empty-workdir }}
+        ignore-nothing-to-cache: true
+
+    - name: Retry latest uv
+      id: latest_retry
+      if: steps.latest.outcome == 'failure'
+      continue-on-error: true
+      uses: astral-sh/setup-uv@v10.0.0
+      with:
+        version: latest
+        python-version: ${{ inputs.python-version }}
+        activate-environment: ${{ inputs.activate-environment }}
+        enable-cache: ${{ inputs.enable-cache }}
+        cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
+        ignore-empty-workdir: ${{ inputs.ignore-empty-workdir }}
+        ignore-nothing-to-cache: true
+
+    - name: Install latest known uv
+      if: steps.latest_retry.outcome == 'failure'
+      uses: astral-sh/setup-uv@v10.0.0
+      with:
+        version: latest-known
         python-version: ${{ inputs.python-version }}
         activate-environment: ${{ inputs.activate-environment }}
         enable-cache: ${{ inputs.enable-cache }}
