@@ -71,12 +71,13 @@ SYSTEM_PROMPT_ADDITION = """Guidance:
 """
 _CITATION_PATTERN = re.compile(
     r"[\uE000-\uF8FF]*\bcite[\uE000-\uF8FF]*(turn\d+(?:search|view)\d+|[\w\d]+)[\uE000-\uF8FF]*"
+    r"|\bturn\d+(?:search|view)\d+[\uE000-\uF8FF]+"
 )
 
 
 def sanitize_ai_text(s: str) -> str:
-    """Strip private-use citation tokens (for example, ``cite...`` markers)."""
-    return _CITATION_PATTERN.sub("", s) if s else ""
+    """Strip citation tokens and non-printing Unicode characters from AI output."""
+    return "".join(c for c in _CITATION_PATTERN.sub("", s) if c in "\n\t" or c.isprintable()) if s else ""
 
 
 def remove_outer_codeblocks(string):
