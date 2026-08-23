@@ -76,7 +76,7 @@ _CITATION_PATTERN = re.compile(
     rf"[{_PRIVATE_USE_RANGE}]*|\bturn\d+[a-z_]+\d+[{_PRIVATE_USE_RANGE}]+"
 )
 _UNSAFE_UNICODE_CATEGORIES = {"Cc", "Cf", "Co", "Cs"}
-_SAFE_FORMAT_CHARACTERS = {"\u200c", "\u200d", *(chr(c) for c in range(0xE0020, 0xE0080))}
+_SAFE_FORMAT_CHARACTERS = {"\u200c", "\u200d"}
 
 
 def sanitize_ai_text(s: str) -> str:
