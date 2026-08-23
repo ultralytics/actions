@@ -145,7 +145,20 @@ def test_get_first_interaction_response(mock_get_response, mock_check_links):
 def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, mock_checkout, tmp_path, monkeypatch):
     """Test PR reviews avoid background polling for code diffs."""
     monkeypatch.chdir(tmp_path)
-    mock_get_agent_response.return_value = {"comments": [], "summary": "LGTM"}
+    mock_get_agent_response.return_value = {
+        "comments": [
+            {
+                "file": "test.py",
+                "line": 1,
+                "side": "RIGHT",
+                "severity": "MEDIUM",
+                "message": "Finding.\ue201",
+                "start_line": None,
+                "suggestion": "old = False\ue201",
+            }
+        ],
+        "summary": "LGTM\ue201",
+    }
     mock_event = MagicMock()
     mock_event.repository = "ultralytics/actions"
     mock_event.pr = {"number": 1, "head": {"sha": "headsha"}}
@@ -163,6 +176,8 @@ def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, m
     review = review_pr.generate_pr_review("ultralytics/actions", (diff, []), "Test PR", "", event=mock_event)
 
     assert review["summary"] == "LGTM"
+    assert review["comments"][0]["message"] == "Finding."
+    assert review["comments"][0]["suggestion"] == "old = False"
     mock_get_agent_response.assert_called_once()
     kwargs = mock_get_agent_response.call_args.kwargs
     assert "background" not in kwargs
