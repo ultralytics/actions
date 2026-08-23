@@ -73,7 +73,7 @@ SYSTEM_PROMPT_ADDITION = """Guidance:
 _PRIVATE_USE_RANGE = r"\uE000-\uF8FF\U000F0000-\U000FFFFD\U00100000-\U0010FFFD"
 _CITATION_PATTERN = re.compile(
     rf"[{_PRIVATE_USE_RANGE}]*\bcite[{_PRIVATE_USE_RANGE}]*(turn\d+(?:search|view)\d+|[\w\d]+)"
-    rf"[{_PRIVATE_USE_RANGE}]*|\bturn\d+(?:search|view)\d+[{_PRIVATE_USE_RANGE}]+"
+    rf"[{_PRIVATE_USE_RANGE}]*|\bturn\d+[a-z_]+\d+[{_PRIVATE_USE_RANGE}]+"
 )
 _UNSAFE_UNICODE_CATEGORIES = {"Cc", "Cf", "Co", "Cs"}
 _SAFE_FORMAT_CHARACTERS = {"\u200c", "\u200d", *(chr(c) for c in range(0xE0020, 0xE0080))}
