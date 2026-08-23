@@ -19,7 +19,6 @@ from actions.utils.openai_utils import (
     get_response,
     get_review_model,
     remove_outer_codeblocks,
-    sanitize_ai_text,
 )
 
 
@@ -95,28 +94,6 @@ def test_remove_outer_codeblocks():
     # Test with no code blocks
     input_str = "def test():\n    return True"
     assert remove_outer_codeblocks(input_str) == input_str
-
-
-def test_sanitize_ai_text():
-    """Strip citation markers and non-printing characters while preserving normal Unicode and Markdown whitespace."""
-    assert sanitize_ai_text("Finding. \ue200cite\ue202turn10search1\ue201") == "Finding. "
-    assert sanitize_ai_text("Finding. turn10search1\ue201") == "Finding. "
-    assert sanitize_ai_text("Finding. turn7fetch3\ue201") == "Finding. "
-    assert sanitize_ai_text("Finding. turn10search1\U000f0000") == "Finding. "
-    assert (
-        sanitize_ai_text(
-            "Finding.\x00\u200b\u202e\u2066\ufeff\ufdd0\ufff9\uffff\U000e0001\U000e0020\U0010ffff\ue201\U000f0000"
-        )
-        == "Finding."
-    )
-    assert sanitize_ai_text("Finding. turn10search1") == "Finding. turn10search1"
-    assert sanitize_ai_text("Café 中文 🩷 👩‍💻\n\tMarkdown") == "Café 中文 🩷 👩‍💻\n\tMarkdown"
-    for flag in (
-        "\U0001f3f4\U000e0067\U000e0062\U000e0065\U000e006e\U000e0067\U000e007f",
-        "\U0001f3f4\U000e0067\U000e0062\U000e0073\U000e0063\U000e0074\U000e007f",
-        "\U0001f3f4\U000e0067\U000e0062\U000e0077\U000e006c\U000e0073\U000e007f",
-    ):
-        assert sanitize_ai_text(flag) == flag
 
 
 def test_get_review_model_override():
