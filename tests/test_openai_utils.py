@@ -102,7 +102,7 @@ def test_sanitize_ai_text():
     assert sanitize_ai_text("Finding. \ue200cite\ue202turn10search1\ue201") == "Finding. "
     assert sanitize_ai_text("Finding. turn10search1\ue201") == "Finding. "
     assert sanitize_ai_text("Finding. turn10search1\U000f0000") == "Finding. "
-    assert sanitize_ai_text("Finding.\x00\u200b\u202e\u2066\ufeff\ue201\U000f0000") == "Finding."
+    assert sanitize_ai_text("Finding.\x00\u200b\u202e\u2066\ufeff\ufff9\U000e0001\ue201\U000f0000") == "Finding."
     assert sanitize_ai_text("Finding. turn10search1") == "Finding. turn10search1"
     assert sanitize_ai_text("Café 中文 🩷 👩‍💻\n\tMarkdown") == "Café 中文 🩷 👩‍💻\n\tMarkdown"
 
