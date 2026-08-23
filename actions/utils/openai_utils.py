@@ -6,6 +6,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
@@ -69,14 +70,39 @@ SYSTEM_PROMPT_ADDITION = """Guidance:
   - Use the "@" symbol to refer to GitHub users, e.g. @glenn-jocher.
   - Tone: Adopt a professional, friendly, and concise tone.
 """
+_PRIVATE_USE_RANGE = r"\uE000-\uF8FF\U000F0000-\U000FFFFD\U00100000-\U0010FFFD"
 _CITATION_PATTERN = re.compile(
-    r"[\uE000-\uF8FF]*\bcite[\uE000-\uF8FF]*(turn\d+(?:search|view)\d+|[\w\d]+)[\uE000-\uF8FF]*"
+    rf"[{_PRIVATE_USE_RANGE}]*\bcite[{_PRIVATE_USE_RANGE}]*(turn\d+(?:search|view)\d+|[\w\d]+)"
+    rf"[{_PRIVATE_USE_RANGE}]*|\bturn\d+[a-z_]+\d+[{_PRIVATE_USE_RANGE}]+"
+)
+_UNSAFE_UNICODE_CATEGORIES = {"Cc", "Cf", "Co", "Cs"}
+_SAFE_FORMAT_CHARACTERS = {"\u200c", "\u200d"}
+_EMOJI_TAG_SEQUENCE_PATTERN = re.compile(
+    "\U0001f3f4\U000e0067\U000e0062"
+    "(?:\U000e0065\U000e006e\U000e0067|\U000e0073\U000e0063\U000e0074|\U000e0077\U000e006c\U000e0073)"
+    "\U000e007f"
 )
 
 
 def sanitize_ai_text(s: str) -> str:
-    """Strip private-use citation tokens (for example, ``cite...`` markers)."""
-    return _CITATION_PATTERN.sub("", s) if s else ""
+    """Strip citation tokens and unsafe Unicode characters from AI output."""
+    if not s:
+        return ""
+    s = _CITATION_PATTERN.sub("", s)
+    safe_tag_positions = {
+        i for match in _EMOJI_TAG_SEQUENCE_PATTERN.finditer(s) for i in range(match.start(), match.end())
+    }
+    return "".join(
+        c
+        for i, c in enumerate(s)
+        if i in safe_tag_positions
+        or c in "\n\t"
+        or c in _SAFE_FORMAT_CHARACTERS
+        or (
+            unicodedata.category(c) not in _UNSAFE_UNICODE_CATEGORIES
+            and not (0xFDD0 <= ord(c) <= 0xFDEF or (ord(c) & 0xFFFF) in (0xFFFE, 0xFFFF))
+        )
+    )
 
 
 def remove_outer_codeblocks(string):

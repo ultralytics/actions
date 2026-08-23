@@ -699,11 +699,12 @@ def generate_pr_review(
             # Do not pass background=True; queued background reviews can consume the full 900s poll timeout.
         )
 
-        # Sanitize leaked tool-citation tokens from model output
+        # Sanitize model-authored text before posting it to GitHub
         response["summary"] = sanitize_ai_text(response.get("summary", ""))
         for c in response.get("comments", []):
-            if "message" in c:
-                c["message"] = sanitize_ai_text(c["message"])
+            for field in ("message", "suggestion"):
+                if c.get(field):
+                    c[field] = sanitize_ai_text(c[field])
 
         print(json.dumps(response, indent=2))
 
