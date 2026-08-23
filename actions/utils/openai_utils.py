@@ -6,6 +6,7 @@ import json
 import os
 import re
 import time
+import unicodedata
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
 from uuid import uuid4
@@ -69,15 +70,27 @@ SYSTEM_PROMPT_ADDITION = """Guidance:
   - Use the "@" symbol to refer to GitHub users, e.g. @glenn-jocher.
   - Tone: Adopt a professional, friendly, and concise tone.
 """
+_PRIVATE_USE_RANGE = r"\uE000-\uF8FF\U000F0000-\U000FFFFD\U00100000-\U0010FFFD"
 _CITATION_PATTERN = re.compile(
-    r"[\uE000-\uF8FF]*\bcite[\uE000-\uF8FF]*(turn\d+(?:search|view)\d+|[\w\d]+)[\uE000-\uF8FF]*"
-    r"|\bturn\d+(?:search|view)\d+[\uE000-\uF8FF]+"
+    rf"[{_PRIVATE_USE_RANGE}]*\bcite[{_PRIVATE_USE_RANGE}]*(turn\d+(?:search|view)\d+|[\w\d]+)"
+    rf"[{_PRIVATE_USE_RANGE}]*|\bturn\d+(?:search|view)\d+[{_PRIVATE_USE_RANGE}]+"
 )
+_UNSAFE_UNICODE_CATEGORIES = {"Cc", "Cn", "Co", "Cs"}
+_UNSAFE_FORMAT_CHARACTERS = {"\u200b", "\ufeff"}
 
 
 def sanitize_ai_text(s: str) -> str:
-    """Strip citation tokens and non-printing Unicode characters from AI output."""
-    return "".join(c for c in _CITATION_PATTERN.sub("", s) if c in "\n\t" or c.isprintable()) if s else ""
+    """Strip citation tokens and unsafe Unicode characters from AI output."""
+    return (
+        "".join(
+            c
+            for c in _CITATION_PATTERN.sub("", s)
+            if c in "\n\t"
+            or (unicodedata.category(c) not in _UNSAFE_UNICODE_CATEGORIES and c not in _UNSAFE_FORMAT_CHARACTERS)
+        )
+        if s
+        else ""
+    )
 
 
 def remove_outer_codeblocks(string):
