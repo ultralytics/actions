@@ -85,7 +85,12 @@ def sanitize_ai_text(s: str) -> str:
         "".join(
             c
             for c in _CITATION_PATTERN.sub("", s)
-            if c in "\n\t" or unicodedata.category(c) not in _UNSAFE_UNICODE_CATEGORIES or c in _SAFE_FORMAT_CHARACTERS
+            if c in "\n\t"
+            or c in _SAFE_FORMAT_CHARACTERS
+            or (
+                unicodedata.category(c) not in _UNSAFE_UNICODE_CATEGORIES
+                and not (0xFDD0 <= ord(c) <= 0xFDEF or (ord(c) & 0xFFFF) in (0xFFFE, 0xFFFF))
+            )
         )
         if s
         else ""
