@@ -111,6 +111,12 @@ def test_sanitize_ai_text():
     )
     assert sanitize_ai_text("Finding. turn10search1") == "Finding. turn10search1"
     assert sanitize_ai_text("Café 中文 🩷 👩‍💻\n\tMarkdown") == "Café 中文 🩷 👩‍💻\n\tMarkdown"
+    for flag in (
+        "\U0001f3f4\U000e0067\U000e0062\U000e0065\U000e006e\U000e0067\U000e007f",
+        "\U0001f3f4\U000e0067\U000e0062\U000e0073\U000e0063\U000e0074\U000e007f",
+        "\U0001f3f4\U000e0067\U000e0062\U000e0077\U000e006c\U000e0073\U000e007f",
+    ):
+        assert sanitize_ai_text(flag) == flag
 
 
 def test_get_review_model_override():

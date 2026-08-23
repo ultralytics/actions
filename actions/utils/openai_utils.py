@@ -77,23 +77,31 @@ _CITATION_PATTERN = re.compile(
 )
 _UNSAFE_UNICODE_CATEGORIES = {"Cc", "Cf", "Co", "Cs"}
 _SAFE_FORMAT_CHARACTERS = {"\u200c", "\u200d"}
+_EMOJI_TAG_SEQUENCE_PATTERN = re.compile(
+    "\U0001f3f4\U000e0067\U000e0062"
+    "(?:\U000e0065\U000e006e\U000e0067|\U000e0073\U000e0063\U000e0074|\U000e0077\U000e006c\U000e0073)"
+    "\U000e007f"
+)
 
 
 def sanitize_ai_text(s: str) -> str:
     """Strip citation tokens and unsafe Unicode characters from AI output."""
-    return (
-        "".join(
-            c
-            for c in _CITATION_PATTERN.sub("", s)
-            if c in "\n\t"
-            or c in _SAFE_FORMAT_CHARACTERS
-            or (
-                unicodedata.category(c) not in _UNSAFE_UNICODE_CATEGORIES
-                and not (0xFDD0 <= ord(c) <= 0xFDEF or (ord(c) & 0xFFFF) in (0xFFFE, 0xFFFF))
-            )
+    if not s:
+        return ""
+    s = _CITATION_PATTERN.sub("", s)
+    safe_tag_positions = {
+        i for match in _EMOJI_TAG_SEQUENCE_PATTERN.finditer(s) for i in range(match.start(), match.end())
+    }
+    return "".join(
+        c
+        for i, c in enumerate(s)
+        if i in safe_tag_positions
+        or c in "\n\t"
+        or c in _SAFE_FORMAT_CHARACTERS
+        or (
+            unicodedata.category(c) not in _UNSAFE_UNICODE_CATEGORIES
+            and not (0xFDD0 <= ord(c) <= 0xFDEF or (ord(c) & 0xFFFF) in (0xFFFE, 0xFFFF))
         )
-        if s
-        else ""
     )
 
 
