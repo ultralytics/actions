@@ -75,8 +75,8 @@ _CITATION_PATTERN = re.compile(
     rf"[{_PRIVATE_USE_RANGE}]*\bcite[{_PRIVATE_USE_RANGE}]*(turn\d+(?:search|view)\d+|[\w\d]+)"
     rf"[{_PRIVATE_USE_RANGE}]*|\bturn\d+(?:search|view)\d+[{_PRIVATE_USE_RANGE}]+"
 )
-_UNSAFE_UNICODE_CATEGORIES = {"Cc", "Cn", "Co", "Cs"}
-_UNSAFE_FORMAT_CHARACTERS = {"\u200b", "\ufeff"}
+_UNSAFE_UNICODE_CATEGORIES = {"Cc", "Co", "Cs"}
+_UNSAFE_FORMAT_PATTERN = re.compile(r"[\u061C\u200B\u200E\u200F\u202A-\u202E\u2060-\u206F\uFEFF]+")
 
 
 def sanitize_ai_text(s: str) -> str:
@@ -84,9 +84,8 @@ def sanitize_ai_text(s: str) -> str:
     return (
         "".join(
             c
-            for c in _CITATION_PATTERN.sub("", s)
-            if c in "\n\t"
-            or (unicodedata.category(c) not in _UNSAFE_UNICODE_CATEGORIES and c not in _UNSAFE_FORMAT_CHARACTERS)
+            for c in _UNSAFE_FORMAT_PATTERN.sub("", _CITATION_PATTERN.sub("", s))
+            if c in "\n\t" or unicodedata.category(c) not in _UNSAFE_UNICODE_CATEGORIES
         )
         if s
         else ""
