@@ -53,8 +53,7 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
         time.sleep(1)  # Rate limit: space out GitHub REST API requests
         pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}"
         pr_response = event.get(pr_url)
-        if pr_response.status_code == 200:
-            pr_data = pr_response.json()
+        if pr_response.status_code == 200 and (pr_data := pr_response.json()).get("merged_at"):
             prs.append(
                 {
                     "number": pr_data["number"],
