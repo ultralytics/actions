@@ -18,7 +18,7 @@ runs:
           # Remove tool cache to free up ~15GB of space per https://github.com/ultralytics/ultralytics/pull/15848
           rm -rf /opt/hostedtoolcache || true
         fi
-        docker image prune --all --force
+        docker image prune --all --force || true
         # Remove swap space to free up ~4GB
         for swap_file in /swapfile /mnt/swapfile; do
           if [ -f "$swap_file" ]; then
