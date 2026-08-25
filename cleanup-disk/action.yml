@@ -22,15 +22,19 @@ runs:
         fi
         docker image prune --all --force &
         docker_pid=$!
-        # Remove swap space to free up ~4GB
-        if [ -f /swapfile ] || [ -f /mnt/swapfile ]; then
-          sudo swapoff -a
-          sudo rm -f /swapfile /mnt/swapfile
-        fi
         if [ -n "$toolcache_pid" ]; then
           wait "$toolcache_pid" || true
         fi
         wait "$docker_pid" || true
+        # Remove swap space to free up ~4GB
+        for swap_file in /swapfile /mnt/swapfile; do
+          if [ -f "$swap_file" ]; then
+            if swapon --show=NAME --noheadings | grep -Fxq "$swap_file"; then
+              sudo swapoff "$swap_file"
+            fi
+            sudo rm -f "$swap_file"
+          fi
+        done
         echo "::endgroup::"
 
         echo "::group::Disk Space After Cleanup"
