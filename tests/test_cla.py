@@ -173,10 +173,10 @@ def test_persist_surfaces_final_exhausted_error(monkeypatch, statuses, message):
 
 
 @pytest.mark.parametrize(
-    "body", [cla.SIGN_COMMENT, f"{cla.SIGN_COMMENT}\r\n", f"  {cla.SIGN_COMMENT}  ", cla.SIGN_COMMENT.lower()]
+    "body", [cla.SIGN_COMMENT, f"{cla.SIGN_COMMENT}\r\n", f"{cla.SIGN_COMMENT}  ", cla.SIGN_COMMENT.lower()]
 )
 def test_run_records_exact_sentence_and_updates_legacy_comment(body):
-    """Persist a signature despite trailing newlines, surrounding spaces, or casing."""
+    """Persist a signature despite trailing whitespace or casing."""
     source, store = action(), action()
     signing = {
         "id": 30,
@@ -220,7 +220,7 @@ def test_run_stays_silent_when_all_contributors_already_signed():
     source.patch.assert_not_called()
 
 
-@pytest.mark.parametrize("body", [f"{cla.SIGN_COMMENT}!", f"could I write {cla.SIGN_COMMENT}?"])
+@pytest.mark.parametrize("body", [f"{cla.SIGN_COMMENT}!", f"could I write {cla.SIGN_COMMENT}?", f" {cla.SIGN_COMMENT}"])
 def test_run_rejects_similar_sentence_and_keeps_hard_failure(body):
     """Reject a modified signing sentence and leave the CLA gate failed."""
     source, store = action(), action()

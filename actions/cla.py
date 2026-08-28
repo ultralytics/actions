@@ -224,7 +224,7 @@ def run(action: Action, ledger_action: Action) -> None:
     records = {
         comment["user"]["id"]: _record(comment, action, number)
         for comment in comments
-        if (comment.get("body") or "").strip().casefold() == SIGN_COMMENT.casefold()
+        if (comment.get("body") or "").rstrip().casefold() == SIGN_COMMENT.casefold()
         and comment.get("user", {}).get("id") in contributor_ids - signed_ids
     }
     if records:
