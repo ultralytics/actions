@@ -220,9 +220,16 @@ def test_run_stays_silent_when_all_contributors_already_signed():
     source.patch.assert_not_called()
 
 
-@pytest.mark.parametrize("body", [f"{cla.SIGN_COMMENT}!", f"could I write {cla.SIGN_COMMENT}?", f" {cla.SIGN_COMMENT}"])
+@pytest.mark.parametrize(
+    "body",
+    [
+        f"could I write {cla.SIGN_COMMENT}?",
+        f"> {cla.SIGN_COMMENT}",
+        f'- **Sign the CLA**: sign by writing "{cla.SIGN_COMMENT}" in a new message.',
+    ],
+)
 def test_run_rejects_similar_sentence_and_keeps_hard_failure(body):
-    """Reject a modified signing sentence and leave the CLA gate failed."""
+    """Reject a quoted or embedded sentence and leave the CLA gate failed."""
     source, store = action(), action()
     user = {"id": 2, "login": "new", "type": "User"}
     source.get.side_effect = [

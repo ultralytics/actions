@@ -22,6 +22,8 @@ CLA_PATH = "signatures/version1/cla.json"
 CLA_BRANCH = "cla-signatures"
 CLA_DOCUMENT = "https://docs.ultralytics.com/help/CLA"
 SIGN_COMMENT = "I have read the CLA Document and I sign the CLA"
+SIGN_TEXT = SIGN_COMMENT.casefold()
+SIGN_STRIP = " \t*_`\"'.!,;:"  # whitespace, markdown emphasis, quotes and end punctuation around a signature line
 COMMENT_MARKER = "<!-- ultralytics-cla -->"
 LEGACY_MARKER = "CLA Assistant Lite bot"
 BOT_LOGIN = "github-actions[bot]"
@@ -224,7 +226,7 @@ def run(action: Action, ledger_action: Action) -> None:
     records = {
         comment["user"]["id"]: _record(comment, action, number)
         for comment in comments
-        if (comment.get("body") or "").rstrip().casefold() == SIGN_COMMENT.casefold()
+        if any(line.strip(SIGN_STRIP).casefold() == SIGN_TEXT for line in (comment.get("body") or "").splitlines())
         and comment.get("user", {}).get("id") in contributor_ids - signed_ids
     }
     if records:
