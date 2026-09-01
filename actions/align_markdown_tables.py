@@ -13,7 +13,7 @@ TABLE_ROW = re.compile(r"^( {4,})\|(.*)$")
 DELIMITER_CELL = re.compile(r"^:?-+:?$")
 FENCE_OPEN = re.compile(r"^( *)(`{3,}|~{3,})")
 FENCE_CLOSE = re.compile(r"^( *)(`{3,}|~{3,})[ \t]*$")  # closers cannot carry an info string
-CONTAINER_MARKER = re.compile(r"^(?:!!!+|\?\?\?\+?|===)\s")  # MkDocs admonition or tab at a given indent
+CONTAINER_MARKER = re.compile(r'^(?:(?:!!!+|\?\?\?\+?)\s+\S|===[+!]?\s+["\'])')  # MkDocs admonition or tab
 
 
 def display_width(text: str) -> int:
@@ -136,7 +136,10 @@ def align_tables_in_markdown(content: str) -> str:
     for line in content.split("\n"):
         if fence is None:
             fence_match = FENCE_OPEN.match(line)
-            if fence_match:
+            # Fences indented 4+ spaces are indented code blocks unless they sit inside a valid container
+            if fence_match and (
+                len(fence_match.group(1)) < 4 or in_container(out, len(out), len(fence_match.group(1)))
+            ):
                 indent, run = fence_match.groups()
                 fence = (run[0], len(run), len(indent))
         else:

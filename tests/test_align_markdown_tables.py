@@ -78,6 +78,8 @@ def test_display_width(text, width):
         "```\n```python\n" + TABLE + "```\n",  # fence closer carrying an info string
         "  ```\n     ```\n!!! note\n\n" + TABLE,  # root fence closer indented over 3 spaces
         "Title\n===\n\n" + TABLE,  # setext heading underline is not a tab marker
+        "Title\n===   \n\n" + TABLE,  # setext underline with trailing spaces is not a tab marker
+        "!!!\n\n" + TABLE,  # admonition marker without a type payload
         "paragraph\n\n    !!! note\n" + indent(TABLE, "    "),  # marker-looking line inside a code block
         "!!! note\n\n    | a | b |\n    |---|---|\n    | 1 |\n",  # ragged rows
         "!!! note\n\n    | a | b |\n    | 1 | 2 |\n    | 3 | 4 |\n",  # no delimiter row
@@ -92,6 +94,8 @@ def test_display_width(text, width):
         "info-string-closer",
         "over-indented-root-closer",
         "setext-heading",
+        "setext-trailing-spaces",
+        "bare-admonition-marker",
         "marker-inside-code",
         "ragged-rows",
         "no-delimiter",
@@ -100,6 +104,21 @@ def test_display_width(text, width):
 def test_untouched(content):
     """Test table-looking content that is code, malformed, or outside containers stays byte-identical."""
     assert align_tables_in_markdown(content) == content
+
+
+def test_root_indented_fence_does_not_suppress_later_tables():
+    """Test a 4-space fence-looking line at root is an indented code block, so later real tables still align."""
+    content = "    ```\n    sample\n!!! note\n\n" + TABLE
+    aligned = "    ```\n    sample\n!!! note\n\n" + TABLE_ALIGNED
+    assert align_tables_in_markdown(content) == aligned
+
+
+@pytest.mark.parametrize("marker", ['=== "Tab"', '===+ "Tab"', '===! "Tab"'])
+def test_tab_marker_variants(marker):
+    """Test PyMdown tab markers (plain, new-group ===+, alternate ===!) all qualify as containers."""
+    content = marker + "\n" + TABLE
+    aligned = marker + "\n" + TABLE_ALIGNED
+    assert align_tables_in_markdown(content) == aligned
 
 
 def test_split_row():
