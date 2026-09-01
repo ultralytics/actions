@@ -42,6 +42,14 @@ def test_display_width():
     assert display_width("中文") == 4
 
 
+def test_display_width_emoji_sequences():
+    """Test joined emoji sequences count as one width-2 emoji, matching Prettier."""
+    assert display_width("👩‍💻") == 2  # ZWJ sequence
+    assert display_width("🇺🇸") == 2  # regional indicator flag pair
+    assert display_width("👍🏽") == 2  # skin-tone modifier
+    assert display_width("1️⃣") == 2  # keycap sequence
+
+
 def test_split_row():
     """Test row splitting trims cells, drops the trailing pipe, and honors escaped pipes."""
     assert split_row(" a | b |") == ["a", "b"]
@@ -83,6 +91,19 @@ def test_ignores_fenced_code_blocks():
     """Test table-looking content inside fenced code blocks stays untouched."""
     content = "```\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n```\n"
     assert align_tables_in_markdown(content) == content
+
+
+def test_ignores_nested_shorter_fences():
+    """Test a shorter fence run inside a longer fence does not close it."""
+    content = "````\n```\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n````\n"
+    assert align_tables_in_markdown(content) == content
+
+
+def test_closing_fence_allows_extra_indent():
+    """Test a closing fence indented up to 3 spaces beyond the opener still closes it."""
+    content = "  ```\n  code\n     ```\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n"
+    aligned = "  ```\n  code\n     ```\n    | a   | b   |\n    | --- | --- |\n    | 1   | 2   |\n"
+    assert align_tables_in_markdown(content) == aligned
 
 
 def test_ignores_malformed_tables():
@@ -134,3 +155,23 @@ def test_main_defaults_to_cwd(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     main()
     assert file.read_text(encoding="utf-8") == INDENTED_TABLE_ALIGNED
+
+
+def test_adjacent_tables_without_blank_line():
+    """Test a table immediately followed by rows at a different indent is flushed and aligned separately."""
+    content = "    | a |\n    |---|\n    | 1 |\n        | bb |\n        |---|\n        | 2 |\n"
+    aligned = "    | a   |\n    | --- |\n    | 1   |\n        | bb  |\n        | --- |\n        | 2   |\n"
+    assert align_tables_in_markdown(content) == aligned
+
+
+def test_table_at_end_of_file():
+    """Test a table ending at EOF without a trailing newline is still aligned."""
+    content = "text\n\n    | a | b |\n    |---|---|\n    | 1 | 2 |"
+    aligned = "text\n\n    | a   | b   |\n    | --- | --- |\n    | 1   | 2   |"
+    assert align_tables_in_markdown(content) == aligned
+
+
+def test_process_file_error(tmp_path, capsys):
+    """Test process_file reports errors and returns False for unreadable files."""
+    assert process_file(tmp_path / "missing.md") is False
+    assert "Error processing file" in capsys.readouterr().out

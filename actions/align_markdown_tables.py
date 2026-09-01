@@ -16,11 +16,22 @@ FENCE = re.compile(r"^( *)(`{3,}|~{3,})")
 
 def display_width(text: str) -> int:
     """Return the rendered width of a string, counting wide chars (CJK, emoji) as 2 and zero-width marks as 0."""
-    width = 0
+    width, join_next, prev_regional = 0, False, False
     for char in text:
+        cp = ord(char)
+        if char == "\u200d":  # ZWJ joins the surrounding emoji into a single sequence
+            join_next = True
+            continue
+        if cp == 0x20E3:  # combining enclosing keycap widens the previous char (e.g. "1️⃣") to emoji width
+            width += 1
+            continue
         if unicodedata.category(char) in ("Mn", "Me", "Cf"):
             continue
-        width += 2 if unicodedata.east_asian_width(char) in ("W", "F") else 1
+        regional = 0x1F1E6 <= cp <= 0x1F1FF
+        # ZWJ-joined emoji, the second half of a flag pair, and skin-tone modifiers add no width
+        if not (join_next or (prev_regional and regional) or 0x1F3FB <= cp <= 0x1F3FF):
+            width += 2 if regional or unicodedata.east_asian_width(char) in ("W", "F") else 1
+        join_next, prev_regional = False, regional
     return width
 
 
@@ -86,14 +97,13 @@ def align_tables_in_markdown(content: str) -> str:
     for line in content.split("\n"):
         fence_match = FENCE.match(line)
         if fence is None and fence_match:
-            fence = fence_match
-        elif (
-            fence
-            and fence_match
-            and fence_match.group(1) == fence.group(1)
-            and fence_match.group(2)[0] == fence.group(2)[0]
-        ):
-            fence = None
+            indent, run = fence_match.groups()
+            fence = (run[0], len(run), len(indent))
+        elif fence and fence_match:
+            indent, run = fence_match.groups()
+            # Closing fence: same marker char, run at least as long as the opener, indent within 3 spaces
+            if run[0] == fence[0] and len(run) >= fence[1] and len(indent) <= fence[2] + 3:
+                fence = None
         row = TABLE_ROW.match(line) if fence is None else None
         if row and table and row.group(1) != table_indent:
             out.extend(align_table(table))
