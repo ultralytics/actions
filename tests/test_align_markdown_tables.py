@@ -1,6 +1,9 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import sys
+from textwrap import indent
+
+import pytest
 
 from actions.align_markdown_tables import (
     align_tables_in_markdown,
@@ -33,31 +36,70 @@ INDENTED_TABLE_ALIGNED = """
         | TorchScript | ✅     | 9.8               | 0.4734      |
 """
 
-
-def test_display_width():
-    """Test rendered width counts wide chars (emoji, CJK) as 2 and zero-width marks as 0."""
-    assert display_width("abc") == 3
-    assert display_width("✅") == 2
-    assert display_width("✅️") == 2  # with variation selector U+FE0F
-    assert display_width("中文") == 4
+TABLE = "    | a | b |\n    |---|---|\n    | 1 | 2 |\n"  # minimal 4-space-indented table
+TABLE_ALIGNED = "    | a   | b   |\n    | --- | --- |\n    | 1   | 2   |\n"
 
 
-def test_display_width_emoji_sequences():
-    """Test joined emoji sequences count as one width-2 emoji, matching Prettier 3.8.5."""
-    assert display_width("👩‍💻") == 2  # ZWJ sequence
-    assert display_width("🇺🇸") == 2  # regional indicator flag pair
-    assert display_width("👍🏽") == 2  # skin-tone modifier
-    assert display_width("1️⃣") == 2  # keycap sequence
+@pytest.mark.parametrize(
+    ("text", "width"),
+    [
+        ("abc", 3),
+        ("\u2705", 2),  # ✅
+        ("\u2705\ufe0f", 2),  # ✅ with variation selector
+        ("中文", 4),
+        ("\U0001f469\u200d\U0001f4bb", 2),  # 👩‍💻 ZWJ sequence
+        ("\U0001f1fa\U0001f1f8", 2),  # 🇺🇸 flag pair
+        ("\U0001f1fa\U0001f1f8\U0001f1e8\U0001f1e6", 4),  # 🇺🇸🇨🇦 adjacent flag pairs
+        ("\U0001f1fa", 1),  # lone regional indicator
+        ("\U0001f44d\U0001f3fd", 2),  # 👍🏽 skin-tone modifier
+        ("1\ufe0f\u20e3", 2),  # 1️⃣ keycap sequence
+        ("\u2764\ufe0f", 2),  # ❤️ VS16 upgrades narrow char to emoji width
+        ("\u2764", 1),  # ❤ bare
+        ("\u2122\ufe0f", 2),  # ™️
+        ("\u2600\ufe0f", 2),  # ☀️
+        ("→", 1),
+        ("é", 1),  # e + combining accent U+0301
+    ],
+)
+def test_display_width(text, width):
+    """Test rendered widths match Prettier 3.8.5: wide chars and emoji sequences count 2, zero-width marks 0."""
+    assert display_width(text) == width
 
 
-def test_display_width_variation_selector():
-    """Test U+FE0F upgrades a narrow char to emoji width 2 while the bare char stays 1, matching Prettier."""
-    assert display_width("❤️") == 2
-    assert display_width("❤") == 1
-    assert display_width("™️") == 2
-    assert display_width("☀️") == 2
-    assert display_width("→") == 1
-    assert display_width("e\u0301") == 1  # e + combining accent U+0301
+@pytest.mark.parametrize(
+    "content",
+    [
+        "| Top | Level |\n|---|---|\n| a | b |\n",  # top-level tables are Prettier's domain
+        "paragraph\n\n" + TABLE,  # root-level indented code block
+        "\n" + TABLE,  # indented rows at file start with no context above
+        "!!! note\n    text\n\n" + indent(TABLE, "    "),  # indented code block inside an admonition
+        "```\n" + TABLE + "```\n",  # fenced code block
+        "````\n```\n" + TABLE + "````\n",  # shorter fence run inside a longer fence
+        "```\n```python\n" + TABLE + "```\n",  # fence closer carrying an info string
+        "  ```\n     ```\n!!! note\n\n" + TABLE,  # root fence closer indented over 3 spaces
+        "Title\n===\n\n" + TABLE,  # setext heading underline is not a tab marker
+        "paragraph\n\n    !!! note\n" + indent(TABLE, "    "),  # marker-looking line inside a code block
+        "!!! note\n\n    | a | b |\n    |---|---|\n    | 1 |\n",  # ragged rows
+        "!!! note\n\n    | a | b |\n    | 1 | 2 |\n    | 3 | 4 |\n",  # no delimiter row
+    ],
+    ids=[
+        "top-level",
+        "indented-code-block",
+        "file-start",
+        "code-inside-container",
+        "fenced",
+        "nested-shorter-fence",
+        "info-string-closer",
+        "over-indented-root-closer",
+        "setext-heading",
+        "marker-inside-code",
+        "ragged-rows",
+        "no-delimiter",
+    ],
+)
+def test_untouched(content):
+    """Test table-looking content that is code, malformed, or outside containers stays byte-identical."""
+    assert align_tables_in_markdown(content) == content
 
 
 def test_split_row():
@@ -93,89 +135,18 @@ def test_preserves_alignment_colons():
     assert align_tables_in_markdown(content) == aligned
 
 
-def test_ignores_top_level_tables():
-    """Test tables indented under 4 spaces are left for Prettier."""
-    content = "| Top | Level |\n|---|---|\n| a | b |\n"
-    assert align_tables_in_markdown(content) == content
-
-
-def test_ignores_indented_code_blocks():
-    """Test table-looking content in a root-level indented code block stays untouched (it renders as code)."""
-    content = "paragraph\n\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n"
-    assert align_tables_in_markdown(content) == content
-    at_file_start = "\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n"  # no context line above at all
-    assert align_tables_in_markdown(at_file_start) == at_file_start
-
-
-def test_ignores_code_block_inside_container():
-    """Test an indented code block inside an admonition (extra 4 spaces) stays untouched."""
-    content = "!!! note\n    text\n\n        | a | b |\n        |---|---|\n        | 1 | 2 |\n"
-    assert align_tables_in_markdown(content) == content
-
-
-def test_ignores_fenced_code_blocks():
-    """Test table-looking content inside fenced code blocks stays untouched."""
-    content = "```\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n```\n"
-    assert align_tables_in_markdown(content) == content
-
-
-def test_ignores_nested_shorter_fences():
-    """Test a shorter fence run inside a longer fence does not close it."""
-    content = "````\n```\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n````\n"
-    assert align_tables_in_markdown(content) == content
-
-
-def test_fence_closer_rejects_info_string():
-    """Test a fence line carrying an info string does not close the block."""
-    content = "```\n```python\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n```\n"
-    assert align_tables_in_markdown(content) == content
-
-
 def test_closing_fence_allows_extra_indent():
     """Test a closing fence indented up to 3 spaces beyond the opener still closes it."""
-    content = "!!! note\n    ```\n    code\n       ```\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n"
-    aligned = "!!! note\n    ```\n    code\n       ```\n    | a   | b   |\n    | --- | --- |\n    | 1   | 2   |\n"
+    content = "!!! note\n    ```\n    code\n       ```\n" + TABLE
+    aligned = "!!! note\n    ```\n    code\n       ```\n" + TABLE_ALIGNED
     assert align_tables_in_markdown(content) == aligned
 
 
 def test_table_directly_under_tab_marker():
     """Test a table starting immediately after a tab marker (no blank line) is aligned."""
-    content = '=== "Tab"\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n'
-    aligned = '=== "Tab"\n    | a   | b   |\n    | --- | --- |\n    | 1   | 2   |\n'
+    content = '=== "Tab"\n' + TABLE
+    aligned = '=== "Tab"\n' + TABLE_ALIGNED
     assert align_tables_in_markdown(content) == aligned
-
-
-def test_ignores_setext_heading():
-    """Test a setext heading underline (=== with no title) is not treated as a tab marker."""
-    content = "Title\n===\n\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n"
-    assert align_tables_in_markdown(content) == content
-
-
-def test_ignores_marker_inside_indented_code_block():
-    """Test an indented marker-looking line in a root code block does not make its rows a table."""
-    content = "paragraph\n\n    !!! note\n        | a | b |\n        |---|---|\n        | 1 | 2 |\n"
-    assert align_tables_in_markdown(content) == content
-
-
-def test_root_fence_closer_limited_to_three_spaces():
-    """Test a root-level fence is not closed by a closer indented more than 3 spaces."""
-    content = "  ```\n     ```\n!!! note\n\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n"
-    assert align_tables_in_markdown(content) == content  # fence never closed, table stays code content
-
-
-def test_display_width_flag_pairs():
-    """Test adjacent flag pairs count separately and a lone regional indicator stays narrow, per Prettier."""
-    assert display_width("🇺🇸") == 2
-    assert display_width("🇺🇸🇨🇦") == 4
-    assert display_width("🇺") == 1
-
-
-def test_ignores_malformed_tables():
-    """Test rows with inconsistent cell counts or no delimiter row stay untouched."""
-    ragged = "!!! note\n\n    | a | b |\n    |---|---|\n    | 1 |\n"
-    assert align_tables_in_markdown(ragged) == ragged
-    no_delimiter = "!!! note\n\n    | a | b |\n    | 1 | 2 |\n    | 3 | 4 |\n"
-    assert align_tables_in_markdown(no_delimiter) == no_delimiter
 
 
 def test_nested_tables_with_different_indents():
@@ -196,8 +167,8 @@ def test_deeper_rows_after_table_are_code():
 
 def test_table_at_end_of_file():
     """Test a table ending at EOF without a trailing newline is still aligned."""
-    content = "!!! note\n\n    | a | b |\n    |---|---|\n    | 1 | 2 |"
-    aligned = "!!! note\n\n    | a   | b   |\n    | --- | --- |\n    | 1   | 2   |"
+    content = "!!! note\n\n" + TABLE.rstrip("\n")
+    aligned = "!!! note\n\n" + TABLE_ALIGNED.rstrip("\n")
     assert align_tables_in_markdown(content) == aligned
 
 

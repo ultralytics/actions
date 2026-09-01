@@ -64,6 +64,17 @@ def pad_cell(content: str, width: int, align: str) -> str:
     return content + " " * pad
 
 
+def delimiter_cell(width: int, align: str) -> str:
+    """Return a delimiter cell of dashes padded to a column width, with colons marking the alignment."""
+    if align == "center":
+        return ":" + "-" * (width - 2) + ":"
+    if align == "left":
+        return ":" + "-" * (width - 1)
+    if align == "right":
+        return "-" * (width - 1) + ":"
+    return "-" * width
+
+
 def align_table(lines: list[str]) -> list[str]:
     """Rebuild one table (indented row strings) with uniform Prettier-style padding, or return it unchanged."""
     indent = TABLE_ROW.match(lines[0]).group(1)
@@ -81,16 +92,7 @@ def align_table(lines: list[str]) -> list[str]:
         left, right = cell.startswith(":"), cell.endswith(":")
         aligns.append("center" if left and right else "left" if left else "right" if right else "")
     widths = [max(3, max(display_width(row[i]) for j, row in enumerate(rows) if j != 1)) for i in range(len(rows[0]))]
-    delimiters = [
-        ":" + "-" * (width - 2) + ":"
-        if align == "center"
-        else ":" + "-" * (width - 1)
-        if align == "left"
-        else "-" * (width - 1) + ":"
-        if align == "right"
-        else "-" * width
-        for width, align in zip(widths, aligns)
-    ]
+    delimiters = [delimiter_cell(width, align) for width, align in zip(widths, aligns)]
 
     result = []
     for i, row in enumerate(rows):
@@ -123,6 +125,14 @@ def in_container(lines: list[str], end: int, indent: int) -> bool:
 def align_tables_in_markdown(content: str) -> str:
     """Align pipe tables inside MkDocs tab/admonition containers, leaving all code blocks untouched."""
     out, table, table_indent, fence = [], [], None, None
+
+    def flush():
+        """Emit the accumulated table, aligned only when inside a MkDocs container."""
+        nonlocal table
+        if table:
+            out.extend(align_table(table) if in_container(out, len(out), len(table_indent)) else table)
+            table = []
+
     for line in content.split("\n"):
         if fence is None:
             fence_match = FENCE_OPEN.match(line)
@@ -143,18 +153,14 @@ def align_tables_in_markdown(content: str) -> str:
                 fence = None
         row = TABLE_ROW.match(line) if fence is None else None
         if row and table and row.group(1) != table_indent:
-            out.extend(align_table(table) if in_container(out, len(out), len(table_indent)) else table)
-            table = []
+            flush()
         if row:
             table_indent = row.group(1)
             table.append(line)
             continue
-        if table:
-            out.extend(align_table(table) if in_container(out, len(out), len(table_indent)) else table)
-            table = []
+        flush()
         out.append(line)
-    if table:
-        out.extend(align_table(table) if in_container(out, len(out), len(table_indent)) else table)
+    flush()
     return "\n".join(out)
 
 
