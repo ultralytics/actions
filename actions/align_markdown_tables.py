@@ -11,26 +11,32 @@ from pathlib import Path
 # MkDocs admonitions (!!!) and tabs (===) stay unformatted; this aligns exactly those tables in Prettier's style
 TABLE_ROW = re.compile(r"^( {4,})\|(.*)$")
 DELIMITER_CELL = re.compile(r"^:?-+:?$")
-FENCE = re.compile(r"^( *)(`{3,}|~{3,})")
+FENCE_OPEN = re.compile(r"^( *)(`{3,}|~{3,})")
+FENCE_CLOSE = re.compile(r"^( *)(`{3,}|~{3,})[ \t]*$")  # closers cannot carry an info string
+CONTAINER_MARKER = re.compile(r"^(?:!!!+|\?\?\?\+?|===)\s")  # MkDocs admonition or tab at a given indent
 
 
 def display_width(text: str) -> int:
     """Return the rendered width of a string, counting wide chars (CJK, emoji) as 2 and zero-width marks as 0."""
-    width, join_next, prev_regional = 0, False, False
+    width, last, join_next, prev_regional = 0, 0, False, False
     for char in text:
         cp = ord(char)
         if char == "\u200d":  # ZWJ joins the surrounding emoji into a single sequence
             join_next = True
             continue
-        if cp == 0x20E3:  # combining enclosing keycap widens the previous char (e.g. "1️⃣") to emoji width
-            width += 1
+        if cp in (0xFE0F, 0x20E3):  # emoji variation selector / enclosing keycap widen the previous char
+            if last == 1:
+                width, last = width + 1, 2
             continue
         if unicodedata.category(char) in ("Mn", "Me", "Cf"):
             continue
         regional = 0x1F1E6 <= cp <= 0x1F1FF
         # ZWJ-joined emoji, the second half of a flag pair, and skin-tone modifiers add no width
-        if not (join_next or (prev_regional and regional) or 0x1F3FB <= cp <= 0x1F3FF):
-            width += 2 if regional or unicodedata.east_asian_width(char) in ("W", "F") else 1
+        if join_next or (prev_regional and regional) or 0x1F3FB <= cp <= 0x1F3FF:
+            last = 0
+        else:
+            last = 2 if regional or unicodedata.east_asian_width(char) in ("W", "F") else 1
+            width += last
         join_next, prev_regional = False, regional
     return width
 
@@ -91,33 +97,52 @@ def align_table(lines: list[str]) -> list[str]:
     return result
 
 
+def in_container(lines: list[str], indent: int) -> bool:
+    """Return True if a table at the given indent sits inside a MkDocs tab/admonition, not an indented code block."""
+    for line in reversed(lines):
+        if not line.strip():
+            continue
+        line_indent = len(line) - len(line.lstrip(" "))
+        if line_indent >= indent:
+            continue  # container content at the table's level, keep scanning
+        # First dedent below the table decides: a marker exactly one level up means container content
+        return line_indent == indent - 4 and bool(CONTAINER_MARKER.match(line[line_indent:]))
+    return False
+
+
 def align_tables_in_markdown(content: str) -> str:
-    """Align all pipe tables indented 4+ spaces in a Markdown string, leaving fenced code blocks untouched."""
+    """Align pipe tables inside MkDocs tab/admonition containers, leaving all code blocks untouched."""
     out, table, table_indent, fence = [], [], None, None
     for line in content.split("\n"):
-        fence_match = FENCE.match(line)
-        if fence is None and fence_match:
-            indent, run = fence_match.groups()
-            fence = (run[0], len(run), len(indent))
-        elif fence and fence_match:
-            indent, run = fence_match.groups()
+        if fence is None:
+            fence_match = FENCE_OPEN.match(line)
+            if fence_match:
+                indent, run = fence_match.groups()
+                fence = (run[0], len(run), len(indent))
+        else:
+            fence_match = FENCE_CLOSE.match(line)
             # Closing fence: same marker char, run at least as long as the opener, indent within 3 spaces
-            if run[0] == fence[0] and len(run) >= fence[1] and len(indent) <= fence[2] + 3:
+            if (
+                fence_match
+                and fence_match.group(2)[0] == fence[0]
+                and len(fence_match.group(2)) >= fence[1]
+                and len(fence_match.group(1)) <= fence[2] + 3
+            ):
                 fence = None
         row = TABLE_ROW.match(line) if fence is None else None
         if row and table and row.group(1) != table_indent:
-            out.extend(align_table(table))
+            out.extend(align_table(table) if in_container(out, len(table_indent)) else table)
             table = []
         if row:
             table_indent = row.group(1)
             table.append(line)
             continue
         if table:
-            out.extend(align_table(table))
+            out.extend(align_table(table) if in_container(out, len(table_indent)) else table)
             table = []
         out.append(line)
     if table:
-        out.extend(align_table(table))
+        out.extend(align_table(table) if in_container(out, len(table_indent)) else table)
     return "\n".join(out)
 
 
