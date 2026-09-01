@@ -151,6 +151,25 @@ def test_ignores_setext_heading():
     assert align_tables_in_markdown(content) == content
 
 
+def test_ignores_marker_inside_indented_code_block():
+    """Test an indented marker-looking line in a root code block does not make its rows a table."""
+    content = "paragraph\n\n    !!! note\n        | a | b |\n        |---|---|\n        | 1 | 2 |\n"
+    assert align_tables_in_markdown(content) == content
+
+
+def test_root_fence_closer_limited_to_three_spaces():
+    """Test a root-level fence is not closed by a closer indented more than 3 spaces."""
+    content = "  ```\n     ```\n!!! note\n\n    | a | b |\n    |---|---|\n    | 1 | 2 |\n"
+    assert align_tables_in_markdown(content) == content  # fence never closed, table stays code content
+
+
+def test_display_width_flag_pairs():
+    """Test adjacent flag pairs count separately and a lone regional indicator stays narrow, per Prettier."""
+    assert display_width("🇺🇸") == 2
+    assert display_width("🇺🇸🇨🇦") == 4
+    assert display_width("🇺") == 1
+
+
 def test_ignores_malformed_tables():
     """Test rows with inconsistent cell counts or no delimiter row stay untouched."""
     ragged = "!!! note\n\n    | a | b |\n    |---|---|\n    | 1 |\n"
