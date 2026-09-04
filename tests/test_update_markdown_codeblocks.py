@@ -24,6 +24,10 @@ def test_nested_markdown_tables():
     assert format_markdown_tables("````\n```\n" + table + "    ````\n") == "````\n```\n" + table + "    ````\n"
     centered = '=== "Tab"\n    | Name |\n    |:---:|\n    | x |\n'
     assert format_markdown_tables(centered) == '=== "Tab"\n    | Name |\n    | :--: |\n    |  x   |\n'
+    escaped = "!!! note\n    | A | B | C |\n    |---|---|---|\n    | a\\\\| b | c |\n"
+    assert format_markdown_tables(escaped).endswith("    | a\\\\ | b   | c   |\n")
+    invalid_fence = "!!! note\n    ```python``` inline\n" + table
+    assert format_markdown_tables(invalid_fence).endswith(aligned)
 
 
 def test_extract_code_blocks():

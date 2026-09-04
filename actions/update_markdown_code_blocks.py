@@ -52,7 +52,14 @@ def _align_table(lines: list[str]) -> list[str]:
     indent = TABLE_ROW.match(lines[0]).group(1)
     rows = []
     for line in lines:
-        cells = re.split(r"(?<!\\)\|", TABLE_ROW.match(line).group(2))
+        text = TABLE_ROW.match(line).group(2)
+        cells, start, slashes = [], 0, 0
+        for i, char in enumerate(text):
+            if char == "|" and slashes % 2 == 0:
+                cells.append(text[start:i])
+                start = i + 1
+            slashes = slashes + 1 if char == "\\" else 0
+        cells.append(text[start:])
         if cells[-1].strip() == "":
             cells.pop()
         rows.append([cell.strip() for cell in cells])
@@ -89,8 +96,8 @@ def format_markdown_tables(content: str) -> str:
     i = 0
     while i < len(lines):
         line = lines[i]
-        close = FENCE_CLOSE.match(line)
         if fence:
+            close = FENCE_CLOSE.match(line)
             if (
                 close
                 and close.group(2)[0] == fence[0]
@@ -111,7 +118,7 @@ def format_markdown_tables(content: str) -> str:
             containers.append(indent)
         opened = FENCE.match(line)
         base = containers[-1] + 4 if containers else 0
-        if opened and base <= indent <= base + 3:
+        if opened and base <= indent <= base + 3 and not (opened.group(2)[0] == "`" and "`" in line[opened.end() :]):
             fence = (opened.group(2)[0], len(opened.group(2)), base + 3)
 
         row = TABLE_ROW.match(line)
@@ -354,9 +361,9 @@ def main(root_dir=None, process_python=True, process_bash=True, verbose=False):
             markdown_file, temp_dir, process_python, process_bash, verbose
         )
         if markdown_content:
-            formatted_markdown = (
-                markdown_content if "reference" in markdown_file.parts else format_markdown_tables(markdown_content)
-            )
+            parts = markdown_file.relative_to(root_path).parts
+            skip_tables = parts[0] == "docs" and "reference" in parts[1:-1]
+            formatted_markdown = markdown_content if skip_tables else format_markdown_tables(markdown_content)
             if temp_files or formatted_markdown != markdown_content:
                 all_temp_files.append((markdown_file, formatted_markdown, temp_files))
 
