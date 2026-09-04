@@ -7,7 +7,124 @@ import re
 import shutil
 import subprocess
 import tempfile
+import unicodedata
 from pathlib import Path
+
+TABLE_ROW = re.compile(r"^( {4,})\|(.*)$")
+DIVIDER = re.compile(r"^:?-+:?$")
+FENCE = re.compile(r"^( *)(`{3,}|~{3,})")
+FENCE_CLOSE = re.compile(r"^( *)(`{3,}|~{3,})[ \t]*$")
+CONTAINER = re.compile(r"^(?:(?:!!!|\?\?\?\+?)\s+\S|===[+!]?\s+([\"']).+\1\s*$)")
+
+
+def _width(text: str) -> int:
+    """Return terminal width, collapsing common emoji sequences to two columns."""
+    width = last = 0
+    join = skip = False
+    for i, char in enumerate(text):
+        code = ord(char)
+        if skip:
+            skip = False
+            continue
+        if char == "\u200d":
+            join = True
+            continue
+        if code in (0xFE0F, 0x20E3) or 0x1F3FB <= code <= 0x1F3FF:
+            if last == 1:
+                width += 1
+                last = 2
+            continue
+        if unicodedata.combining(char):
+            continue
+        if join:
+            join = False
+            continue
+        if 0x1F1E6 <= code <= 0x1F1FF and i + 1 < len(text) and 0x1F1E6 <= ord(text[i + 1]) <= 0x1F1FF:
+            width, last, skip = width + 2, 2, True
+        else:
+            last = 2 if unicodedata.east_asian_width(char) in "WF" else 1
+            width += last
+    return width
+
+
+def _align_table(lines: list[str]) -> list[str]:
+    """Align a possible pipe table, or return it unchanged when malformed."""
+    indent = TABLE_ROW.match(lines[0]).group(1)
+    rows = []
+    for line in lines:
+        cells = re.split(r"(?<!\\)\|", TABLE_ROW.match(line).group(2))
+        if cells[-1].strip() == "":
+            cells.pop()
+        rows.append([cell.strip() for cell in cells])
+    if (
+        len(rows) < 3
+        or not all(DIVIDER.fullmatch(cell) for cell in rows[1])
+        or any(len(row) != len(rows[0]) for row in rows)
+    ):
+        return lines
+
+    aligns = [(cell.startswith(":"), cell.endswith(":")) for cell in rows[1]]
+    widths = [max(3, *(_width(row[i]) for j, row in enumerate(rows) if j != 1)) for i in range(len(rows[0]))]
+    result = []
+    for row_index, row in enumerate(rows):
+        cells = []
+        for cell, width, (left, right) in zip(row, widths, aligns):
+            if row_index == 1:
+                cell = (":" if left else "") + "-" * (width - left - right) + (":" if right else "")
+            else:
+                padding = width - _width(cell)
+                if left and right:
+                    cell = " " * (padding // 2) + cell + " " * (padding - padding // 2)
+                else:
+                    cell = " " * padding + cell if right else cell + " " * padding
+            cells.append(cell)
+        result.append(f"{indent}| " + " | ".join(cells) + " |")
+    return result
+
+
+def format_markdown_tables(content: str) -> str:
+    """Align tables in MkDocs containers while leaving code blocks untouched."""
+    lines = content.split("\n")
+    output, containers, fence = [], [], None
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        close = FENCE_CLOSE.match(line)
+        if fence:
+            if (
+                close
+                and close.group(2)[0] == fence[0]
+                and len(close.group(2)) >= fence[1]
+                and len(close.group(1)) <= fence[2]
+            ):
+                fence = None
+            output.append(line)
+            i += 1
+            continue
+
+        indent = len(line) - len(line.lstrip(" "))
+        if line.strip():
+            while containers and indent <= containers[-1]:
+                containers.pop()
+        marker = CONTAINER.match(line[indent:])
+        if marker and (indent == 0 or (containers and indent == containers[-1] + 4)):
+            containers.append(indent)
+        opened = FENCE.match(line)
+        base = containers[-1] + 4 if containers else 0
+        if opened and base <= indent <= base + 3:
+            fence = (opened.group(2)[0], len(opened.group(2)), base + 3)
+
+        row = TABLE_ROW.match(line)
+        if row and containers and len(row.group(1)) == containers[-1] + 4:
+            end = i + 1
+            while end < len(lines) and (next_row := TABLE_ROW.match(lines[end])) and next_row.group(1) == row.group(1):
+                end += 1
+            output.extend(_align_table(lines[i:end]))
+            i = end
+        else:
+            output.append(line)
+            i += 1
+    return "\n".join(output)
 
 
 def extract_code_blocks(markdown_content):
@@ -236,8 +353,12 @@ def main(root_dir=None, process_python=True, process_bash=True, verbose=False):
         markdown_content, temp_files = process_markdown_file(
             markdown_file, temp_dir, process_python, process_bash, verbose
         )
-        if markdown_content and temp_files:
-            all_temp_files.append((markdown_file, markdown_content, temp_files))
+        if markdown_content:
+            formatted_markdown = (
+                markdown_content if "reference" in markdown_file.parts else format_markdown_tables(markdown_content)
+            )
+            if temp_files or formatted_markdown != markdown_content:
+                all_temp_files.append((markdown_file, formatted_markdown, temp_files))
 
     # Format code blocks based on flags
     if process_python:
