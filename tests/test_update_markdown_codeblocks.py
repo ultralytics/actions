@@ -7,11 +7,27 @@ from actions.update_markdown_code_blocks import (
     add_indentation,
     extract_code_blocks,
     format_bash_with_shfmt,
+    format_markdown_tables,
     generate_temp_filename,
     main,
     process_markdown_file,
     remove_indentation,
 )
+
+
+def test_nested_markdown_tables():
+    """Test nested tables align while ordinary and fenced code stays untouched."""
+    table = "    | Name | Result |\n    |---|---|\n    | 中文 | ✅ |\n"
+    aligned = "    | Name | Result |\n    | ---- | ------ |\n    | 中文 | ✅     |\n"
+    assert format_markdown_tables("!!! note\n\n" + table) == "!!! note\n\n" + aligned
+    assert format_markdown_tables("text\n\n" + table) == "text\n\n" + table
+    assert format_markdown_tables("````\n```\n" + table + "    ````\n") == "````\n```\n" + table + "    ````\n"
+    centered = '=== "Tab"\n    | Name |\n    |:---:|\n    | x |\n'
+    assert format_markdown_tables(centered) == '=== "Tab"\n    | Name |\n    | :--: |\n    |  x   |\n'
+    escaped = "!!! note\n    | A | B | C |\n    |---|---|---|\n    | a\\\\| b | c |\n"
+    assert format_markdown_tables(escaped).endswith("    | a\\\\ | b   | c   |\n")
+    invalid_fence = "!!! note\n    ```python``` inline\n" + table
+    assert format_markdown_tables(invalid_fence).endswith(aligned)
 
 
 def test_extract_code_blocks():
