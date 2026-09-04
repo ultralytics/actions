@@ -19,7 +19,7 @@ RUFF_CHECK = [
 RUFF_FORMAT = ["ruff", "format", "--line-length=120", "."]
 DOCSTRINGS = ["ultralytics-actions-format-python-docstrings", "."]
 PRETTIER = """
-npm install -g prettier@3.8.5
+npm install -g markdown-table-formatter@1.7.0 prettier@3.8.5
 curl -fsSL "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" -o "$(npm prefix -g)/bin/shfmt"
 chmod +x "$(npm prefix -g)/bin/shfmt"
 ultralytics-actions-update-markdown-code-blocks
@@ -27,14 +27,13 @@ extensions="css,less,scss,yml,yaml,html,vue,svelte"
 [ "${INPUTS_BIOME:-false}" = "true" ] && { [ -f "biome.json" ] || [ -f "biome.jsonc" ]; } || extensions="js,jsx,ts,tsx,json,$extensions"
 npx prettier --write --list-different --print-width 120 "**/*.{$extensions}" '!**/*lock.{json,yaml,yml}' '!**/*.lock' '!**/model.json' '!**/*.min.js' '!**/*.min.css'
 # Handle Markdown separately
+find . -name "*.md" -type f ! -path "*/docs/*" -exec markdown-table-formatter {} +
+if [ -d "./docs" ]; then
+    find ./docs -name "*.md" -type f ! -path "*/reference/*" -exec markdown-table-formatter {} +
+fi
 find . -name "*.md" -type f ! -path "*/docs/*" -exec npx prettier --write --list-different --print-width 120 {} +
 if [ -d "./docs" ]; then
     find ./docs -name "*.md" -type f ! -path "*/reference/*" -exec npx prettier --tab-width 4 --print-width 120 --write --list-different {} +
-fi
-# Align pipe tables indented 4+ spaces, which Prettier skips as indented code blocks (e.g. inside MkDocs tabs)
-find . -name "*.md" -type f ! -path "*/docs/*" -exec ultralytics-actions-align-markdown-tables {} +
-if [ -d "./docs" ]; then
-    find ./docs -name "*.md" -type f ! -path "*/reference/*" -exec ultralytics-actions-align-markdown-tables {} +
 fi
 # Bash last: shfmt exits non-zero when a script fails to parse, which would otherwise skip the formatting above
 find . -name "*.sh" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" -exec shfmt -i 2 -sr -bn -ci -l -w {} +

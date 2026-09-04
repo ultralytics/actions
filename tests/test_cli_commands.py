@@ -2,7 +2,6 @@
 
 # Import CLI command modules
 from actions import (
-    align_markdown_tables,
     first_interaction,
     format_code,
     format_python_docstrings,
@@ -15,7 +14,6 @@ from actions import (
 def test_importable_modules():
     """Test that all modules can be imported without errors."""
     # This is a simple test to ensure modules can be imported successfully
-    assert hasattr(align_markdown_tables, "main")
     assert hasattr(first_interaction, "main")
     assert hasattr(format_code, "main")
     assert hasattr(summarize_pr, "main")
