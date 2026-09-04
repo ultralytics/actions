@@ -52,6 +52,7 @@ TABLE_ALIGNED = "    | a   | b   |\n    | --- | --- |\n    | 1   | 2   |\n"
         ("\U0001f1fa\U0001f1f8\U0001f1e8\U0001f1e6", 4),  # 🇺🇸🇨🇦 adjacent flag pairs
         ("\U0001f1fa", 1),  # lone regional indicator
         ("\U0001f44d\U0001f3fd", 2),  # 👍🏽 skin-tone modifier
+        ("\u270c\U0001f3fd", 2),  # ✌🏽 narrow emoji with skin-tone modifier
         ("1\ufe0f\u20e3", 2),  # 1️⃣ keycap sequence
         ("\u2764\ufe0f", 2),  # ❤️ VS16 upgrades narrow char to emoji width
         ("\u2764", 1),  # ❤ bare
@@ -79,7 +80,9 @@ def test_display_width(text, width):
         "  ```\n     ```\n!!! note\n\n" + TABLE,  # root fence closer indented over 3 spaces
         "Title\n===\n\n" + TABLE,  # setext heading underline is not a tab marker
         "Title\n===   \n\n" + TABLE,  # setext underline with trailing spaces is not a tab marker
+        '=== "Unclosed tab\n\n' + TABLE,  # invalid tab marker without a closing quote
         "!!!\n\n" + TABLE,  # admonition marker without a type payload
+        "!!!! note\n\n" + TABLE,  # invalid four-character admonition marker
         "paragraph\n\n    !!! note\n" + indent(TABLE, "    "),  # marker-looking line inside a code block
         "!!! note\n\n    | a | b |\n    |---|---|\n    | 1 |\n",  # ragged rows
         "!!! note\n\n    | a | b |\n    | 1 | 2 |\n    | 3 | 4 |\n",  # no delimiter row
@@ -95,7 +98,9 @@ def test_display_width(text, width):
         "over-indented-root-closer",
         "setext-heading",
         "setext-trailing-spaces",
+        "unclosed-tab-title",
         "bare-admonition-marker",
+        "invalid-admonition-marker",
         "marker-inside-code",
         "ragged-rows",
         "no-delimiter",

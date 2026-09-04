@@ -13,7 +13,7 @@ TABLE_ROW = re.compile(r"^( {4,})\|(.*)$")
 DELIMITER_CELL = re.compile(r"^:?-+:?$")
 FENCE_OPEN = re.compile(r"^( *)(`{3,}|~{3,})")
 FENCE_CLOSE = re.compile(r"^( *)(`{3,}|~{3,})[ \t]*$")  # closers cannot carry an info string
-CONTAINER_MARKER = re.compile(r'^(?:(?:!!!+|\?\?\?\+?)\s+\S|===[+!]?\s+["\'])')  # MkDocs admonition or tab
+CONTAINER_MARKER = re.compile(r"^(?:(?:!!!|\?\?\?\+?)\s+\S|===[+!]?\s+([\"']).+\1\s*$)")  # MkDocs admonition or tab
 
 
 def display_width(text: str) -> int:
@@ -35,6 +35,8 @@ def display_width(text: str) -> int:
             continue
         # ZWJ-joined emoji and skin-tone modifiers add no width; a flag pair counts as one width-2 emoji
         if join_next or 0x1F3FB <= cp <= 0x1F3FF:
+            if 0x1F3FB <= cp <= 0x1F3FF and last == 1 and ord(text[i - 1]) in (0x261D, 0x26F9, 0x270C, 0x270D):
+                width += 1  # narrow emoji modifier bases become width 2
             last = 0
         elif 0x1F1E6 <= cp <= 0x1F1FF and i + 1 < len(text) and 0x1F1E6 <= ord(text[i + 1]) <= 0x1F1FF:
             width, last, skip_next = width + 2, 2, True
