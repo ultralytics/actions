@@ -242,18 +242,7 @@ def build_review_agent_tools(
         matches = []
         for start in range(0, len(files), 100):
             with subprocess.Popen(
-                [
-                    "git",
-                    "--literal-pathspecs",
-                    "grep",
-                    "-nIz",
-                    "-F",
-                    "-e",
-                    query,
-                    head_sha,
-                    "--",
-                    *files[start : start + 100],
-                ],
+                ["git", "--literal-pathspecs", "grep", "-nIzFe", query, head_sha, "--", *files[start : start + 100]],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 text=True,
