@@ -18,6 +18,16 @@ concurrency:
   queue: max
 
 jobs:
+  deploy-actions:
+    if: github.repository == 'ultralytics/actions' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions: {}
+    steps:
+      - name: Redeploy Cloud Run actions service
+        env:
+          GH_TOKEN: ${{ secrets._GITHUB_TOKEN }}
+        run: gh workflow run deploy_cloud_run.yml --repo ultralytics/assistant --ref main -f actions=true
+
   check:
     if: github.repository == 'ultralytics/actions' && github.actor == 'glenn-jocher' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest

@@ -217,10 +217,7 @@ def test_update_comment_function():
     assert "Actions Trigger" in kwargs["json"]["body"]
     assert "CI Workflow" in kwargs["json"]["body"]
     assert "2023-01-01 12:00:00 UTC" in kwargs["json"]["body"]
-    assert (
-        f"(available commands are `{RUN_ALL_KEYWORD}`, `{RUN_CI_KEYWORD}`, and `{RUN_DOCKER_KEYWORD}`):"
-        in kwargs["json"]["body"]
-    )
+    assert f"Commands: `{RUN_ALL_KEYWORD}`, `{RUN_CI_KEYWORD}`, `{RUN_DOCKER_KEYWORD}`." in kwargs["json"]["body"]
 
 
 def test_update_comment_skips_empty_actions():
