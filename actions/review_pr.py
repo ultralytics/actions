@@ -239,23 +239,32 @@ def build_review_agent_tools(
         if not query:
             return "query is required."
         files = [path for path, size in _iter_repo_files(head_sha, path_glob) if size <= 500_000]
-        if not files:
-            return "No matches found."
         matches = []
-        with subprocess.Popen(
-            ["git", "--literal-pathspecs", "grep", "-nIz", "-F", "-e", query, head_sha, "--", *files],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            errors="ignore",
-        ) as process:
-            for match in process.stdout:
-                path, _, rest = match.rstrip("\n").partition("\0")
-                matches.append(f"{path[len(head_sha) + 1 :]}:{rest.replace(chr(0), ':', 1)}")
-                if len(matches) >= 200 or sum(map(len, matches)) >= MAX_TOOL_OUTPUT_CHARS:
-                    process.terminate()
-                    break
-            else:
+        for start in range(0, len(files), 100):
+            with subprocess.Popen(
+                [
+                    "git",
+                    "--literal-pathspecs",
+                    "grep",
+                    "-nIz",
+                    "-F",
+                    "-e",
+                    query,
+                    head_sha,
+                    "--",
+                    *files[start : start + 100],
+                ],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                errors="ignore",
+            ) as process:
+                for match in process.stdout:
+                    path, _, rest = match.rstrip("\n").partition("\0")
+                    matches.append(f"{path[len(head_sha) + 1 :]}:{rest.replace(chr(0), ':', 1)}")
+                    if len(matches) >= 200 or sum(map(len, matches)) >= MAX_TOOL_OUTPUT_CHARS:
+                        process.terminate()
+                        return _clip_tool_output("\n".join(matches))
                 if process.wait() not in (0, 1):
                     raise RuntimeError(process.stderr.read())
         return _clip_tool_output("\n".join(matches)) if matches else "No matches found."
