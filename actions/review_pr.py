@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+import subprocess
 from fnmatch import fnmatch
 from pathlib import Path
 from urllib.parse import quote
@@ -46,46 +47,19 @@ def _clip_tool_output(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
     return text if len(text) <= limit else f"{text[:limit].rstrip()}\n... (truncated)"
 
 
-def _iter_repo_files(path_glob=None):
-    """Yield repository files, including hidden files, pruning vendored dirs and paths outside the checkout."""
-    root = Path.cwd().resolve()
-    stack = [root]
-    while stack:
-        try:
-            children = list(stack.pop().iterdir())
-        except OSError:
-            continue
-        for path in children:
-            if path.is_dir():
-                if path.name not in COMMON_EXCLUDED_DIRS and not path.is_symlink():
-                    stack.append(path)
-                continue
-            rel = path.relative_to(root).as_posix()
-            if (path_glob and not fnmatch(rel, path_glob)) or should_skip_file(rel):
-                continue
-            try:
-                target = path.resolve()
-                target.relative_to(root)
-            except (OSError, ValueError):
-                continue
-            if target.is_file():
-                yield target, rel
-
-
-def search_repo(query: str, path_glob=None) -> str:
-    """Search repository text for agent review context."""
-    if not query:
-        return "query is required."
-    matches = []
-    for target, rel in _iter_repo_files(path_glob):
-        if target.stat().st_size > 500_000:
-            continue
-        for line_no, line in enumerate(target.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
-            if query in line:
-                matches.append(f"{rel}:{line_no}:{line}")
-                if len(matches) >= 200:
-                    return _clip_tool_output("\n".join(matches))
-    return _clip_tool_output("\n".join(matches)) if matches else "No matches found."
+def _iter_repo_files(head_sha: str, path_glob=None):
+    """Yield reviewable file paths from the local commit, independent of working-tree edits."""
+    result = subprocess.run(
+        ["git", "ls-tree", "-rz", "--name-only", head_sha], capture_output=True, text=True, errors="ignore", check=True
+    )
+    for path in result.stdout.split("\0"):
+        if (
+            path
+            and (not path_glob or fnmatch(path, path_glob))
+            and not should_skip_file(path)
+            and not any(part in COMMON_EXCLUDED_DIRS for part in Path(path).parent.parts)
+        ):
+            yield path
 
 
 def _clip(text: str, limit: int | None) -> str:
@@ -170,14 +144,25 @@ def _fetch_head_file(event: Action, sha: str, path: str) -> str | None:
 
 
 def _read_head_file(event: Action, head_sha: str | None, local_checkout: bool, path: str) -> str | None:
-    """Read one file's text from the PR head: verified local checkout first (no API calls), GitHub API fallback."""
+    """Read the reviewed commit from local Git objects when available, otherwise the GitHub API."""
     if local_checkout:
-        root = Path.cwd().resolve()
-        target = (root / path).resolve()
-        target.relative_to(root)  # raises ValueError for paths or symlinks escaping the checkout
-        if not target.is_file():
+        if Path(path).is_absolute() or ".." in Path(path).parts or "\n" in path:
+            raise ValueError(path)
+        result = subprocess.run(
+            ["git", "cat-file", "--batch", "--follow-symlinks"],
+            input=f"{head_sha}:{path}\n",
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+            check=True,
+        )
+        header, _, content = result.stdout.partition("\n")
+        if header.endswith(" missing"):
             return None
-        return target.read_text(encoding="utf-8", errors="ignore")
+        if " blob " not in header:
+            raise ValueError(path)
+        return content[:-1]  # cat-file adds one newline after the blob
     if not (event and head_sha):
         return None
     return _fetch_head_file(event, head_sha, path)
@@ -205,7 +190,7 @@ def build_review_agent_tools(
     local_checkout: bool = False,
     review_history: dict | None = None,
 ) -> tuple[list[dict], dict]:
-    """Build read-only tools for the PR review agent, reading files from the PR head via the GitHub API."""
+    """Build read-only tools for the review commit, using local Git objects when available."""
     diff_files = diff_files or {}
     review_history = review_history or {}
     diff_chunks = _split_augmented_diff_by_file(augmented_diff)
@@ -219,7 +204,7 @@ def build_review_agent_tools(
         try:
             text = _read_head_file(event, head_sha, local_checkout, path)
         except ValueError:
-            return f"path must stay inside repository: {path}"
+            return f"{path} is not a readable file at the PR head."
         if text is None:
             return f"{path} does not exist at the PR head."
         if len(text) > 500_000:
@@ -235,7 +220,7 @@ def build_review_agent_tools(
     def list_files(path_glob=None) -> str:
         """List files at the PR head matching an optional glob."""
         if local_checkout:
-            files = sorted(rel for _, rel in _iter_repo_files(path_glob))
+            files = sorted(_iter_repo_files(head_sha, path_glob))
             return _clip_tool_output("\n".join(files[:300])) if files else "No matching files found."
         if not (event and head_sha):
             return "list_files is unavailable: no PR head to list from."
@@ -246,6 +231,30 @@ def build_review_agent_tools(
             head_tree.append([t["path"] for t in response.json().get("tree", []) if t.get("type") == "blob"])
         files = sorted(p for p in head_tree[0] if (not path_glob or fnmatch(p, path_glob)) and not should_skip_file(p))
         return _clip_tool_output("\n".join(files[:300])) if files else "No matching files found."
+
+    def search_repo(query: str, path_glob=None) -> str:
+        """Search committed repository text for agent review context."""
+        if not query:
+            return "query is required."
+        result = subprocess.run(
+            ["git", "grep", "-nIz", "-F", "-e", query, head_sha, "--"],
+            capture_output=True,
+            text=True,
+            errors="ignore",
+            check=False,
+        )
+        if result.returncode not in (0, 1):
+            raise RuntimeError(result.stderr)
+        files = set(_iter_repo_files(head_sha, path_glob))
+        matches = []
+        for match in result.stdout.splitlines():
+            path, _, rest = match.partition("\0")
+            path = path[len(head_sha) + 1 :]
+            if path in files:
+                matches.append(f"{path}:{rest.replace(chr(0), ':', 1)}")
+                if len(matches) >= 200:
+                    break
+        return _clip_tool_output("\n".join(matches)) if matches else "No matches found."
 
     def list_changed_files(path_glob=None) -> str:
         """List changed files in this PR with added/removed line counts."""
@@ -479,7 +488,7 @@ def generate_pr_review(
     diff_text, skipped_files = diff
     review_history = review_history or {}
     prior_reviews = review_history.get("reviews") or []
-    head_sha = head_sha or (event.get_pr_head_sha() if event else None)
+    head_sha = head_sha or (event.pr["head"]["sha"] if event else None)
     if diff_text.startswith("ERROR:"):
         return {"comments": [], "summary": f"{ERROR_MARKER}: {diff_text}", "head_sha": head_sha}
     if not diff_text:
@@ -804,29 +813,15 @@ def generate_pr_review(
         return {"comments": [], "summary": summary, "head_sha": head_sha}
 
 
-def get_local_head_sha() -> str | None:
-    """Get the current HEAD SHA from local git repo."""
-    import subprocess
-
-    try:
-        result = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=True)
-        return result.stdout.strip()
-    except Exception as e:
-        print(f"Failed to get local HEAD SHA: {e}")
-        return None
-
-
 def _verified_local_checkout(head_sha: str | None) -> bool:
-    """Check the working tree is a clean checkout of the PR head (formatters may dirty it before reviews run)."""
-    import subprocess
-
-    if not head_sha or get_local_head_sha() != head_sha:
-        return False
-    try:
-        status = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True, check=True)
-        return not status.stdout.strip()
-    except Exception:
-        return False
+    """Check whether the reviewed commit is available locally, regardless of working-tree edits."""
+    return (
+        bool(head_sha)
+        and subprocess.run(
+            ["git", "cat-file", "-e", f"{head_sha}^{{commit}}"], capture_output=True, check=False
+        ).returncode
+        == 0
+    )
 
 
 def clear_previous_review(event: Action) -> dict:
@@ -947,11 +942,7 @@ def post_review_summary(event: Action, review_data: dict, review_number: int = 1
 
 def run_review(event: Action, pr_title: str, pr_description: str) -> None:
     """Supersede prior reviews, then generate and publish the next numbered review of the PR head."""
-    try:
-        diff, head_sha = event.get_pr_diff_snapshot()
-    except RuntimeError as e:
-        print(f"Skipping stale PR review: {e}")
-        return
+    diff, head_sha = event.get_pr_diff(), event.pr["head"]["sha"]
     history = clear_previous_review(event)
     review = generate_pr_review(event.repository, diff, pr_title, pr_description, event, head_sha, history)
     post_review_summary(event, review, review_number=len(history["reviews"]) + 1)

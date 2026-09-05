@@ -1,5 +1,6 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import subprocess
 from unittest.mock import MagicMock, call, patch
 
 import pytest
@@ -101,7 +102,6 @@ def test_open_pr_review_description(mock_action, mock_content, mock_response, mo
     event.paginate.return_value = []
     event.pr = {"body": body}
     event.get_pr_diff.return_value = ("diff", [])
-    event.get_pr_diff_snapshot.return_value = (("review diff", []), "headsha")
 
     first_interaction.main()
 
@@ -140,9 +140,12 @@ def test_get_first_interaction_response(mock_get_response, mock_check_links):
     assert "never assume Python, pip, PyPI" in prompt
 
 
+@patch("actions.review_pr._read_head_file", return_value=None)
 @patch("actions.review_pr._verified_local_checkout", return_value=True)
 @patch("actions.review_pr.get_agent_response")
-def test_generate_pr_review_uses_synchronous_response(mock_get_agent_response, mock_checkout, tmp_path, monkeypatch):
+def test_generate_pr_review_uses_synchronous_response(
+    mock_get_agent_response, mock_checkout, mock_read, tmp_path, monkeypatch
+):
     """Test PR reviews avoid background polling for code diffs."""
     monkeypatch.chdir(tmp_path)
     mock_get_agent_response.return_value = {"comments": [], "summary": "LGTM"}
@@ -199,11 +202,21 @@ def test_review_agent_search_scans_local_checkout_only(tmp_path, monkeypatch):
     outside.write_text("outside_secret = True\n", encoding="utf-8")
     (tmp_path / "linked_secret.py").symlink_to(outside)
 
-    tools, handlers = review_pr.build_review_agent_tools(local_checkout=True)
+    monkeypatch.setenv("GIT_CONFIG_GLOBAL", "/dev/null")
+    monkeypatch.setenv("GIT_CONFIG_SYSTEM", "/dev/null")
+    subprocess.run(["git", "init", "-q"], check=True)
+    subprocess.run(["git", "add", "."], check=True)
+    subprocess.run(
+        ["git", "-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "-qm", "Fixture"], check=True
+    )
+    head_sha = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+    (tmp_path / "secret.py").write_text("uncommitted = True\n", encoding="utf-8")
+    assert review_pr._verified_local_checkout(head_sha)
+    tools, handlers = review_pr.build_review_agent_tools(head_sha=head_sha, local_checkout=True)
 
     assert "search_repo" in {t.get("name") for t in tools}
     assert "1: secret = True" in handlers["read_file"](path="secret.py", start_line=None, end_line=None)
-    assert "path must stay inside repository" in handlers["read_file"](
+    assert "is not a readable file at the PR head" in handlers["read_file"](
         path="linked_secret.py", start_line=None, end_line=None
     )
     assert "secret.py" in handlers["list_files"](path_glob=None).splitlines()
@@ -235,26 +248,26 @@ def test_pr_head_sha_prefers_live_value():
     assert review_pr.Action.get_pr_head_sha(event) is None
 
 
-def test_review_snapshot_retries_until_diff_and_head_match():
-    """Test review snapshots refetch the diff when a push races the first request."""
-    event = MagicMock()
-    event.get_pr_head_sha.side_effect = ["old", "new", "new", "new"]
-    event.get_pr_diff.side_effect = [("old diff", []), ("new diff", ["generated/client.py"])]
-
-    assert review_pr.Action.get_pr_diff_snapshot(event) == (("new diff", ["generated/client.py"]), "new")
-    assert event.get_pr_diff.call_args_list == [call(refresh=True), call(refresh=True)]
-    assert event.get_pr_head_sha.call_count == 4
-
-
 def test_pr_diff_is_filtered_at_retrieval():
     """Test every PR diff consumer receives the same filtered diff and skipped-file list."""
-    event = MagicMock(repository="org/repo", pr={"number": 1}, headers_diff={}, _pr_diff_cache=None)
+    event = MagicMock(
+        repository="org/repo",
+        pr={"number": 1, "base": {"sha": "base"}, "head": {"sha": "head"}},
+        headers_diff={},
+        _pr_diff_cache=None,
+    )
     event.get.return_value = MagicMock(
         status_code=200,
         text="diff --git a/code.py b/code.py\n+kept\ndiff --git a/generated/client.py b/generated/client.py\n+omitted",
     )
 
+    event.get.return_value.json.return_value = {"number": 1, "base": {"sha": "base"}, "head": {"sha": "formatted"}}
     diff, skipped_files = review_pr.Action.get_pr_diff(event)
+    assert review_pr.Action.get_pr_diff(event) == (diff, skipped_files)
+    assert event.get.call_args_list == [
+        call("https://api.github.com/repos/org/repo/pulls/1", hard=True),
+        call("https://api.github.com/repos/org/repo/compare/base...formatted", headers={}),
+    ]
 
     assert "+kept" in diff
     assert "generated/client.py" not in diff
