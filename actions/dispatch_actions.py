@@ -144,17 +144,15 @@ def update_comment(event, comment_body: str, command: str, triggered_actions: li
 
     timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     failed = all(action.get("error") for action in triggered_actions)
-    status = (
-        "No GitHub Actions workflows were started" if failed else "GitHub Actions below triggered via workflow dispatch"
-    )
+    status = "No GitHub Actions workflows were started" if failed else "Actions triggered"
     summary = f"""
 
 ## ⚡ Actions Trigger
 
 {ACTIONS_CREDIT}
 
-{status} for this PR at {timestamp} with `{command}` command
-(available commands are `{RUN_ALL_KEYWORD}`, `{RUN_CI_KEYWORD}`, and `{RUN_DOCKER_KEYWORD}`):
+{status} via `{command}` at {timestamp}.<br>
+Commands: `{RUN_ALL_KEYWORD}`, `{RUN_CI_KEYWORD}`, `{RUN_DOCKER_KEYWORD}`.
 
 """
 
