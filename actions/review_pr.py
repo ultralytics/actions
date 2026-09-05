@@ -247,7 +247,7 @@ def build_review_agent_tools(
             raise RuntimeError(result.stderr)
         files = set(_iter_repo_files(head_sha, path_glob))
         matches = []
-        for match in result.stdout.splitlines():
+        for match in result.stdout.split("\n"):
             path, _, rest = match.partition("\0")
             path = path[len(head_sha) + 1 :]
             if path in files:
