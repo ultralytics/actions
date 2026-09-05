@@ -50,16 +50,18 @@ def _clip_tool_output(text: str, limit: int = MAX_TOOL_OUTPUT_CHARS) -> str:
 def _iter_repo_files(head_sha: str, path_glob=None):
     """Yield reviewable file paths from the local commit, independent of working-tree edits."""
     result = subprocess.run(
-        ["git", "ls-tree", "-rz", "--name-only", head_sha], capture_output=True, text=True, errors="ignore", check=True
+        ["git", "ls-tree", "-rlz", head_sha], capture_output=True, text=True, errors="ignore", check=True
     )
-    for path in result.stdout.split("\0"):
+    for entry in result.stdout.split("\0"):
+        metadata, _, path = entry.partition("\t")
         if (
             path
+            and metadata.split()[1] == "blob"
             and (not path_glob or fnmatch(path, path_glob))
             and not should_skip_file(path)
             and not any(part in COMMON_EXCLUDED_DIRS for part in Path(path).parent.parts)
         ):
-            yield path
+            yield path, int(metadata.split()[-1])
 
 
 def _clip(text: str, limit: int | None) -> str:
@@ -220,7 +222,7 @@ def build_review_agent_tools(
     def list_files(path_glob=None) -> str:
         """List files at the PR head matching an optional glob."""
         if local_checkout:
-            files = sorted(_iter_repo_files(head_sha, path_glob))
+            files = sorted(path for path, _ in _iter_repo_files(head_sha, path_glob))
             return _clip_tool_output("\n".join(files[:300])) if files else "No matching files found."
         if not (event and head_sha):
             return "list_files is unavailable: no PR head to list from."
@@ -236,24 +238,26 @@ def build_review_agent_tools(
         """Search committed repository text for agent review context."""
         if not query:
             return "query is required."
-        result = subprocess.run(
-            ["git", "grep", "-nIz", "-F", "-e", query, head_sha, "--"],
-            capture_output=True,
+        files = [path for path, size in _iter_repo_files(head_sha, path_glob) if size <= 500_000]
+        if not files:
+            return "No matches found."
+        matches = []
+        with subprocess.Popen(
+            ["git", "--literal-pathspecs", "grep", "-nIz", "-F", "-e", query, head_sha, "--", *files],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             errors="ignore",
-            check=False,
-        )
-        if result.returncode not in (0, 1):
-            raise RuntimeError(result.stderr)
-        files = set(_iter_repo_files(head_sha, path_glob))
-        matches = []
-        for match in result.stdout.split("\n"):
-            path, _, rest = match.partition("\0")
-            path = path[len(head_sha) + 1 :]
-            if path in files:
-                matches.append(f"{path}:{rest.replace(chr(0), ':', 1)}")
-                if len(matches) >= 200:
+        ) as process:
+            for match in process.stdout:
+                path, _, rest = match.rstrip("\n").partition("\0")
+                matches.append(f"{path[len(head_sha) + 1 :]}:{rest.replace(chr(0), ':', 1)}")
+                if len(matches) >= 200 or sum(map(len, matches)) >= MAX_TOOL_OUTPUT_CHARS:
+                    process.terminate()
                     break
+            else:
+                if process.wait() not in (0, 1):
+                    raise RuntimeError(process.stderr.read())
         return _clip_tool_output("\n".join(matches)) if matches else "No matches found."
 
     def list_changed_files(path_glob=None) -> str:
