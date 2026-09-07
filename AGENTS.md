@@ -70,6 +70,7 @@ Security detail: `.github/workflows/format.yml` runs `ultralytics/actions@main` 
 
 ## Conventions
 
+- Ultralytics-owned PyPI packages use `MAJOR.MINOR.PATCH` versions only; no suffixes.
 - License headers (`# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license`) are added automatically by Ultralytics Actions (`ultralytics-actions-headers`, extensions in `COMMENT_MAP`) — don't add or revert them manually.
 - Bump `__version__` in `actions/__init__.py` when a PR changes package behavior — publishing to PyPI is gated on the version change (`publish.yml`).
 - Google-style docstrings, single-line summaries where possible; formatting is enforced by the repo's own action (`format.yml`), which auto-commits fixes to PRs.
