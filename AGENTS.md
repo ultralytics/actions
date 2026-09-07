@@ -6,8 +6,6 @@ Ultralytics Actions (`ultralytics-actions` on PyPI, AGPL-3.0) is the GitHub auto
 
 ## Core Principles (CRITICAL)
 
-**PyPI releases:** Ultralytics-owned packages must use three-number `MAJOR.MINOR.PATCH` versions only; increment the patch number, never add suffixes or bypass version guards.
-
 **Less is more. The simplest solution is the best solution.** The action hierarchy for every change: **Delete > Replace > Add**.
 
 1. **Solve at the owner**: Put behavior in the code path that owns or observes it. For fixes, never guard a symptom with a staleness check, initialization flag, skip-first-call branch, or `try/except` around broken logic; relocate the trigger and delete the wrong path. For features, extend the existing owner rather than creating a parallel abstraction.
@@ -72,6 +70,7 @@ Security detail: `.github/workflows/format.yml` runs `ultralytics/actions@main` 
 
 ## Conventions
 
+- Ultralytics-owned PyPI packages use `MAJOR.MINOR.PATCH` versions only; no suffixes.
 - License headers (`# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license`) are added automatically by Ultralytics Actions (`ultralytics-actions-headers`, extensions in `COMMENT_MAP`) — don't add or revert them manually.
 - Bump `__version__` in `actions/__init__.py` when a PR changes package behavior — publishing to PyPI is gated on the version change (`publish.yml`).
 - Google-style docstrings, single-line summaries where possible; formatting is enforced by the repo's own action (`format.yml`), which auto-commits fixes to PRs.
