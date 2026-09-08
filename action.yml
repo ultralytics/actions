@@ -63,9 +63,9 @@ inputs:
     required: false
     default: "true"
   header:
-    description: "File header (false to disable updates)"
+    description: "File header"
     required: false
-    default: ""
+    default: "true"
   brave_api_key:
     description: "Brave API Key"
     required: false
