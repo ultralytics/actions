@@ -63,7 +63,7 @@ inputs:
     required: false
     default: "true"
   header:
-    description: "File header"
+    description: "File header (false to disable updates)"
     required: false
     default: ""
   brave_api_key:
@@ -145,7 +145,7 @@ runs:
 
     # File header ------------------------------------------------------------------------------------------------------
     - name: File Header
-      if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      if: inputs.header != 'false' && github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       env:
         HEADER: ${{ inputs.header }}
       run: |
