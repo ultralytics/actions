@@ -30,7 +30,7 @@ After opening a PR:
 
 ## Where to look
 
-Task → owner → existing test. The PR reviewer loads only the first `MAX_CONTEXT_FILE_CHARS` (12,000) characters of this file, so this map stays near the top.
+Task → owner → existing test. The PR reviewer loads only the first `MAX_CONTEXT_FILE_CHARS` (30,000) characters of this file, so this map stays near the top.
 
 - Formatter output or flags → the step in `action.yml` **and** the mirrored constant in `actions/format_code.py` (`RUFF_CHECK`, `RUFF_FORMAT`, `DOCSTRINGS`, `PRETTIER`, `CODESPELL`); `tests/test_format_code.py` checks each argument is a substring of `action.yml`, so a word appended in `action.yml` alone passes silently — grep both files. Docs-specific prettier rules live in the "Run Prettier" step; codespell words in both `--ignore-words-list`s.
 - Auto-format commit missing on a PR → the "Commit and Push Changes" conditions in `action.yml`: same-repo PRs only, `github.actor != inputs.github_username` on `synchronize`, `.github/workflows/` always unstaged.
