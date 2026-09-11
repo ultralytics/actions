@@ -28,7 +28,7 @@ from .utils.openai_utils import _is_anthropic_model
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
 EMOJI_MAP = {"CRITICAL": "❗", "HIGH": "⚠️", "MEDIUM": "💡", "LOW": "📝", "SUGGESTION": "💭"}
-MAX_CONTEXT_FILE_CHARS = 12000
+MAX_CONTEXT_FILE_CHARS = 30000
 MAX_REVIEW_COMMENTS = 8
 MAX_TOOL_OUTPUT_CHARS = 40000
 MAX_TOOL_FILE_LINES = 400

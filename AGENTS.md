@@ -1,8 +1,6 @@
 # AGENTS.md
 
-This file provides guidance to AI coding agents (Claude Code, etc.) when working with code in this repository. CLAUDE.md is a symlink to this file.
-
-Ultralytics Actions (`ultralytics-actions` on PyPI, AGPL-3.0) is the GitHub automation toolkit used across the Ultralytics organization: it formats code and documentation, auto-labels issues and PRs, generates AI PR summaries and reviews, and ships supporting composite actions for CI retries, disk cleanup, Dependabot updates, and GitHub reporting.
+Repository guidance for coding agents. `CLAUDE.md` is a symlink to this file.
 
 ## Core Principles (CRITICAL)
 
@@ -28,45 +26,27 @@ After opening a PR:
 4. Never fight other commits: Ultralytics Actions pushes auto-format and header commits, and multiple users may work on the same PR. `git pull --rebase` before pushing; never reset or revert commits you did not author.
 5. After the PR merges, clean up: remove local worktrees and branches for it, then `git checkout main && git pull`.
 
-## Commands
+## Commands and validation
 
 ```bash
-uv pip install -e ".[dev]" # install for development
-
-pytest tests -v                                             # run all tests
-pytest tests/test_common_utils.py -v                        # run one test file
-pytest tests/test_github_utils.py::test_name -v             # run one test
-pytest tests -v --cov=actions --cov-report=xml:coverage.xml # tests with coverage (CI command)
-
-# Lint/format — mirrors the "Run Python" step in action.yml (source of truth if these drift)
-ruff check --fix --unsafe-fixes --extend-select F,I,D,UP,RUF,FA --target-version py38 \
-  --ignore BLE001,D100,D104,D203,D205,D212,D213,D401,D406,D407,D413,RUF001,RUF002,RUF012,S110 .
+uv venv --python 3.14
+source .venv/bin/activate
+uv pip install -e ".[dev]"
+pytest tests -v
+pytest tests/test_first_interaction.py -v
 ruff format --line-length 120 .
 ```
 
-Notes:
+Keep Python 3.8 compatibility; CI also runs a recent Python. Formatter flags are owned by `action.yml` and mirrored in `actions/format_code.py`: update both, including codespell lists. Run pytest from the repository root; the real Markdown formatter test can rewrite files, so inspect the working tree afterward. Missing `shfmt` is only logged. See `.github/workflows/ci.yml` for the full check matrix.
 
-- CI tests Python 3.8 and 3.14 on ubuntu and macos — code must stay 3.8-compatible. Use `from __future__ import annotations` for modern type hints.
+## Where to look
 
-## Architecture
-
-This repo is two things at once:
-
-1. **A Python package (`actions/`)** published as `ultralytics-actions` on PyPI. Top-level modules (`first_interaction.py`, `review_pr.py`, `summarize_pr.py`, `summarize_release.py`, `dependabot.py`, `github_report.py`, etc.) are standalone scripts, most exposed as `ultralytics-actions-*` CLI entry points in `pyproject.toml` `[project.scripts]`.
-2. **GitHub composite actions.** The root `action.yml` is the main "Ultralytics Actions" marketplace action: it installs the Python package, then runs formatters (Ruff, Prettier, Biome, swift-format, dart format, codespell) and the CLI entry points conditioned on event type and inputs, then commits results back to the PR. Subdirectories `retry/`, `cleanup-disk/`, `dependabot/`, `github-report/` are standalone composite actions with their own `action.yml` + README.
-
-Key flow: GitHub workflow event → `action.yml` step (gated by `github.event_name` / `github.event.action` / inputs) → env vars (`GITHUB_TOKEN`, `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, `MODEL`, ...) → CLI entry point → module `main()`/`run()`.
-
-`actions/utils/` is the shared core:
-
-- **`github_utils.py`** — the `Action` class, the central abstraction. Initializes from GitHub Actions env vars (`GITHUB_TOKEN`, `GITHUB_EVENT_NAME`, `GITHUB_EVENT_PATH`), wraps REST (`get`/`post`/`patch`/...) and GraphQL requests with unified status checking, and provides high-level operations (PR diffs, labels, comments, discussions, alerts).
-- **`openai_utils.py`** — AI provider abstraction supporting OpenAI and Anthropic. The provider/model is auto-detected from which API key env var is set; defaults live here as single source of truth (`OPENAI_MODEL_DEFAULT`, `ANTHROPIC_MODEL_DEFAULT`, `OPENAI_REVIEW_MODEL_DEFAULT`, `ANTHROPIC_REVIEW_MODEL_DEFAULT`, `MODEL_COSTS`). Also holds shared prompt-building and response sanitization.
-- **`common_utils.py`** — URL/redirect checking, diff filtering, file-skip patterns, HTML comment removal.
-- **`version_utils.py`** — PyPI/pub.dev version checks used for publish gating.
-
-Most shared utilities are re-exported through `actions/utils/__init__.py` — keep `__all__` updated when adding exports.
-
-Security detail: `.github/workflows/format.yml` runs `ultralytics/actions@main` because it receives write credentials and AI secrets; never execute a PR checkout as a local action in that workflow. PR package changes are exercised by the test workflow before merge.
+- Formatting → `action.yml`, `actions/format_code.py`.
+- Reviews and summaries → `actions/review_pr.py`, `actions/first_interaction.py`.
+- Models and prompts → `actions/utils/openai_utils.py`.
+- GitHub requests → `actions/utils/github_utils.py`.
+- Headers and Markdown → `actions/update_file_headers.py`, `actions/update_markdown_code_blocks.py`.
+- Release gating → `actions/utils/version_utils.py`, `.github/workflows/publish.yml`.
 
 ## Conventions
 
@@ -74,5 +54,13 @@ Security detail: `.github/workflows/format.yml` runs `ultralytics/actions@main` 
 - License headers (`# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license`) are added automatically by Ultralytics Actions (`ultralytics-actions-headers`, extensions in `COMMENT_MAP`) — don't add or revert them manually.
 - Bump `__version__` in `actions/__init__.py` when a PR changes package behavior — publishing to PyPI is gated on the version change (`publish.yml`).
 - Google-style docstrings, single-line summaries where possible; formatting is enforced by the repo's own action (`format.yml`), which auto-commits fixes to PRs.
-- Tests use `unittest.mock` to patch env vars and network calls, except `tests/test_urls.py` which makes live HTTP requests. Modules listed in `[tool.coverage.run] omit` are excluded from coverage requirements.
+- Tests use `unittest.mock`/`monkeypatch` to patch env vars and network calls; no test reaches the network (`tests/test_urls.py` patches `is_url` with an autouse fixture and calls it with `check=False`). Modules listed in `[tool.coverage.run] omit` are excluded from the coverage report.
 - Commits and PRs use plain git identity — no AI attribution, co-author lines, or generated-with footers.
+
+## Pitfalls
+
+- Env is read at import time into module constants: `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/`MODEL`/`REVIEW_MODEL` (`openai_utils.py`), `LABELS`→`AUTO_LABELS`, `SUMMARY`→`AUTO_PR_SUMMARY`, `REVIEW`→`AUTO_PR_REVIEW`, `BLOCK_USER` (`first_interaction.py`), `CURRENT_TAG`/`PREVIOUS_TAG` (`summarize_release.py`), `HEADER` (`update_file_headers.py`). Setting `os.environ` after import has no effect — patch the module attribute (e.g. `patch("actions.utils.openai_utils.OPENAI_API_KEY", "x")`, `patch("actions.first_interaction.AUTO_PR_REVIEW", False)`).
+- `_verified_local_checkout` depends only on whether the reviewed commit exists in the runner's git objects, not on the event type. The root `action.yml` checks out the PR head only for `pull_request` events, so under `pull_request_target` the review reads files through the GitHub API and drops the `search_repo` tool unless the consumer workflow checked out that head itself.
+- `Action`'s session retries connection failures on every method but 5xx responses only on `GET`/`PUT`/`DELETE`; a `POST`/`PATCH` that returns 5xx is not retried by the session — callers such as `cla._read`/`_persist` and `get_response` implement their own loops.
+- `publish.yml`'s `check` job gates releases with the **PyPI-installed** `ultralytics-actions` (`shell: python` temp script plus the `ultralytics-actions-summarize-release` console script, neither of which sees the checkout's `actions/`), so a change to `version_utils.py` or `summarize_release.py` only affects the next release after it is itself published.
+- The `Alert` label path in `apply_and_check_labels` rewrites the title/body, locks, and (for issues/discussions) closes the item for a non-org member as soon as the model returns `Alert` and the repository has that label; `BLOCK_USER=true` additionally blocks the account org-wide.
