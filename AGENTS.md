@@ -33,10 +33,10 @@ After opening a PR:
 ```bash
 uv pip install -e ".[dev]" # editable install with pytest + pytest-cov (what ci.yml runs inside an activated .venv)
 
-pytest tests -v                                                                     # full suite; fully mocked, runs offline in ~1s
-pytest tests/test_first_interaction.py -v                                           # one file
-pytest tests/test_openai_utils.py::test_get_agent_response_calls_function_tools -v  # one test
-python -m pytest tests -v --cov=actions --cov-report=xml:coverage.xml               # exact ci.yml command (Codecov upload follows)
+pytest tests -v                                                                    # full suite; fully mocked, runs offline in ~1s
+pytest tests/test_first_interaction.py -v                                          # one file
+pytest tests/test_openai_utils.py::test_get_agent_response_calls_function_tools -v # one test
+python -m pytest tests -v --cov=actions --cov-report=xml:coverage.xml              # exact ci.yml command (Codecov upload follows)
 
 # Lint/format — mirrors the "Run Python" step in action.yml (source of truth if these drift)
 ruff check --fix --unsafe-fixes --extend-select F,I,D,UP,RUF,FA --target-version py38 \
