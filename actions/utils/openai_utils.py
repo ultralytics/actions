@@ -327,9 +327,8 @@ def _post_openai_response(
             return (
                 _poll_openai_response(response_json, headers) if response_json.get("status") else response_json
             ), elapsed
-        except (requests.exceptions.ConnectionError, json.JSONDecodeError):
-            # ConnectTimeout subclasses ConnectionError so it stays retryable; a ReadTimeout propagates instead,
-            # because the request may have completed server-side and re-POSTing it would double-bill.
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError):
+            # Retry TLS/read timeouts too, accepting that a response timeout may repeat an already-billed request.
             if attempt < retries:
                 print(f"Retrying API request in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
                 time.sleep(2**attempt)
@@ -666,9 +665,8 @@ def get_response(
 
             return content
 
-        except (requests.exceptions.ConnectionError, json.JSONDecodeError) as e:
-            # ConnectTimeout subclasses ConnectionError so it stays retryable; a ReadTimeout propagates instead,
-            # because the request may have completed server-side and re-POSTing it would double-bill.
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout, json.JSONDecodeError) as e:
+            # Retry TLS/read timeouts too, accepting that a response timeout may repeat an already-billed request.
             if attempt < retries:
                 print(f"Retrying {e.__class__.__name__} in {2**attempt}s (attempt {attempt + 1}/{retries + 1})...")
                 time.sleep(2**attempt)

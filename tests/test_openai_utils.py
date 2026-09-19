@@ -1,7 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, call, patch
 
 import pytest
 import requests
@@ -149,19 +149,31 @@ def test_get_response(mock_post):
     assert mock_post.call_args.kwargs["json"]["prompt_cache_options"] == {"mode": "explicit"}
 
 
+@pytest.mark.parametrize("agent", [False, True])
+@pytest.mark.parametrize("failures", [1, 3])
 @patch("time.sleep")
 @patch("requests.post")
-def test_get_response_read_timeout_propagates(mock_post, mock_sleep):
-    """Test a read timeout is NOT retried: the request may have completed server-side and re-POSTing double-bills."""
-    mock_post.side_effect = requests.exceptions.ReadTimeout()
-
+def test_response_read_timeout_retries(mock_post, mock_sleep, agent, failures):
+    """Read timeouts recover with bounded backoff in both completion and agent requests."""
+    response = MagicMock(status_code=200)
+    response.elapsed.total_seconds.return_value = 1.0
+    response.json.return_value = {
+        "output": [{"type": "message", "content": [{"type": "output_text", "text": "recovered"}]}]
+    }
+    mock_post.side_effect = [requests.exceptions.ReadTimeout()] * failures + [response]
+    kwargs = {"tools": [], "tool_handlers": {}} if agent else {"check_links": False}
+    generate = get_agent_response if agent else get_response
     with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
-        try:
-            get_response([{"role": "user", "content": "Hello"}], check_links=False, retries=2)
-            raise AssertionError("ReadTimeout should propagate")
-        except requests.exceptions.ReadTimeout:
-            pass
-    assert mock_post.call_count == 1  # no re-POST of a possibly-billed request
+        if failures > 2:
+            with pytest.raises(requests.exceptions.ReadTimeout):
+                generate([{"role": "user", "content": "Hello"}], model=OPENAI_MODEL_DEFAULT, retries=2, **kwargs)
+        else:
+            assert (
+                generate([{"role": "user", "content": "Hello"}], model=OPENAI_MODEL_DEFAULT, retries=2, **kwargs)
+                == "recovered"
+            )
+    assert mock_post.call_count == min(failures + 1, 3)
+    assert mock_sleep.call_args_list == [call(2**attempt) for attempt in range(min(failures, 2))]
 
 
 @patch("time.sleep")
