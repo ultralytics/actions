@@ -23,7 +23,7 @@ CLA_BRANCH = "cla-signatures"
 CLA_DOCUMENT = "https://docs.ultralytics.com/help/CLA"
 SIGN_COMMENT = "I have read the CLA Document and I sign the CLA"
 SIGN_TEXT = SIGN_COMMENT.casefold()
-SIGN_STRIP = " \t*_`\"'.!,;:"  # whitespace, markdown emphasis, quotes and end punctuation around a signature line
+SIGN_STRIP = " \t*_`\"'.!,;:✅"  # whitespace, markdown emphasis, quotes, punctuation and ✅ around a signature line
 COMMENT_MARKER = "<!-- ultralytics-cla -->"
 LEGACY_MARKER = "CLA Assistant Lite bot"
 BOT_LOGIN = "github-actions[bot]"
@@ -34,14 +34,6 @@ TRANSIENT_STATUS = (429, 500, 502, 503, 504)
 def _allowed(login: str) -> bool:
     """Return whether a GitHub login matches the configured bot allowlist."""
     return login.casefold() in ALLOWLIST
-
-
-def _is_signature(line: str) -> bool:
-    """Return whether a comment line is a CLA signature, ignoring markdown, punctuation and trailing emoji."""
-    line = line.strip(SIGN_STRIP)
-    while line and not line[-1].isalnum():  # e.g. the ✅ many contributors append to the sentence
-        line = line[:-1]
-    return line.casefold() == SIGN_TEXT
 
 
 def _read(action: Action, method: str, url: str, **kwargs):
@@ -234,7 +226,7 @@ def run(action: Action, ledger_action: Action) -> None:
     records = {
         comment["user"]["id"]: _record(comment, action, number)
         for comment in comments
-        if any(_is_signature(line) for line in (comment.get("body") or "").splitlines())
+        if any(line.strip(SIGN_STRIP).casefold() == SIGN_TEXT for line in (comment.get("body") or "").splitlines())
         and comment.get("user", {}).get("id") in contributor_ids - signed_ids
     }
     if records:
