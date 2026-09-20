@@ -183,7 +183,7 @@ def test_persist_surfaces_final_exhausted_error(monkeypatch, statuses, message):
     ],
 )
 def test_run_records_exact_sentence_and_updates_legacy_comment(body):
-    """Persist a signature despite trailing whitespace or casing."""
+    """Persist a signature despite trailing whitespace, casing or a checkmark."""
     source, store = action(), action()
     signing = {
         "id": 30,
