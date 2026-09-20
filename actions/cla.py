@@ -36,6 +36,14 @@ def _allowed(login: str) -> bool:
     return login.casefold() in ALLOWLIST
 
 
+def _is_signature(line: str) -> bool:
+    """Return whether a comment line is a CLA signature, ignoring markdown, punctuation and trailing emoji."""
+    line = line.strip(SIGN_STRIP)
+    while line and not line[-1].isalnum():  # e.g. the ✅ many contributors append to the sentence
+        line = line[:-1]
+    return line.casefold() == SIGN_TEXT
+
+
 def _read(action: Action, method: str, url: str, **kwargs):
     """Retry a read-only GitHub request on transient responses."""
     for attempt in range(4):
@@ -226,7 +234,7 @@ def run(action: Action, ledger_action: Action) -> None:
     records = {
         comment["user"]["id"]: _record(comment, action, number)
         for comment in comments
-        if any(line.strip(SIGN_STRIP).casefold() == SIGN_TEXT for line in (comment.get("body") or "").splitlines())
+        if any(_is_signature(line) for line in (comment.get("body") or "").splitlines())
         and comment.get("user", {}).get("id") in contributor_ids - signed_ids
     }
     if records:

@@ -173,7 +173,14 @@ def test_persist_surfaces_final_exhausted_error(monkeypatch, statuses, message):
 
 
 @pytest.mark.parametrize(
-    "body", [cla.SIGN_COMMENT, f"{cla.SIGN_COMMENT}\r\n", f"{cla.SIGN_COMMENT}  ", cla.SIGN_COMMENT.lower()]
+    "body",
+    [
+        cla.SIGN_COMMENT,
+        f"{cla.SIGN_COMMENT}\r\n",
+        f"{cla.SIGN_COMMENT}  ",
+        cla.SIGN_COMMENT.lower(),
+        f"{cla.SIGN_COMMENT} \u2705",
+    ],
 )
 def test_run_records_exact_sentence_and_updates_legacy_comment(body):
     """Persist a signature despite trailing whitespace or casing."""
