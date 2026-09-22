@@ -22,10 +22,10 @@ MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # deliberate COST ceiling, not a c
 WEB_SEARCH_CALL_COST = 0.01  # $10 per 1K calls
 
 # Default models (single source of truth)
-OPENAI_MODEL_DEFAULT = "gpt-5.6-luna"
+OPENAI_MODEL_DEFAULT = "gpt-6-luna"
 ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-5"
-OPENAI_REVIEW_MODEL_DEFAULT = "gpt-5.6-luna"
-ANTHROPIC_REVIEW_MODEL_DEFAULT = "claude-opus-5"
+OPENAI_REVIEW_MODEL_DEFAULT = "gpt-6-luna"
+ANTHROPIC_REVIEW_MODEL_DEFAULT = "claude-opus-5-5"
 
 MODEL_COSTS = {  # (input, output) per 1M tokens
     # OpenAI models
@@ -40,6 +40,9 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "gpt-5.6-sol": (5.00, 30.00),
     "gpt-5.6-terra": (2.00, 12.00),
     "gpt-5.6-luna": (0.20, 1.20),
+    "gpt-6-astra": (10.00, 50.00),
+    "gpt-6-sol": (2.00, 10.00),
+    "gpt-6-luna": (0.10, 0.50),
     "gpt-5-nano-2025-08-07": (0.05, 0.40),
     "gpt-5-mini-2025-08-07": (0.25, 2.00),
     # Anthropic Claude models
@@ -52,7 +55,8 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "claude-opus-4-7": (5.00, 25.00),
     "claude-opus-4-8": (5.00, 25.00),
     "claude-opus-5": (5.00, 25.00),
-    "claude-sonnet-5": (2.00, 10.00),  # introductory pricing through 2026-08-31, then (3.00, 15.00)
+    "claude-opus-5-5": (4.00, 20.00),
+    "claude-sonnet-5": (2.00, 10.00),
     "claude-fable-5": (10.00, 50.00),
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
@@ -256,12 +260,12 @@ def _normalize_usage_tokens(usage: dict) -> tuple[int, int, int]:
 
 
 def _openai_usage_cost(usage: dict, model: str) -> float:
-    """Compute billed USD cost including GPT-5.6 cache-write and long-context rates."""
+    """Compute billed USD cost including GPT-5.6/GPT-6 cache-write and long-context rates."""
     costs = MODEL_COSTS.get(model, (0.0, 0.0))
     input_tokens, cached_tokens, cache_write_tokens = _normalize_usage_tokens(usage)
-    cache_write_premium = cache_write_tokens * 0.25 if model.startswith("gpt-5.6-") else 0
+    cache_write_premium = cache_write_tokens * 0.25 if model.startswith(("gpt-5.6-", "gpt-6-")) else 0
     billed_input = input_tokens - cached_tokens * 0.9 + cache_write_premium
-    long_context = model.startswith("gpt-5.6-") and input_tokens > 272000
+    long_context = model.startswith(("gpt-5.6-", "gpt-6-")) and input_tokens > 272000
     return (
         billed_input * costs[0] * (2 if long_context else 1)
         + usage.get("output_tokens", 0) * costs[1] * (1.5 if long_context else 1)
@@ -424,10 +428,10 @@ def get_agent_response(
         "parallel_tool_calls": True,  # batched tool calls share one turn, so the history is re-billed fewer times
         "prompt_cache_key": f"agent-run:{uuid4().hex}",
         # Overflow guard only: compaction collapses the run to a few thousand tokens and drops the evidence gathered so
-        # far, so it only fires at the long-context billing boundary (2x input above 272k tokens on gpt-5.6)
+        # far, so it only fires at the long-context billing boundary (2x input above 272k tokens on gpt-5.6 and gpt-6)
         "context_management": [{"type": "compaction", "compact_threshold": 272_000}],
     }
-    if "gpt-5" in model:
+    if model.startswith(("gpt-5", "gpt-6")):
         base_data["reasoning"] = {"effort": reasoning_effort or "medium"}
     if text_format:
         base_data["text"] = text_format
@@ -586,11 +590,11 @@ def get_response(
                 data["system"] = (data.get("system") or "") + json_instruction
         else:
             data = {"model": model, "input": messages, "store": background, "temperature": temperature}
-            if model.startswith("gpt-5.6-luna"):
+            if model.startswith(("gpt-5.6-luna", "gpt-6-luna")):
                 data["prompt_cache_options"] = {"mode": "explicit"}  # disable costly implicit writes for one-shot calls
             if background:
                 data["background"] = True
-            if "gpt-5" in model:
+            if model.startswith(("gpt-5", "gpt-6")):
                 data["reasoning"] = {"effort": reasoning_effort or "medium"}
             if text_format:
                 data["text"] = text_format
