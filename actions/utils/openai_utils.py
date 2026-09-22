@@ -40,7 +40,6 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "gpt-5.6-sol": (5.00, 30.00),
     "gpt-5.6-terra": (2.00, 12.00),
     "gpt-5.6-luna": (0.20, 1.20),
-    "gpt-6-astra": (10.00, 50.00),
     "gpt-6-sol": (2.00, 10.00),
     "gpt-6-luna": (0.10, 0.50),
     "gpt-5-nano-2025-08-07": (0.05, 0.40),
@@ -382,7 +381,6 @@ def get_agent_response(
     tool_handlers: dict[str, Callable],
     text_format: dict | None = None,
     model: str | None = None,
-    temperature: float = 1.0,
     reasoning_effort: str | None = None,
     max_turns: int = 6,
     max_cost: float = 0.0,
@@ -404,7 +402,6 @@ def get_agent_response(
         print("Anthropic review model selected; falling back to single-shot response without local agent tools")
         return get_response(
             messages,
-            temperature=temperature,
             reasoning_effort=reasoning_effort,
             text_format=text_format,
             model=model,
@@ -423,7 +420,6 @@ def get_agent_response(
         "model": model,
         "service_tier": "default",
         "store": True,
-        "temperature": temperature,
         "tools": tools,
         "parallel_tool_calls": True,  # batched tool calls share one turn, so the history is re-billed fewer times
         "prompt_cache_key": f"agent-run:{uuid4().hex}",
@@ -534,7 +530,6 @@ def get_response(
     messages: list[dict[str, str]],
     check_links: bool = True,
     remove: list[str] = (" @giscus[bot]",),
-    temperature: float = 1.0,
     reasoning_effort: str | None = None,
     text_format: dict | None = None,
     model: str | None = None,
@@ -577,8 +572,6 @@ def get_response(
                 "max_tokens": 32000,  # large replies (reviews) exceed 8192; truncated schema output is unusable
                 "messages": user_messages,
             }
-            if temperature != 1.0:  # 1.0 is the API default; newer Claude models 400 on explicit non-default values
-                data["temperature"] = temperature
             if system_content:
                 data["system"] = system_content
             # Tools (web_search) are not forwarded to Anthropic (caused empty responses with JSON schema)
@@ -589,7 +582,7 @@ def get_response(
                 json_instruction = f"\n\nRespond ONLY with valid JSON matching this schema:\n{json.dumps(schema)}"
                 data["system"] = (data.get("system") or "") + json_instruction
         else:
-            data = {"model": model, "input": messages, "store": background, "temperature": temperature}
+            data = {"model": model, "input": messages, "store": background}
             if model.startswith(("gpt-5.6-luna", "gpt-6-luna")):
                 data["prompt_cache_options"] = {"mode": "explicit"}  # disable costly implicit writes for one-shot calls
             if background:
@@ -733,7 +726,6 @@ Generate 2 outputs in a single JSON response for the PR titled '{title}' with th
     ]
     result = get_response(
         messages,
-        temperature=1.0,
         text_format={"format": {"type": "json_schema", "name": "pr_open_response", "strict": True, "schema": schema}},
     )
     if is_large and "summary" in result:
