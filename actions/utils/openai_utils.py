@@ -431,7 +431,7 @@ def get_agent_response(
         # far, so it only fires at the long-context billing boundary (2x input above 272k tokens on gpt-5.6 and gpt-6)
         "context_management": [{"type": "compaction", "compact_threshold": 272_000}],
     }
-    if model.startswith(("gpt-5", "gpt-6")):
+    if any(x in model for x in ("gpt-5", "gpt-6")):
         base_data["reasoning"] = {"effort": reasoning_effort or "medium"}
     if text_format:
         base_data["text"] = text_format
@@ -594,7 +594,7 @@ def get_response(
                 data["prompt_cache_options"] = {"mode": "explicit"}  # disable costly implicit writes for one-shot calls
             if background:
                 data["background"] = True
-            if model.startswith(("gpt-5", "gpt-6")):
+            if any(x in model for x in ("gpt-5", "gpt-6")):
                 data["reasoning"] = {"effort": reasoning_effort or "medium"}
             if text_format:
                 data["text"] = text_format
