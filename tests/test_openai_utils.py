@@ -24,10 +24,10 @@ from actions.utils.openai_utils import (
 
 def test_default_models():
     """Test canonical default models are priced so max_cost budgets stay enforceable."""
-    assert OPENAI_MODEL_DEFAULT == "gpt-5.6-luna"
-    assert OPENAI_REVIEW_MODEL_DEFAULT == "gpt-5.6-luna"
+    assert OPENAI_MODEL_DEFAULT == "gpt-6-luna"
+    assert OPENAI_REVIEW_MODEL_DEFAULT == "gpt-6-luna"
     assert ANTHROPIC_MODEL_DEFAULT == "claude-sonnet-5"
-    assert ANTHROPIC_REVIEW_MODEL_DEFAULT == "claude-opus-5"
+    assert ANTHROPIC_REVIEW_MODEL_DEFAULT == "claude-opus-5-5"
     for model in (
         OPENAI_MODEL_DEFAULT,
         OPENAI_REVIEW_MODEL_DEFAULT,
@@ -38,20 +38,22 @@ def test_default_models():
     assert MODEL_COSTS["gpt-5.6-sol"] == (5.00, 30.00)
     assert MODEL_COSTS["gpt-5.6-terra"] == (2.00, 12.00)
     assert MODEL_COSTS["gpt-5.6-luna"] == (0.20, 1.20)
+    assert MODEL_COSTS["gpt-6-sol"] == (2.00, 10.00)
+    assert MODEL_COSTS["gpt-6-luna"] == (0.10, 0.50)
 
 
-def test_gpt_56_cost_includes_cache_write_and_long_context_rates():
-    """GPT-5.6 cache writes bill at 125%, with long requests at 2x input and 1.5x output."""
+def test_gpt_6_cost_includes_cache_write_and_long_context_rates():
+    """GPT-5.6/GPT-6 cache writes bill at 125%, with long requests at 2x input and 1.5x output."""
     usage = {
         "input_tokens": 1000,
         "input_tokens_details": {"cached_tokens": 200, "cache_write_tokens": 300},
         "output_tokens": 100,
     }
-    expected = ((1000 - 200 * 0.9 + 300 * 0.25) * 5.00 + 100 * 30.00) / 1e6
-    assert _openai_usage_cost(usage, "gpt-5.6-sol") == expected
+    expected = ((1000 - 200 * 0.9 + 300 * 0.25) * 2.00 + 100 * 10.00) / 1e6
+    assert _openai_usage_cost(usage, "gpt-6-sol") == expected
     usage["input_tokens"] = 272001
-    expected = ((272001 - 200 * 0.9 + 300 * 0.25) * 5.00 * 2 + 100 * 30.00 * 1.5) / 1e6
-    assert _openai_usage_cost(usage, "gpt-5.6-sol") == expected
+    expected = ((272001 - 200 * 0.9 + 300 * 0.25) * 2.00 * 2 + 100 * 10.00 * 1.5) / 1e6
+    assert _openai_usage_cost(usage, "gpt-6-sol") == expected
     turns = [{"input_tokens": 150000, "output_tokens": 0}] * 2
     assert sum(_openai_usage_cost(turn, "gpt-5.6-luna") for turn in turns) == 0.06
     assert _openai_usage_cost({"input_tokens": 300000, "output_tokens": 0}, "gpt-5.6-luna") == 0.12

@@ -22,10 +22,10 @@ MAX_PROMPT_CHARS = round(128000 * 3.3 * 0.5)  # deliberate COST ceiling, not a c
 WEB_SEARCH_CALL_COST = 0.01  # $10 per 1K calls
 
 # Default models (single source of truth)
-OPENAI_MODEL_DEFAULT = "gpt-5.6-luna"
+OPENAI_MODEL_DEFAULT = "gpt-6-luna"
 ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-5"
-OPENAI_REVIEW_MODEL_DEFAULT = "gpt-5.6-luna"
-ANTHROPIC_REVIEW_MODEL_DEFAULT = "claude-opus-5"
+OPENAI_REVIEW_MODEL_DEFAULT = "gpt-6-luna"
+ANTHROPIC_REVIEW_MODEL_DEFAULT = "claude-opus-5-5"
 
 MODEL_COSTS = {  # (input, output) per 1M tokens
     # OpenAI models
@@ -40,6 +40,8 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "gpt-5.6-sol": (5.00, 30.00),
     "gpt-5.6-terra": (2.00, 12.00),
     "gpt-5.6-luna": (0.20, 1.20),
+    "gpt-6-sol": (2.00, 10.00),
+    "gpt-6-luna": (0.10, 0.50),
     "gpt-5-nano-2025-08-07": (0.05, 0.40),
     "gpt-5-mini-2025-08-07": (0.25, 2.00),
     # Anthropic Claude models
@@ -52,7 +54,8 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "claude-opus-4-7": (5.00, 25.00),
     "claude-opus-4-8": (5.00, 25.00),
     "claude-opus-5": (5.00, 25.00),
-    "claude-sonnet-5": (2.00, 10.00),  # introductory pricing through 2026-08-31, then (3.00, 15.00)
+    "claude-opus-5-5": (4.00, 20.00),
+    "claude-sonnet-5": (2.00, 10.00),
     "claude-fable-5": (10.00, 50.00),
 }
 SYSTEM_PROMPT_ADDITION = """Guidance:
@@ -256,12 +259,12 @@ def _normalize_usage_tokens(usage: dict) -> tuple[int, int, int]:
 
 
 def _openai_usage_cost(usage: dict, model: str) -> float:
-    """Compute billed USD cost including GPT-5.6 cache-write and long-context rates."""
+    """Compute billed USD cost including GPT-5.6/GPT-6 cache-write and long-context rates."""
     costs = MODEL_COSTS.get(model, (0.0, 0.0))
     input_tokens, cached_tokens, cache_write_tokens = _normalize_usage_tokens(usage)
-    cache_write_premium = cache_write_tokens * 0.25 if model.startswith("gpt-5.6-") else 0
+    cache_write_premium = cache_write_tokens * 0.25 if model.startswith(("gpt-5.6-", "gpt-6-")) else 0
     billed_input = input_tokens - cached_tokens * 0.9 + cache_write_premium
-    long_context = model.startswith("gpt-5.6-") and input_tokens > 272000
+    long_context = model.startswith(("gpt-5.6-", "gpt-6-")) and input_tokens > 272000
     return (
         billed_input * costs[0] * (2 if long_context else 1)
         + usage.get("output_tokens", 0) * costs[1] * (1.5 if long_context else 1)
@@ -378,7 +381,6 @@ def get_agent_response(
     tool_handlers: dict[str, Callable],
     text_format: dict | None = None,
     model: str | None = None,
-    temperature: float = 1.0,
     reasoning_effort: str | None = None,
     max_turns: int = 6,
     max_cost: float = 0.0,
@@ -400,7 +402,6 @@ def get_agent_response(
         print("Anthropic review model selected; falling back to single-shot response without local agent tools")
         return get_response(
             messages,
-            temperature=temperature,
             reasoning_effort=reasoning_effort,
             text_format=text_format,
             model=model,
@@ -419,15 +420,14 @@ def get_agent_response(
         "model": model,
         "service_tier": "default",
         "store": True,
-        "temperature": temperature,
         "tools": tools,
         "parallel_tool_calls": True,  # batched tool calls share one turn, so the history is re-billed fewer times
         "prompt_cache_key": f"agent-run:{uuid4().hex}",
         # Overflow guard only: compaction collapses the run to a few thousand tokens and drops the evidence gathered so
-        # far, so it only fires at the long-context billing boundary (2x input above 272k tokens on gpt-5.6)
+        # far, so it only fires at the long-context billing boundary (2x input above 272k tokens on gpt-5.6 and gpt-6)
         "context_management": [{"type": "compaction", "compact_threshold": 272_000}],
     }
-    if "gpt-5" in model:
+    if any(x in model for x in ("gpt-5", "gpt-6")):
         base_data["reasoning"] = {"effort": reasoning_effort or "medium"}
     if text_format:
         base_data["text"] = text_format
@@ -530,7 +530,6 @@ def get_response(
     messages: list[dict[str, str]],
     check_links: bool = True,
     remove: list[str] = (" @giscus[bot]",),
-    temperature: float = 1.0,
     reasoning_effort: str | None = None,
     text_format: dict | None = None,
     model: str | None = None,
@@ -573,8 +572,6 @@ def get_response(
                 "max_tokens": 32000,  # large replies (reviews) exceed 8192; truncated schema output is unusable
                 "messages": user_messages,
             }
-            if temperature != 1.0:  # 1.0 is the API default; newer Claude models 400 on explicit non-default values
-                data["temperature"] = temperature
             if system_content:
                 data["system"] = system_content
             # Tools (web_search) are not forwarded to Anthropic (caused empty responses with JSON schema)
@@ -585,12 +582,12 @@ def get_response(
                 json_instruction = f"\n\nRespond ONLY with valid JSON matching this schema:\n{json.dumps(schema)}"
                 data["system"] = (data.get("system") or "") + json_instruction
         else:
-            data = {"model": model, "input": messages, "store": background, "temperature": temperature}
-            if model.startswith("gpt-5.6-luna"):
+            data = {"model": model, "input": messages, "store": background}
+            if model.startswith(("gpt-5.6-luna", "gpt-6-luna")):
                 data["prompt_cache_options"] = {"mode": "explicit"}  # disable costly implicit writes for one-shot calls
             if background:
                 data["background"] = True
-            if "gpt-5" in model:
+            if any(x in model for x in ("gpt-5", "gpt-6")):
                 data["reasoning"] = {"effort": reasoning_effort or "medium"}
             if text_format:
                 data["text"] = text_format
@@ -729,7 +726,6 @@ Generate 2 outputs in a single JSON response for the PR titled '{title}' with th
     ]
     result = get_response(
         messages,
-        temperature=1.0,
         text_format={"format": {"type": "json_schema", "name": "pr_open_response", "strict": True, "schema": schema}},
     )
     if is_large and "summary" in result:

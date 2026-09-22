@@ -156,7 +156,7 @@ def generate_release_summary(
             f"Here's the release diff:\n\n{diff_text[:300000]}{format_skipped_files_note(skipped_files)}",
         },
     ]
-    return get_response(messages, temperature=1.0) + release_suffix
+    return get_response(messages) + release_suffix
 
 
 def create_github_release(event, tag_name: str, name: str, body: str):

@@ -52,7 +52,7 @@ def generate_pr_summary(repository, diff, title="", description=""):
         },
         {"role": "user", "content": prompt},
     ]
-    reply = get_response(messages, temperature=1.0)
+    reply = get_response(messages)
     if is_large:
         reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
 
