@@ -208,7 +208,7 @@ def main(*args, **kwargs):
                 label_descriptions,
                 body,
                 repository_context,
-                summarize=AUTO_PR_SUMMARY,
+                summarize=AUTO_PR_SUMMARY and diff[0] != "ERROR: UNABLE TO RETRIEVE DIFF.",
                 current_labels=[label["name"] for label in event.pr.get("labels", [])],
             )
 

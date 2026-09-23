@@ -100,6 +100,9 @@ def main(*args, **kwargs):
 
     print(f"Retrieving diff for PR {event.pr['number']}")
     diff = event.get_pr_diff()
+    if diff[0] == "ERROR: UNABLE TO RETRIEVE DIFF.":
+        print("Skipping PR summary - diff unavailable")
+        return
 
     # Generate PR summary
     print("Generating PR summary...")
