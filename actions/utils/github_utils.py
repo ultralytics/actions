@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from pathlib import Path
 
 import requests
@@ -269,7 +270,11 @@ class Action:
 
         self.pr = self.get(f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr['number']}", hard=True).json()
         url = f"{GITHUB_API_URL}/repos/{self.repository}/compare/{self.pr['base']['sha']}...{self.pr['head']['sha']}"
-        response = self.get(url, headers=self.headers_diff)
+        for delay in (0, 2, 4, 8):  # a head just pushed to a fork reaches the base repo asynchronously
+            time.sleep(delay)
+            response = self.get(url, headers=self.headers_diff)
+            if response.status_code in {200, 406}:
+                break
         if response.status_code == 200:
             diff = response.text or "ERROR: EMPTY DIFF, NO CODE CHANGES IN THIS PR."
         elif response.status_code == 406:
@@ -323,8 +328,6 @@ class Action:
         self, number: int, new_summary: str, max_retries: int = 2, fallback_description: str = ""
     ):
         """Update a PR description with a summary while preserving its current body."""
-        import time
-
         url = f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{number}"
         description = self.get(url).json().get("body") or ""
         for _ in range(max_retries if not description and not fallback_description else 0):

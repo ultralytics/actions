@@ -100,17 +100,16 @@ def main(*args, **kwargs):
 
     print(f"Retrieving diff for PR {event.pr['number']}")
     diff = event.get_pr_diff()
-
-    # Generate PR summary
-    print("Generating PR summary...")
-    description = (event.pr.get("body") or "").split(SUMMARY_MARKER)[0]
-    summary = generate_pr_summary(
-        event.repository, diff, event.pr.get("title") or "", remove_html_comments(description)
-    )
-
-    # Update PR description
-    print("Updating PR description...")
-    event.update_pr_description(event.pr["number"], summary, fallback_description=event.pr.get("body") or "")
+    description, _, summary = (event.pr.get("body") or "").partition(SUMMARY_MARKER)
+    if diff[0].startswith("ERROR:"):  # never summarize without a diff; merge handling reuses the existing summary
+        print(f"Keeping existing PR summary - {diff[0]}")
+    else:
+        print("Generating PR summary...")
+        summary = generate_pr_summary(
+            event.repository, diff, event.pr.get("title") or "", remove_html_comments(description)
+        )
+        print("Updating PR description...")
+        event.update_pr_description(event.pr["number"], summary, fallback_description=event.pr.get("body") or "")
 
     if event.pr.get("merged"):
         print("PR is merged, labeling fixed issues...")
