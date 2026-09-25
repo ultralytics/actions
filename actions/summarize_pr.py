@@ -13,6 +13,11 @@ from .utils import (
 )
 
 SUMMARY_MARKER = "## 🛠️ PR Summary"
+GRAPHQL_PR_EDITOR = """
+query($owner: String!, $repo: String!, $number: Int!) {
+    repository(owner: $owner, name: $repo) { pullRequest(number: $number) { editor { login, __typename } } }
+}
+"""
 
 
 def generate_merge_message(pr_summary, pr_credit, pr_url):
@@ -98,10 +103,13 @@ def main(*args, **kwargs):
     if event.should_skip_llm():
         return
 
-    print(f"Retrieving diff for PR {event.pr['number']}")
-    diff = event.get_pr_diff()
     description, _, summary = (event.pr.get("body") or "").partition(SUMMARY_MARKER)
-    if diff[0].startswith("ERROR:"):  # never summarize without a diff; merge handling reuses the existing summary
+    variables = {"owner": event.owner, "repo": event.repo_name, "number": event.pr["number"]}
+    data = event.graphql_request(GRAPHQL_PR_EDITOR, variables).get("data") or {}
+    editor = ((data.get("repository") or {}).get("pullRequest") or {}).get("editor") or {}
+    if summary and editor.get("__typename") == "User" and editor["login"] != event.get_username():
+        print(f"Keeping existing PR summary - last edited by @{editor['login']}")
+    elif (diff := event.get_pr_diff())[0].startswith("ERROR:"):  # never summarize without a diff
         print(f"Keeping existing PR summary - {diff[0]}")
     else:
         print("Generating PR summary...")
