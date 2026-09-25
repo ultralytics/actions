@@ -107,7 +107,8 @@ def main(*args, **kwargs):
     variables = {"owner": event.owner, "repo": event.repo_name, "number": event.pr["number"]}
     data = event.graphql_request(GRAPHQL_PR_EDITOR, variables).get("data") or {}
     editor = ((data.get("repository") or {}).get("pullRequest") or {}).get("editor") or {}
-    if summary and editor.get("__typename") == "User" and editor["login"] != event.get_username():
+    username = event.get_username()
+    if summary and username and editor.get("__typename") == "User" and editor["login"] != username:
         print(f"Keeping existing PR summary - last edited by @{editor['login']}")
     elif (diff := event.get_pr_diff())[0].startswith("ERROR:"):  # never summarize without a diff
         print(f"Keeping existing PR summary - {diff[0]}")
