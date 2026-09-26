@@ -319,7 +319,8 @@ class Action:
 
     def graphql_request(self, query: str, variables: dict | None = None) -> dict:
         """Executes a GraphQL query against the GitHub API."""
-        result = self.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables}).json()
+        response = self.post(GITHUB_GRAPHQL_URL, json={"query": query, "variables": variables})
+        result = response.json() if response.status_code == 200 else {"errors": [f"HTTP {response.status_code}"]}
         if "data" not in result or result.get("errors"):
             print(result.get("errors"))
         return result
