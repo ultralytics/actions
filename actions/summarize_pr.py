@@ -13,11 +13,26 @@ from .utils import (
 )
 
 SUMMARY_MARKER = "## 🛠️ PR Summary"
-GRAPHQL_PR_EDITOR = """
+GRAPHQL_PR_EDITS = """
 query($owner: String!, $repo: String!, $number: Int!) {
-    repository(owner: $owner, name: $repo) { pullRequest(number: $number) { editor { login, __typename } } }
+    repository(owner: $owner, name: $repo) {
+        pullRequest(number: $number) { userContentEdits(last: 100) { nodes { editor { login } diff } } }
+    }
 }
 """
+
+
+def summary_edited_by_user(event, summary):
+    """Return True when the PR summary differs from the one the bot last wrote to the PR body."""
+    if not summary or not (username := event.get_username()):
+        return False
+    variables = {"owner": event.owner, "repo": event.repo_name, "number": event.pr["number"]}
+    data = event.graphql_request(GRAPHQL_PR_EDITS, variables).get("data") or {}
+    edits = (((data.get("repository") or {}).get("pullRequest") or {}).get("userContentEdits") or {}).get("nodes")
+    for edit in reversed(edits or []):  # newest first; each edit's diff is the full body after that edit
+        if ((edit or {}).get("editor") or {}).get("login") == username:
+            return (edit.get("diff") or "").partition(SUMMARY_MARKER)[2].split() != summary.split()
+    return False
 
 
 def generate_merge_message(pr_summary, pr_credit, pr_url):
@@ -104,12 +119,8 @@ def main(*args, **kwargs):
         return
 
     description, _, summary = (event.pr.get("body") or "").partition(SUMMARY_MARKER)
-    variables = {"owner": event.owner, "repo": event.repo_name, "number": event.pr["number"]}
-    data = event.graphql_request(GRAPHQL_PR_EDITOR, variables).get("data") or {}
-    editor = ((data.get("repository") or {}).get("pullRequest") or {}).get("editor") or {}
-    username = event.get_username()
-    if summary and username and editor.get("__typename") == "User" and editor["login"] != username:
-        print(f"Keeping existing PR summary - last edited by @{editor['login']}")
+    if summary_edited_by_user(event, summary):
+        print("Keeping existing PR summary - edited by a user after the bot wrote it")
     elif (diff := event.get_pr_diff())[0].startswith("ERROR:"):  # never summarize without a diff
         print(f"Keeping existing PR summary - {diff[0]}")
     else:
