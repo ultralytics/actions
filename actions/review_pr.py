@@ -826,8 +826,8 @@ def _verified_local_checkout(head_sha: str | None) -> bool:
     )
 
 
-def clear_previous_review(event: Action) -> dict:
-    """Capture the bot's prior reviews, then dismiss their decisions and delete their superseded inline comments."""
+def clear_previous_review(event: Action) -> tuple[dict, list[str]]:
+    """Capture the bot's prior reviews, dismiss their decisions, and return the URLs of their inline comments."""
     pr_number, bot_username = event.pr.get("number"), event.get_username()
     reviews_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/reviews"
     reviews = event.paginate(reviews_base, hard=True)
@@ -838,7 +838,7 @@ def clear_previous_review(event: Action) -> dict:
     ]
     comments_base = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}/comments"
     comments = event.paginate(comments_base, hard=True)
-    history = _build_review_history(owned, comments, bot_username)  # capture responses before deleting the comments
+    history = _build_review_history(owned, comments, bot_username)
 
     owned_reviews = {review["id"] for review in owned}
     for review in owned:
@@ -848,11 +848,12 @@ def clear_previous_review(event: Action) -> dict:
                 json={"message": "Superseded by new review"},
                 hard=True,
             )
-    for comment in comments:
-        if comment.get("pull_request_review_id") in owned_reviews:  # 404: already deleted by a person or another run
-            url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments/{comment['id']}"
-            event.delete(url, expected_status=[200, 204, 404], hard=True)
-    return history
+    stale = [
+        f"{GITHUB_API_URL}/repos/{event.repository}/pulls/comments/{comment['id']}"
+        for comment in comments
+        if comment.get("pull_request_review_id") in owned_reviews
+    ]
+    return history, stale
 
 
 def post_review_summary(event: Action, review_data: dict, review_number: int = 1) -> None:
@@ -918,8 +919,8 @@ def post_review_summary(event: Action, review_data: dict, review_number: int = 1
             if "```" not in suggestion:
                 # Extract original line indentation and apply to suggestion
                 if original_line := review_data.get("diff_files", {}).get(file_path, {}).get(side, {}).get(line):
-                    indent = len(original_line) - len(original_line.lstrip())
-                    suggestion = " " * indent + suggestion.strip()
+                    indent = original_line[: len(original_line) - len(original_line.lstrip())]
+                    suggestion = indent + suggestion.strip()  # keep tabs as tabs
                 comment_body += f"\n\n**Suggested change:**\n```suggestion\n{suggestion}\n```"
 
         # Build comment with optional start_line for multi-line context
@@ -945,9 +946,11 @@ def post_review_summary(event: Action, review_data: dict, review_number: int = 1
 def run_review(event: Action, pr_title: str, pr_description: str) -> None:
     """Supersede prior reviews, then generate and publish the next numbered review of the PR head."""
     diff, head_sha = event.get_pr_diff(), event.pr["head"]["sha"]
-    history = clear_previous_review(event)
+    history, stale_comments = clear_previous_review(event)
     review = generate_pr_review(event.repository, diff, pr_title, pr_description, event, head_sha, history)
     post_review_summary(event, review, review_number=len(history["reviews"]) + 1)
+    for url in stale_comments:  # deleted only once the new review is up; 404: already deleted by a person or run
+        event.delete(url, expected_status=[200, 204, 404], hard=True)
     print("PR review completed")
 
 

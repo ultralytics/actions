@@ -294,7 +294,7 @@ def test_post_review_summary_numbers_reviews_and_logs_findings():
     assert "**HIGH** `a.py:3` retry loop never exits" in body
 
 
-def test_clear_previous_review_captures_history_and_deletes_inline_comments():
+def test_clear_previous_review_captures_history_and_defers_inline_comment_deletion():
     """Test replacement reviews capture prior context, invalidate bot decisions, and remove only bot inline comments."""
     event = MagicMock()
     event.repository = "org/repo"
@@ -350,7 +350,7 @@ def test_clear_previous_review_captures_history_and_deletes_inline_comments():
         ],
     ]
 
-    history = review_pr.clear_previous_review(event)
+    history, stale_comments = review_pr.clear_previous_review(event)
 
     assert [r["number"] for r in history["reviews"]] == [1, 2]
     assert history["reviews"][1]["commit"] == "b" * 7
@@ -364,11 +364,8 @@ def test_clear_previous_review_captures_history_and_deletes_inline_comments():
         json={"message": "Superseded by new review"},
         hard=True,
     )
-    event.delete.assert_called_once_with(
-        "https://api.github.com/repos/org/repo/pulls/comments/4",
-        expected_status=[200, 204, 404],
-        hard=True,
-    )
+    assert stale_comments == ["https://api.github.com/repos/org/repo/pulls/comments/4"]
+    event.delete.assert_not_called()  # deleted by run_review only after the new review posts
 
 
 def test_incomplete_review_evidence_cannot_approve():
