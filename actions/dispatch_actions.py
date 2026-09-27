@@ -31,7 +31,7 @@ def get_pr_branch(event) -> tuple[str, str | None]:
     # Check if PR is from a fork
     if head.get("repo") and head["repo"]["id"] != pr_data["base"]["repo"]["id"]:  # is from a fork
         # Create temp branch in base repo by pushing fork code
-        temp_branch = f"temp-ci-{pr_number}-{int(time.time() * 1000)}"
+        temp_branch = f"temp-ci-{pr_number}"  # stable per PR so CI concurrency groups can supersede older runs
         fork_repo = head["repo"]["full_name"]
         fork_branch = head["ref"]
         base_repo = event.repository
@@ -59,8 +59,10 @@ def get_pr_branch(event) -> tuple[str, str | None]:
                     capture_output=True,
                 )
 
-                # Push temp branch to base repo
-                subprocess.run(["git", "push", "origin", temp_branch], cwd=repo_dir, check=True, capture_output=True)
+                # Push temp branch to base repo, overwriting any leftover temp-ci-<PR> ref
+                subprocess.run(
+                    ["git", "push", "--force", "origin", temp_branch], cwd=repo_dir, check=True, capture_output=True
+                )
             except subprocess.CalledProcessError as e:
                 # Sanitize error output to prevent token leakage
                 stderr = e.stderr.decode() if e.stderr else "No stderr output"

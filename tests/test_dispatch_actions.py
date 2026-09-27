@@ -43,11 +43,11 @@ def test_get_pr_branch_fork():
     }
 
     mock_event.token = "test-token"
-    with patch("time.time", return_value=1234567.890), patch("subprocess.run") as mock_run:
+    with patch("subprocess.run") as mock_run:
         branch, temp_branch = get_pr_branch(mock_event)
 
-    assert branch == "temp-ci-456-1234567890"
-    assert temp_branch == "temp-ci-456-1234567890"
+    assert branch == "temp-ci-456"
+    assert temp_branch == "temp-ci-456"
     # Verify git commands were called
     assert mock_run.call_count == 4  # clone, remote add, fetch, push
 
