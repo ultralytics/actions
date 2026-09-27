@@ -59,8 +59,13 @@ def get_pr_branch(event) -> tuple[str, str | None]:
                     capture_output=True,
                 )
 
-                # Push temp branch to base repo
-                subprocess.run(["git", "push", "origin", temp_branch], cwd=repo_dir, check=True, capture_output=True)
+                # Push temp branch to base repo, failing if it already exists (empty lease = ref must be absent)
+                subprocess.run(
+                    ["git", "push", f"--force-with-lease={temp_branch}:", "origin", temp_branch],
+                    cwd=repo_dir,
+                    check=True,
+                    capture_output=True,
+                )
             except subprocess.CalledProcessError as e:
                 # Sanitize error output to prevent token leakage
                 stderr = e.stderr.decode() if e.stderr else "No stderr output"
