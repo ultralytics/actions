@@ -49,6 +49,10 @@ def test_main_selects_header_by_repository(tmp_path, monkeypatch, capsys):
     (tmp_path / "node_modules" / "b.js").write_text("x\n")
     event = MagicMock(repository="ultralytics/repo")
     with patch("actions.update_file_headers.Action", return_value=event):
+        monkeypatch.setattr(update_file_headers, "HEADER", "False")  # header: false opts out, even in Ultralytics repos
+        update_file_headers.main()
+        assert (tmp_path / "a.py").read_text() == "x = 1\n"
+        monkeypatch.setattr(update_file_headers, "HEADER", None)
         event.is_repo_private.return_value = True
         update_file_headers.main()
         assert f"# © 2014-{YEAR} Ultralytics Inc. 🚀 All rights reserved." in (tmp_path / "a.py").read_text()

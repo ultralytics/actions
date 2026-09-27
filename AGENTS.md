@@ -34,33 +34,33 @@ source .venv/bin/activate
 uv pip install -e ".[dev]"
 pytest tests -v
 pytest tests/test_first_interaction.py -v
-ruff format --line-length 120 .
+INPUTS_PRETTIER=false INPUTS_SPELLING=false ultralytics-actions-format # the bot's exact ruff and docstring pass
 ```
 
-Keep Python 3.8 compatibility; CI also runs a recent Python. Formatter flags are owned by `action.yml` and mirrored in `actions/format_code.py`: update both, including codespell lists. Run pytest from the repository root; the real Markdown formatter test can rewrite files, so inspect the working tree afterward. Missing `shfmt` is only logged. See `.github/workflows/ci.yml` for the full check matrix.
+Keep Python 3.8 compatibility; `.github/workflows/ci.yml` tests Python 3.8 and 3.14 on Ubuntu and macOS. Formatter flags are owned by `action.yml` and mirrored in `actions/format_code.py`: update both, including codespell lists (`tests/test_format_code.py` enforces this). Run pytest from the repository root; the real Markdown formatter test can rewrite files, so inspect the working tree afterward.
 
 ## Where to look
 
-- Formatting → `action.yml`, `actions/format_code.py`.
-- Reviews and summaries → `actions/review_pr.py`, `actions/first_interaction.py`.
+- Formatting → `action.yml`, `actions/format_code.py`; headers and Markdown → `actions/update_file_headers.py`, `actions/update_markdown_code_blocks.py`.
+- PR open (labels, summary, first review) → `actions/first_interaction.py`; requested reviews → `actions/review_pr.py`; merge summaries → `actions/summarize_pr.py`.
 - Models and prompts → `actions/utils/openai_utils.py`.
 - GitHub requests → `actions/utils/github_utils.py`.
-- Headers and Markdown → `actions/update_file_headers.py`, `actions/update_markdown_code_blocks.py`.
+- `@ultralytics/run-*` PR comments → `actions/dispatch_actions.py`; sub-actions used across repos (`retry`, `setup-uv`, `cla`, `cleanup-disk`, `dependabot`, `github-report`) → `<name>/action.yml`.
 - Release gating → `actions/utils/version_utils.py`, `.github/workflows/publish.yml`.
 
 ## Conventions
 
-- Ultralytics-owned PyPI packages use `MAJOR.MINOR.PATCH` versions only; no suffixes.
+- Every merge to `main` goes live at once for all consumers (`ultralytics/actions@main`, built from the action checkout) and the fork PR webhook; this repo's `format.yml` also runs `@main`, so a PR's own `action.yml` edits run only after merge. Bump `__version__` in `actions/__init__.py` (`MAJOR.MINOR.PATCH`, no suffixes) when package behavior changes; it gates only PyPI publishing (`publish.yml`).
 - License headers (`# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license`) are added automatically by Ultralytics Actions (`ultralytics-actions-headers`, extensions in `COMMENT_MAP`) — don't add or revert them manually.
-- Bump `__version__` in `actions/__init__.py` when a PR changes package behavior — publishing to PyPI is gated on the version change (`publish.yml`).
 - Google-style docstrings, single-line summaries where possible; formatting is enforced by the repo's own action (`format.yml`), which auto-commits fixes to PRs.
-- Tests use `unittest.mock`/`monkeypatch` to patch env vars and network calls; no test reaches the network (`tests/test_urls.py` patches `is_url` with an autouse fixture and calls it with `check=False`). Modules listed in `[tool.coverage.run] omit` are excluded from the coverage report.
+- Tests use `unittest.mock`/`monkeypatch` to patch env vars and network calls; no test reaches the network.
 - Commits and PRs use plain git identity — no AI attribution, co-author lines, or generated-with footers.
 
 ## Pitfalls
 
-- Env is read at import time into module constants: `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/`MODEL`/`REVIEW_MODEL` (`openai_utils.py`), `LABELS`→`AUTO_LABELS`, `SUMMARY`→`AUTO_PR_SUMMARY`, `REVIEW`→`AUTO_PR_REVIEW`, `BLOCK_USER` (`first_interaction.py`), `CURRENT_TAG`/`PREVIOUS_TAG` (`summarize_release.py`), `HEADER` (`update_file_headers.py`). Setting `os.environ` after import has no effect — patch the module attribute (e.g. `patch("actions.utils.openai_utils.OPENAI_API_KEY", "x")`, `patch("actions.first_interaction.AUTO_PR_REVIEW", False)`).
-- `_verified_local_checkout` depends only on whether the reviewed commit exists in the runner's git objects, not on the event type. The root `action.yml` checks out the PR head only for `pull_request` events, so under `pull_request_target` the review reads files through the GitHub API and drops the `search_repo` tool unless the consumer workflow checked out that head itself.
-- `Action`'s session retries connection failures on every method but 5xx responses only on `GET`/`PUT`/`DELETE`; a `POST`/`PATCH` that returns 5xx is not retried by the session — callers such as `cla._read`/`_persist` and `get_response` implement their own loops.
-- `publish.yml`'s `check` job gates releases with the **PyPI-installed** `ultralytics-actions` (`shell: python` temp script plus the `ultralytics-actions-summarize-release` console script, neither of which sees the checkout's `actions/`), so a change to `version_utils.py` or `summarize_release.py` only affects the next release after it is itself published.
+- Fork PRs get no commit from `action.yml` (its push step requires a same-repo head) and, under `pull_request`, no secrets; a separate GitHub App webhook service, redeployed by `publish.yml`'s `deploy-actions` job, handles them. It runs `ultralytics-actions-headers` and `ultralytics-actions-format` in its own clone with the repo workflow's `with:` inputs as `INPUTS_<NAME>` env (plus `HEADER`), first-interaction on open, review-pr on review requests, and `dispatch_actions` for all PR comments. `action.yml` `if:` gates never apply there: keep input semantics in the CLIs and their names and env contract stable.
+- Env is read at import time into module constants: `OPENAI_API_KEY`/`ANTHROPIC_API_KEY`/`MODEL`/`REVIEW_MODEL` (`openai_utils.py`), `LABELS`→`AUTO_LABELS`, `SUMMARY`→`AUTO_PR_SUMMARY`, `REVIEW`→`AUTO_PR_REVIEW`, `BLOCK_USER` (`first_interaction.py`), `CURRENT_TAG`/`PREVIOUS_TAG` (`summarize_release.py`), `HEADER` (`update_file_headers.py`). Setting `os.environ` after import has no effect — patch the module attribute (e.g. `patch("actions.first_interaction.AUTO_PR_REVIEW", False)`).
+- Reviews keep the `search_repo` tool only when the PR head commit exists locally (`_verified_local_checkout`). `action.yml` checks out the head only for `pull_request` events, so `pull_request_target` reviews read files through the GitHub API unless the consumer workflow checked out that head itself.
+- `Action`'s session retries connection failures on every method but 5xx responses only on `GET`/`PUT`/`DELETE`, so a `POST`/`PATCH` 5xx reaches the caller unretried.
+- `publish.yml`'s `check` job gates releases with the **PyPI-installed** `ultralytics-actions`, not the checkout's `actions/`, so a change to `version_utils.py` or `summarize_release.py` only affects the next release after it is itself published.
 - The `Alert` label path in `apply_and_check_labels` rewrites the title/body, locks, and (for issues/discussions) closes the item for a non-org member as soon as the model returns `Alert` and the repository has that label; `BLOCK_USER=true` additionally blocks the account org-wide.
