@@ -186,6 +186,8 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
 
 def main(*args, **kwargs):
     """Automates file header updates for supported file types under the current working directory."""
+    if str(HEADER).lower() == "false":  # header: false opts out, also for callers outside action.yml
+        return
     event = Action(*args, **kwargs)
     current_year = datetime.now(timezone.utc).year
     repository = (event.repository or "").lower()
@@ -197,7 +199,7 @@ def main(*args, **kwargs):
             header = f"{notice} All rights reserved. CONFIDENTIAL: Unauthorized use or distribution prohibited."
         else:
             header = "Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license"
-    elif HEADER and str(HEADER).lower() not in {"true", "false", "none"}:
+    elif HEADER and str(HEADER).lower() not in {"true", "none"}:
         header = HEADER
     else:
         return
