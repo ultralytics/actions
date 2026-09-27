@@ -93,49 +93,48 @@ def trigger_and_get_workflow_info(
             )
             if isinstance(response.status_code, int) and response.status_code != 204:
                 failed[file] = response.json().get("message", "workflow dispatch failed")
-
-        # Wait for workflows to be created and start
-        if len(failed) < len(workflow_files):
-            time.sleep(60)
-
-        # Collect information about all workflows
-        for file in workflow_files:
-            if file in failed:
-                results.append(
-                    {
-                        "name": file.replace(".yml", "").title(),
-                        "file": file,
-                        "url": f"https://github.com/{repo}/actions/workflows/{file}",
-                        "run_number": None,
-                        "error": failed[file],
-                    }
-                )
-                continue
-
-            # Get workflow name
-            response = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}")
-            name = file.replace(".yml", "").title()
-            if response.status_code == 200:
-                name = response.json().get("name", name)
-
-            # Get run information
-            run_url = f"https://github.com/{repo}/actions/workflows/{file}"
-            run_number = None
-
-            runs_response = event.get(
-                f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/runs?branch={branch}&event=workflow_dispatch&per_page=1"
-            )
-
-            if runs_response.status_code == 200 and (runs := runs_response.json().get("workflow_runs", [])):
-                run_url = runs[0].get("html_url", run_url)
-                run_number = runs[0].get("run_number")
-
-            results.append({"name": name, "file": file, "url": run_url, "run_number": run_number})
     finally:
-        # Always delete temp branch even if workflow collection fails
+        # Runs check out the dispatched SHA, so delete the shared temp branch before a newer dispatch can reuse it
         if temp_branch:
             event.delete(f"{GITHUB_API_URL}/repos/{repo}/git/refs/heads/{temp_branch}")
 
+    # Wait for workflows to be created and start
+    if len(failed) < len(workflow_files):
+        time.sleep(60)
+
+    # Collect information about all workflows
+    for file in workflow_files:
+        if file in failed:
+            results.append(
+                {
+                    "name": file.replace(".yml", "").title(),
+                    "file": file,
+                    "url": f"https://github.com/{repo}/actions/workflows/{file}",
+                    "run_number": None,
+                    "error": failed[file],
+                }
+            )
+            continue
+
+        # Get workflow name
+        response = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}")
+        name = file.replace(".yml", "").title()
+        if response.status_code == 200:
+            name = response.json().get("name", name)
+
+        # Get run information
+        run_url = f"https://github.com/{repo}/actions/workflows/{file}"
+        run_number = None
+
+        runs_response = event.get(
+            f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/runs?branch={branch}&event=workflow_dispatch&per_page=1"
+        )
+
+        if runs_response.status_code == 200 and (runs := runs_response.json().get("workflow_runs", [])):
+            run_url = runs[0].get("html_url", run_url)
+            run_number = runs[0].get("run_number")
+
+        results.append({"name": name, "file": file, "url": run_url, "run_number": run_number})
     return results
 
 
