@@ -214,7 +214,7 @@ runs:
         echo "::group::Run Prettier"
         trap 'echo "::endgroup::"' EXIT
         # Preinstalled pinned tools (the fork PR webhook image) are reused; its unprivileged formatter cannot install
-        [ "$(prettier --version 2>/dev/null)" = "3.8.5" ] || npm install -g prettier@3.8.5
+        [ "$(prettier --version 2>/dev/null)" = "3.9.9" ] || npm install -g prettier@3.9.9
         [ "$(shfmt --version 2>/dev/null)" = "v3.13.1" ] || {
           curl -fsSL "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" -o "$(npm prefix -g)/bin/shfmt"
           chmod +x "$(npm prefix -g)/bin/shfmt"
