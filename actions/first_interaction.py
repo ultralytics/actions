@@ -33,7 +33,7 @@ def get_pr_first_comment_template(repository: str, username: str) -> str:
 - ✅ **Ensure CI Checks Pass**: Verify all Ultralytics [Continuous Integration (CI)](https://docs.ultralytics.com/help/CI) checks are passing. If any checks fail, please address the issues.
 - ✅ **Update Documentation**: Update the relevant [documentation](https://docs.ultralytics.com) for any new or modified features.
 - ✅ **Add Tests**: If applicable, include or update tests to cover your changes, and confirm that all tests are passing.
-- ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA) if this is your first Ultralytics PR by writing "I have read the CLA Document and I sign the CLA" in a new message.
+- ✅ **Sign the CLA**: Please ensure you have signed our [Contributor License Agreement](https://docs.ultralytics.com/help/CLA) if this is your first Ultralytics PR; the CLA check will comment with signing instructions if needed.
 - ✅ **Minimize Changes**: Limit your changes to the **minimum** necessary for your bug fix or feature addition. _"It is not daily increase but daily decrease, hack away the unessential. The closer to the source, the less wastage there is."_ — Bruce Lee
 
 For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing). Don't hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀"""
