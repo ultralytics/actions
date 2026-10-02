@@ -30,7 +30,7 @@ runs:
     - name: Install latest uv
       id: latest
       continue-on-error: true
-      uses: astral-sh/setup-uv@v10.0.0
+      uses: astral-sh/setup-uv@v10.2.0
       with:
         version: latest
         python-version: ${{ inputs.python-version }}
@@ -42,7 +42,7 @@ runs:
 
     - name: Install latest known uv
       if: steps.latest.outcome == 'failure'
-      uses: astral-sh/setup-uv@v10.0.0
+      uses: astral-sh/setup-uv@v10.2.0
       with:
         version: latest-known
         python-version: ${{ inputs.python-version }}
