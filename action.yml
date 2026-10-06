@@ -19,7 +19,7 @@ inputs:
     required: false
     default: "false"
   python-version:
-    description: "Python version to set up before running Python tooling (empty = runner default)"
+    description: "Python version for Python tooling (empty = runner default)"
     required: false
     default: ""
   python_docstrings:
@@ -101,14 +101,10 @@ inputs:
 runs:
   using: "composite"
   steps:
-    - name: Setup Python
-      if: inputs.python == 'true' && inputs.python-version != ''
-      uses: actions/setup-python@v7
-      with:
-        python-version: ${{ inputs.python-version }}
-
     - uses: ultralytics/actions/setup-uv@main
       with:
+        python-version: ${{ inputs.python-version }}
+        activate-environment: false
         ignore-empty-workdir: true
     - name: Install Dependencies
       # Note tomli required for codespell with pyproject.toml

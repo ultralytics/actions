@@ -186,13 +186,10 @@ Check every pull request commit author against the central Ultralytics CLA signa
 
 ### 6. Setup uv Action
 
-Use the official uv setup action with Ultralytics defaults, optional Python environment activation, and dependency caching.
+Use the official uv setup action with Ultralytics defaults: the latest uv with a fallback, and an activated `.venv` on the newest preinstalled runner Python.
 
 ```yaml
 - uses: ultralytics/actions/setup-uv@main
-  with:
-    python-version: "3.14"
-    activate-environment: true
 ```
 
 [**📖 Full Documentation →**](setup-uv/README.md)

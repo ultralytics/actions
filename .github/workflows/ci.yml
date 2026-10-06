@@ -23,13 +23,10 @@ jobs:
       - uses: actions/checkout@v7
       - uses: ./setup-uv
         with:
-          python-version: "3.14"
-          activate-environment: true
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
       - run: |
           uv --version
-          python -c "import os, sys; assert sys.version_info[:2] == (3, 14); assert os.environ['VIRTUAL_ENV'].endswith(r'\.venv')"
+          python -c "import os, sys; assert 'hostedtoolcache' in sys.base_prefix; assert os.environ['VIRTUAL_ENV'].endswith(r'\.venv')"
 
   Test:
     runs-on: ${{ matrix.os }}
@@ -45,9 +42,7 @@ jobs:
       - uses: ./setup-uv
         with:
           python-version: ${{ matrix.python-version }}
-          activate-environment: true
           enable-cache: true
-          cache-dependency-glob: "pyproject.toml"
 
       - name: Install dependencies
         run: |

@@ -1,24 +1,20 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 name: "Setup uv"
-description: "Install uv with optional Python environment activation and dependency caching"
+description: "Install uv and activate a .venv on the newest preinstalled runner Python"
 inputs:
   python-version:
-    description: "Python version for uv commands"
+    description: "Python version for uv commands (default: newest preinstalled runner Python)"
     required: false
     default: ""
   activate-environment:
     description: "Create and activate a .venv environment"
     required: false
-    default: "false"
+    default: "true"
   enable-cache:
     description: "Cache uv downloads between workflow runs"
     required: false
     default: "false"
-  cache-dependency-glob:
-    description: "Dependency files used to invalidate the uv cache"
-    required: false
-    default: "**/uv.lock"
   ignore-empty-workdir:
     description: "Suppress the warning when the working directory is intentionally empty"
     required: false
@@ -27,6 +23,16 @@ inputs:
 runs:
   using: "composite"
   steps:
+    - name: Use preinstalled Python
+      if: inputs.activate-environment == 'true' || inputs.python-version != ''
+      shell: bash
+      env:
+        PYTHON_VERSION: ${{ inputs.python-version }}
+      run: |
+        # Put the newest matching tool cache Python on PATH so uv uses it instead of downloading one
+        dir=$(printf '%s\n' "$RUNNER_TOOL_CACHE/Python/${PYTHON_VERSION:-3}".*/*64 | sort -V | tail -1)
+        if [ -d "$dir/bin" ]; then echo "$dir/bin" >> "$GITHUB_PATH"; elif [ -d "$dir" ]; then echo "$dir" >> "$GITHUB_PATH"; fi
+
     - name: Install latest uv
       id: latest
       continue-on-error: true
@@ -36,7 +42,6 @@ runs:
         python-version: ${{ inputs.python-version }}
         activate-environment: ${{ inputs.activate-environment }}
         enable-cache: ${{ inputs.enable-cache }}
-        cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
         ignore-empty-workdir: ${{ inputs.ignore-empty-workdir }}
         ignore-nothing-to-cache: true
 
@@ -48,6 +53,5 @@ runs:
         python-version: ${{ inputs.python-version }}
         activate-environment: ${{ inputs.activate-environment }}
         enable-cache: ${{ inputs.enable-cache }}
-        cache-dependency-glob: ${{ inputs.cache-dependency-glob }}
         ignore-empty-workdir: ${{ inputs.ignore-empty-workdir }}
         ignore-nothing-to-cache: true
