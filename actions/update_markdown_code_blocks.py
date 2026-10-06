@@ -187,7 +187,7 @@ def format_code_with_ruff(temp_dir):
         # D101 Missing docstring in public class
         # D103 Missing docstring in public function
         # F401 Imported but unused (snippets often show imports alone)
-        # RUF100 Unused noqa (keeps authored # noqa comments now that F401 is ignored)
+        # RUF100 Unused noqa (keeps authored
         # F821 Undefined name
         # F841 Local variable is assigned to but never used
         # Note removed --extend-select=FA to not add 'from future' imports in Python 3.8 environments
