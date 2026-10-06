@@ -9,7 +9,7 @@ Provides Ultralytics defaults for the official [uv setup action](https://github.
 - run: uv pip install -e .
 ```
 
-Set `activate-environment: false` when the job manages its own environment (self-hosted runners, conda) or the action runs before checkout.
+Set `activate-environment: false` when the job manages its own environment (self-hosted runners, conda) or a composite action must leave the caller's environment unchanged.
 
 ## Inputs
 
