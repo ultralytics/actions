@@ -28,4 +28,4 @@
 #     ├── test_summarize_pr.py
 #     └── ...
 
-__version__ = "0.3.33"
+__version__ = "0.4.0"
