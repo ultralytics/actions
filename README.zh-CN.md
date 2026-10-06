@@ -186,7 +186,7 @@ jobs:
 
 ### 6. Setup uv Action
 
-使用带 Ultralytics 默认配置的官方 uv setup action：安装最新 uv（失败时回退），并基于 runner 预装的最新 Python 激活 `.venv`。
+使用带 Ultralytics 默认配置的官方 uv setup action：安装最新 uv（失败时回退），并基于 runner 预装的最新 Python 激活虚拟环境。
 
 ```yaml
 - uses: ultralytics/actions/setup-uv@main

@@ -186,7 +186,7 @@ Check every pull request commit author against the central Ultralytics CLA signa
 
 ### 6. Setup uv Action
 
-Use the official uv setup action with Ultralytics defaults: the latest uv with a fallback, and an activated `.venv` on the newest preinstalled runner Python.
+Use the official uv setup action with Ultralytics defaults: the latest uv with a fallback, and an activated venv on the newest preinstalled runner Python.
 
 ```yaml
 - uses: ultralytics/actions/setup-uv@main

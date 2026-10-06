@@ -26,7 +26,7 @@ jobs:
           enable-cache: true
       - run: |
           uv --version
-          python -c "import os, sys; assert 'hostedtoolcache' in sys.base_prefix; assert os.environ['VIRTUAL_ENV'].endswith(r'\.venv')"
+          python -c "import os, sys; assert 'hostedtoolcache' in sys.base_prefix; assert os.environ['VIRTUAL_ENV'].startswith(os.environ['RUNNER_TEMP'])"
 
   Test:
     runs-on: ${{ matrix.os }}
