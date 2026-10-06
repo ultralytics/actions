@@ -103,7 +103,7 @@ runs:
   steps:
     - uses: ultralytics/actions/setup-uv@main
       with:
-        python-version: ${{ inputs.python-version }}
+        python-version: ${{ inputs.python == 'true' && inputs.python-version || '' }}
         activate-environment: false
         ignore-empty-workdir: true
     - name: Install Dependencies
