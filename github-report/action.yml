@@ -50,23 +50,9 @@ runs:
         activate-environment: false
         ignore-empty-workdir: true
 
-    - name: Install ultralytics-actions
-      env:
-        ACTION_PATH: ${{ github.action_path }}/..
-      run: |
-        echo "::group::Install ultralytics-actions"
-        package_dir=$(mktemp -d "$RUNNER_TEMP/ultralytics-actions.XXXXXX")
-        uv build --wheel "$ACTION_PATH" --out-dir "$package_dir"
-        if [ "$(uname)" = "Darwin" ]; then
-          uv pip install --system --break-system-packages "$package_dir"/*.whl
-        else
-          sudo env "PATH=$PATH" uv pip install --system --break-system-packages "$package_dir"/*.whl
-        fi
-        echo "::endgroup::"
-      shell: bash
-
     - name: GitHub Report
       env:
+        ACTION_PATH: ${{ github.action_path }}/..
         GH_TOKEN: ${{ inputs.token }}
         ORG: ${{ inputs.org }}
         VISIBILITY: ${{ inputs.visibility }}
@@ -79,6 +65,9 @@ runs:
         REPORT_DAYS: ${{ inputs.days }}
       run: |
         echo "::group::GitHub Report"
-        python -m actions.github_report
+        package_dir=$(mktemp -d "$RUNNER_TEMP/ultralytics-actions.XXXXXX")
+        uv build --wheel "$ACTION_PATH" --out-dir "$package_dir"
+        # Isolated from any venv the caller activated, so this runs the code at this action's ref
+        uv run --isolated --no-project --with "$package_dir"/*.whl python -I -m actions.github_report
         echo "::endgroup::"
       shell: bash
