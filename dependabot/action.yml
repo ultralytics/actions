@@ -47,6 +47,6 @@ runs:
         package_dir=$(mktemp -d "$RUNNER_TEMP/ultralytics-actions.XXXXXX")
         uv build --wheel "$ACTION_PATH" --out-dir "$package_dir"
         # Isolated from any venv the caller activated, so this runs the code at this action's ref
-        uv run --isolated --no-project --with "$package_dir"/*.whl python -m actions.dependabot
+        uv run --isolated --no-project --with "$package_dir"/*.whl python -I -m actions.dependabot
         echo "::endgroup::"
       shell: bash
