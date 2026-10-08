@@ -17,15 +17,16 @@ MAX_JOB_LOG_CHARS = 20000
 LOG_NOISE = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z |\x1b\[[0-9;]*[A-Za-z]", re.MULTILINE)  # timestamps, colors
 PROMPT = """Triage this failed GitHub Actions run for the maintainers' chat alert, using the run details and failed job logs below.
 
-Reply in GitHub-flavored Markdown in at most 3 short lines and 60 words, with no headings, tables, emoji or preamble:
+Reply in GitHub-flavored Markdown in at most 3 short lines and 60 words, with no headings, tables, emoji (drop any from quoted text) or preamble:
 - Line 1: `**<Bug|Transient|Unclear>** - <what failed and its decisive error, in one short sentence>`
   - Bug: a re-run of the same commit would fail again until something changes, such as the code, tests, build configuration, workflow or a dependency release.
-  - Transient: a re-run would likely pass, such as a flaky or timing-sensitive test, a network, registry or rate-limit error, or a runner fault like lost communication, a full disk or a shutdown.
+  - Transient: a re-run would likely pass, such as a flaky or timing-sensitive test, a network, registry or rate-limit error, or a runner fault like lost communication or a shutdown.
   - Unclear: the logs do not show the cause, for example when they are cut off or missing.
+  - If jobs fail for different reasons, Line 1 covers the most actionable one (Bug, then Unclear, then Transient).
 - Then at most 2 bullets: the likely root cause, with the fix when the logs make it evident, and any other distinct failure. Group matrix jobs that fail the same way.
 
 Rules:
-- Ground every claim in the logs. The first real error is the cause; later test failures, teardown errors and lines like "Process completed with exit code 1" are its symptoms.
+- Ground every claim in the logs. The cause is the earliest error the failure follows from; errors the run recovered from, such as retried downloads, are noise, and later test failures, teardown errors and lines like "Process completed with exit code 1" are its symptoms.
 - Quote errors, test names and identifiers in inline code.
 - Link each failed job you name to its job URL. Link only the URLs in the run details, or a repository file named in the logs as {repo_url}/blob/{sha}/<path>#L<line> with <path> relative to the repository root (drop runner checkout prefixes like /home/runner/work/<name>/<name>/). Never invent URLs, issue or PR numbers, versions or commands."""
 
@@ -35,12 +36,15 @@ def get_log_tail(event: Action, repo: str, job_id: int, chars: int) -> str:
     r = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/jobs/{job_id}/logs")
     if r.status_code != 200:
         return f"(log unavailable: HTTP {r.status_code})"
-    return LOG_NOISE.sub("", r.text.split("Post job cleanup.")[0])[-chars:]
+    log = r.content.decode(errors="replace")  # served as text/plain without a charset, which requests reads as Latin-1
+    return LOG_NOISE.sub("", log.split("Post job cleanup.")[0])[-chars:]
 
 
 def analyze_run(repo: str, run_id: str) -> str:
-    """Return a Markdown triage of the run's failed jobs, or an empty string when no job failed."""
+    """Return a Markdown triage of the run's failed jobs, or an empty string without an API key or a failed job."""
     event = Action()
+    if event.should_skip_llm():
+        return ""
     run = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/runs/{run_id}", hard=True).json()
     jobs = event.paginate(run["jobs_url"], params={"filter": "latest"}, key="jobs", hard=True)
     failed = [job for job in jobs if job.get("conclusion") in FAILED_CONCLUSIONS]

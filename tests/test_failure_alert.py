@@ -3,6 +3,7 @@
 from unittest.mock import MagicMock
 
 import pytest
+import requests
 
 from actions import failure_alert
 
@@ -31,7 +32,7 @@ JOBS = [
     {"id": 3, "name": "Alert", "conclusion": None, "html_url": "https://github.com/org/repo/actions/runs/7/job/3"},
 ]
 LOG = (
-    "2026-10-08T10:00:00.1234567Z \x1b[31mE   ImportError: cannot import name 'load'\x1b[0m\n"
+    "2026-10-08T10:00:00.1234567Z \x1b[31mE   ImportError: cannot import name 'load' → ✅\x1b[0m\n"
     "2026-10-08T10:00:01.1234567Z Post job cleanup.\n"
     "2026-10-08T10:00:02.1234567Z cleanup noise\n"
 )
@@ -40,7 +41,7 @@ LOG = (
 def github_get(url, **kwargs):
     """Serve the run, its jobs and the failed job's log like the GitHub API."""
     json_data = {f"{API}/runs/7": RUN, f"{API}/runs/7/jobs": {"total_count": len(JOBS), "jobs": JOBS}}.get(url)
-    response = MagicMock(status_code=200, text=LOG, **{"elapsed.total_seconds.return_value": 0.1})
+    response = MagicMock(status_code=200, content=LOG.encode(), **{"elapsed.total_seconds.return_value": 0.1})
     response.json.return_value = json_data
     return response
 
@@ -58,6 +59,7 @@ def alert_env(monkeypatch, tmp_path):
     }.items():
         monkeypatch.setenv(name, value)
     monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
+    monkeypatch.setattr("actions.utils.openai_utils.OPENAI_API_KEY", "key")  # read at import time
     monkeypatch.setattr("requests.Session.get", MagicMock(side_effect=github_get))
     monkeypatch.setattr(failure_alert.requests, "post", MagicMock())
     return tmp_path / "summary.md"
@@ -79,7 +81,7 @@ def test_run_posts_alert_with_triage_of_failed_jobs(alert_env, monkeypatch):
     assert "https://github.com/org/repo/blob/abc123/<path>#L<line>" in prompt
     assert "Commit: https://github.com/org/repo/commit/abc123 Fix loader\n" in prompt
     assert f"- Tests (step: Pytest): {JOB_URL}" in prompt and "Lint" not in prompt and "Alert" not in prompt
-    assert "### Log tail: Tests\nE   ImportError: cannot import name 'load'\n" in prompt
+    assert "### Log tail: Tests\nE   ImportError: cannot import name 'load' → ✅\n" in prompt
     assert "cleanup noise" not in prompt and "\x1b" not in prompt and "10:00:00" not in prompt
 
     assert failure_alert.requests.post.call_args.kwargs["json"] == {
@@ -91,9 +93,9 @@ def test_run_posts_alert_with_triage_of_failed_jobs(alert_env, monkeypatch):
 
 def test_run_posts_bare_alert_when_analysis_fails(alert_env, monkeypatch, capsys):
     """An analysis error still posts the alert, without the triage."""
-    monkeypatch.setattr(failure_alert, "get_response", MagicMock(side_effect=AssertionError("API key is required.")))
+    monkeypatch.setattr(failure_alert, "get_response", MagicMock(side_effect=requests.HTTPError("502 Server Error")))
     failure_alert.run()
 
     assert failure_alert.requests.post.call_args.kwargs["json"] == {"text": "*CI* ❌ `org/repo`"}
-    assert "::warning::Failure analysis skipped: API key is required." in capsys.readouterr().out
+    assert "::warning::Failure analysis skipped: 502 Server Error" in capsys.readouterr().out
     assert not alert_env.exists()

@@ -31,15 +31,14 @@ The job's `if:` decides when to alert, such as which events, branches or run att
 
 ## Inputs
 
-| Input               | Description                                                            | Required | Default                           |
-| ------------------- | ---------------------------------------------------------------------- | -------- | --------------------------------- |
-| `slack_webhook`     | Slack [incoming webhook](https://api.slack.com/messaging/webhooks) URL | Yes      | -                                 |
-| `mention`           | Slack mention to start the alert with                                  | No       | -                                 |
-| `message`           | Slack mrkdwn alert line                                                | No       | Workflow, repository and run link |
-| `openai_api_key`    | OpenAI API key for the failure analysis                                | No       | -                                 |
-| `anthropic_api_key` | Anthropic API key for the failure analysis                             | No       | -                                 |
-| `model`             | Model for the failure analysis                                         | No       | Auto-detected from the API keys   |
-| `token`             | GitHub token that can read the run's job logs (`actions: read`)        | No       | `${{ github.token }}`             |
+| Input               | Description                                                            | Required | Default                         |
+| ------------------- | ---------------------------------------------------------------------- | -------- | ------------------------------- |
+| `slack_webhook`     | Slack [incoming webhook](https://api.slack.com/messaging/webhooks) URL | Yes      | -                               |
+| `mention`           | Slack mention to start the alert with                                  | No       | -                               |
+| `openai_api_key`    | OpenAI API key for the failure analysis                                | No       | -                               |
+| `anthropic_api_key` | Anthropic API key for the failure analysis                             | No       | -                               |
+| `model`             | Model for the failure analysis                                         | No       | Auto-detected from the API keys |
+| `token`             | GitHub token that can read the run's job logs (`actions: read`)        | No       | `${{ github.token }}`           |
 
 ## Output
 
@@ -62,6 +61,6 @@ In Slack, Run, the job names and the source files are links. The triage is also 
 
 ## Notes
 
-- **The alert always posts**: without an API key, or when log reading, the model call or the uv setup fails, the action posts the alert line alone and logs a warning.
+- **The alert always posts**: without an API key, the action skips the analysis and posts the alert line alone. When the run or its job list can't be read, or the model call or uv setup fails, it does the same and logs a warning. A job log that can't be read is marked unavailable, and the analysis uses the rest.
 - **Run it in its own job**: a job's log is only readable once the job ends, so a `failure()` step inside the failing job cannot analyze that job.
 - **Data sent to the model**: the failed job log tails go to the chosen AI provider. GitHub masks registered secrets in logs; leave both API keys unset to send the alert without analysis.

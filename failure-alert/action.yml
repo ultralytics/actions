@@ -14,10 +14,6 @@ inputs:
     description: "Slack mention to start the alert with, such as <!subteam^ID>, <!here> or <@USER_ID>"
     required: false
     default: ""
-  message:
-    description: "Slack mrkdwn alert line (default: workflow, repository and run link)"
-    required: false
-    default: ""
   openai_api_key:
     description: "OpenAI API key for the failure analysis"
     required: false
@@ -43,7 +39,7 @@ runs:
     - name: Failure Alert
       env:
         ACTION_PATH: ${{ github.action_path }}/..
-        ALERT_TEXT: ${{ format('{0}{1}', inputs.mention && format('{0} ', inputs.mention) || '', inputs.message || format('*{0}* ❌ `{1}`  <{2}/{1}/actions/runs/{3}|*Run*>', github.workflow, github.repository, github.server_url, github.run_id)) }}
+        ALERT_TEXT: ${{ format('{0}*{1}* ❌ `{2}`  <{3}/{2}/actions/runs/{4}|*Run*>', inputs.mention && format('{0} ', inputs.mention) || '', github.workflow, github.repository, github.server_url, github.run_id) }}
         SLACK_WEBHOOK: ${{ inputs.slack_webhook }}
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
