@@ -478,7 +478,7 @@ def get_agent_response(
     tool_choice = "auto" if max_turns > 0 else "none"
     repaired = False
     # Up to two tool-free turns follow the tool turns: a forced synthesis once max_turns is spent, then one repair
-    # of a malformed structured reply. A Claude pause_turn also spends a turn, so the range can run out.
+    # of a malformed structured reply. Every path returns or raises before the range is exhausted.
     for turn in range(max_turns + 2):
         if is_anthropic:
             history += next_input
@@ -520,8 +520,10 @@ def get_agent_response(
                 raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
             if max_cost and total_cost >= max_cost:
                 raise RuntimeError(f"Agent cost budget ${max_cost:.2f} reached before requested tools could run")
-            if paused:  # resend the history unchanged to resume the search
+            if paused:  # resend the history unchanged to resume the search, which still runs under tool_choice none
                 next_input = []
+                if turn + 1 >= max_turns:
+                    tool_choice = "none"
                 continue
             if parallel_tools and len(function_calls) > 1:  # opt-in contract: handlers must be thread-safe
                 with ThreadPoolExecutor(max_workers=min(8, len(function_calls))) as pool:
@@ -573,7 +575,6 @@ def get_agent_response(
             total_cost,
         )
         return content
-    raise RuntimeError(f"Agent made no final reply within {max_turns + 2} turns")
 
 
 def get_response(
