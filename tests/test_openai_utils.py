@@ -26,8 +26,8 @@ def test_default_models():
     """Test canonical default models are priced so max_cost budgets stay enforceable."""
     assert OPENAI_MODEL_DEFAULT == "gpt-6-luna"
     assert OPENAI_REVIEW_MODEL_DEFAULT == "gpt-6-luna"
-    assert ANTHROPIC_MODEL_DEFAULT == "claude-sonnet-5"
-    assert ANTHROPIC_REVIEW_MODEL_DEFAULT == "claude-opus-5-5"
+    assert ANTHROPIC_MODEL_DEFAULT == "claude-haiku-5-5"
+    assert ANTHROPIC_REVIEW_MODEL_DEFAULT == "claude-haiku-5-5"
     for model in (
         OPENAI_MODEL_DEFAULT,
         OPENAI_REVIEW_MODEL_DEFAULT,

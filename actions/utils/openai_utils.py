@@ -23,9 +23,9 @@ WEB_SEARCH_CALL_COST = 0.01  # $10 per 1K calls
 
 # Default models (single source of truth)
 OPENAI_MODEL_DEFAULT = "gpt-6-luna"
-ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-5"
+ANTHROPIC_MODEL_DEFAULT = "claude-haiku-5-5"
 OPENAI_REVIEW_MODEL_DEFAULT = "gpt-6-luna"
-ANTHROPIC_REVIEW_MODEL_DEFAULT = "claude-opus-5-5"
+ANTHROPIC_REVIEW_MODEL_DEFAULT = "claude-haiku-5-5"
 
 MODEL_COSTS = {  # (input, output) per 1M tokens
     # OpenAI models
@@ -49,6 +49,7 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "claude-sonnet-4-6": (3.00, 15.00),
     "claude-haiku-4-5": (1.00, 5.00),
     "claude-haiku-4-5-20251001": (1.00, 5.00),
+    "claude-haiku-5-5": (0.10, 0.50),  # prompts up to 100K tokens
     "claude-opus-4-5-20251101": (5.00, 25.00),
     "claude-opus-4-6": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
