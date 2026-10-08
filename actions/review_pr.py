@@ -535,8 +535,8 @@ def generate_pr_review(
         "authoritative resolver or failing CI evidence; otherwise dependency installation or CI owns that check\n"
         "- A claim about anything else outside this repository (external identifiers, API parameters, vendor "
         "behavior) requires web_search first: your knowledge predates this PR, so let current docs settle it "
-        "either way - an official source that lacks what the diff uses is evidence against it, and a claim the "
-        "search does not settle is not a finding\n"
+        "either way - a source that omits what the diff uses may simply predate it, and a claim the search "
+        "does not settle is not a finding\n"
         "- Batch independent tool calls into one turn (turns and cost are budgeted) and never quote large tool output back\n"
         "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
     )
