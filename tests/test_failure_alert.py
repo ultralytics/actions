@@ -66,8 +66,8 @@ def alert_env(monkeypatch, tmp_path):
 def test_run_posts_alert_with_triage_of_failed_jobs(alert_env, monkeypatch):
     """The triage prompt holds only failed jobs and their cleaned log tails, and the reply posts as Slack mrkdwn."""
     reply = (
-        "**Verdict:** Bug - `load` was removed\n"
-        "- Tests: `ImportError` in [loader.py](https://github.com/org/repo/blob/abc123/loader.py#L3) at <module>"
+        f"**Bug** - [Tests]({JOB_URL}) fails with `ImportError: cannot import name 'load'`\n"
+        "- [loader.py](https://github.com/org/repo/blob/abc123/loader.py#L3) dropped `load` used at <module>"
     )
     get_response = MagicMock(return_value=reply)
     monkeypatch.setattr(failure_alert, "get_response", get_response)
@@ -83,8 +83,8 @@ def test_run_posts_alert_with_triage_of_failed_jobs(alert_env, monkeypatch):
     assert "cleanup noise" not in prompt and "\x1b" not in prompt and "10:00:00" not in prompt
 
     assert failure_alert.requests.post.call_args.kwargs["json"] == {
-        "text": "*CI* ❌ `org/repo`\n*Verdict:* Bug - `load` was removed\n"
-        "• Tests: `ImportError` in <https://github.com/org/repo/blob/abc123/loader.py#L3|loader.py> at &lt;module&gt;"
+        "text": f"*CI* ❌ `org/repo`\n*Bug* - <{JOB_URL}|Tests> fails with `ImportError: cannot import name 'load'`\n"
+        "• <https://github.com/org/repo/blob/abc123/loader.py#L3|loader.py> dropped `load` used at &lt;module&gt;"
     }
     assert alert_env.read_text() == f"## Failure Analysis\n\n{reply}\n"
 

@@ -15,18 +15,19 @@ MAX_LOG_JOBS = 10  # jobs whose logs are read; every failed job is still listed 
 LOG_CHARS = 60000  # log tail budget shared by the jobs read, so a single failure gets a deeper tail
 MAX_JOB_LOG_CHARS = 20000
 LOG_NOISE = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z |\x1b\[[0-9;]*[A-Za-z]", re.MULTILINE)  # timestamps, colors
-PROMPT = """Triage this failed GitHub Actions run for its maintainers, using the run details and failed job logs below.
+PROMPT = """Triage this failed GitHub Actions run for the maintainers' chat alert, using the run details and failed job logs below.
 
-Reply in GitHub-flavored Markdown in under 120 words, with no headings, tables or preamble:
-- First line: `**Verdict:** <Bug|Transient|Unclear> - <reason in one short sentence>`
+Reply in GitHub-flavored Markdown in at most 3 short lines and 60 words, with no headings, tables, emoji or preamble:
+- Line 1: `**<Bug|Transient|Unclear>** - <what failed and its decisive error, in one short sentence>`
   - Bug: a re-run of the same commit would fail again until something changes, such as the code, tests, build configuration, workflow or a dependency release.
   - Transient: a re-run would likely pass, such as a flaky or timing-sensitive test, a network, registry or rate-limit error, or a runner fault like lost communication, a full disk or a shutdown.
   - Unclear: the logs do not show the cause, for example when they are cut off or missing.
-- Then at most 3 bullets: what failed (jobs, steps or tests, grouping matrix jobs that fail the same way), the decisive error quoted in inline code, and the likely root cause, with the fix when the logs make it evident.
+- Then at most 2 bullets: the likely root cause, with the fix when the logs make it evident, and any other distinct failure. Group matrix jobs that fail the same way.
 
 Rules:
 - Ground every claim in the logs. The first real error is the cause; later test failures, teardown errors and lines like "Process completed with exit code 1" are its symptoms.
-- Link only the URLs in the run details, or a repository file named in the logs as {repo_url}/blob/{sha}/<path>#L<line> with <path> relative to the repository root (drop runner checkout prefixes like /home/runner/work/<name>/<name>/). Never invent URLs, issue or PR numbers, versions or commands."""
+- Quote errors, test names and identifiers in inline code.
+- Link each failed job you name to its job URL. Link only the URLs in the run details, or a repository file named in the logs as {repo_url}/blob/{sha}/<path>#L<line> with <path> relative to the repository root (drop runner checkout prefixes like /home/runner/work/<name>/<name>/). Never invent URLs, issue or PR numbers, versions or commands."""
 
 
 def get_log_tail(event: Action, repo: str, job_id: int, chars: int) -> str:

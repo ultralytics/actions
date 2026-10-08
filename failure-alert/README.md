@@ -1,6 +1,6 @@
 # Failure Alert Action
 
-Post a Slack alert when a workflow run fails, with an AI triage of the failed job logs: a **Bug**, **Transient** or **Unclear** verdict followed by up to three bullets on what failed, the decisive error and its likely cause, linked to the failing jobs and source lines. It works for any repository, language and test framework.
+Post a Slack alert when a workflow run fails, with a short AI triage of the failed job logs under it: a **Bug**, **Transient** or **Unclear** verdict with what failed and the decisive error, then up to two bullets on the likely cause, linked to the failing jobs and source lines. It works for any repository, language and test framework.
 
 ## Usage
 
@@ -43,16 +43,15 @@ The job's `if:` decides when to alert, such as which events, branches or run att
 
 ## Output
 
-A Slack message with the alert line and the triage, for example:
+A Slack message that keeps the usual one-line alert, with ❌ as its only emoji, followed by at most three short lines of triage, for example:
 
 ```text
 @ci-team CI ❌ org/repo  Run
-Verdict: Bug - parse_config no longer accepts None
-• Tests (ubuntu-latest, 3.12): 4 tests in tests/test_config.py fail with TypeError: expected str, not NoneType
-• Likely cause: the commit made path required in config.py without updating its callers
+Bug - Tests (ubuntu-latest, 3.12) fails 4 tests with TypeError: expected str, not NoneType
+• The commit made path required in config.py without updating its callers
 ```
 
-Job and source line names link to GitHub in Slack. The triage is also written to the job summary.
+In Slack, Run, the job names and the source files are links. The triage is also written to the job summary.
 
 ## How It Works
 
