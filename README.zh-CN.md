@@ -194,6 +194,19 @@ jobs:
 
 [**📖 完整文档 →**](setup-uv/README.md)
 
+### 7. Failure Alert Action
+
+在工作流运行失败时发送 Slack 告警，并附上对失败作业日志的 AI 分诊：给出 Bug、Transient 或 Unclear 结论，以及关键错误和可能原因。
+
+```yaml
+- uses: ultralytics/actions/failure-alert@main
+  with:
+    slack_webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+    openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+```
+
+[**📖 完整文档 →**](failure-alert/README.md)
+
 ## Python 包
 
 在 [**Python>=3.8**](https://www.python.org/) 环境中安装 `ultralytics-actions` 包及其全部[依赖项](https://github.com/ultralytics/actions/blob/main/pyproject.toml)，以便通过代码使用 action 工具。
@@ -209,6 +222,7 @@ uv pip install ultralytics-actions
 - `actions.review_pr` - AI 驱动的 PR review
 - `actions.summarize_pr` - 生成 PR 摘要
 - `actions.github_report` - 生成 GitHub 组织报告
+- `actions.failure_alert` - 带失败工作流运行 AI 分诊的 Slack 告警
 - `actions.first_interaction` - 为新贡献者生成欢迎消息
 - 更多模块见 `actions/` 目录
 

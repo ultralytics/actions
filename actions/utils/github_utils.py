@@ -181,11 +181,12 @@ class Action:
         """Performs GET request with error handling."""
         return self._request("get", url, **kwargs)
 
-    def paginate(self, url, params=None, **kwargs) -> list:
-        """Fetch every page of a GitHub REST collection."""
+    def paginate(self, url, params=None, key=None, **kwargs) -> list:
+        """Fetch every page of a GitHub REST collection, read from `key` when each page wraps it in an object."""
         items = []
         for page in range(1, 102):  # one page past the cap, so an exactly-10,000-item collection still completes
-            page_items = self.get(url, params={**(params or {}), "per_page": 100, "page": page}, **kwargs).json()
+            data = self.get(url, params={**(params or {}), "per_page": 100, "page": page}, **kwargs).json()
+            page_items = data[key] if key else data
             items.extend(page_items)
             if len(page_items) < 100:
                 return items

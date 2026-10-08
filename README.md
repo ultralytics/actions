@@ -194,6 +194,19 @@ Use the official uv setup action with Ultralytics defaults: the latest uv with a
 
 [**📖 Full Documentation →**](setup-uv/README.md)
 
+### 7. Failure Alert Action
+
+Post a Slack alert for a failed workflow run with an AI triage of the failed job logs: a Bug, Transient or Unclear verdict with the decisive error and its likely cause.
+
+```yaml
+- uses: ultralytics/actions/failure-alert@main
+  with:
+    slack_webhook: ${{ secrets.SLACK_WEBHOOK_URL }}
+    openai_api_key: ${{ secrets.OPENAI_API_KEY }}
+```
+
+[**📖 Full Documentation →**](failure-alert/README.md)
+
 ## Python Package
 
 Install the `ultralytics-actions` package for programmatic access to action utilities, including all [requirements](https://github.com/ultralytics/actions/blob/main/pyproject.toml), in a [**Python>=3.8**](https://www.python.org/) environment.
@@ -209,6 +222,7 @@ uv pip install ultralytics-actions
 - `actions.review_pr` - AI-powered PR review
 - `actions.summarize_pr` - Generate PR summaries
 - `actions.github_report` - Generate GitHub organization reports
+- `actions.failure_alert` - Slack alerts with AI triage of failed workflow runs
 - `actions.first_interaction` - Welcome message for new contributors
 - And more in `actions/` directory
 

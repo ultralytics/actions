@@ -45,7 +45,7 @@ Keep Python 3.8 compatibility; `.github/workflows/ci.yml` tests Python 3.8 and 3
 - PR open (labels, summary, first review) → `actions/first_interaction.py`; requested reviews → `actions/review_pr.py`; merge summaries → `actions/summarize_pr.py`.
 - Models and prompts → `actions/utils/openai_utils.py`.
 - GitHub requests → `actions/utils/github_utils.py`.
-- `@ultralytics/run-*` PR comments → `actions/dispatch_actions.py`; sub-actions used across repos (`retry`, `setup-uv`, `cla`, `cleanup-disk`, `dependabot`, `github-report`) → `<name>/action.yml`.
+- `@ultralytics/run-*` PR comments → `actions/dispatch_actions.py`; sub-actions used across repos (`retry`, `setup-uv`, `cla`, `cleanup-disk`, `dependabot`, `github-report`, `failure-alert`) → `<name>/action.yml`.
 - Release gating → `actions/utils/version_utils.py`, `.github/workflows/publish.yml`.
 
 ## Conventions
