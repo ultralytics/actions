@@ -1,0 +1,62 @@
+# Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
+
+name: "Failure Alert"
+author: "Ultralytics"
+description: "Post a Slack alert for a failed workflow run with an AI triage of the failed job logs"
+branding:
+  icon: "bell"
+  color: "red"
+inputs:
+  slack_webhook:
+    description: "Slack incoming webhook URL"
+    required: true
+  mention:
+    description: "Slack mention to start the alert with, such as <!subteam^ID>, <!here> or <@USER_ID>"
+    required: false
+    default: ""
+  message:
+    description: "Slack mrkdwn alert line (default: workflow, repository and run link)"
+    required: false
+    default: ""
+  openai_api_key:
+    description: "OpenAI API key for the failure analysis"
+    required: false
+  anthropic_api_key:
+    description: "Anthropic API key for the failure analysis"
+    required: false
+  model:
+    description: "Model for the failure analysis (default: auto-detected from the API keys)"
+    required: false
+  token:
+    description: "GitHub token that can read the run's job logs (actions: read)"
+    required: false
+    default: ${{ github.token }}
+runs:
+  using: "composite"
+  steps:
+    - uses: ultralytics/actions/setup-uv@main
+      continue-on-error: true # the alert below still posts without uv
+      with:
+        activate-environment: false
+        ignore-empty-workdir: true
+
+    - name: Failure Alert
+      env:
+        ACTION_PATH: ${{ github.action_path }}/..
+        ALERT_TEXT: ${{ format('{0}{1}', inputs.mention && format('{0} ', inputs.mention) || '', inputs.message || format('*{0}* ❌ `{1}`  <{2}/{1}/actions/runs/{3}|*Run*>', github.workflow, github.repository, github.server_url, github.run_id)) }}
+        SLACK_WEBHOOK: ${{ inputs.slack_webhook }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+        OPENAI_API_KEY: ${{ inputs.openai_api_key }}
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
+        MODEL: ${{ inputs.model }}
+      run: |
+        echo "::group::Failure Alert"
+        package_dir=$(mktemp -d "$RUNNER_TEMP/ultralytics-actions.XXXXXX")
+        # Isolated from any venv the caller activated, so this runs the code at this action's ref
+        if ! { uv build --wheel "$ACTION_PATH" --out-dir "$package_dir" &&
+          uv run --isolated --no-project --with "$package_dir"/*.whl python -I -m actions.failure_alert; }; then
+          echo "::warning::Failure alert with analysis failed; posting the alert without it"
+          jq -n --arg text "$ALERT_TEXT" '{text: $text}' | curl -fsS -o /dev/null -X POST -H "Content-Type: application/json" --data @- "$SLACK_WEBHOOK"
+        fi
+        echo "::endgroup::"
+      shell: bash
