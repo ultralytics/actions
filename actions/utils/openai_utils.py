@@ -292,7 +292,8 @@ def _openai_usage_cost(usage: dict, model: str) -> float:
     billed_input = input_tokens - cached_tokens * (1 - cache_read_rate) + cache_write_premium
     if model.startswith(("gpt-5.6-", "gpt-6-")) and input_tokens > 272000:
         input_rate, output_rate = 2, 1.5
-    elif model == "claude-haiku-5-5" and input_tokens > 100000:  # $0.50/$2.50 above 100K prompt tokens
+    # $0.50/$2.50 above 100K prompt tokens; usage sums every server-side web search pass, so this never under-tiers
+    elif model == "claude-haiku-5-5" and input_tokens > 100000:
         input_rate, output_rate = 5, 5
     else:
         input_rate = output_rate = 1
@@ -512,12 +513,16 @@ def get_agent_response(
             turn_cost,
         )
         function_calls = [item for item in output_items if item.get("type") in {"function_call", "tool_use"}]
+        paused = response_json.get("stop_reason") == "pause_turn"  # Claude paused a long server-side web search
 
-        if function_calls:
+        if function_calls or paused:
             if not previous_response_id:
                 raise RuntimeError("OpenAI response did not include an id for server-managed continuation")
             if max_cost and total_cost >= max_cost:
                 raise RuntimeError(f"Agent cost budget ${max_cost:.2f} reached before requested tools could run")
+            if paused:  # resend the history unchanged to resume the search
+                next_input = []
+                continue
             if parallel_tools and len(function_calls) > 1:  # opt-in contract: handlers must be thread-safe
                 with ThreadPoolExecutor(max_workers=min(8, len(function_calls))) as pool:
                     outputs = list(pool.map(lambda call: _handle_function_call(call, tool_handlers), function_calls))
@@ -538,9 +543,6 @@ def get_agent_response(
                 }:
                     outputs.append({"type": "text", "text": instruction})
                 tool_choice = "none"
-            continue
-        if response_json.get("stop_reason") == "pause_turn":  # Claude paused a long web search: resend to resume
-            next_input = []
             continue
 
         try:
