@@ -23,7 +23,6 @@ from .utils import (
     sanitize_ai_text,
     should_skip_file,
 )
-from .utils.openai_utils import _is_anthropic_model
 
 REVIEW_MARKER = "## 🔍 PR Review"
 ERROR_MARKER = "⚠️ Review generation encountered an error"
@@ -33,7 +32,7 @@ MAX_REVIEW_COMMENTS = 8
 MAX_TOOL_OUTPUT_CHARS = 40000
 MAX_TOOL_FILE_LINES = 400
 MAX_AGENT_TURNS = 24
-REVIEW_PROMPT_CHARS = round(MAX_PROMPT_CHARS * 1.5)  # reviews favor evidence depth over one-shot cost
+REVIEW_PROMPT_CHARS = MAX_PROMPT_CHARS * 3  # agent turns cache the prompt and page any remaining diff via read_diff
 MAX_HISTORY_REVIEWS = 5  # prior reviews included in the prompt (the full history stays available via the tool)
 MAX_HISTORY_ITEM_CHARS = 8000  # per prior review or response, enough for a full summary plus its findings log
 MAX_HISTORY_CHARS = 20000
@@ -512,7 +511,6 @@ def generate_pr_review(
 
     # Read model-appropriate guidelines from the PR head for project-specific review context
     review_model = get_review_model()
-    is_agent_review_model = not _is_anthropic_model(review_model)
     local_checkout = _verified_local_checkout(head_sha)
     if head_sha:
         print(f"Reviewing PR head {head_sha[:7]} ({'local checkout' if local_checkout else 'via GitHub API'})")
@@ -527,54 +525,21 @@ def generate_pr_review(
         history_section = f"PRIOR REVIEWS OF THIS PR (oldest first):\n{excerpt}\n\n"
         print(f"Loaded {len(prior_reviews)} prior review(s) ({len(history_section)} chars) for review context")
 
-    # Fetch full file contents for better context if within token budget
-    full_files_section = ""
-    if event and head_sha and not is_agent_review_model and len(file_list) <= 10:  # Reasonable file count limit
-        file_contents, total_chars = [], len(augmented_diff) + len(guidelines_section) + len(history_section)
-        for file_path in file_list:
-            text = _read_head_file(event, head_sha, local_checkout, file_path) or ""
-            if not text or len(text) > 100_000:  # skip missing and >100KB files entirely
-                continue
-            snippet = text[:MAX_CONTEXT_FILE_CHARS]
-            if len(snippet) == MAX_CONTEXT_FILE_CHARS:
-                snippet = f"{snippet.rstrip()}\n... (truncated)"
-            # Only include if within budget, include buffer for Markdown noise
-            estimated_cost = len(snippet) + 200
-            if total_chars + estimated_cost >= REVIEW_PROMPT_CHARS:
-                break  # Stop when we hit budget limit
-            file_contents.append(f"### {file_path}\n```\n{snippet}\n```")
-            total_chars += estimated_cost
-        if file_contents:
-            full_files_section = f"FULL FILE CONTENTS:\n{chr(10).join(file_contents)}\n\n"
-
-    # Remaining budget for the diff: agent turns cache the prompt and page any remainder via read_diff, so the agent
-    # inlines ~5k diff lines while single-shot models keep the one-request ceiling
-    prompt_chars = REVIEW_PROMPT_CHARS * (2 if is_agent_review_model else 1)
-    diff_budget = max(1000, prompt_chars - len(guidelines_section) - len(full_files_section) - len(history_section))
+    diff_budget = max(1000, REVIEW_PROMPT_CHARS - len(guidelines_section) - len(history_section))
     diff_truncated = len(augmented_diff) > diff_budget
-    if is_agent_review_model:  # must match the get_agent_response fallback gate
-        visibility_section = (  # function tools carry their own schema descriptions; only cross-tool rules belong here
-            "EVIDENCE - every finding needs it:\n"
-            "- Start from the diff, then read the enclosing function, definitions, callers, and existing patterns before judging a hunk\n"
-            "- A claim that a name, import, or reference in this repository is missing or wrong requires reading the file first\n"
-            "- Do not flag package or version availability based on web search. Only report it when the diff supplies "
-            "authoritative resolver or failing CI evidence; otherwise dependency installation or CI owns that check\n"
-            "- A claim about anything else outside this repository (external identifiers, API parameters, vendor "
-            "behavior) requires web_search first: your knowledge predates this PR, so let current docs settle it "
-            "either way - an official source that lacks what the diff uses is evidence against it, and a claim the "
-            "search does not settle is not a finding\n"
-            "- Batch independent tool calls into one turn (turns and cost are budgeted) and never quote large tool output back\n"
-            "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
-        )
-    else:
-        visibility_section = (
-            "LIMITED VISIBILITY - IMPORTANT:\n"
-            "- You see only the diff and partial file contents, and you cannot verify anything beyond them\n"
-            "- Assume the author is knowledgeable about: new package versions, imports to functions defined elsewhere, dependencies, and codebase architecture\n"
-            "- Do NOT flag what you cannot confirm from the diff or the file contents provided: external names, versions, or behavior; imports that appear unused; references to code you cannot see\n"
-            "- If unsure whether something is an error, assume the author knows what they're doing\n"
-            "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
-        )
+    visibility_section = (  # function tools carry their own schema descriptions; only cross-tool rules belong here
+        "EVIDENCE - every finding needs it:\n"
+        "- Start from the diff, then read the enclosing function, definitions, callers, and existing patterns before judging a hunk\n"
+        "- A claim that a name, import, or reference in this repository is missing or wrong requires reading the file first\n"
+        "- Do not flag package or version availability based on web search. Only report it when the diff supplies "
+        "authoritative resolver or failing CI evidence; otherwise dependency installation or CI owns that check\n"
+        "- A claim about anything else outside this repository (external identifiers, API parameters, vendor "
+        "behavior) requires web_search first: your knowledge predates this PR, so let current docs settle it "
+        "either way - an official source that lacks what the diff uses is evidence against it, and a claim the "
+        "search does not settle is not a finding\n"
+        "- Batch independent tool calls into one turn (turns and cost are budgeted) and never quote large tool output back\n"
+        "- If PROJECT GUIDELINES (CLAUDE.md/AGENTS.md) are provided, respect project-specific conventions and standards\n\n"
+    )
 
     continuity_section = ""
     if prior_reviews:
@@ -590,13 +555,9 @@ def generate_pr_review(
             "its inline comment was deleted with the superseded review\n"
             "- A reply under 'Replies to your findings' that rejects or explains one settles it: do not raise it "
             "again. Everything under 'Other review comments' is context, not a verdict on your findings\n"
-            + (
-                "- Call read_pr_conversation before repeating or reversing a finding, and whenever the excerpt below "
-                "is truncated\n"
-                if is_agent_review_model
-                else ""
-            )
-            + "- Open the summary with what changed since the last review: addressed, still open, newly introduced\n\n"
+            "- Call read_pr_conversation before repeating or reversing a finding, and whenever the excerpt below "
+            "is truncated\n"
+            "- Open the summary with what changed since the last review: addressed, still open, newly introduced\n\n"
         )
 
     content = (
@@ -634,14 +595,13 @@ def generate_pr_review(
         '  L   45 -code here      <- \'L\' means LEFT (old file), number is 45, use {"line": 45, "side": "LEFT"}\n'
         "         context         <- no prefix = unchanged context, don't comment on these\n"
         "- Suggestions ONLY work on RIGHT (added) lines, never LEFT (removed) lines\n"
-        "- ONLY use line numbers you see explicitly prefixed with R or L in the initial diff"
-        f"{' or read_diff output' if is_agent_review_model else ''}\n\n"
+        "- ONLY use line numbers you see explicitly prefixed with R or L in the initial diff or read_diff output\n\n"
         "Return JSON: "
         '{"comments": [{"file": "exact/path", "line": N, "side": "RIGHT", "severity": "HIGH", "message": "..."}], "summary": "..."}\n\n'
         "JSON rules: exact paths (no ./), severity: CRITICAL|HIGH|MEDIUM|LOW|SUGGESTION\n"
         f"Files changed: {len(file_list)} ({', '.join(file_list[:30])}{'...' if len(file_list) > 30 else ''}), Lines: {lines_changed}\n"
         f"{'Large PR: the diff below is truncated. ' if diff_truncated else ''}"
-        f"{'Use list_changed_files and read_diff to inspect changed files not shown in the initial prompt. ' if diff_truncated and is_agent_review_model else ''}\n"
+        f"{'Use list_changed_files and read_diff to inspect changed files not shown in the initial prompt. ' if diff_truncated else ''}\n"
     )
 
     messages = [
@@ -654,7 +614,6 @@ def generate_pr_review(
                 f"BODY:\n{remove_html_comments(pr_description or '')[:8000]}\n\n"
                 f"{guidelines_section}"
                 f"{history_section}"
-                f"{full_files_section}"
                 f"DIFF:\n{augmented_diff[:diff_budget]}\n\n"
                 "Now review this diff according to the rules above. Return JSON with comments array and summary."
             ),

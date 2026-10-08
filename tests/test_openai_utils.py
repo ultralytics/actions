@@ -1,7 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
 import json
-from unittest.mock import MagicMock, call, patch
+from unittest.mock import ANY, MagicMock, call, patch
 
 import pytest
 import requests
@@ -61,14 +61,22 @@ def test_gpt_6_cost_includes_cache_write_and_long_context_rates():
     assert _openai_usage_cost({**usage, "input_tokens": 1000}, "gpt-5.5") == old_model_expected
 
 
-def test_claude_haiku_5_5_cost_bills_long_prompts_at_5x():
-    """Claude Haiku 5.5 prompts over 100K tokens, cache reads included, bill at $0.50/$2.50 instead of $0.10/$0.50."""
-    assert _openai_usage_cost({"input_tokens": 100000, "output_tokens": 1000}, "claude-haiku-5-5") == pytest.approx(
-        (100000 * 0.10 + 1000 * 0.50) / 1e6
-    )
-    usage = {"input_tokens": 60001, "cache_read_input_tokens": 40000, "output_tokens": 1000}
-    expected = ((100001 - 40000 * 0.9) * 0.50 + 1000 * 2.50) / 1e6
-    assert _openai_usage_cost(usage, "claude-haiku-5-5") == pytest.approx(expected)
+def test_claude_cost_matches_published_rate_card():
+    """Claude costs match the published $/MTok rate card: Haiku 5.5's two prompt-length tiers and per-model cache reads."""
+    # Haiku 5.5 base input, 5m cache write, cache read, output: $0.10/$0.125/$0.01/$0.50 up to 100K prompt tokens
+    # (uncached + cache writes + cache reads), and $0.50/$0.625/$0.05/$2.50 for the whole request above that
+    for uncached, card in ((20000, (0.10, 0.125, 0.01, 0.50)), (20001, (0.50, 0.625, 0.05, 2.50))):
+        usage = {
+            "input_tokens": uncached,
+            "cache_creation_input_tokens": 20000,
+            "cache_read_input_tokens": 60000,
+            "output_tokens": 1000,
+        }
+        expected = (uncached * card[0] + 20000 * card[1] + 60000 * card[2] + 1000 * card[3]) / 1e6
+        assert _openai_usage_cost(usage, "claude-haiku-5-5") == pytest.approx(expected)
+    reads = {"input_tokens": 0, "cache_read_input_tokens": 1_000_000, "output_tokens": 0}
+    for model, rate in (("claude-fable-5-1", 0.25), ("claude-opus-5-5", 0.20), ("claude-sonnet-5-5", 0.10)):
+        assert _openai_usage_cost(reads, model) == pytest.approx(rate)
 
 
 def test_is_anthropic_model():
@@ -495,12 +503,99 @@ def test_get_response_anthropic(mock_post):
 
     assert result == "Test response from Claude"
     printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
-    # Cache reads/writes fold into input and reads count as cached, matching ultralytics/assistant normalization
-    assert "1000→20 tokens (90% cached), $0.00087" in printed
+    # Cache reads/writes fold into input, reads at 0.1x and writes at 1.25x, matching ultralytics/assistant telemetry
+    assert "1000→20 tokens (90% cached, 5% cache write), $0.00091" in printed
     mock_post.assert_called_once()
-    # Verify Anthropic endpoint was called
-    call_args = mock_post.call_args
-    assert call_args[0][0] == "https://api.anthropic.com/v1/messages"
+    assert mock_post.call_args[0][0] == "https://api.anthropic.com/v1/messages"
+    payload = mock_post.call_args.kwargs["json"]
+    assert payload["system"].startswith("You are a helpful assistant\n\nGuidance:")
+    assert payload["messages"] == [{"role": "user", "content": "Hello"}]
+    assert payload["thinking"] == {"type": "adaptive"}
+    assert payload["output_config"] == {"effort": "medium"}
+
+
+@pytest.mark.parametrize("deferred_search", [False, True])
+@patch("requests.post")
+def test_get_agent_response_anthropic_tool_loop(mock_post, deferred_search):
+    """Claude runs the same agent loop: mapped tools, verbatim history, pause_turn resume, tool results, synthesis."""
+    search = [
+        {"type": "server_tool_use", "id": "srvtoolu_1", "name": "web_search", "input": {"query": "docs"}},
+        {"type": "web_search_tool_result", "tool_use_id": "srvtoolu_1", "content": []},
+    ]
+    paused = {"id": "msg_1", "content": search, "stop_reason": "pause_turn", "usage": {"input_tokens": 10}}
+    lookup = {"type": "tool_use", "id": "toolu_1", "name": "lookup_value", "input": {"value": "abc"}}
+    second_search = search[:1] if deferred_search else search  # a search deferred behind the client tool call
+    tool_turn = {
+        "id": "msg_2",
+        "content": [{"type": "thinking", "thinking": "", "signature": "sig"}, *second_search, lookup],
+        "stop_reason": "tool_use",
+        "usage": {"input_tokens": 10, "cache_read_input_tokens": 90, "output_tokens": 5},
+    }
+    final = {
+        "id": "msg_3",
+        "content": [{"type": "text", "text": '{"comments": [], "summary": "done"}'}],
+        "stop_reason": "end_turn",
+        "usage": {"input_tokens": 10, "output_tokens": 5},
+    }
+    responses = []
+    for body in (paused, tool_turn, final):
+        response = MagicMock(status_code=200)
+        response.elapsed.total_seconds.return_value = 1.0
+        response.json.return_value = body
+        responses.append(response)
+    mock_post.side_effect = responses
+    function_tool = {
+        "type": "function",
+        "name": "lookup_value",
+        "description": "Lookup a value.",
+        "parameters": {"type": "object", "properties": {"value": {"type": "string"}}, "required": ["value"]},
+        "strict": True,
+    }
+    schema = {"type": "object", "properties": {"summary": {"type": "string"}}}
+
+    with patch("actions.utils.openai_utils.ANTHROPIC_API_KEY", "test-key"), patch("builtins.print") as mock_print:
+        result = get_agent_response(
+            [{"role": "system", "content": "Review."}, {"role": "user", "content": "review"}],
+            tools=[{"type": "web_search"}, function_tool],
+            tool_handlers={"lookup_value": lambda value: {"found": value}},
+            text_format={"format": {"type": "json_schema", "name": "review", "strict": True, "schema": schema}},
+            model="claude-haiku-5-5",
+            reasoning_effort="high",
+            max_turns=2,
+            retries=0,
+        )
+
+    assert result == {"comments": [], "summary": "done"}
+    assert mock_post.call_count == 3
+    payloads = [c.kwargs["json"] for c in mock_post.call_args_list]
+    assert payloads[0]["tools"] == [
+        {"type": "web_search_20250305", "name": "web_search"},
+        {
+            "name": "lookup_value",
+            "description": "Lookup a value.",
+            "input_schema": function_tool["parameters"],
+            "strict": True,
+        },
+    ]
+    assert payloads[0]["output_config"] == {"effort": "high", "format": {"type": "json_schema", "schema": schema}}
+    assert payloads[0]["cache_control"] == {"type": "ephemeral"}
+    assert payloads[0]["system"].startswith("Review.\n\nGuidance:")
+    assert [p["tool_choice"] for p in payloads] == [{"type": "auto"}, {"type": "auto"}, {"type": "none"}]
+    tool_results = [{"type": "tool_result", "tool_use_id": "toolu_1", "content": '{"found": "abc"}'}]
+    if not deferred_search:  # text after tool results would end the turn a deferred search still needs
+        tool_results.append({"type": "text", "text": ANY})
+    assert payloads[2]["messages"] == [  # one stateless history: pause resumed in place, turns echoed verbatim
+        {"role": "user", "content": "review"},
+        {"role": "assistant", "content": search},
+        {"role": "assistant", "content": tool_turn["content"]},
+        {"role": "user", "content": tool_results},
+        {"role": "assistant", "content": final["content"]},
+    ]
+    synthesis = payloads[2]["messages"][3]["content"][-1].get("text", "")  # deferred: tool_choice none alone
+    assert ("used all available tool-calling steps" in synthesis) is not deferred_search
+    printed = "\n".join(str(c.args[0]) for c in mock_print.call_args_list if c.args)
+    assert "turn 2/2, 2 tools (web_search, lookup_value)" in printed
+    assert "agent total, 3 turns, 3 tools (2 web_search, lookup_value)" in printed
 
 
 @patch("requests.post")
