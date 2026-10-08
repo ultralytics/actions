@@ -26,8 +26,8 @@ def test_default_models():
     """Test canonical default models are priced so max_cost budgets stay enforceable."""
     assert OPENAI_MODEL_DEFAULT == "gpt-6-luna"
     assert OPENAI_REVIEW_MODEL_DEFAULT == "gpt-6-luna"
-    assert ANTHROPIC_MODEL_DEFAULT == "claude-sonnet-5"
-    assert ANTHROPIC_REVIEW_MODEL_DEFAULT == "claude-opus-5-5"
+    assert ANTHROPIC_MODEL_DEFAULT == "claude-haiku-5-5"
+    assert ANTHROPIC_REVIEW_MODEL_DEFAULT == "claude-haiku-5-5"
     for model in (
         OPENAI_MODEL_DEFAULT,
         OPENAI_REVIEW_MODEL_DEFAULT,
@@ -59,6 +59,16 @@ def test_gpt_6_cost_includes_cache_write_and_long_context_rates():
     assert _openai_usage_cost({"input_tokens": 300000, "output_tokens": 0}, "gpt-5.6-luna") == 0.12
     old_model_expected = ((1000 - 200 * 0.9) * 5.00 + 100 * 30.00) / 1e6
     assert _openai_usage_cost({**usage, "input_tokens": 1000}, "gpt-5.5") == old_model_expected
+
+
+def test_claude_haiku_5_5_cost_bills_long_prompts_at_5x():
+    """Claude Haiku 5.5 prompts over 100K tokens, cache reads included, bill at $0.50/$2.50 instead of $0.10/$0.50."""
+    assert _openai_usage_cost({"input_tokens": 100000, "output_tokens": 1000}, "claude-haiku-5-5") == pytest.approx(
+        (100000 * 0.10 + 1000 * 0.50) / 1e6
+    )
+    usage = {"input_tokens": 60001, "cache_read_input_tokens": 40000, "output_tokens": 1000}
+    expected = ((100001 - 40000 * 0.9) * 0.50 + 1000 * 2.50) / 1e6
+    assert _openai_usage_cost(usage, "claude-haiku-5-5") == pytest.approx(expected)
 
 
 def test_is_anthropic_model():

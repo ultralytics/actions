@@ -47,10 +47,10 @@
 
 可选择 [OpenAI](https://developers.openai.com/) 或 [Anthropic](https://www.anthropic.com/) 启用 AI 功能：
 
-| 提供商    | 默认模型          | 默认 PR Review 模型 | API Key             |
-| --------- | ----------------- | ------------------- | ------------------- |
-| OpenAI    | `gpt-6-luna`      | `gpt-6-luna`        | `openai_api_key`    |
-| Anthropic | `claude-sonnet-5` | `claude-opus-5-5`   | `anthropic_api_key` |
+| 提供商    | 默认模型           | 默认 PR Review 模型 | API Key             |
+| --------- | ------------------ | ------------------- | ------------------- |
+| OpenAI    | `gpt-6-luna`       | `gpt-6-luna`        | `openai_api_key`    |
+| Anthropic | `claude-haiku-5-5` | `claude-haiku-5-5`  | `anthropic_api_key` |
 
 提供商会根据提供的 API key 自动检测。可通过 `model` 输入覆盖默认模型，也可使用 `review_model` 仅覆盖 PR review 模型。
 

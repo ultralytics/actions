@@ -47,10 +47,10 @@ AI-powered formatting, labeling, and PR summaries for Python, JavaScript/TypeScr
 
 Choose between [OpenAI](https://developers.openai.com/) or [Anthropic](https://www.anthropic.com/) for AI-powered features:
 
-| Provider  | Default Model     | Default PR Review Model | API Key             |
-| --------- | ----------------- | ----------------------- | ------------------- |
-| OpenAI    | `gpt-6-luna`      | `gpt-6-luna`            | `openai_api_key`    |
-| Anthropic | `claude-sonnet-5` | `claude-opus-5-5`       | `anthropic_api_key` |
+| Provider  | Default Model      | Default PR Review Model | API Key             |
+| --------- | ------------------ | ----------------------- | ------------------- |
+| OpenAI    | `gpt-6-luna`       | `gpt-6-luna`            | `openai_api_key`    |
+| Anthropic | `claude-haiku-5-5` | `claude-haiku-5-5`      | `anthropic_api_key` |
 
 The provider is auto-detected based on which API key you provide. Override with the `model` input, or use `review_model` to override PR review only.
 
