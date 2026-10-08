@@ -23,9 +23,9 @@ WEB_SEARCH_CALL_COST = 0.01  # $10 per 1K calls
 
 # Default models (single source of truth)
 OPENAI_MODEL_DEFAULT = "gpt-6-luna"
-ANTHROPIC_MODEL_DEFAULT = "claude-sonnet-5"
+ANTHROPIC_MODEL_DEFAULT = "claude-haiku-5-5"
 OPENAI_REVIEW_MODEL_DEFAULT = "gpt-6-luna"
-ANTHROPIC_REVIEW_MODEL_DEFAULT = "claude-opus-5-5"
+ANTHROPIC_REVIEW_MODEL_DEFAULT = "claude-haiku-5-5"
 
 MODEL_COSTS = {  # (input, output) per 1M tokens
     # OpenAI models
@@ -49,6 +49,7 @@ MODEL_COSTS = {  # (input, output) per 1M tokens
     "claude-sonnet-4-6": (3.00, 15.00),
     "claude-haiku-4-5": (1.00, 5.00),
     "claude-haiku-4-5-20251001": (1.00, 5.00),
+    "claude-haiku-5-5": (0.10, 0.50),  # 5x above 100K prompt tokens, see _openai_usage_cost
     "claude-opus-4-5-20251101": (5.00, 25.00),
     "claude-opus-4-6": (5.00, 25.00),
     "claude-opus-4-7": (5.00, 25.00),
@@ -259,16 +260,18 @@ def _normalize_usage_tokens(usage: dict) -> tuple[int, int, int]:
 
 
 def _openai_usage_cost(usage: dict, model: str) -> float:
-    """Compute billed USD cost including GPT-5.6/GPT-6 cache-write and long-context rates."""
+    """Compute billed USD cost including GPT-5.6/GPT-6 cache writes and GPT-5.6/GPT-6/Haiku 5.5 long-prompt rates."""
     costs = MODEL_COSTS.get(model, (0.0, 0.0))
     input_tokens, cached_tokens, cache_write_tokens = _normalize_usage_tokens(usage)
     cache_write_premium = cache_write_tokens * 0.25 if model.startswith(("gpt-5.6-", "gpt-6-")) else 0
     billed_input = input_tokens - cached_tokens * 0.9 + cache_write_premium
-    long_context = model.startswith(("gpt-5.6-", "gpt-6-")) and input_tokens > 272000
-    return (
-        billed_input * costs[0] * (2 if long_context else 1)
-        + usage.get("output_tokens", 0) * costs[1] * (1.5 if long_context else 1)
-    ) / 1e6
+    if model.startswith(("gpt-5.6-", "gpt-6-")) and input_tokens > 272000:
+        input_rate, output_rate = 2, 1.5
+    elif model == "claude-haiku-5-5" and input_tokens > 100000:  # $0.50/$2.50 above 100K prompt tokens
+        input_rate, output_rate = 5, 5
+    else:
+        input_rate = output_rate = 1
+    return (billed_input * costs[0] * input_rate + usage.get("output_tokens", 0) * costs[1] * output_rate) / 1e6
 
 
 def _format_tool_calls(calls: list[str]) -> str:
