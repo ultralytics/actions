@@ -31,12 +31,14 @@ runs:
   using: "composite"
   steps:
     - uses: ultralytics/actions/setup-uv@main
+      if: github.run_attempt == '1'
       continue-on-error: true # the alert below still posts without uv
       with:
         activate-environment: false
         ignore-empty-workdir: true
 
     - name: Failure Alert
+      if: github.run_attempt == '1'
       env:
         ACTION_PATH: ${{ github.action_path }}/..
         ALERT_TEXT: ${{ format('{0}*{1}* ❌ `{2}`  <{3}/{2}/actions/runs/{4}|*Run*>', inputs.mention && format('{0} ', inputs.mention) || '', github.workflow, github.repository, github.server_url, github.run_id) }}

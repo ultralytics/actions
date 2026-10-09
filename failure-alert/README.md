@@ -27,7 +27,7 @@ jobs:
           openai_api_key: ${{ secrets.OPENAI_API_KEY }} # or anthropic_api_key
 ```
 
-The job's `if:` decides when to alert, such as which events, branches or run attempts. The action posts every time it runs.
+The job's `if:` decides which events and branches alert. The action only posts on the first run attempt; re-runs stay silent.
 
 ## Inputs
 
@@ -61,6 +61,6 @@ In Slack, Run, the job names and the source files are links. The triage is also 
 
 ## Notes
 
-- **The alert always posts**: without an API key, the action skips the analysis and posts the alert line alone. When the run or its job list can't be read, or the model call or uv setup fails, it does the same and logs a warning. A job log that can't be read is marked unavailable, and the analysis uses the rest.
+- **On the first attempt, the alert posts even if analysis fails**: without an API key, the action skips the analysis and posts the alert line alone. When the run or its job list can't be read, or the model call or uv setup fails, it does the same and logs a warning. A job log that can't be read is marked unavailable, and the analysis uses the rest.
 - **Run it in its own job**: a job's log is only readable once the job ends, so a `failure()` step inside the failing job cannot analyze that job.
 - **Data sent to the model**: the failed job log tails go to the chosen AI provider. GitHub masks registered secrets in logs; leave both API keys unset to send the alert without analysis.
