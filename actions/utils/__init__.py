@@ -19,7 +19,6 @@ from .common_utils import (
 from .github_utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, ultralytics_actions_info
 from .openai_utils import (
     MAX_PROMPT_CHARS,
-    OpenAIUTMFilter,
     filter_labels,
     get_agent_response,
     get_pr_open_response,
@@ -44,7 +43,6 @@ __all__ = (
     "SKIP_PATTERNS",
     "URL_IGNORE_LIST",
     "Action",
-    "OpenAIUTMFilter",
     "allow_redirect",
     "check_pubdev_version",
     "check_pypi_version",

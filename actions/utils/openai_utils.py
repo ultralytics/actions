@@ -8,7 +8,6 @@ import re
 import time
 from collections.abc import Callable
 from concurrent.futures import ThreadPoolExecutor
-from urllib.parse import unquote_plus, urlsplit, urlunsplit
 from uuid import uuid4
 
 import requests
@@ -81,115 +80,9 @@ _CITATION_PATTERN = re.compile(
 )
 
 
-URL_START_PATTERN = re.compile(r"https?://|www\.", re.IGNORECASE)
-QUERY_SEPARATOR_PATTERN = re.compile(r"(&(?:amp;)?)", re.IGNORECASE)
-
-
 def sanitize_ai_text(s: str) -> str:
-    """Strip private-use citation tokens (for example, ``cite...`` markers) and OpenAI source tracking from URLs."""
-    return remove_openai_utm_parameters(_CITATION_PATTERN.sub("", s)) if s else ""
-
-
-def _remove_openai_utm_from_url(url: str) -> str:
-    """Remove exact OpenAI source attribution from one complete URL."""
-    trimmed_url = url.rstrip(".,;:!?")
-    suffix = url[len(trimmed_url) :]
-    try:
-        parts = urlsplit(trimmed_url)
-    except ValueError:
-        return url
-    query_parts = QUERY_SEPARATOR_PATTERN.split(parts.query)
-    parameters, separators = query_parts[::2], query_parts[1::2]
-    keep = []
-    for index, parameter in enumerate(parameters):
-        key, separator, value = parameter.partition("=")
-        if not (separator and unquote_plus(key).lower() == "utm_source" and unquote_plus(value).lower() == "openai"):
-            keep.append(index)
-    if len(keep) == len(parameters):
-        return url
-    query = parameters[keep[0]] if keep else ""
-    query += "".join(separators[index - 1] + parameters[index] for index in keep[1:])
-    return urlunsplit(parts._replace(query=query)) + suffix
-
-
-class OpenAIUTMFilter:
-    """Incrementally remove OpenAI URL attribution without exposing split parameters while streaming."""
-
-    _PREFIXES = ("http://", "https://", "www.")
-    _TERMINATORS = frozenset("<>\"'`]}")
-
-    def __init__(self):
-        """Initialize an empty streaming buffer."""
-        self.buffer = ""
-        self.in_url = False
-        self.scan_index = 0
-        self.parentheses = 0
-
-    def feed(self, text: str) -> str:
-        """Consume one text delta and return content safe to expose."""
-        self.buffer += text
-        output = []
-        while self.buffer:
-            if not self.in_url:
-                match = URL_START_PATTERN.search(self.buffer)
-                if not match:
-                    keep = self._partial_prefix_length()
-                    output.append(self.buffer[:-keep] if keep else self.buffer)
-                    self.buffer = self.buffer[-keep:] if keep else ""
-                    break
-                output.append(self.buffer[: match.start()])
-                self.buffer = self.buffer[match.start() :]
-                self.in_url = True
-                self.scan_index = match.end() - match.start()
-                self.parentheses = 0
-
-            boundary = None
-            while self.scan_index < len(self.buffer):
-                char = self.buffer[self.scan_index]
-                if char == "(":
-                    self.parentheses += 1
-                elif char == ")":
-                    if self.parentheses:
-                        self.parentheses -= 1
-                    else:
-                        boundary = self.scan_index
-                        break
-                elif char.isspace() or char in self._TERMINATORS:
-                    boundary = self.scan_index
-                    break
-                self.scan_index += 1
-            if boundary is None:
-                break
-            output.append(_remove_openai_utm_from_url(self.buffer[:boundary]))
-            self.buffer = self.buffer[boundary:]
-            self.in_url = False
-        return "".join(output)
-
-    def flush(self) -> str:
-        """Return the cleaned pending tail at end of stream."""
-        output = _remove_openai_utm_from_url(self.buffer) if self.in_url else self.buffer
-        self.buffer = ""
-        self.in_url = False
-        return output
-
-    def _partial_prefix_length(self) -> int:
-        """Return the buffered suffix length that may begin a URL in the next delta."""
-        lower = self.buffer.lower()
-        return max(
-            (
-                length
-                for prefix in self._PREFIXES
-                for length in range(1, len(prefix))
-                if lower.endswith(prefix[:length])
-            ),
-            default=0,
-        )
-
-
-def remove_openai_utm_parameters(text: str) -> str:
-    """Remove OpenAI source tracking from URLs while preserving other marketing parameters."""
-    stream_filter = OpenAIUTMFilter()
-    return stream_filter.feed(text) + stream_filter.flush()
+    """Strip private-use citation tokens (for example, ``cite...`` markers)."""
+    return _CITATION_PATTERN.sub("", s) if s else ""
 
 
 def remove_outer_codeblocks(string):

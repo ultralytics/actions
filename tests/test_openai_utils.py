@@ -12,7 +12,6 @@ from actions.utils.openai_utils import (
     MODEL_COSTS,
     OPENAI_MODEL_DEFAULT,
     OPENAI_REVIEW_MODEL_DEFAULT,
-    OpenAIUTMFilter,
     _is_anthropic_model,
     _openai_usage_cost,
     _response_tool_calls,
@@ -20,7 +19,6 @@ from actions.utils.openai_utils import (
     get_response,
     get_review_model,
     remove_outer_codeblocks,
-    sanitize_ai_text,
 )
 
 
@@ -726,43 +724,3 @@ def test_get_agent_response_feeds_back_failed_tool(mock_post):
             "output": "Tool read_file failed: RuntimeError: read failed",
         }
     ]
-
-
-def test_sanitize_ai_text_removes_openai_utm_parameters():
-    """Remove only OpenAI source tracking while preserving URL structure and marketing attribution."""
-    content = (
-        "[Source](https://example.com/paper?utm_source=openai), "
-        "[Query](https://example.com/search?q=vision&utm_source=OpenAI&lang=en#results), and "
-        "<https://example.com/autolink?utm_source=openai>; "
-        "`https://example.com/code?utm_source=openai`; "
-        '"https://example.com/quote?utm_source=openai"; '
-        "https://example.com/raw?utm_source=openai. "
-        '[Math](https://en.wikipedia.org/wiki/Function_(mathematics)?utm_source=openai "Title"); '
-        "https://example.com/html?q=vision&amp;utm%5Fsource=OpenAI&amp;utm_medium=email; "
-        "https://example.com/launch?utm_source=ultralytics&utm_medium=email; "
-        "https://example.com/domain?utm_source=openai.com; "
-        "https://[invalid?utm_source=openai."
-    )
-    expected = (
-        "[Source](https://example.com/paper), "
-        "[Query](https://example.com/search?q=vision&lang=en#results), and "
-        "<https://example.com/autolink>; "
-        "`https://example.com/code`; "
-        '"https://example.com/quote"; '
-        "https://example.com/raw. "
-        '[Math](https://en.wikipedia.org/wiki/Function_(mathematics) "Title"); '
-        "https://example.com/html?q=vision&amp;utm_medium=email; "
-        "https://example.com/launch?utm_source=ultralytics&utm_medium=email; "
-        "https://example.com/domain?utm_source=openai.com; "
-        "https://[invalid?utm_source=openai."
-    )
-    assert sanitize_ai_text(content) == expected
-
-
-def test_openai_utm_filter_holds_split_parameters_across_stream_deltas():
-    """Hold split URL parameters until exact OpenAI attribution can be removed."""
-    stream_filter = OpenAIUTMFilter()
-    chunks = ["See [source](htt", "ps://example.com?q=vision&utm_s", "ource=open", "ai&lang=en", ")."]
-    assert "".join(stream_filter.feed(chunk) for chunk in chunks) + stream_filter.flush() == (
-        "See [source](https://example.com?q=vision&lang=en)."
-    )
