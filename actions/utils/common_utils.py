@@ -85,6 +85,7 @@ REQUESTS_HEADERS = {
     "Sec-Fetch-Dest": "document",
 }
 ACTIONS_CREDIT = "<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>"
+DEAD_HTTP_CODES = frozenset({404, 410})  # definitive; other bad codes may be transient
 BAD_HTTP_CODES = frozenset(
     {
         204,  # No content
@@ -107,6 +108,138 @@ URL_ERROR_LIST = {  # automatically reject these URLs (important: replace spaces
     "https://www.microsoft.com/en-us/security/business/ai-machine-learning-security",
     "https://about.netflix.com/en/news/netflix-recommendations-beyond-the-5-stars-part-1",
     "https://about.netflix.com/en/news/netflix-research-recommendations",
+    # Curated never-link pages: dead, moved, soft 404s, deprecated HUB docs, or sites that block automated checks
+    "http://host.robots.ox.ac.uk/pascal/VOC/voc2012/htmldoc/index.html",
+    "http://jetson.webredirect.org/jp6/cu126",
+    "http://localhost:6006/",
+    "http://projectx.saharm.com/",
+    "http://v/",
+    "http://visualdslab.com/~jpocom/pubs/17KGraffiti2022.pdf",
+    "http://www.projectx.saharm.com/",
+    "https://albumentations.ai/docs/reference/supported-targets-by-transform/",
+    "https://blog.research.google/2019/09/pioneering-differential-privacy-for-all.html",
+    "https://blog.research.google/2021/01/introducing-switch-transformers-scaling.html",
+    "https://blog.research.google/2021/01/switch-transformers-scaling-to-trillion",
+    "https://blog.research.google/2021/01/switch-transformers-scaling-to-trillion.html",
+    "https://cloud.google.com/learn/what-is-data-management",
+    "https://community.ultralytics.com/u/UltraBot",
+    "https://dl.acm.org/doi/10.1145/3442381.3442400",
+    "https://docs.neuralmagic.com/use-cases/object-detection/sparsifying?utm_campaign=yolov5_nm_integration&utm_source=ultralytics_blog",
+    "https://docs.ray.io/en/latest/serve/tutorials/vllm-example.html",
+    "https://docs.ultralytics.com/hub",
+    "https://docs.ultralytics.com/hub/app",
+    "https://docs.ultralytics.com/hub/cloud-training",
+    "https://docs.ultralytics.com/hub/cloud-training#billing",
+    "https://docs.ultralytics.com/hub/cloud-training#train-model",
+    "https://docs.ultralytics.com/hub/cloud-training?h=cloud",
+    "https://docs.ultralytics.com/hub/cloud-training?h=hub+cloud+training",
+    "https://docs.ultralytics.com/hub/datasets",
+    "https://docs.ultralytics.com/hub/inference-api",
+    "https://docs.ultralytics.com/hub/inference-api#dedicated-inference-api",
+    "https://docs.ultralytics.com/hub/inference-api#shared-inference-api",
+    "https://docs.ultralytics.com/hub/integrations",
+    "https://docs.ultralytics.com/hub/integrations#models",
+    "https://docs.ultralytics.com/hub/models",
+    "https://docs.ultralytics.com/hub/projects",
+    "https://docs.ultralytics.com/hub/quickstart",
+    "https://docs.ultralytics.com/hub/sdk",
+    "https://docs.ultralytics.com/hub/teams",
+    "https://dragon.nuance.com/en-us/dragon-medical-one",
+    "https://en.wikipedia.org/wiki/Covariate_shift",
+    "https://en.wikipedia.org/wiki/Encoder-decoder",
+    "https://en.wikipedia.org/wiki/Label_noise",
+    "https://en.wikipedia.org/wiki/Multi-object_tracking",
+    "https://en.wikipedia.org/wiki/Occlusion_(computer_graphics)",
+    "https://en.wikipedia.org/wiki/Occlusion_(computer_vision)",
+    "https://en.wikipedia.org/wiki/Perception_(artificial_intelligence)",
+    "https://en.wikipedia.org/wiki/Reversible_neural_network",
+    "https://ercole.roma3.infn.it/wp-content/uploads/2024/04/Manuscript_IMEKO_send65-1.pdf",
+    "https://github.com/dependabot]",
+    "https://github.com/maycuatroi",
+    "https://github.com/mlfoundations/openclip",
+    "https://github.com/ultralytics/ultralytics/blob/main/docs/en/hub/inference-api.md",
+    "https://github.com/ultralytics/ultralytics/main/examples",
+    "https://hub.ultralytics.com",
+    "https://iapp.org/resources/article/pseudonymization-101/",
+    "https://labs.openai.com/",
+    "https://machinelearningmastery.com/sparse-representations-for-deep-learning/",
+    "https://monkeylearn.com/keyword-extraction/",
+    "https://monkeylearn.com/text-classification/",
+    "https://nascoict.org/about-us/",
+    "https://nascoict.org/en/",
+    "https://nascoict.org/nascotech-en/",
+    "https://neptune.ai/blog/understanding-gradient-clipping-and-how-to-implement-it",
+    "https://neptune.ai/blog/understanding-gradient-clipping-and-how-to-use-it",
+    "https://oag.ca.gov/privacy/ccpa",
+    "https://openai.com/index/gpt-3/",
+    "https://openai.com/index/grokking/",
+    "https://openai.com/research/alignment",
+    "https://openai.com/research/proximal-policy-optimization",
+    "https://openai.com/research/proximal-policy-optimization-algorithms",
+    "https://openai.com/safety/research",
+    "https://paperswithcode.com/method/silu",
+    "https://pypi.jetson-ai-lab.dev/jp/cu126",
+    "https://pypi.jetson-ai-lab.dev/jp6/cu126",
+    "https://research.ibm.com/blog/ai-fairness-360",
+    "https://research.ibm.com/blog/what-is-alignment-ai",
+    "https://statisticsbyjim.com/hypothesis-testing/type-ii-error/",
+    "https://statisticsbyjim.com/regression/ols-linear-regression-model/",
+    "https://towardsdatascience.com/uncertainty-sampling-cheatsheet-ec57bc067c0b",
+    "https://vtechworks.lib.vt.edu/items/2bc637cb-916e-4d74-bd8d-4f6cd1f7ce29",
+    "https://www.accountablehq.com/post/ai-and-hipaa",
+    "https://www.aclweb.org/portal/",
+    "https://www.acm.org/articles/pubs-newsletter/2021/blue-diamond-algorithmic-fairness",
+    "https://www.autodesk.com/toronto/generative-design",
+    "https://www.cricbuzz.com/cricket-full-commentary/a114987/gt-vs-pbks-5th-match-indian-premier-league-2025",
+    "https://www.cricbuzz.com/cricket-full-commentary/a114987/gt-vs-pbks-5th-match-indian-premier-league-2025#:~:text=18.5-,Vijaykumar%20Vyshak%20to%20Rahul%20Tewatia,-%2C%20no%20run%2C%20now",
+    "https://www.cricjp.com/cricket-no-ball-rules-know-24-widely-known-rules/",
+    "https://www.datacamp.com/tutorial/svm-classifier-scikit-learn",
+    "https://www.deepwizai.com/projects/an-unsupervised-neural-image-compression-algorithm",
+    "https://www.edmundoptics.com/knowledge-center/application-notes/imaging/illumination-fundamentals/",
+    "https://www.edoeb.admin.ch/edoeb/en/home/the-fdpic/contact.html",
+    "https://www.fincen.gov/news/news-releases/fincen-alerts-financial-institutions-potential-us-commercial-real-estate",
+    "https://www.gsi.go.jp/ENGLISH/",
+    "https://www.hsls.pitt.edu/obrc/index.php?page=URL1053633750",
+    "https://www.icao.int/nacc/documents/meetings/2014/sspsmsant/annex19.pdf",
+    "https://www.ieee.org/about/news/2016/smart-cities.html",
+    "https://www.ieee.org/about/technologies/consumer-electronics.html",
+    "https://www.ieee.org/technical-activities/pubs/fog-computing",
+    "https://www.ieee.org/technical-activities/pubs/fog-computing.html",
+    "https://www.mastercard.com/news/perspectives/2023/how-ai-is-fighting-fraud/",
+    "https://www.mathworks.com/discovery/fuzzy-logic.html",
+    "https://www.mathworks.com/discovery/sensor-fusion.html",
+    "https://www.nifa.usda.gov/about-nifa/blogs/researchers-helping-protect-crops-pests",
+    "https://www.sciencedirect.com/science/article/pii/S095219762100122X",
+    "https://www.sciencedirect.com/science/article/pii/S221083271200026X",
+    "https://www.sciencedirect.com/science/article/pii/S221083271500030X",
+    "https://www.sciencedirect.com/topics/computer-science/computational-efficiency",
+    "https://www.sciencedirect.com/topics/computer-science/equalized-odds",
+    "https://www.sciencedirect.com/topics/computer-science/facial-landmark",
+    "https://www.sciencedirect.com/topics/computer-science/financial-fraud-detection",
+    "https://www.sciencedirect.com/topics/computer-science/fitness-function",
+    "https://www.sciencedirect.com/topics/computer-science/genetic-diversity",
+    "https://www.sciencedirect.com/topics/computer-science/occlusion-handling",
+    "https://www.sciencedirect.com/topics/computer-science/perception-system",
+    "https://www.sciencedirect.com/topics/computer-science/spatial-awareness",
+    "https://www.sciencedirect.com/topics/engineering/automated-visual-inspection",
+    "https://www.sciencedirect.com/topics/engineering/autonomous-systems",
+    "https://www.sciencedirect.com/topics/engineering/kinematics",
+    "https://www.sciencedirect.com/topics/engineering/perception-system",
+    "https://www.scribbr.com/statistics/regression-analysis/",
+    "https://www.sowit.fr/",
+    "https://www.spatialpost.com/difference-between-lidar-and-camera/",
+    "https://www.sportstravelmagazine.com/wp-content/uploads/2019/08/cropped-Webp.net-resizeimage.png",
+    "https://www.tableau.com/learn/articles/data-analytics",
+    "https://www.techno-science.net/en/news/these-kamikaze-drones-equipped-with-ai-are-reinventing-military-tactics-N25946.html",
+    "https://www.techopedia.com/the-6-most-amazing-ai-advances-in-agriculture/2/33177",
+    "https://www.transportation.gov/research-and-technology/connected-vehicles",
+    "https://www.travelport.com/press-release/travelport-launches-global-accelerator",
+    "https://www.turing.ac.uk/research/research-projects/ai-financial-services",
+    "https://www.ultralytics.com/hub",
+    "https://www.usda.gov/topics/farming/precision-agriculture",
+    "https://www.usgs.gov/centers/eros/science/usgs-eros-archive-aerial-photography-aerial-photography-single-frames",
+    "https://www.usgs.gov/faqs/what-are-difference-between-satellite-imagery-and-aerial-photography",
+    "https://zhuanlan.zhihu.com/p/605141797",
 }
 
 URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private GitHub repos
@@ -124,6 +257,7 @@ URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private
     "mailto:",
     "linkedin.com",
     "twitter.com",
+    "ftc.gov",  # answers non-browser clients with 404 even for live pages
     "https://x.com",  # do not use just 'x' as this will catch other domains like netflix.com
     "storage.googleapis.com",  # private GCS buckets
     "{",  # possible Python fstring
@@ -161,6 +295,11 @@ REDIRECT_END_IGNORE_LIST = frozenset(
         "en-us",
         "es-es",
         "/latest/",
+        "/dev/",  # unstable development docs
+        ".appspot.com",  # app-hosting origins behind a vanity domain
+        ".herokuapp.com",
+        ".azurewebsites.net",
+        ".cloudfront.net",
         ":text",  # ignore text-selection links due to parsing complications
         ":443",  # https://getcruise.com/ -> https://www.gm.com:443/innovation/path-to-autonomous
         "404",
@@ -171,6 +310,7 @@ REDIRECT_END_IGNORE_LIST = frozenset(
         "login",
         "consent",
         "verify",
+        "signin",
         "latex.codecogs.com",
         "svg.image",
         "?view=azureml",
@@ -181,6 +321,17 @@ REDIRECT_END_IGNORE_LIST = frozenset(
         "githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
     }
 )
+REDIRECT_END_REJECT_PATTERNS = (  # (destination pattern, reject only when the start URL does not match it too)
+    (re.compile(r"(?i)[?&](?:Expires|Signature|X-Amz-Signature|token)="), False),  # signed CDN URL
+    (re.compile(r"(?i)[?&](?:session_sync_attempted|redirect_url|continue|state|code)="), True),  # auth handshake
+    (re.compile(r"(?i)^[^?#]*/(?:en|[a-z]{2}-[a-z]{2,4})/|[?&](?:gl|hl|lang|locale)="), True),  # locale or geo variant
+    (re.compile(r"(?i)[?&](?:utm_\w+|ref|source)="), True),  # tracking params
+    (re.compile(r"^https?://[^/?#]+/[^/?#]*(?:/[^/?#]*)*?/([^/?#]+)/\1(?=[/?#]|$)"), True),  # duplicated segment
+    (re.compile(r"^https?://[^/?#]*/?(?:[?#]|$)"), True),  # deep link collapsing to a homepage
+)
+URL_REWRITES = {  # permanent moves to apply before checking
+    "https://docs.ultralytics.com/glossary/": "https://www.ultralytics.com/glossary/",
+}
 URL_PATTERN = re.compile(
     r"\[(?P<md_text>[^]]+)]\((?P<md_url>[^)]+)\)"  # Matches Markdown links [text](url)
     r"|"
@@ -280,10 +431,35 @@ def allow_redirect(start="", end=""):
     return (
         end
         and end.startswith("https://")
+        and end.rstrip("/") != start.rstrip("/")  # a trailing slash alone is not worth rewriting
         and not start_lower.endswith(".git")  # git clone URLs, i.e. https://github.com/org/repo.git
         and all(item not in end_lower for item in REDIRECT_END_IGNORE_LIST)
         and all(item not in start_lower for item in REDIRECT_START_IGNORE_LIST)
+        and not any(
+            pattern.search(end) and not (added and pattern.search(start))
+            for pattern, added in REDIRECT_END_REJECT_PATTERNS
+        )
     )
+
+
+def is_homepage(url):
+    """Return True when a URL points at a site root."""
+    return not parse.urlsplit(url).path.strip("/")
+
+
+def same_site(url1, url2):
+    """Return True when two URLs share a host, ignoring a leading www."""
+    hosts = [(parse.urlsplit(u).hostname or "").lower() for u in (url1, url2)]
+    return len({h[4:] if h.startswith("www.") else h for h in hosts}) == 1
+
+
+def normalize_redirect_url(url):
+    """Drop the trailing slash that Ultralytics hosts add to redirect destinations, keeping any query or fragment."""
+    parts = parse.urlsplit(url)
+    hostname = parts.hostname or ""
+    if hostname == "ultralytics.com" or hostname.endswith(".ultralytics.com"):
+        parts = parts._replace(path=parts.path.rstrip("/"))
+    return parse.urlunsplit(parts)
 
 
 def brave_search(query, api_key, count=5):
@@ -306,7 +482,11 @@ def brave_search(query, api_key, count=5):
 
 
 def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
-    """Check if string is URL and optionally verify it exists, with fallback for GitHub repos."""
+    """Check if string is URL and optionally verify it exists, with fallback for GitHub repos.
+
+    Returns True for a live URL, False for a dead one, and None when the check is inconclusive (timeouts, connection or
+    server errors), so callers can report it without treating it as dead.
+    """
     try:
         # Check allow list
         if any(x in url for x in URL_IGNORE_LIST):
@@ -324,17 +504,22 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
             if not session:
                 kwargs["headers"] = REQUESTS_HEADERS
 
+            start = url
             for attempt in range(max_attempts):
-                try:
-                    # Try HEAD first, then GET if needed
-                    for method in (requester.head, requester.get):
-                        response = method(url, stream=method == requester.get, **kwargs)
-                        # Only update URL if there were actual HTTP redirects (indicated by response.history)
-                        if redirect and response.history and allow_redirect(start=url, end=response.url):
-                            url = response.url
-                        if response.status_code not in BAD_HTTP_CODES:
-                            return (True, url) if return_url else True
-
+                for method in ("head", "get"):  # GET also covers servers that refuse, reset or hang on HEAD
+                    try:
+                        response = getattr(requester, method)(url, stream=method == "get", **kwargs)
+                    except Exception:
+                        continue
+                    response.close()
+                    if response.history and is_homepage(response.url) and not is_homepage(start):
+                        return (False, response.url) if return_url else False  # a soft 404 to the homepage
+                    # Only update URL if there were actual HTTP redirects (indicated by response.history)
+                    if redirect and response.history and allow_redirect(start=url, end=response.url):
+                        url = normalize_redirect_url(response.url)
+                    if response.status_code not in BAD_HTTP_CODES:
+                        return (True, url) if return_url else True
+                    if method == "get":  # GET answered with a bad status, which is final
                         # If GitHub and check fails (repo might be private), add the base GitHub URL to ignore list
                         if result.hostname == "github.com":
                             parts = result.path.strip("/").split("/")
@@ -343,22 +528,26 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
                                 if requester.head(base_url, **kwargs).status_code == 404:
                                     URL_IGNORE_LIST.add(base_url)
                                     return (True, url) if return_url else True
-
-                    return (False, url) if return_url else False
-                except Exception:
-                    if attempt == max_attempts - 1:  # last attempt
-                        return (False, url) if return_url else False
-                    time.sleep(2**attempt)  # exponential backoff
-            return (False, url) if return_url else False
+                        valid = False if response.status_code in DEAD_HTTP_CODES else None
+                        return (valid, url) if return_url else valid
+                if attempt < max_attempts - 1:
+                    time.sleep(2**attempt)  # both requests raised, so retry with exponential backoff
+            return (None, url) if return_url else None
         return (True, url) if return_url else True
     except Exception:
         return (False, url) if return_url else False
 
 
 def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
-    """Process text, find URLs, check for 404s, and handle replacements with redirects or Brave search."""
+    """Check URLs outside code, optionally applying redirects, search fixes and unlinking of unfixable Markdown links."""
+    # Code URLs are often partial (f-strings, base URLs), so fenced and inline code is never checked or rewritten
+    parts = re.split(r"(```.*?```|`[^`\n]+`)", text, flags=re.DOTALL)
+    if replace:
+        for i in range(0, len(parts), 2):
+            for old, new in URL_REWRITES.items():
+                parts[i] = parts[i].replace(old, new)
     urls = []
-    for match in URL_PATTERN.finditer(text):
+    for match in (m for part in parts[::2] for m in URL_PATTERN.finditer(part)):
         url = match["md_url"] or match["plain_url"]
         if url and parse.urlparse(url).scheme:
             urls.append((match["md_text"] or "", clean_url(url)))
@@ -366,7 +555,9 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
     with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
         session.headers.update(REQUESTS_HEADERS)
         session.cookies = requests.cookies.RequestsCookieJar()
-        results = list(executor.map(lambda x: is_url(x[1], session, return_url=True, redirect=True), urls))
+        unique = list(dict.fromkeys(url for _, url in urls))  # check each URL once
+        checked = dict(zip(unique, executor.map(lambda u: is_url(u, session, return_url=True, redirect=True), unique)))
+        results = [checked[url] for _, url in urls]
         bad_urls = [url for (title, url), (valid, redirect) in zip(urls, results) if not valid]
 
         if replace:
@@ -375,9 +566,10 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
             # Process all URLs for replacements
             brave_api_key = os.getenv("BRAVE_API_KEY")
             for (title, url), (valid, redirect) in zip(urls, results):
-                # Handle invalid URLs with Brave search. Two queries, not two attempts: the dead URL biases the
-                # first toward the site root, so the second drops it and searches the link text on its domain.
-                if not valid:
+                # Handle dead URLs with Brave search; an inconclusive check (None) keeps its link. Two queries, not two
+                # attempts: the dead URL biases the first toward the site root, so the second drops it and searches the
+                # link text on its domain.
+                if valid is False:
                     if url in searched:  # search once per URL, however many times it occurs
                         continue
                     searched.add(url)
@@ -386,11 +578,16 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                         f"{title[:199]} {parse.urlparse(url).netloc}",
                     ):
                         search_urls = brave_search(query, brave_api_key, count=3) or []
-                        if best_url := next((u for u in search_urls if u != url and is_url(u, session)), None):
+                        candidates = (  # a page that moved within its site, never another site's page
+                            u
+                            for u in search_urls
+                            if u != url and same_site(url, u) and allow_redirect(start=url, end=u)
+                        )
+                        if best_url := next((u for u in candidates if is_url(u, session)), None):
                             replacements[url] = best_url
                             break
                 # Handle redirects for valid URLs
-                elif redirect and redirect != url:
+                elif valid and redirect and redirect != url:
                     replacements[url] = redirect
 
             if verbose and replacements:
@@ -398,18 +595,19 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                     f"WARNING ⚠️ replaced {len(replacements)} links:\n"
                     + "\n".join(f"  {k}: {v}" for k, v in replacements.items())
                 )
+            dead = {url for (_, url), (valid, _) in zip(urls, results) if valid is False} - set(replacements)
 
             def replace_link(match):
-                """Swap a matched URL for its replacement, leaving the surrounding link syntax untouched."""
+                """Swap a matched URL for its replacement, or unlink a dead Markdown link that nothing could fix."""
                 group = "md_url" if match["md_url"] else "plain_url"
                 raw_url = match[group]
                 if not (new_url := replacements.get(clean_url(raw_url))):
-                    return match[0]
+                    return match["md_text"] if group == "md_url" and clean_url(raw_url) in dead else match[0]
                 start, end = (i - match.start() for i in match.span(group))
                 suffix = raw_url[len(raw_url.rstrip(".,:;!?`\\")) :]  # trailing punctuation clean_url() dropped
                 return f"{match[0][:start]}{new_url}{suffix}{match[0][end:]}"
 
-            text = URL_PATTERN.sub(replace_link, text)
+            text = "".join(part if i % 2 else URL_PATTERN.sub(replace_link, part) for i, part in enumerate(parts))
             bad_urls = [url for url in bad_urls if url not in replacements]  # unfixable links stay reported
 
     passing = not bad_urls

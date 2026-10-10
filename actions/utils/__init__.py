@@ -19,6 +19,7 @@ from .common_utils import (
 from .github_utils import GITHUB_API_URL, GITHUB_GRAPHQL_URL, Action, ultralytics_actions_info
 from .openai_utils import (
     MAX_PROMPT_CHARS,
+    OpenAIUTMFilter,
     filter_labels,
     get_agent_response,
     get_pr_open_response,
@@ -37,6 +38,7 @@ __all__ = (
     "GITHUB_API_URL",
     "GITHUB_GRAPHQL_URL",
     "MAX_PROMPT_CHARS",
+    "OpenAIUTMFilter",
     "REDIRECT_END_IGNORE_LIST",
     "REDIRECT_START_IGNORE_LIST",
     "REQUESTS_HEADERS",

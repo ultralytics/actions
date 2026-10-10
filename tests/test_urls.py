@@ -5,8 +5,9 @@
 from unittest.mock import patch
 
 import pytest
+import requests
 
-from actions.utils.common_utils import check_links_in_string, is_url
+from actions.utils.common_utils import allow_redirect, check_links_in_string, is_url, normalize_redirect_url
 
 URLS = [
     "https://docs.ultralytics.com/help/contributing",
@@ -146,26 +147,102 @@ def test_urls_with_different_tlds(verbose):
     assert mock_is_url.call_count == 5
 
 
-def test_replace_keeps_unresolved_links(monkeypatch):
-    """Replace links the search can fix, keep and report the ones it cannot, and never touch a longer neighbor."""
-    text = "[Broken](https://site.test/bad) and [Fixed](https://site.test/gone) and https://site.test/gone/deeper"
+def test_replace_unlinks_unresolved_links(monkeypatch):
+    """Replace dead links a same-site search can fix, unlink the rest, keep inconclusive ones, and never touch code."""
+    code = " `https://site.test/bad` and\n```python\nbase = 'https://site.test/gone'\n```"
+    links = "[Broken](https://site.test/bad) and [Fixed](https://site.test/gone) and [Flaky](https://site.test/flaky)"
+    text = links + " and https://site.test/gone/deeper" + code
+    live = {"https://new.test/page", "https://site.test/moved", "https://site.test/gone/deeper"}
 
     def fake_is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
-        valid = url in {"https://new.test", "https://site.test/gone/deeper"}
+        valid = None if url.endswith("flaky") else url in live
         return (valid, url) if return_url else valid
 
     monkeypatch.setenv("BRAVE_API_KEY", "test-key")
     with patch("actions.utils.common_utils.is_url", side_effect=fake_is_url), patch(
         "actions.utils.common_utils.brave_search",
-        side_effect=lambda query, *_, **__: [] if "Broken" in query else ["https://new.test"],
+        side_effect=lambda query, *_, **__: (
+            [] if "Broken" in query else ["https://new.test/page", "https://site.test/moved"]
+        ),
     ):
         result = check_links_in_string(text, verbose=False, return_bad=True, replace=True)
 
+    fixed = "Broken and [Fixed](https://site.test/moved) and [Flaky](https://site.test/flaky)"
     assert result == (
         False,
-        ["https://site.test/bad"],
-        "[Broken](https://site.test/bad) and [Fixed](https://new.test) and https://site.test/gone/deeper",
+        ["https://site.test/bad", "https://site.test/flaky"],
+        fixed + " and https://site.test/gone/deeper" + code,
     )
+
+
+@pytest.mark.parametrize(
+    ("start", "end", "allowed"),
+    [
+        ("https://hf.test/m/resolve/main/w.pt", "https://cdn.hf.test/w.pt?Expires=9&Signature=ab", False),  # signed
+        ("https://youtube.test/ultralytics", "https://consent.youtube.test/m?continue=x&gl=ES", False),  # consent
+        ("https://youtube.test/ultralytics", "https://consent.youtube.test/m", False),  # bare consent host, no query
+        ("https://platform.test/deploy", "https://platform.test/signin?redirect_url=%2Fdeploy", False),  # auth page
+        ("https://notion.test/page", "https://app.notion.test/p/page?session_sync_attempted=1", False),  # session
+        ("https://nvidia.test/tensorrt", "https://nvidia.test/en-us/tensorrt", False),  # locale inserted
+        ("https://docs.test/en/guide", "https://docs.test/en/guide-v2", True),  # source is already localized
+        ("https://blog.test/post", "https://blog.test/post?utm_source=copy_link", False),  # tracking added
+        ("https://blog.test/post?ref=a", "https://blog.test/post-v2?ref=a", True),  # source already had ref=
+        ("https://docs.test/reference/auth", "https://docs.test/reference/auth/auth/key", False),  # segment doubled
+        ("https://docs.test/reference/sdk/sdk/v1", "https://docs.test/reference/sdk/sdk/v2", True),  # source doubled
+        ("https://github.test/acme/old", "https://github.test/acme/acme", True),  # owner/repo, not an anomaly
+        ("https://old.test/deep", "https://old.test/", False),  # deep link collapsing to a homepage
+        ("https://root.test", "https://www.root.test/", True),  # homepage to homepage
+        ("https://blog.test/post", "https://blog.test/post/", False),  # trailing slash only
+        ("https://blog.test/post", "http://blog.test/post-v2", False),  # https downgrade
+        ("https://help.test/guide/x", "https://help.test/en-euro/guide/x", False),  # geo locale inserted
+        ("https://coral.test/projects/x", "https://gweb-coral.uc.r.appspot.com/projects/x", False),  # hosting origin
+    ],
+)
+def test_allow_redirect_rejects_unsafe_destinations(start, end, allowed):
+    """Redirect and search-replacement destinations that are unsafe to bake in are rejected."""
+    assert bool(allow_redirect(start=start, end=end)) is allowed
+
+
+def test_normalize_redirect_url_removes_ultralytics_trailing_slashes():
+    """Ultralytics redirect destinations lose their trailing slash; other hosts keep theirs."""
+    assert normalize_redirect_url("https://www.ultralytics.com/") == "https://www.ultralytics.com"
+    assert normalize_redirect_url("https://docs.ultralytics.com/modes/track/?h=track") == (
+        "https://docs.ultralytics.com/modes/track?h=track"
+    )
+    assert normalize_redirect_url("https://example.com/page/") == "https://example.com/page/"
+
+
+def test_is_url_falls_back_to_get_and_flags_homepage_collapse():
+    """HEAD hangs fall back to GET, homepage collapses and 404s are dead, and unreachable or 5xx URLs are inconclusive."""
+
+    class Response:
+        def __init__(self, url, history, status_code=200):
+            self.url, self.status_code, self.history = url, status_code, history
+
+        def close(self):
+            pass
+
+    class Session:
+        def __init__(self, final_url):
+            self.final_url = final_url
+
+        def head(self, url, **kwargs):
+            raise requests.Timeout
+
+        def get(self, url, **kwargs):
+            if self.final_url is None:
+                raise requests.ConnectionError
+            status = {"https://site.test/gone": 404, "https://site.test/busy": 503}.get(url, 200)
+            return Response(self.final_url, [url] if self.final_url != url else [], status)
+
+    assert is_url("https://site.test/page", session=Session("https://site.test/page"))
+    assert is_url("https://site.test/page", session=Session("https://site.test/"), return_url=True) == (
+        False,
+        "https://site.test/",
+    )
+    assert is_url("https://site.test/gone", session=Session("https://site.test/gone")) is False
+    assert is_url("https://site.test/busy", session=Session("https://site.test/busy")) is None
+    assert is_url("https://site.test/page", session=Session(None), max_attempts=1) is None
 
 
 def test_case_sensitivity(verbose):
