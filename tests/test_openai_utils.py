@@ -19,6 +19,7 @@ from actions.utils.openai_utils import (
     get_response,
     get_review_model,
     remove_outer_codeblocks,
+    sanitize_ai_text,
 )
 
 
@@ -724,3 +725,11 @@ def test_get_agent_response_feeds_back_failed_tool(mock_post):
             "output": "Tool read_file failed: RuntimeError: read failed",
         }
     ]
+
+
+def test_sanitize_ai_text_keeps_cite_words():
+    """Citation markers are stripped while ordinary words starting with "cite" are kept."""
+    marked = "Done \ue200cite\ue202turn0search1\ue202turn0search3\ue201. See citeturn0news2."
+    plain = "The most-cited paper was cited and cites citeable work."
+    assert sanitize_ai_text(marked) == "Done . See ."
+    assert sanitize_ai_text(plain) == plain
