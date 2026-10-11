@@ -2,9 +2,11 @@
 
 # Continuous Integration (CI) GitHub Actions tests
 
+import socket
 from unittest.mock import patch
 
 import pytest
+import requests
 
 from actions.utils.common_utils import check_links_in_string, is_url
 
@@ -146,26 +148,79 @@ def test_urls_with_different_tlds(verbose):
     assert mock_is_url.call_count == 5
 
 
-def test_replace_keeps_unresolved_links(monkeypatch):
-    """Replace links the search can fix, keep and report the ones it cannot, and never touch a longer neighbor."""
-    text = "[Broken](https://site.test/bad) and [Fixed](https://site.test/gone) and https://site.test/gone/deeper"
+def test_replace_unlinks_dead_links(monkeypatch):
+    """Fix dead links with a same-site search, unlink the rest, and keep inconclusive links, images and code."""
+    code = " `https://site.test/bad`, \\```\n```\nbase = 'https://site.test/gone'\n```\n````md\n```\n'https://site.test/gone'\n```\n````"
+    text = (
+        '[Broken](https://site.test/bad), [Fixed](https://site.test/gone "Gone"), [Flaky](https://site.test/flaky), '
+        "[Moved](https://old.test/page), ![Figure](https://site.test/bad), [`code()`](https://site.test/bad), [Call](tel:+1)"
+        + code
+    )
+    live = {"https://site.test/moved", "https://www.new.test/page"}
 
     def fake_is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
-        valid = url in {"https://new.test", "https://site.test/gone/deeper"}
-        return (valid, url) if return_url else valid
+        valid = None if url.endswith("flaky") else url in live
+        final = "https://new.test/page" if url == "https://old.test/page" else url  # redirected, then 404
+        return (valid, final) if return_url else valid
+
+    def fake_search(query, *_, **__):
+        if "Fixed" in query:
+            return ["https://other.test/page", "https://site.test/", "https://site.test/moved"]
+        return ["https://www.new.test/page"] if "Moved" in query else []
 
     monkeypatch.setenv("BRAVE_API_KEY", "test-key")
     with patch("actions.utils.common_utils.is_url", side_effect=fake_is_url), patch(
-        "actions.utils.common_utils.brave_search",
-        side_effect=lambda query, *_, **__: [] if "Broken" in query else ["https://new.test"],
+        "actions.utils.common_utils.brave_search", side_effect=fake_search
     ):
         result = check_links_in_string(text, verbose=False, return_bad=True, replace=True)
 
     assert result == (
         False,
-        ["https://site.test/bad"],
-        "[Broken](https://site.test/bad) and [Fixed](https://new.test) and https://site.test/gone/deeper",
+        ["https://site.test/bad", "https://site.test/flaky", "https://site.test/bad", "https://site.test/bad"],
+        'Broken, [Fixed](https://site.test/moved "Gone"), [Flaky](https://site.test/flaky), '
+        "[Moved](https://www.new.test/page), ![Figure](https://site.test/bad), `code()`, [Call](tel:+1)" + code,
     )
+
+
+def test_is_url_falls_back_to_get_and_separates_dead_from_inconclusive(monkeypatch):
+    """A hanging HEAD falls back to GET; 404 and unknown hosts are dead; connection errors and 5xx are inconclusive."""
+    monkeypatch.setattr("socket.getaddrinfo", lambda host, port: [])
+
+    class Response:
+        def __init__(self, url, final_url, status_code):
+            self.url, self.status_code, self.history = final_url, status_code, [url] if final_url != url else []
+
+        def close(self):
+            pass
+
+    class Session:
+        def __init__(self, final_url=None, status_code=200):
+            self.final_url, self.status_code = final_url, status_code
+
+        def head(self, url, **kwargs):
+            raise requests.Timeout
+
+        def get(self, url, **kwargs):
+            if self.status_code is None:
+                raise requests.ConnectionError
+            return Response(url, self.final_url or url, self.status_code)
+
+    page = "https://site.test/page"
+    assert is_url(page, session=Session()) is True
+    assert is_url(page, session=Session(status_code=404)) is False
+    assert is_url(page, session=Session(status_code=503), max_attempts=1) is None
+    assert is_url(page, session=Session(status_code=None), max_attempts=1) is None
+    docs = "https://docs.ultralytics.com/modes/old"
+    assert is_url(docs, session=Session("https://docs.ultralytics.com/modes/new/"), return_url=True, redirect=True) == (
+        True,
+        "https://docs.ultralytics.com/modes/new",
+    )
+
+    def unknown_host(host, port):
+        raise socket.gaierror(socket.EAI_NONAME, "nodename nor servname provided, or not known")
+
+    monkeypatch.setattr("socket.getaddrinfo", unknown_host)
+    assert is_url(page, session=Session(status_code=None), max_attempts=1) is False
 
 
 def test_case_sensitivity(verbose):

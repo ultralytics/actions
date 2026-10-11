@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import re
+import socket
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -85,6 +86,7 @@ REQUESTS_HEADERS = {
     "Sec-Fetch-Dest": "document",
 }
 ACTIONS_CREDIT = "<sub>Made with ❤️ by [Ultralytics Actions](https://www.ultralytics.com/actions)</sub>"
+DEAD_HTTP_CODES = frozenset({404, 410})  # definitive, unlike transient bad codes
 BAD_HTTP_CODES = frozenset(
     {
         204,  # No content
@@ -124,6 +126,7 @@ URL_IGNORE_LIST = {  # use a set (not frozenset) to update with possible private
     "mailto:",
     "linkedin.com",
     "twitter.com",
+    "ftc.gov",  # answers non-browser clients with 404 even for live pages
     "https://x.com",  # do not use just 'x' as this will catch other domains like netflix.com
     "storage.googleapis.com",  # private GCS buckets
     "{",  # possible Python fstring
@@ -161,6 +164,8 @@ REDIRECT_END_IGNORE_LIST = frozenset(
         "en-us",
         "es-es",
         "/latest/",
+        "/dev/",  # unstable development docs
+        ".appspot.com",  # app-hosting origin behind a vanity domain
         ":text",  # ignore text-selection links due to parsing complications
         ":443",  # https://getcruise.com/ -> https://www.gm.com:443/innovation/path-to-autonomous
         "404",
@@ -171,18 +176,27 @@ REDIRECT_END_IGNORE_LIST = frozenset(
         "login",
         "consent",
         "verify",
+        "/signin",
         "latex.codecogs.com",
         "svg.image",
         "?view=azureml",
-        "?utm_",
         "redirect",
         "https://code.visualstudio.com/",  # errors
         "?rdt=",  # problems with reddit redirecting to https://www.reddit.com/r/ultralytics/?rdt=48616
         "githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
+        "boxcloud.com",  # Box shared links redirect to expiring download URLs
     }
 )
+REDIRECT_END_REJECT_PATTERNS = (  # (destination pattern, reject only when the start URL does not match it too)
+    (re.compile(r"(?i)[?&](?:Expires|Signature|X-Amz-Signature|token)="), False),  # signed CDN URL
+    (re.compile(r"(?i)[?&](?:session_sync_attempted|continue|state|code)="), True),  # auth handshake
+    (re.compile(r"(?i)^[^?#]*/(?:en|[a-z]{2}-(?:[a-z]{2}|euro))(?=[/?#]|$)|[?&](?:gl|hl)="), True),  # locale, geo
+    (re.compile(r"(?i)[?&](?:utm_\w+|ref|source)="), True),  # tracking params
+    (re.compile(r"^https?://[^/?#]+/[^/?#]*(?:/[^/?#]*)*?/([^/?#]+)/\1(?=[/?#]|$)"), True),  # duplicated segment
+)
+CODE_PATTERN = re.compile(r"^[ \t>]*(`{3,}|~{3,}).*?^[ \t>]*\1|`[^`\n]+`", re.DOTALL | re.MULTILINE)  # fenced, inline
 URL_PATTERN = re.compile(
-    r"\[(?P<md_text>[^]]+)]\((?P<md_url>[^)]+)\)"  # Matches Markdown links [text](url)
+    r"\[(?P<md_text>[^]]+)]\((?P<md_url>[^)\s]+)(?:\s+\"[^\"]*\")?\)"  # Markdown links [text](url "title")
     r"|"
     r"(?P<plain_url>"  # Start capturing group for plaintext URLs
     r"(?:https?://)?"  # Optional http:// or https://
@@ -283,7 +297,14 @@ def allow_redirect(start="", end=""):
         and not start_lower.endswith(".git")  # git clone URLs, i.e. https://github.com/org/repo.git
         and all(item not in end_lower for item in REDIRECT_END_IGNORE_LIST)
         and all(item not in start_lower for item in REDIRECT_START_IGNORE_LIST)
+        and not any(p.search(end) and not (added and p.search(start)) for p, added in REDIRECT_END_REJECT_PATTERNS)
     )
+
+
+def same_site(url1, url2):
+    """Return True when two URLs share a host, ignoring a leading www."""
+    hosts = {(parse.urlsplit(u).hostname or "").lower() for u in (url1, url2)}
+    return len({h[4:] if h.startswith("www.") else h for h in hosts}) == 1
 
 
 def brave_search(query, api_key, count=5):
@@ -306,10 +327,10 @@ def brave_search(query, api_key, count=5):
 
 
 def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
-    """Check if string is URL and optionally verify it exists, with fallback for GitHub repos."""
+    """Check if a URL exists: True if live, False if dead (404, 410, unknown host), None if inconclusive."""
     try:
         # Check allow list
-        if any(x in url for x in URL_IGNORE_LIST):
+        if any(x in url for x in tuple(URL_IGNORE_LIST)):  # snapshot: other threads add to it
             return (True, url) if return_url else True
 
         # Check structure
@@ -325,48 +346,79 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
                 kwargs["headers"] = REQUESTS_HEADERS
 
             for attempt in range(max_attempts):
-                try:
-                    # Try HEAD first, then GET if needed
-                    for method in (requester.head, requester.get):
-                        response = method(url, stream=method == requester.get, **kwargs)
-                        # Only update URL if there were actual HTTP redirects (indicated by response.history)
-                        if redirect and response.history and allow_redirect(start=url, end=response.url):
-                            url = response.url
-                        if response.status_code not in BAD_HTTP_CODES:
-                            return (True, url) if return_url else True
-
-                        # If GitHub and check fails (repo might be private), add the base GitHub URL to ignore list
-                        if result.hostname == "github.com":
-                            parts = result.path.strip("/").split("/")
-                            if len(parts) >= 2:
-                                base_url = f"https://github.com/{parts[0]}/{parts[1]}"  # https://github.com/org/repo
-                                if requester.head(base_url, **kwargs).status_code == 404:
-                                    URL_IGNORE_LIST.add(base_url)
-                                    return (True, url) if return_url else True
-
-                    return (False, url) if return_url else False
-                except Exception:
-                    if attempt == max_attempts - 1:  # last attempt
+                for method in ("head", "get"):  # GET also covers servers that refuse, reset or hang on HEAD
+                    try:
+                        response = getattr(requester, method)(url, stream=method == "get", **kwargs)
+                    except requests.exceptions.ConnectTimeout:
+                        break  # an unreachable host fails GET the same way
+                    except ValueError:  # requests' InvalidURL and InvalidSchema: a malformed URL
                         return (False, url) if return_url else False
-                    time.sleep(2**attempt)  # exponential backoff
-            return (False, url) if return_url else False
+                    except Exception:
+                        continue
+                    response.close()
+                    # Only update URL if there were actual HTTP redirects (indicated by response.history)
+                    if redirect and response.history and allow_redirect(start=url, end=response.url):
+                        end = parse.urlsplit(response.url)  # Ultralytics URLs drop the trailing slash their hosts add
+                        ultralytics = end.hostname == "ultralytics.com" or (end.hostname or "").endswith(
+                            ".ultralytics.com"
+                        )
+                        url = parse.urlunsplit(end._replace(path=end.path.rstrip("/"))) if ultralytics else response.url
+                    if response.status_code not in BAD_HTTP_CODES:
+                        return (True, url) if return_url else True
+                    if method == "head":
+                        continue
+
+                    # If GitHub and check fails (repo might be private), add the base GitHub URL to ignore list
+                    if result.hostname == "github.com":
+                        parts = result.path.strip("/").split("/")
+                        if len(parts) >= 2:
+                            base_url = f"https://github.com/{parts[0]}/{parts[1]}"  # https://github.com/org/repo
+                            try:
+                                private = requester.head(base_url, **kwargs).status_code == 404
+                            except Exception:
+                                return (None, url) if return_url else None
+                            if private:
+                                URL_IGNORE_LIST.add(base_url)
+                                return (True, url) if return_url else True
+                    if response.status_code >= 500 and attempt < max_attempts - 1:
+                        break  # a server error may be transient (e.g. GitHub throttling with 504), so retry
+                    valid = False if response.status_code in DEAD_HTTP_CODES else None
+                    return (valid, url) if return_url else valid
+                if attempt < max_attempts - 1:
+                    time.sleep(2**attempt)  # both requests failed transiently, so retry with exponential backoff
+            if not requests.utils.get_environ_proxies(url):  # every attempt failed; behind a proxy, DNS says nothing
+                try:
+                    socket.getaddrinfo(result.hostname, None)
+                except socket.gaierror as e:
+                    if e.errno == socket.EAI_NONAME:
+                        return (False, url) if return_url else False  # the host does not exist
+            return (None, url) if return_url else None
         return (True, url) if return_url else True
     except Exception:
         return (False, url) if return_url else False
 
 
 def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
-    """Process text, find URLs, check for 404s, and handle replacements with redirects or Brave search."""
+    """Process text, find URLs outside code, check for 404s, and handle replacements with redirects or Brave search."""
+    code = [m.span() for m in CODE_PATTERN.finditer(text)]  # code URLs are often partial, so code is left alone
+
+    def in_code(match, group):
+        """Return True when a URL match starts inside a code span."""
+        return any(start <= match.start(group) < end for start, end in code)
+
     urls = []
     for match in URL_PATTERN.finditer(text):
-        url = match["md_url"] or match["plain_url"]
-        if url and parse.urlparse(url).scheme:
+        group = "md_url" if match["md_url"] else "plain_url"
+        url = match[group]
+        if url and parse.urlparse(url).scheme in {"http", "https"} and not in_code(match, group):
             urls.append((match["md_text"] or "", clean_url(url)))
 
     with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
         session.headers.update(REQUESTS_HEADERS)
         session.cookies = requests.cookies.RequestsCookieJar()
-        results = list(executor.map(lambda x: is_url(x[1], session, return_url=True, redirect=True), urls))
+        unique = list(dict.fromkeys(url for _, url in urls))  # check each URL once
+        checked = dict(zip(unique, executor.map(lambda u: is_url(u, session, return_url=True, redirect=True), unique)))
+        results = [checked[url] for _, url in urls]
         bad_urls = [url for (title, url), (valid, redirect) in zip(urls, results) if not valid]
 
         if replace:
@@ -377,7 +429,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
             for (title, url), (valid, redirect) in zip(urls, results):
                 # Handle invalid URLs with Brave search. Two queries, not two attempts: the dead URL biases the
                 # first toward the site root, so the second drops it and searches the link text on its domain.
-                if not valid:
+                if valid is False:  # an inconclusive check (None) keeps its link
                     if url in searched:  # search once per URL, however many times it occurs
                         continue
                     searched.add(url)
@@ -386,11 +438,18 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                         f"{title[:199]} {parse.urlparse(url).netloc}",
                     ):
                         search_urls = brave_search(query, brave_api_key, count=3) or []
-                        if best_url := next((u for u in search_urls if u != url and is_url(u, session)), None):
+                        candidates = (  # a page that moved within its site (or the site it redirects to)
+                            u
+                            for u in search_urls
+                            if u != url
+                            and parse.urlsplit(u).path.strip("/")
+                            and any(same_site(u, s) for s in (url, redirect))
+                        )
+                        if best_url := next((u for u in candidates if is_url(u, session)), None):
                             replacements[url] = best_url
                             break
                 # Handle redirects for valid URLs
-                elif redirect and redirect != url:
+                elif valid and redirect and redirect != url:
                     replacements[url] = redirect
 
             if verbose and replacements:
@@ -400,15 +459,21 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
                 )
 
             def replace_link(match):
-                """Swap a matched URL for its replacement, leaving the surrounding link syntax untouched."""
+                """Swap a matched URL for its replacement, or unlink a dead Markdown link that nothing could fix."""
                 group = "md_url" if match["md_url"] else "plain_url"
                 raw_url = match[group]
-                if not (new_url := replacements.get(clean_url(raw_url))):
+                if in_code(match, group):
                     return match[0]
+                if not (new_url := replacements.get(clean_url(raw_url))):
+                    image = match.string[match.start() - 1 : match.start()] == "!" or match[0].startswith("[!")
+                    return (
+                        match["md_text"] if group == "md_url" and not image and clean_url(raw_url) in dead else match[0]
+                    )
                 start, end = (i - match.start() for i in match.span(group))
                 suffix = raw_url[len(raw_url.rstrip(".,:;!?`\\")) :]  # trailing punctuation clean_url() dropped
                 return f"{match[0][:start]}{new_url}{suffix}{match[0][end:]}"
 
+            dead = {u for (_, u), (valid, _) in zip(urls, results) if valid is False} - set(replacements)
             text = URL_PATTERN.sub(replace_link, text)
             bad_urls = [url for url in bad_urls if url not in replacements]  # unfixable links stay reported
 
