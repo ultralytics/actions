@@ -61,7 +61,8 @@ def test_allow_redirect():
     assert not allow_redirect("https://notion.test/page", "https://app.notion.test/p?session_sync_attempted=1")
     assert not allow_redirect("https://nvidia.test/tensorrt", "https://nvidia.test/en-us/tensorrt")  # locale
     assert not allow_redirect("https://help.test/guide/x", "https://help.test/en-euro/guide/x")  # geo locale
-    assert allow_redirect("https://docs.test/en-us/old", "https://docs.test/en-us/new")  # already localized
+    assert not allow_redirect("https://www.dell.test", "https://www.dell.test/fr-fr")  # locale ending the URL
+    assert allow_redirect("https://docs.test/en-gb/old", "https://docs.test/en-gb/new")  # already localized
     assert not allow_redirect("https://blog.test/post", "https://blog.test/post?utm_source=copy_link")  # tracking
     assert allow_redirect("https://blog.test/post?ref=a", "https://blog.test/post-v2?ref=a")  # already tracked
     assert not allow_redirect("https://docs.test/reference/auth", "https://docs.test/reference/auth/auth/key")

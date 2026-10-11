@@ -153,7 +153,8 @@ def test_replace_unlinks_dead_links(monkeypatch):
     code = " `https://site.test/bad`, \\```\n```\nbase = 'https://site.test/gone'\n```\n````md\n```\n'https://site.test/gone'\n```\n````"
     text = (
         '[Broken](https://site.test/bad), [Fixed](https://site.test/gone "Gone"), [Flaky](https://site.test/flaky), '
-        "[Moved](https://old.test/page), ![Figure](https://site.test/bad), [`code()`](https://site.test/bad)" + code
+        "[Moved](https://old.test/page), ![Figure](https://site.test/bad), [`code()`](https://site.test/bad), [Call](tel:+1)"
+        + code
     )
     live = {"https://site.test/moved", "https://www.new.test/page"}
 
@@ -177,7 +178,7 @@ def test_replace_unlinks_dead_links(monkeypatch):
         False,
         ["https://site.test/bad", "https://site.test/flaky", "https://site.test/bad", "https://site.test/bad"],
         'Broken, [Fixed](https://site.test/moved "Gone"), [Flaky](https://site.test/flaky), '
-        "[Moved](https://www.new.test/page), ![Figure](https://site.test/bad), `code()`" + code,
+        "[Moved](https://www.new.test/page), ![Figure](https://site.test/bad), `code()`, [Call](tel:+1)" + code,
     )
 
 
@@ -219,7 +220,7 @@ def test_is_url_falls_back_to_get_and_separates_dead_from_inconclusive(monkeypat
         raise socket.gaierror(socket.EAI_NONAME, "nodename nor servname provided, or not known")
 
     monkeypatch.setattr("socket.getaddrinfo", unknown_host)
-    assert is_url(page, session=Session()) is False
+    assert is_url(page, session=Session(status_code=None), max_attempts=1) is False
 
 
 def test_case_sensitivity(verbose):

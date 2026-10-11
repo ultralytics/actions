@@ -161,6 +161,8 @@ REDIRECT_END_IGNORE_LIST = frozenset(
     {
         "/es/",
         "/us/",
+        "en-us",
+        "es-es",
         "/latest/",
         "/dev/",  # unstable development docs
         ".appspot.com",  # app-hosting origin behind a vanity domain
@@ -187,7 +189,7 @@ REDIRECT_END_IGNORE_LIST = frozenset(
 REDIRECT_END_REJECT_PATTERNS = (  # (destination pattern, reject only when the start URL does not match it too)
     (re.compile(r"(?i)[?&](?:Expires|Signature|X-Amz-Signature|token)="), False),  # signed CDN URL
     (re.compile(r"(?i)[?&](?:session_sync_attempted|continue|state|code)="), True),  # auth handshake
-    (re.compile(r"(?i)^[^?#]*/(?:en|[a-z]{2}-(?:[a-z]{2}|euro))/|[?&](?:gl|hl)="), True),  # locale or geo variant
+    (re.compile(r"(?i)^[^?#]*/(?:en|[a-z]{2}-(?:[a-z]{2}|euro))(?=[/?#]|$)|[?&](?:gl|hl)="), True),  # locale, geo
     (re.compile(r"(?i)[?&](?:utm_\w+|ref|source)="), True),  # tracking params
     (re.compile(r"^https?://[^/?#]+/[^/?#]*(?:/[^/?#]*)*?/([^/?#]+)/\1(?=[/?#]|$)"), True),  # duplicated segment
 )
@@ -324,7 +326,7 @@ def brave_search(query, api_key, count=5):
 
 
 def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
-    """Check if a URL exists: True if live, False if dead, None if inconclusive (timeouts, connection or server errors)."""
+    """Check if a URL exists: True if live, False if dead (404, 410, unknown host), None if inconclusive."""
     try:
         # Check allow list
         if any(x in url for x in tuple(URL_IGNORE_LIST)):  # snapshot: other threads add to it
@@ -342,12 +344,6 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
             if not session:
                 kwargs["headers"] = REQUESTS_HEADERS
 
-            if not requests.utils.get_environ_proxies(url):  # behind a proxy, local DNS says nothing
-                try:
-                    socket.getaddrinfo(result.hostname, None)
-                except socket.gaierror as e:
-                    if e.errno == socket.EAI_NONAME:
-                        return (False, url) if return_url else False  # the host does not exist
             for attempt in range(max_attempts):
                 for method in ("head", "get"):  # GET also covers servers that refuse, reset or hang on HEAD
                     try:
@@ -389,6 +385,12 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
                     return (valid, url) if return_url else valid
                 if attempt < max_attempts - 1:
                     time.sleep(2**attempt)  # both requests failed transiently, so retry with exponential backoff
+            if not requests.utils.get_environ_proxies(url):  # every attempt failed; behind a proxy, DNS says nothing
+                try:
+                    socket.getaddrinfo(result.hostname, None)
+                except socket.gaierror as e:
+                    if e.errno == socket.EAI_NONAME:
+                        return (False, url) if return_url else False  # the host does not exist
             return (None, url) if return_url else None
         return (True, url) if return_url else True
     except Exception:
@@ -407,7 +409,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
     for match in URL_PATTERN.finditer(text):
         group = "md_url" if match["md_url"] else "plain_url"
         url = match[group]
-        if url and parse.urlparse(url).scheme and not in_code(match, group):
+        if url and parse.urlparse(url).scheme in {"http", "https"} and not in_code(match, group):
             urls.append((match["md_text"] or "", clean_url(url)))
 
     with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
