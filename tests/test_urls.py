@@ -150,7 +150,7 @@ def test_urls_with_different_tlds(verbose):
 
 def test_replace_unlinks_dead_links(monkeypatch):
     """Fix dead links with a same-site search, unlink the rest, and keep inconclusive links, images and code."""
-    code = " `https://site.test/bad`\n````md\n```\nbase = 'https://site.test/gone'\n```\n````"
+    code = " `https://site.test/bad`, \\```\n```\nbase = 'https://site.test/gone'\n```\n````md\n```\n'https://site.test/gone'\n```\n````"
     text = (
         '[Broken](https://site.test/bad), [Fixed](https://site.test/gone "Gone"), [Flaky](https://site.test/flaky), '
         "[Moved](https://old.test/page), ![Figure](https://site.test/bad), [`code()`](https://site.test/bad)" + code

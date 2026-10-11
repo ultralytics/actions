@@ -191,7 +191,7 @@ REDIRECT_END_REJECT_PATTERNS = (  # (destination pattern, reject only when the s
     (re.compile(r"(?i)[?&](?:utm_\w+|ref|source)="), True),  # tracking params
     (re.compile(r"^https?://[^/?#]+/[^/?#]*(?:/[^/?#]*)*?/([^/?#]+)/\1(?=[/?#]|$)"), True),  # duplicated segment
 )
-CODE_PATTERN = re.compile(r"(`{3,}|~{3,}).*?\1|`[^`\n]+`", re.DOTALL)  # fenced (any fence length) and inline code
+CODE_PATTERN = re.compile(r"^[ \t>]*(`{3,}|~{3,}).*?^[ \t>]*\1|`[^`\n]+`", re.DOTALL | re.MULTILINE)  # fenced, inline
 URL_PATTERN = re.compile(
     r"\[(?P<md_text>[^]]+)]\((?P<md_url>[^)\s]+)(?:\s+\"[^\"]*\")?\)"  # Markdown links [text](url "title")
     r"|"
