@@ -217,10 +217,18 @@ def test_is_url_falls_back_to_get_and_separates_dead_from_inconclusive(monkeypat
     )
 
     def unknown_host(host, port):
+        if host == "example.com":  # the resolver itself works
+            return []
         raise socket.gaierror(socket.EAI_NONAME, "nodename nor servname provided, or not known")
 
     monkeypatch.setattr("socket.getaddrinfo", unknown_host)
     assert is_url(page, session=Session(status_code=None), max_attempts=1) is False
+
+    def resolver_down(host, port):  # macOS reports a DNS outage as EAI_NONAME for every host
+        raise socket.gaierror(socket.EAI_NONAME, "nodename nor servname provided, or not known")
+
+    monkeypatch.setattr("socket.getaddrinfo", resolver_down)
+    assert is_url(page, session=Session(status_code=None), max_attempts=1) is None
 
 
 def test_case_sensitivity(verbose):
