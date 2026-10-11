@@ -17,13 +17,13 @@ MAX_JOB_LOG_CHARS = 20000
 LOG_NOISE = re.compile(r"^\d{4}-\d\d-\d\dT[\d:.]+Z |\x1b\[[0-9;]*[A-Za-z]", re.MULTILINE)  # timestamps, colors
 PROMPT = """Triage this failed GitHub Actions run for the maintainers' chat alert, using the run details and failed job logs below.
 
-Reply in GitHub-flavored Markdown in at most 3 short lines and 60 words, with no headings, tables, emoji (drop any from quoted text) or preamble:
+Reply in GitHub-flavored Markdown in at most 150 words, using only the detail the failure needs, with no headings, tables, emoji (drop any from quoted text) or preamble:
 - Line 1: `**<Bug|Transient|Unclear>** - <what failed and its decisive error, in one short sentence>`
   - Bug: a re-run of the same commit would fail again until something changes, such as the code, tests, build configuration, workflow or a dependency release.
   - Transient: a re-run would likely pass, such as a flaky or timing-sensitive test, a network, registry or rate-limit error, or a runner fault like lost communication or a shutdown.
   - Unclear: the logs do not show the cause, for example when they are cut off or missing.
   - If jobs fail for different reasons, Line 1 covers the most actionable one (Bug, then Unclear, then Transient).
-- Then at most 2 bullets: the likely root cause, with the fix when the logs make it evident, and any other distinct failure. Group matrix jobs that fail the same way.
+- Then up to 4 bullets as needed: decisive evidence, the likely root cause, a fix or next diagnostic check, and any other distinct failure. Distinguish confirmed facts from hypotheses and say when the logs do not establish the cause. Group matrix jobs that fail the same way.
 
 Rules:
 - Ground every claim in the logs. The cause is the earliest error the failure follows from; errors the run recovered from, such as retried downloads, are noise, and later test failures, teardown errors and lines like "Process completed with exit code 1" are its symptoms.

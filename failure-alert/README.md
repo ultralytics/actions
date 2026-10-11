@@ -1,6 +1,6 @@
 # Failure Alert Action
 
-Post a Slack alert when a workflow run fails, with a short AI triage of the failed job logs under it: a **Bug**, **Transient** or **Unclear** verdict with what failed and the decisive error, then up to two bullets on the likely cause, linked to the failing jobs and source lines. It works for any repository, language and test framework.
+Post a Slack alert when a workflow run fails, with an AI triage of the failed job logs under it: a **Bug**, **Transient** or **Unclear** verdict with what failed and the decisive error, then up to four bullets covering evidence, likely cause, a fix or next diagnostic check, and other distinct failures, linked to the failing jobs and source lines. It works for any repository, language and test framework.
 
 ## Usage
 
@@ -42,12 +42,13 @@ The job's `if:` decides which events and branches alert. The action only posts o
 
 ## Output
 
-A Slack message that keeps the usual one-line alert, with ❌ as its only emoji, followed by at most three short lines of triage, for example:
+A Slack message that keeps the usual one-line alert, with ❌ as its only emoji, followed by up to 150 words of triage. Simple failures stay brief; more complex failures can include supporting evidence and next steps, for example:
 
 ```text
 @ci-team CI ❌ org/repo  Run
 Bug - Tests (ubuntu-latest, 3.12) fails 4 tests with TypeError: expected str, not NoneType
-• The commit made path required in config.py without updating its callers
+• The four failures all reach config.py with path=None after the commit made path required
+• Update those callers to supply a path, then rerun the affected tests
 ```
 
 In Slack, Run, the job names and the source files are links. The triage is also written to the job summary.
