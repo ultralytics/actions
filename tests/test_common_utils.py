@@ -54,6 +54,21 @@ def test_allow_redirect():
     assert allow_redirect("https://docs.github.com/en/old", "https://docs.github.com/en/new")
     assert allow_redirect("https://gist.github.com/user/abc", "https://gist.github.com/user/def")
 
+    # Destinations unsafe to bake in, unless the start URL already has the same shape
+    assert not allow_redirect("https://hf.test/m/w.pt", "https://cdn.hf.test/w.pt?Expires=9&Signature=ab")  # signed
+    assert not allow_redirect("https://youtube.test/ultralytics", "https://consent.youtube.test/m")  # consent wall
+    assert not allow_redirect("https://platform.test/deploy", "https://platform.test/signin?next=%2Fdeploy")  # auth
+    assert not allow_redirect("https://notion.test/page", "https://app.notion.test/p?session_sync_attempted=1")
+    assert not allow_redirect("https://nvidia.test/tensorrt", "https://nvidia.test/en-us/tensorrt")  # locale
+    assert not allow_redirect("https://help.test/guide/x", "https://help.test/en-euro/guide/x")  # geo locale
+    assert allow_redirect("https://docs.test/en-us/old", "https://docs.test/en-us/new")  # already localized
+    assert not allow_redirect("https://blog.test/post", "https://blog.test/post?utm_source=copy_link")  # tracking
+    assert allow_redirect("https://blog.test/post?ref=a", "https://blog.test/post-v2?ref=a")  # already tracked
+    assert not allow_redirect("https://docs.test/reference/auth", "https://docs.test/reference/auth/auth/key")
+    assert allow_redirect("https://docs.test/reference/sdk/sdk/v1", "https://docs.test/reference/sdk/sdk/v2")
+    assert allow_redirect("https://github.test/acme/old", "https://github.test/acme/acme")  # owner/repo
+    assert not allow_redirect("https://coral.test/projects/x", "https://gweb-coral.uc.r.appspot.com/projects/x")
+
 
 @patch("requests.get")
 def test_brave_search(mock_get):
