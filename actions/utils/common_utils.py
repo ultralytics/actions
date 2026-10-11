@@ -432,8 +432,7 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
         unique = [u for u in dict.fromkeys(url for _, url in urls) if u not in LIVE_URLS]  # check each URL once
         checked = dict(zip(unique, executor.map(lambda u: is_url(u, session, return_url=True, redirect=True), unique)))
         LIVE_URLS.update({u: r for u, r in checked.items() if r[0] is True})
-        checked |= {u: LIVE_URLS[u] for _, u in urls if u in LIVE_URLS}
-        results = [checked[url] for _, url in urls]
+        results = [checked.get(url) or LIVE_URLS[url] for _, url in urls]
         bad_urls = [url for (title, url), (valid, redirect) in zip(urls, results) if not valid]
 
         if replace:
