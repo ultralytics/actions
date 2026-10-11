@@ -326,6 +326,18 @@ def brave_search(query, api_key, count=5):
     return [result.get("url") for result in results if result.get("url")]
 
 
+LIVE_URLS = {}  # url -> (True, final URL), so each live link is checked once per process
+
+
+def resolves(host):
+    """Return True if DNS resolves host, to tell a missing host from a resolver that is down."""
+    try:
+        socket.getaddrinfo(host, None)
+    except socket.gaierror:
+        return False
+    return True
+
+
 def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=False, redirect=False):
     """Check if a URL exists: True if live, False if dead (404, 410, unknown host), None if inconclusive."""
     try:
@@ -390,7 +402,8 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
                 try:
                     socket.getaddrinfo(result.hostname, None)
                 except socket.gaierror as e:
-                    if e.errno == socket.EAI_NONAME:
+                    # macOS also reports a DNS outage as EAI_NONAME, so confirm the resolver still works
+                    if e.errno == socket.EAI_NONAME and resolves("example.com"):
                         return (False, url) if return_url else False  # the host does not exist
             return (None, url) if return_url else None
         return (True, url) if return_url else True
@@ -416,8 +429,10 @@ def check_links_in_string(text, verbose=True, return_bad=False, replace=False):
     with requests.Session() as session, ThreadPoolExecutor(max_workers=64) as executor:
         session.headers.update(REQUESTS_HEADERS)
         session.cookies = requests.cookies.RequestsCookieJar()
-        unique = list(dict.fromkeys(url for _, url in urls))  # check each URL once
+        unique = [u for u in dict.fromkeys(url for _, url in urls) if u not in LIVE_URLS]  # check each URL once
         checked = dict(zip(unique, executor.map(lambda u: is_url(u, session, return_url=True, redirect=True), unique)))
+        LIVE_URLS.update({u: r for u, r in checked.items() if r[0] is True})
+        checked |= {u: LIVE_URLS[u] for _, u in urls if u in LIVE_URLS}
         results = [checked[url] for _, url in urls]
         bad_urls = [url for (title, url), (valid, redirect) in zip(urls, results) if not valid]
 
