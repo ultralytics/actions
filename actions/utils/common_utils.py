@@ -176,7 +176,7 @@ REDIRECT_END_IGNORE_LIST = frozenset(
         "login",
         "consent",
         "verify",
-        "signin",
+        "/signin",
         "latex.codecogs.com",
         "svg.image",
         "?view=azureml",
