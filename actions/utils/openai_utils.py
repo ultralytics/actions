@@ -76,7 +76,7 @@ SYSTEM_PROMPT_ADDITION = """Guidance:
   - Tone: Adopt a professional, friendly, and concise tone.
 """
 _CITATION_PATTERN = re.compile(
-    r"[\uE000-\uF8FF]*(?:\bcite[\uE000-\uF8FF]*turn\d+(?:search|view)\d+|[\uE000-\uF8FF]cite[\uE000-\uF8FF]*\w+)[\uE000-\uF8FF]*|\bturn\d+(?:search|view)\d+[\uE000-\uF8FF]+"
+    r"[\uE000-\uF8FF]*(?:\bcite[\uE000-\uF8FF]*turn\d+[a-z]+\d+|[\uE000-\uF8FF]cite[\uE000-\uF8FF]*\w+)[\uE000-\uF8FF]*|\bturn\d+(?:search|view)\d+[\uE000-\uF8FF]+"
 )
 
 
