@@ -56,6 +56,7 @@ def test_allow_redirect():
 
     # Destinations unsafe to bake in, unless the start URL already has the same shape
     assert not allow_redirect("https://hf.test/m/w.pt", "https://cdn.hf.test/w.pt?Expires=9&Signature=ab")  # signed
+    assert not allow_redirect("https://x.box.com/s/w.whl", "https://public.boxcloud.com/d/1/b1!x/download")  # expiring
     assert not allow_redirect("https://youtube.test/ultralytics", "https://consent.youtube.test/m")  # consent wall
     assert not allow_redirect("https://platform.test/deploy", "https://platform.test/signin?next=%2Fdeploy")  # auth
     assert not allow_redirect("https://notion.test/page", "https://app.notion.test/p?session_sync_attempted=1")

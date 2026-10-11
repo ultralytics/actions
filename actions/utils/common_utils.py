@@ -184,6 +184,7 @@ REDIRECT_END_IGNORE_LIST = frozenset(
         "https://code.visualstudio.com/",  # errors
         "?rdt=",  # problems with reddit redirecting to https://www.reddit.com/r/ultralytics/?rdt=48616
         "githubusercontent.com",  # Prevent replacement with temporary signed GitHub asset URLs
+        "boxcloud.com",  # Box shared links redirect to expiring download URLs
     }
 )
 REDIRECT_END_REJECT_PATTERNS = (  # (destination pattern, reject only when the start URL does not match it too)
