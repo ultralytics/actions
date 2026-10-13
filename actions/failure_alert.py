@@ -86,8 +86,8 @@ def to_mrkdwn(markdown: str) -> str:
 
 def run(event: Action | None = None, slack_webhook: str | None = None, mention: str = ""):
     """Retry completed failures once, then report the result and triage when the rerun completes."""
+    source = event.event_data.get("workflow_run") if event else None
     event = event or Action()
-    source = event.event_data.get("workflow_run")
     if source and (
         source["run_attempt"] > 2 or (source["run_attempt"] == 1 and source["conclusion"] not in FAILED_CONCLUSIONS)
     ):

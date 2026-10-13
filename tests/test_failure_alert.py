@@ -111,6 +111,15 @@ def test_run_posts_bare_alert_when_analysis_fails(alert_env, monkeypatch, capsys
     assert not alert_env.exists()
 
 
+def test_composite_keeps_immediate_alert_with_ambient_workflow_run(alert_env, monkeypatch):
+    """An ambient workflow_run payload must not opt a composite-action caller into App retries."""
+    monkeypatch.setattr(failure_alert, "Action", lambda: Action(event_data={"workflow_run": RUN}))
+    monkeypatch.setattr(failure_alert, "get_response", lambda *args, **kwargs: "**Transient** - Network failure")
+    failure_alert.run()
+    assert not requests.Session.post.called
+    assert failure_alert.requests.post.call_args.kwargs["json"]["text"] == "*CI* ❌ `org/repo`\n*Transient* - Network failure"
+
+
 @pytest.mark.parametrize("verdict", ["Transient", "Bug", "Unclear", ""])
 def test_completed_workflow_retries_only_transient_failures(alert_env, monkeypatch, verdict):
     """The existing triage controls retries; recovery reports the original failure without starting another retry."""
