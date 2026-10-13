@@ -117,7 +117,10 @@ def test_composite_keeps_immediate_alert_with_ambient_workflow_run(alert_env, mo
     monkeypatch.setattr(failure_alert, "get_response", lambda *args, **kwargs: "**Transient** - Network failure")
     failure_alert.run()
     assert not requests.Session.post.called
-    assert failure_alert.requests.post.call_args.kwargs["json"]["text"] == "*CI* ❌ `org/repo`\n*Transient* - Network failure"
+    assert (
+        failure_alert.requests.post.call_args.kwargs["json"]["text"]
+        == "*CI* ❌ `org/repo`\n*Transient* - Network failure"
+    )
 
 
 @pytest.mark.parametrize("verdict", ["Transient", "Bug", "Unclear", ""])
