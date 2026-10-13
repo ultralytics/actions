@@ -137,8 +137,9 @@ def test_composite_keeps_immediate_alert_with_ambient_workflow_run(alert_env, mo
     )
 
 
+@pytest.mark.parametrize("rerun", [False, True])
 @pytest.mark.parametrize("verdict", ["Transient", "Bug", "Unclear", ""])
-def test_completed_workflow_retries_only_transient_failures(alert_env, monkeypatch, verdict):
+def test_completed_workflow_retries_only_transient_failures(alert_env, monkeypatch, verdict, rerun):
     """The existing triage controls retries; recovery reports the original failure without starting another retry."""
     event = Action(token="installation-token", event_name="workflow_run", event_data={"workflow_run": RUN})
     monkeypatch.delenv("ALERT_TEXT")
@@ -147,8 +148,8 @@ def test_completed_workflow_retries_only_transient_failures(alert_env, monkeypat
     reply = f"**{verdict}** - Network failure" if verdict else ""
     get_response = MagicMock(return_value=reply)
     monkeypatch.setattr(failure_alert, "get_response", get_response)
-    failure_alert.run(event, webhook)
-    if verdict != "Transient":
+    failure_alert.run(event, webhook, rerun=rerun)
+    if verdict != "Transient" or not rerun:
         assert not requests.Session.post.called
         assert failure_alert.requests.post.call_args.kwargs["json"]["text"] == (
             f"*CI* ❌ `org/repo`  <{RUN['html_url']}|*Run*>" + (f"\n*{verdict}* - Network failure" if verdict else "")
@@ -158,7 +159,7 @@ def test_completed_workflow_retries_only_transient_failures(alert_env, monkeypat
     assert not failure_alert.requests.post.called
 
     event.event_data["workflow_run"] = dict(RUN, run_attempt=2, conclusion="success")
-    failure_alert.run(event, webhook)
+    failure_alert.run(event, webhook, rerun=rerun)
     text = failure_alert.requests.post.call_args.kwargs["json"]["text"]
     assert failure_alert.requests.post.call_args.args[0] == webhook
     assert requests.Session.post.call_args.kwargs["headers"]["Authorization"] == "Bearer installation-token"
