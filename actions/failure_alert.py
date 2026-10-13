@@ -85,7 +85,13 @@ def to_mrkdwn(markdown: str) -> str:
     return re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r"<\2|\1>", text)
 
 
-def run(event: Action | None = None, slack_webhook: str | None = None, mention: str = "", analysis_timeout: int = 0):
+def run(
+    event: Action | None = None,
+    slack_webhook: str | None = None,
+    mention: str = "",
+    analysis_timeout: int = 0,
+    rerun: bool = False,
+):
     """Retry completed failures once, then report the result and triage when the rerun completes."""
     source = event.event_data.get("workflow_run") if event else None
     event = event or Action()
@@ -132,7 +138,7 @@ def run(event: Action | None = None, slack_webhook: str | None = None, mention: 
         if source["run_attempt"] == 2:
             outcome = "Passed" if source["conclusion"] == "success" else source["conclusion"]
             text += f"\n*Rerun result: {outcome}* — <{source['html_url']}/attempts/2|Attempt 2>"
-        elif analysis.startswith("**Transient** -"):
+        elif rerun and analysis.startswith("**Transient** -"):
             try:
                 if event.get(source["url"], hard=True).json()["run_attempt"] != 1:
                     return  # a manual rerun already owns the next completion event
