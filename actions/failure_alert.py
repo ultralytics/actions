@@ -84,15 +84,22 @@ def to_mrkdwn(markdown: str) -> str:
     return re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r"<\2|\1>", text)
 
 
-def run():
+def run(event: Action | None = None, slack_webhook: str | None = None, mention: str = ""):
     """Retry completed failures once, then report the result and triage when the rerun completes."""
-    text = os.environ["ALERT_TEXT"]
-    event = Action()
+    event = event or Action()
     source = event.event_data.get("workflow_run")
     if source and (
         source["run_attempt"] > 2 or (source["run_attempt"] == 1 and source["conclusion"] not in FAILED_CONCLUSIONS)
     ):
         return
+    if source:
+        icon = "✅" if source["conclusion"] == "success" else "❌"
+        text = (
+            f"{mention + ' ' if mention else ''}*{to_mrkdwn(source['name'])}* {icon} "
+            f"`{source['repository']['full_name']}`  <{source['html_url']}|*Run*>"
+        )
+    else:
+        text = os.environ["ALERT_TEXT"]
     try:
         if source and source["run_attempt"] == 2:
             original = event.get(f"{source['url']}/attempts/1", hard=True).json()
@@ -129,7 +136,7 @@ def run():
             with open(summary_file, "a") as f:
                 f.write(f"## Failure Analysis\n\n{analysis}\n")
         text += "\n" + to_mrkdwn(analysis)
-    requests.post(os.environ["SLACK_WEBHOOK"], json={"text": text}, timeout=30).raise_for_status()
+    requests.post(slack_webhook or os.environ["SLACK_WEBHOOK"], json={"text": text}, timeout=30).raise_for_status()
 
 
 if __name__ == "__main__":

@@ -1,12 +1,12 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
-import json
 from unittest.mock import MagicMock
 
 import pytest
 import requests
 
 from actions import failure_alert
+from actions.utils import Action
 
 API = "https://api.github.com/repos/org/repo/actions"
 JOB_URL = "https://github.com/org/repo/actions/runs/7/job/1"
@@ -114,25 +114,28 @@ def test_run_posts_bare_alert_when_analysis_fails(alert_env, monkeypatch, capsys
 @pytest.mark.parametrize("verdict", ["Transient", "Bug", "Unclear", ""])
 def test_completed_workflow_retries_only_transient_failures(alert_env, monkeypatch, verdict):
     """The existing triage controls retries; recovery reports the original failure without starting another retry."""
-    event_path = alert_env.parent / "event.json"
-    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
-    event_path.write_text(json.dumps({"workflow_run": RUN}))
+    event = Action(token="installation-token", event_name="workflow_run", event_data={"workflow_run": RUN})
+    monkeypatch.delenv("ALERT_TEXT")
+    monkeypatch.delenv("SLACK_WEBHOOK")
+    webhook = "https://hooks.slack.com/services/app"
     reply = f"**{verdict}** - Network failure" if verdict else ""
     get_response = MagicMock(return_value=reply)
     monkeypatch.setattr(failure_alert, "get_response", get_response)
-    failure_alert.run()
+    failure_alert.run(event, webhook)
     if verdict != "Transient":
         assert not requests.Session.post.called
         assert failure_alert.requests.post.call_args.kwargs["json"]["text"] == (
-            "*CI* ❌ `org/repo`" + (f"\n*{verdict}* - Network failure" if verdict else "")
+            f"*CI* ❌ `org/repo`  <{RUN['html_url']}|*Run*>" + (f"\n*{verdict}* - Network failure" if verdict else "")
         )
         return
     assert requests.Session.post.call_args.args[0] == f"{API}/runs/7/rerun-failed-jobs"
     assert not failure_alert.requests.post.called
 
-    event_path.write_text(json.dumps({"workflow_run": dict(RUN, run_attempt=2, conclusion="success")}))
-    failure_alert.run()
+    event.event_data["workflow_run"] = dict(RUN, run_attempt=2, conclusion="success")
+    failure_alert.run(event, webhook)
     text = failure_alert.requests.post.call_args.kwargs["json"]["text"]
+    assert failure_alert.requests.post.call_args.args[0] == webhook
+    assert requests.Session.post.call_args.kwargs["headers"]["Authorization"] == "Bearer installation-token"
     assert "Rerun result: Passed" in text and "/attempts/2|Attempt 2>" in text
     prompt = get_response.call_args.args[0][0]["content"]
     assert "Current attempt: 2, conclusion: success; logs from attempt 1" in prompt
