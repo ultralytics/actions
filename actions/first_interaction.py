@@ -39,11 +39,11 @@ def get_pr_first_comment_template(repository: str, username: str) -> str:
 For more guidance, please refer to our [Contributing Guide](https://docs.ultralytics.com/help/contributing). Don't hesitate to leave a comment if you have any questions. Thank you for contributing to Ultralytics! 🚀"""
 
 
-def apply_and_check_labels(event, number, node_id, issue_type, username, labels, label_descriptions):
-    """Normalizes, applies labels, and handles Alert label if present."""
+def apply_and_check_labels(event, number, node_id, issue_type, username, labels, label_descriptions) -> bool:
+    """Normalizes and applies labels, and handles an Alert label; returns True when the item was flagged."""
     if not labels:
         print("No relevant labels found or applied.")
-        return
+        return False
 
     available = {k.lower(): k for k in label_descriptions}
     if normalized := [available.get(label.lower(), label) for label in labels if label.lower() in available]:
@@ -51,6 +51,8 @@ def apply_and_check_labels(event, number, node_id, issue_type, username, labels,
         event.apply_labels(number, node_id, normalized, issue_type)
         if any(label.lower() == "alert" for label in normalized) and not event.is_org_member(username):
             event.handle_alert(number, node_id, issue_type, username, block=BLOCK_USER)
+            return True
+    return False
 
 
 def get_event_content(event) -> tuple[int, str, str, str, str, str, str]:
@@ -224,15 +226,10 @@ def main(*args, **kwargs):
                     body = f"{body.rstrip()}\n\n{summary}".lstrip()
 
             if AUTO_LABELS:
-                apply_and_check_labels(
-                    event,
-                    number,
-                    node_id,
-                    issue_type,
-                    username,
-                    response.get("labels", []),
-                    label_descriptions,
-                )
+                if apply_and_check_labels(
+                    event, number, node_id, issue_type, username, response.get("labels", []), label_descriptions
+                ):
+                    return  # flagged: no greeting or review on hidden content
                 print("Adding first interaction comment...")
                 event.add_comment(
                     number, node_id, get_pr_first_comment_template(event.repository, username), issue_type
@@ -250,7 +247,10 @@ def main(*args, **kwargs):
     response = get_first_interaction_response(
         event, issue_type, title, body, username, label_descriptions, current_labels, repository_context
     )
-    apply_and_check_labels(event, number, node_id, issue_type, username, response.get("labels", []), label_descriptions)
+    if apply_and_check_labels(
+        event, number, node_id, issue_type, username, response.get("labels", []), label_descriptions
+    ):
+        return  # flagged: no greeting on hidden content
     if custom_response := response.get("first_comment"):
         event.add_comment(number, node_id, custom_response, issue_type)
 
