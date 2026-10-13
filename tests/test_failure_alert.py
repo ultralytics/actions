@@ -1,5 +1,7 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import signal
+import time
 from unittest.mock import MagicMock
 
 import pytest
@@ -109,6 +111,18 @@ def test_run_posts_bare_alert_when_analysis_fails(alert_env, monkeypatch, capsys
     assert failure_alert.requests.post.call_args.kwargs["json"] == {"text": "*CI* ❌ `org/repo`"}
     assert "::warning::Failure analysis skipped: 502 Server Error" in capsys.readouterr().out
     assert not alert_env.exists()
+
+
+@pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="App child processes run on Unix")
+def test_analysis_deadline_posts_bare_alert_and_clears_alarm(alert_env, monkeypatch):
+    """A stalled analysis is interrupted before Slack writes and cannot leave an alarm for the next request."""
+    monkeypatch.setattr(failure_alert, "get_response", lambda *args, **kwargs: time.sleep(5))
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    start = time.monotonic()
+    failure_alert.run(analysis_timeout=1)
+    assert time.monotonic() - start < 3
+    assert failure_alert.requests.post.call_args.kwargs["json"] == {"text": "*CI* ❌ `org/repo`"}
+    assert signal.getsignal(signal.SIGALRM) == previous_handler and signal.alarm(0) == 0
 
 
 def test_composite_keeps_immediate_alert_with_ambient_workflow_run(alert_env, monkeypatch):

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 
 import requests
 
@@ -84,7 +85,7 @@ def to_mrkdwn(markdown: str) -> str:
     return re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r"<\2|\1>", text)
 
 
-def run(event: Action | None = None, slack_webhook: str | None = None, mention: str = ""):
+def run(event: Action | None = None, slack_webhook: str | None = None, mention: str = "", analysis_timeout: int = 0):
     """Retry completed failures once, then report the result and triage when the rerun completes."""
     source = event.event_data.get("workflow_run") if event else None
     event = event or Action()
@@ -100,6 +101,13 @@ def run(event: Action | None = None, slack_webhook: str | None = None, mention: 
         )
     else:
         text = os.environ["ALERT_TEXT"]
+    if analysis_timeout:  # the App runs this in a dedicated Unix child process
+
+        def expire_analysis(_signum, _frame):
+            raise RuntimeError("Failure analysis deadline exceeded")
+
+        previous_handler = signal.signal(signal.SIGALRM, expire_analysis)
+        signal.alarm(analysis_timeout)
     try:
         if source and source["run_attempt"] == 2:
             original = event.get(f"{source['url']}/attempts/1", hard=True).json()
@@ -116,6 +124,10 @@ def run(event: Action | None = None, slack_webhook: str | None = None, mention: 
     except Exception as e:  # the alert matters more than its analysis
         print(f"::warning::Failure analysis skipped: {e}")
         analysis = ""
+    finally:
+        if analysis_timeout:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, previous_handler)
     if source:
         if source["run_attempt"] == 2:
             outcome = "Passed" if source["conclusion"] == "success" else source["conclusion"]
