@@ -21,7 +21,7 @@ PROMPT = """Triage this failed GitHub Actions run for the maintainers' chat aler
 Reply in GitHub-flavored Markdown in at most 150 words, using only the detail the failure needs, with no headings, tables, emoji (drop any from quoted text) or preamble:
 - Line 1: `**<Bug|Transient|Unclear>** - <what failed and its decisive error, in one short sentence>`
   - Bug: a re-run of the same commit would fail again until something changes, such as the code, tests, build configuration, workflow or a dependency release.
-  - Transient: every failed job is explained by the available logs and a re-run would likely pass, such as a network, registry or rate-limit error, or a runner fault. Missing or unexplained failures require Unclear, even if other jobs look transient.
+  - Transient: every failed job is explained by the available logs and a re-run would likely pass, such as a network, registry or rate-limit error, or a runner fault like a lost runner connection. Missing or unexplained failures require Unclear, even if other jobs look transient.
   - Unclear: the logs do not show the cause, for example when they are cut off or missing.
   - If jobs fail for different reasons, Line 1 covers the most actionable one (Bug, then Unclear, then Transient).
 - Then up to 4 bullets as needed: decisive evidence, the likely root cause, a fix or next diagnostic check, and any other distinct failure. Distinguish confirmed facts from hypotheses and say when the logs do not establish the cause. Group matrix jobs that fail the same way.
@@ -33,10 +33,12 @@ Rules:
 
 
 def get_log_tail(event: Action, repo: str, job_id: int, chars: int) -> str:
-    """Return the end of a job's log before post-job cleanup, where the failure usually is."""
+    """Return the end of a job's log before post-job cleanup, or the job's annotations when GitHub kept no log."""
     r = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/jobs/{job_id}/logs")
-    if r.status_code != 200:
-        return f"(log unavailable: HTTP {r.status_code})"
+    if r.status_code != 200:  # a runner that lost contact uploads no log, but its annotation still says why
+        notes = event.get(f"{GITHUB_API_URL}/repos/{repo}/check-runs/{job_id}/annotations")
+        messages = [note["message"] for note in notes.json()] if notes.status_code == 200 else []
+        return "\n".join([f"(log unavailable: HTTP {r.status_code})", *messages])
     log = r.content.decode(errors="replace")  # served as text/plain without a charset, which requests reads as Latin-1
     return LOG_NOISE.sub("", log.split("Post job cleanup.")[0])[-chars:]
 
@@ -143,17 +145,17 @@ def run(
                 if event.get(source["url"], hard=True).json()["run_attempt"] != 1:
                     return  # a manual rerun already owns the next completion event
                 event.post(f"{source['url']}/rerun-failed-jobs", hard=True)
-                print("Transient failure: rerun requested; Slack will report when attempt 2 completes.")
+                print(f"Rerun requested for {source['html_url']}; Slack reports when attempt 2 completes.\n{analysis}")
                 return
             except requests.RequestException as e:
                 print(f"::warning::Automatic rerun unavailable: {e}")
                 text += "\nAutomatic rerun could not be confirmed; check the linked run."
     if analysis:
-        print(analysis)
         if summary_file := os.getenv("GITHUB_STEP_SUMMARY"):
             with open(summary_file, "a") as f:
                 f.write(f"## Failure Analysis\n\n{analysis}\n")
         text += "\n" + to_mrkdwn(analysis)
+    print(text)
     requests.post(slack_webhook or os.environ["SLACK_WEBHOOK"], json={"text": text}, timeout=30).raise_for_status()
 
 
