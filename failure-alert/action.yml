@@ -2,7 +2,7 @@
 
 name: "Failure Alert"
 author: "Ultralytics"
-description: "Post a Slack alert for a failed workflow run with an AI triage of the failed job logs"
+description: "Rerun failed jobs once on workflow completion, then post the result and AI triage to Slack"
 branding:
   icon: "bell"
   color: "red"
@@ -24,7 +24,7 @@ inputs:
     description: "Model for the failure analysis (default: auto-detected from the API keys)"
     required: false
   token:
-    description: "GitHub token that can read the run's job logs (actions: read)"
+    description: "GitHub token with actions: write for workflow_run retries, or actions: read for in-workflow alerts"
     required: false
     default: ${{ github.token }}
 runs:
@@ -41,7 +41,7 @@ runs:
       if: github.run_attempt == '1'
       env:
         ACTION_PATH: ${{ github.action_path }}/..
-        ALERT_TEXT: ${{ format('{0}*{1}* ❌ `{2}`  <{3}/{2}/actions/runs/{4}|*Run*>', inputs.mention && format('{0} ', inputs.mention) || '', github.workflow, github.repository, github.server_url, github.run_id) }}
+        ALERT_TEXT: ${{ format('{0}*{1}* {5} `{2}`  <{3}/{2}/actions/runs/{4}|*Run*>', inputs.mention && format('{0} ', inputs.mention) || '', github.event.workflow_run.name || github.workflow, github.repository, github.server_url, github.event.workflow_run.id || github.run_id, github.event.workflow_run.conclusion == 'success' && '✅' || '❌') }}
         SLACK_WEBHOOK: ${{ inputs.slack_webhook }}
         GITHUB_TOKEN: ${{ inputs.token }}
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}

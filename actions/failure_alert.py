@@ -26,7 +26,7 @@ Reply in GitHub-flavored Markdown in at most 150 words, using only the detail th
 - Then up to 4 bullets as needed: decisive evidence, the likely root cause, a fix or next diagnostic check, and any other distinct failure. Distinguish confirmed facts from hypotheses and say when the logs do not establish the cause. Group matrix jobs that fail the same way.
 
 Rules:
-- Ground every claim in the logs. The cause is the earliest error the failure follows from; errors the run recovered from, such as retried downloads, are noise, and later test failures, teardown errors and lines like "Process completed with exit code 1" are its symptoms.
+- Ground every claim in the run details or logs. The cause is the earliest error the failure follows from; errors the run recovered from, such as retried downloads, are noise, and later test failures, teardown errors and lines like "Process completed with exit code 1" are its symptoms.
 - Quote errors, test names and identifiers in inline code.
 - Link each failed job you name to its job URL. Link only the URLs in the run details, or a repository file named in the logs as {repo_url}/blob/{sha}/<path>#L<line> with <path> relative to the repository root (drop runner checkout prefixes like /home/runner/work/<name>/<name>/). Never invent URLs, issue or PR numbers, versions or commands."""
 
@@ -40,23 +40,28 @@ def get_log_tail(event: Action, repo: str, job_id: int, chars: int) -> str:
     return LOG_NOISE.sub("", log.split("Post job cleanup.")[0])[-chars:]
 
 
-def analyze_run(repo: str, run_id: str) -> str:
+def analyze_run(event: Action, run: dict) -> str:
     """Return a Markdown triage of the run's failed jobs, or an empty string without an API key or a failed job."""
-    event = Action()
     if event.should_skip_llm():
         return ""
-    run = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/runs/{run_id}", hard=True).json()
-    jobs = event.paginate(run["jobs_url"], params={"filter": "latest"}, key="jobs", hard=True)
+    # A recovered or cancelled rerun still needs the original failure's logs.
+    attempt = run["run_attempt"] if run.get("conclusion") in FAILED_CONCLUSIONS else 1
+    jobs = event.paginate(f"{run['url']}/attempts/{attempt}/jobs", key="jobs", hard=True)
     failed = [job for job in jobs if job.get("conclusion") in FAILED_CONCLUSIONS]
     if not failed:
         return ""
 
+    repo = run["repository"]["full_name"]
     sha, repo_url = run["head_sha"], run["repository"]["html_url"]
     title = ((run.get("head_commit") or {}).get("message") or "").split("\n")[0]
     details = [
         f"Repository: {repo}",
         f"Workflow: {run['name']} run #{run['run_number']} ({run['event']} on {run['head_branch']}): {run['html_url']}",
         f"Commit: {repo_url}/commit/{sha} {title}",
+        (
+            f"Current attempt: {run['run_attempt']}, conclusion: {run.get('conclusion')}; logs from attempt {attempt}. "
+            "Report this observed result; a passed rerun confirms recovery but does not prove the root cause is fixed."
+        ),
         "Failed jobs:",
     ]
     for job in failed:
@@ -80,10 +85,41 @@ def to_mrkdwn(markdown: str) -> str:
 
 
 def run():
-    """Post the alert with the failure triage appended, or the bare alert when the analysis fails."""
+    """Retry completed failures once, then report the result and triage when the rerun completes."""
     text = os.environ["ALERT_TEXT"]
+    event = Action()
+    source = event.event_data.get("workflow_run")
+    if source:
+        if source["status"] != "completed" or source["run_attempt"] > 2:
+            return
+        try:
+            if source["run_attempt"] == 1:
+                if source["conclusion"] not in FAILED_CONCLUSIONS:
+                    return
+                # A manual rerun may already have started before this completion event was handled.
+                current = event.get(source["url"], hard=True).json()
+                if current["run_attempt"] != 1:
+                    return
+                event.post(f"{source['url']}/rerun-failed-jobs", hard=True)
+                print("Failed jobs rerun requested; Slack will report when attempt 2 completes.")
+                return
+            original = event.get(f"{source['url']}/attempts/1", hard=True).json()
+            if original["conclusion"] not in FAILED_CONCLUSIONS:
+                return
+            outcome = "Passed" if source["conclusion"] == "success" else source["conclusion"]
+            text += f"\n*Rerun result: {outcome}* — <{source['html_url']}/attempts/2|Attempt 2>"
+        except Exception as e:  # a retry API failure must not hide the original alert
+            print(f"::warning::Automatic rerun unavailable: {e}")
+            text += "\nAutomatic rerun could not be confirmed; check the linked run."
     try:
-        analysis = analyze_run(os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_RUN_ID"])
+        run_info = (
+            source
+            or event.get(
+                f"{GITHUB_API_URL}/repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+                hard=True,
+            ).json()
+        )
+        analysis = analyze_run(event, run_info)
     except Exception as e:  # the alert matters more than its analysis
         print(f"::warning::Failure analysis skipped: {e}")
         analysis = ""
