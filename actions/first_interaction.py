@@ -225,9 +225,11 @@ def main(*args, **kwargs):
                 if sum(not char.isspace() for char in body) < 30:
                     body = f"{body.rstrip()}\n\n{summary}".lstrip()
 
-            if AUTO_LABELS and not apply_and_check_labels(
-                event, number, node_id, issue_type, username, response.get("labels", []), label_descriptions
-            ):
+            if AUTO_LABELS:
+                if apply_and_check_labels(
+                    event, number, node_id, issue_type, username, response.get("labels", []), label_descriptions
+                ):
+                    return  # flagged: no greeting or review on hidden content
                 print("Adding first interaction comment...")
                 event.add_comment(
                     number, node_id, get_pr_first_comment_template(event.repository, username), issue_type
@@ -245,10 +247,11 @@ def main(*args, **kwargs):
     response = get_first_interaction_response(
         event, issue_type, title, body, username, label_descriptions, current_labels, repository_context
     )
-    flagged = apply_and_check_labels(
+    if apply_and_check_labels(
         event, number, node_id, issue_type, username, response.get("labels", []), label_descriptions
-    )
-    if not flagged and (custom_response := response.get("first_comment")):
+    ):
+        return  # flagged: no greeting on hidden content
+    if custom_response := response.get("first_comment"):
         event.add_comment(number, node_id, custom_response, issue_type)
 
 
