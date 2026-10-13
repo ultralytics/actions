@@ -44,13 +44,13 @@ Existing `needs`-based alert jobs still post immediately on their first attempt 
 
 ## Inputs
 
-| Input               | Description                                                                             | Required | Default                         |
-| ------------------- | --------------------------------------------------------------------------------------- | -------- | ------------------------------- |
-| `slack_webhook`     | Slack [incoming webhook](https://api.slack.com/messaging/webhooks) URL                  | Yes      | -                               |
-| `mention`           | Slack mention to start the alert with                                                   | No       | -                               |
-| `openai_api_key`    | OpenAI API key for the failure analysis                                                 | No       | -                               |
-| `anthropic_api_key` | Anthropic API key for the failure analysis                                              | No       | -                               |
-| `model`             | Model for the failure analysis                                                          | No       | Auto-detected from the API keys |
+| Input               | Description                                                               | Required | Default                         |
+| ------------------- | ------------------------------------------------------------------------- | -------- | ------------------------------- |
+| `slack_webhook`     | Slack [incoming webhook](https://api.slack.com/messaging/webhooks) URL    | Yes      | -                               |
+| `mention`           | Slack mention to start the alert with                                     | No       | -                               |
+| `openai_api_key`    | OpenAI API key for the failure analysis                                   | No       | -                               |
+| `anthropic_api_key` | Anthropic API key for the failure analysis                                | No       | -                               |
+| `model`             | Model for the failure analysis                                            | No       | Auto-detected from the API keys |
 | `token`             | GitHub token with `actions: write` for retries, otherwise `actions: read` | No       | `${{ github.token }}`           |
 
 ## Output
