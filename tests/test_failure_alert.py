@@ -1,19 +1,26 @@
 # Ultralytics 🚀 AGPL-3.0 License - https://ultralytics.com/license
 
+import signal
+import time
 from unittest.mock import MagicMock
 
 import pytest
 import requests
 
 from actions import failure_alert
+from actions.utils import Action
 
 API = "https://api.github.com/repos/org/repo/actions"
 JOB_URL = "https://github.com/org/repo/actions/runs/7/job/1"
 RUN = {
-    "jobs_url": f"{API}/runs/7/jobs",
+    "id": 7,
+    "url": f"{API}/runs/7",
+    "run_attempt": 1,
+    "status": "completed",
+    "conclusion": "failure",
     "head_sha": "abc123",
     "head_commit": {"message": "Fix loader\n\nDetails"},
-    "repository": {"html_url": "https://github.com/org/repo"},
+    "repository": {"html_url": "https://github.com/org/repo", "full_name": "org/repo"},
     "name": "CI",
     "run_number": 42,
     "event": "push",
@@ -40,7 +47,11 @@ LOG = (
 
 def github_get(url, **kwargs):
     """Serve the run, its jobs and the failed job's log like the GitHub API."""
-    json_data = {f"{API}/runs/7": RUN, f"{API}/runs/7/jobs": {"total_count": len(JOBS), "jobs": JOBS}}.get(url)
+    json_data = {
+        f"{API}/runs/7": RUN,
+        f"{API}/runs/7/attempts/1": RUN,
+        f"{API}/runs/7/attempts/1/jobs": {"total_count": len(JOBS), "jobs": JOBS},
+    }.get(url)
     response = MagicMock(status_code=200, content=LOG.encode(), **{"elapsed.total_seconds.return_value": 0.1})
     response.json.return_value = json_data
     return response
@@ -61,6 +72,7 @@ def alert_env(monkeypatch, tmp_path):
     monkeypatch.delenv("GITHUB_EVENT_PATH", raising=False)
     monkeypatch.setattr("actions.utils.openai_utils.OPENAI_API_KEY", "key")  # read at import time
     monkeypatch.setattr("requests.Session.get", MagicMock(side_effect=github_get))
+    monkeypatch.setattr("requests.Session.post", MagicMock(return_value=github_get("retry")))
     monkeypatch.setattr(failure_alert.requests, "post", MagicMock())
     return tmp_path / "summary.md"
 
@@ -99,3 +111,59 @@ def test_run_posts_bare_alert_when_analysis_fails(alert_env, monkeypatch, capsys
     assert failure_alert.requests.post.call_args.kwargs["json"] == {"text": "*CI* ❌ `org/repo`"}
     assert "::warning::Failure analysis skipped: 502 Server Error" in capsys.readouterr().out
     assert not alert_env.exists()
+
+
+@pytest.mark.skipif(not hasattr(signal, "SIGALRM"), reason="App child processes run on Unix")
+def test_analysis_deadline_posts_bare_alert_and_clears_alarm(alert_env, monkeypatch):
+    """A stalled analysis is interrupted before Slack writes and cannot leave an alarm for the next request."""
+    monkeypatch.setattr(failure_alert, "get_response", lambda *args, **kwargs: time.sleep(5))
+    previous_handler = signal.getsignal(signal.SIGALRM)
+    start = time.monotonic()
+    failure_alert.run(analysis_timeout=1)
+    assert time.monotonic() - start < 3
+    assert failure_alert.requests.post.call_args.kwargs["json"] == {"text": "*CI* ❌ `org/repo`"}
+    assert signal.getsignal(signal.SIGALRM) == previous_handler and signal.alarm(0) == 0
+
+
+def test_composite_keeps_immediate_alert_with_ambient_workflow_run(alert_env, monkeypatch):
+    """An ambient workflow_run payload must not opt a composite-action caller into App retries."""
+    monkeypatch.setattr(failure_alert, "Action", lambda: Action(event_data={"workflow_run": RUN}))
+    monkeypatch.setattr(failure_alert, "get_response", lambda *args, **kwargs: "**Transient** - Network failure")
+    failure_alert.run()
+    assert not requests.Session.post.called
+    assert (
+        failure_alert.requests.post.call_args.kwargs["json"]["text"]
+        == "*CI* ❌ `org/repo`\n*Transient* - Network failure"
+    )
+
+
+@pytest.mark.parametrize("verdict", ["Transient", "Bug", "Unclear", ""])
+def test_completed_workflow_retries_only_transient_failures(alert_env, monkeypatch, verdict):
+    """The existing triage controls retries; recovery reports the original failure without starting another retry."""
+    event = Action(token="installation-token", event_name="workflow_run", event_data={"workflow_run": RUN})
+    monkeypatch.delenv("ALERT_TEXT")
+    monkeypatch.delenv("SLACK_WEBHOOK")
+    webhook = "https://hooks.slack.com/services/app"
+    reply = f"**{verdict}** - Network failure" if verdict else ""
+    get_response = MagicMock(return_value=reply)
+    monkeypatch.setattr(failure_alert, "get_response", get_response)
+    failure_alert.run(event, webhook)
+    if verdict != "Transient":
+        assert not requests.Session.post.called
+        assert failure_alert.requests.post.call_args.kwargs["json"]["text"] == (
+            f"*CI* ❌ `org/repo`  <{RUN['html_url']}|*Run*>" + (f"\n*{verdict}* - Network failure" if verdict else "")
+        )
+        return
+    assert requests.Session.post.call_args.args[0] == f"{API}/runs/7/rerun-failed-jobs"
+    assert not failure_alert.requests.post.called
+
+    event.event_data["workflow_run"] = dict(RUN, run_attempt=2, conclusion="success")
+    failure_alert.run(event, webhook)
+    text = failure_alert.requests.post.call_args.kwargs["json"]["text"]
+    assert failure_alert.requests.post.call_args.args[0] == webhook
+    assert requests.Session.post.call_args.kwargs["headers"]["Authorization"] == "Bearer installation-token"
+    assert "Rerun result: Passed" in text and "/attempts/2|Attempt 2>" in text
+    prompt = get_response.call_args.args[0][0]["content"]
+    assert "Current attempt: 2, conclusion: success; logs from attempt 1" in prompt
+    assert "### Log tail: Tests" in prompt
+    assert requests.Session.post.call_count == 1

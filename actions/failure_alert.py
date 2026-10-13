@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import re
+import signal
 
 import requests
 
@@ -20,13 +21,13 @@ PROMPT = """Triage this failed GitHub Actions run for the maintainers' chat aler
 Reply in GitHub-flavored Markdown in at most 150 words, using only the detail the failure needs, with no headings, tables, emoji (drop any from quoted text) or preamble:
 - Line 1: `**<Bug|Transient|Unclear>** - <what failed and its decisive error, in one short sentence>`
   - Bug: a re-run of the same commit would fail again until something changes, such as the code, tests, build configuration, workflow or a dependency release.
-  - Transient: a re-run would likely pass, such as a flaky or timing-sensitive test, a network, registry or rate-limit error, or a runner fault like lost communication or a shutdown.
+  - Transient: every failed job is explained by the available logs and a re-run would likely pass, such as a network, registry or rate-limit error, or a runner fault. Missing or unexplained failures require Unclear, even if other jobs look transient.
   - Unclear: the logs do not show the cause, for example when they are cut off or missing.
   - If jobs fail for different reasons, Line 1 covers the most actionable one (Bug, then Unclear, then Transient).
 - Then up to 4 bullets as needed: decisive evidence, the likely root cause, a fix or next diagnostic check, and any other distinct failure. Distinguish confirmed facts from hypotheses and say when the logs do not establish the cause. Group matrix jobs that fail the same way.
 
 Rules:
-- Ground every claim in the logs. The cause is the earliest error the failure follows from; errors the run recovered from, such as retried downloads, are noise, and later test failures, teardown errors and lines like "Process completed with exit code 1" are its symptoms.
+- Ground every claim in the run details or logs. The cause is the earliest error the failure follows from; errors the run recovered from, such as retried downloads, are noise, and later test failures, teardown errors and lines like "Process completed with exit code 1" are its symptoms.
 - Quote errors, test names and identifiers in inline code.
 - Link each failed job you name to its job URL. Link only the URLs in the run details, or a repository file named in the logs as {repo_url}/blob/{sha}/<path>#L<line> with <path> relative to the repository root (drop runner checkout prefixes like /home/runner/work/<name>/<name>/). Never invent URLs, issue or PR numbers, versions or commands."""
 
@@ -40,23 +41,28 @@ def get_log_tail(event: Action, repo: str, job_id: int, chars: int) -> str:
     return LOG_NOISE.sub("", log.split("Post job cleanup.")[0])[-chars:]
 
 
-def analyze_run(repo: str, run_id: str) -> str:
+def analyze_run(event: Action, run: dict) -> str:
     """Return a Markdown triage of the run's failed jobs, or an empty string without an API key or a failed job."""
-    event = Action()
     if event.should_skip_llm():
         return ""
-    run = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/runs/{run_id}", hard=True).json()
-    jobs = event.paginate(run["jobs_url"], params={"filter": "latest"}, key="jobs", hard=True)
+    # A recovered or cancelled rerun still needs the original failure's logs.
+    attempt = run["run_attempt"] if run.get("conclusion") in FAILED_CONCLUSIONS else 1
+    jobs = event.paginate(f"{run['url']}/attempts/{attempt}/jobs", key="jobs", hard=True)
     failed = [job for job in jobs if job.get("conclusion") in FAILED_CONCLUSIONS]
     if not failed:
         return ""
 
+    repo = run["repository"]["full_name"]
     sha, repo_url = run["head_sha"], run["repository"]["html_url"]
     title = ((run.get("head_commit") or {}).get("message") or "").split("\n")[0]
     details = [
         f"Repository: {repo}",
         f"Workflow: {run['name']} run #{run['run_number']} ({run['event']} on {run['head_branch']}): {run['html_url']}",
         f"Commit: {repo_url}/commit/{sha} {title}",
+        (
+            f"Current attempt: {run['run_attempt']}, conclusion: {run.get('conclusion')}; logs from attempt {attempt}. "
+            "Report this observed result; a passed rerun confirms recovery but does not prove the root cause is fixed."
+        ),
         "Failed jobs:",
     ]
     for job in failed:
@@ -79,21 +85,70 @@ def to_mrkdwn(markdown: str) -> str:
     return re.sub(r"\[([^\]]+)\]\((https?://[^)\s]+)\)", r"<\2|\1>", text)
 
 
-def run():
-    """Post the alert with the failure triage appended, or the bare alert when the analysis fails."""
-    text = os.environ["ALERT_TEXT"]
+def run(event: Action | None = None, slack_webhook: str | None = None, mention: str = "", analysis_timeout: int = 0):
+    """Retry completed failures once, then report the result and triage when the rerun completes."""
+    source = event.event_data.get("workflow_run") if event else None
+    event = event or Action()
+    if source and (
+        source["run_attempt"] > 2 or (source["run_attempt"] == 1 and source["conclusion"] not in FAILED_CONCLUSIONS)
+    ):
+        return
+    if source:
+        icon = "✅" if source["conclusion"] == "success" else "❌"
+        text = (
+            f"{mention + ' ' if mention else ''}*{to_mrkdwn(source['name'])}* {icon} "
+            f"`{source['repository']['full_name']}`  <{source['html_url']}|*Run*>"
+        )
+    else:
+        text = os.environ["ALERT_TEXT"]
+    if analysis_timeout:  # the App runs this in a dedicated Unix child process
+
+        def expire_analysis(_signum, _frame):
+            raise RuntimeError("Failure analysis deadline exceeded")
+
+        previous_handler = signal.signal(signal.SIGALRM, expire_analysis)
+        signal.alarm(analysis_timeout)
     try:
-        analysis = analyze_run(os.environ["GITHUB_REPOSITORY"], os.environ["GITHUB_RUN_ID"])
+        if source and source["run_attempt"] == 2:
+            original = event.get(f"{source['url']}/attempts/1", hard=True).json()
+            if original["conclusion"] not in FAILED_CONCLUSIONS:
+                return
+        run_info = (
+            source
+            or event.get(
+                f"{GITHUB_API_URL}/repos/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+                hard=True,
+            ).json()
+        )
+        analysis = analyze_run(event, run_info)
     except Exception as e:  # the alert matters more than its analysis
         print(f"::warning::Failure analysis skipped: {e}")
         analysis = ""
+    finally:
+        if analysis_timeout:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, previous_handler)
+    if source:
+        if source["run_attempt"] == 2:
+            outcome = "Passed" if source["conclusion"] == "success" else source["conclusion"]
+            text += f"\n*Rerun result: {outcome}* — <{source['html_url']}/attempts/2|Attempt 2>"
+        elif analysis.startswith("**Transient** -"):
+            try:
+                if event.get(source["url"], hard=True).json()["run_attempt"] != 1:
+                    return  # a manual rerun already owns the next completion event
+                event.post(f"{source['url']}/rerun-failed-jobs", hard=True)
+                print("Transient failure: rerun requested; Slack will report when attempt 2 completes.")
+                return
+            except requests.RequestException as e:
+                print(f"::warning::Automatic rerun unavailable: {e}")
+                text += "\nAutomatic rerun could not be confirmed; check the linked run."
     if analysis:
         print(analysis)
         if summary_file := os.getenv("GITHUB_STEP_SUMMARY"):
             with open(summary_file, "a") as f:
                 f.write(f"## Failure Analysis\n\n{analysis}\n")
         text += "\n" + to_mrkdwn(analysis)
-    requests.post(os.environ["SLACK_WEBHOOK"], json={"text": text}, timeout=30).raise_for_status()
+    requests.post(slack_webhook or os.environ["SLACK_WEBHOOK"], json={"text": text}, timeout=30).raise_for_status()
 
 
 if __name__ == "__main__":

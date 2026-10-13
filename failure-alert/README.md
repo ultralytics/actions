@@ -2,7 +2,15 @@
 
 Post a Slack alert when a workflow run fails, with an AI triage of the failed job logs under it: a **Bug**, **Transient** or **Unclear** verdict with what failed and the decisive error, then up to four bullets covering evidence, likely cause, a fix or next diagnostic check, and other distinct failures, linked to the failing jobs and source lines. It works for any repository, language and test framework.
 
-## Usage
+## GitHub App integration
+
+Ultralytics repositories can opt in centrally through `FAILURE_ALERTS` in the [GitHub App](https://github.com/ultralytics/assistant/blob/main/assistant/google/cloud/run/actions/main.py). Each entry selects the repository, stable workflow ID, source events, Slack destination, and mention. No observer workflow or notification job is needed in the watched repository; changing the workflow's display name does not affect its opt-in.
+
+The App passes the completed `workflow_run` and its installation token to this same module. Only an initial **Transient** verdict covering every failed job requests one failed-jobs rerun. **Bug**, **Unclear**, missing AI credentials, or failed analysis posts immediately. Attempt 2's completion reports recovery, repeat failure, or cancellation; no further automatic retry is started. A manual second attempt also reports if the original attempt failed. Successful or cancelled reruns use the original failure's logs, and a rejected retry request posts an alert immediately.
+
+The App needs `Actions: write`, a `workflow_run` webhook subscription, and the configured Slack webhooks. See the [App deployment instructions](https://github.com/ultralytics/assistant/blob/main/assistant/google/cloud/run/README.md#github-app-failure-alerts). Remove existing failure notifications when enabling this integration to avoid duplicates. Release announcements and other intentional Slack messages stay in their owners.
+
+## Composite action usage
 
 Add a job that `needs` the jobs to watch and runs only when one of them fails:
 
