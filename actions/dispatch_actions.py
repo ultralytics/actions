@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import time
 from datetime import datetime, timezone
 
 from .utils import ACTIONS_CREDIT, GITHUB_API_URL, Action
@@ -82,55 +81,30 @@ def trigger_and_get_workflow_info(
     """
     repo = event.repository
     results = []
-    failed = {}
 
     try:
-        # Trigger all workflows
         for file in workflow_files:
+            result = {
+                "name": file.replace(".yml", "").title(),
+                "file": file,
+                "url": f"https://github.com/{repo}/actions/workflows/{file}",
+                "run_number": None,
+            }
             response = event.post(
                 f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/dispatches",
-                json={"ref": branch, **({"inputs": inputs} if inputs else {})},
+                json={"ref": branch, "return_run_details": True, **({"inputs": inputs} if inputs else {})},
             )
-            if isinstance(response.status_code, int) and response.status_code != 204:
-                failed[file] = response.json().get("message", "workflow dispatch failed")
-
-        # Wait for workflows to be created and start
-        if len(failed) < len(workflow_files):
-            time.sleep(60)
-
-        # Collect information about all workflows
-        for file in workflow_files:
-            if file in failed:
-                results.append(
-                    {
-                        "name": file.replace(".yml", "").title(),
-                        "file": file,
-                        "url": f"https://github.com/{repo}/actions/workflows/{file}",
-                        "run_number": None,
-                        "error": failed[file],
-                    }
-                )
-                continue
-
-            # Get workflow name
-            response = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}")
-            name = file.replace(".yml", "").title()
-            if response.status_code == 200:
-                name = response.json().get("name", name)
-
-            # Get run information
-            run_url = f"https://github.com/{repo}/actions/workflows/{file}"
-            run_number = None
-
-            runs_response = event.get(
-                f"{GITHUB_API_URL}/repos/{repo}/actions/workflows/{file}/runs?branch={branch}&event=workflow_dispatch&per_page=1"
-            )
-
-            if runs_response.status_code == 200 and (runs := runs_response.json().get("workflow_runs", [])):
-                run_url = runs[0].get("html_url", run_url)
-                run_number = runs[0].get("run_number")
-
-            results.append({"name": name, "file": file, "url": run_url, "run_number": run_number})
+            if response.status_code != 200:
+                result["error"] = response.json().get("message", "workflow dispatch failed")
+            else:
+                run = response.json()
+                result["url"] = run["html_url"]
+                response = event.get(run["run_url"])
+                if response.status_code == 200:
+                    run = response.json()
+                    result["name"] = run.get("name", result["name"])
+                    result["run_number"] = run.get("run_number")
+            results.append(result)
     finally:
         # Always delete temp branch even if workflow collection fails
         if temp_branch:

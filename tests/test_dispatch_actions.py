@@ -95,39 +95,33 @@ def test_trigger_and_get_workflow_info():
     mock_event = MagicMock()
     mock_event.repository = "test/repo"
 
-    # Mock the workflow and runs responses separately
-    workflow_response = MagicMock()
-    workflow_response.status_code = 200
-    workflow_response.json.return_value = {"name": "CI Workflow"}
-
-    runs_response = MagicMock()
-    runs_response.status_code = 200
-    runs_response.json.return_value = {
-        "workflow_runs": [{"html_url": "https://github.com/test/repo/actions/runs/123", "run_number": 42}]
+    mock_event.post.return_value.status_code = 200
+    mock_event.post.return_value.json.return_value = {
+        "workflow_run_id": 123,
+        "html_url": "https://github.com/test/repo/actions/runs/123",
+        "run_url": "https://api.github.com/repos/test/repo/actions/runs/123",
     }
+    mock_event.get.return_value.status_code = 200
+    mock_event.get.return_value.json.return_value = {"name": "CI Workflow", "run_number": 42}
 
-    # Set up get method to return different responses for different URLs
-    def get_side_effect(url):
-        if "workflows/ci.yml" in url and "runs" not in url:
-            return workflow_response
-        elif "workflows/ci.yml/runs" in url:
-            return runs_response
-        # Return default response for unexpected URLs
-        default = MagicMock()
-        default.status_code = 404
-        return default
-
-    mock_event.get.side_effect = get_side_effect
-
-    # Use patch to skip time.sleep and limit to one workflow
-    with patch("time.sleep"):
+    with patch("time.sleep") as mock_sleep:
         results = trigger_and_get_workflow_info(mock_event, "feature-branch", ["ci.yml"], inputs={"tests": "true"})
 
-    # Check results
-    assert mock_event.post.call_args.kwargs["json"] == {"ref": "feature-branch", "inputs": {"tests": "true"}}
-    assert len(results) == 1
-    assert results[0]["name"] == "CI Workflow"
-    assert results[0]["run_number"] == 42
+    assert mock_event.post.call_args.kwargs["json"] == {
+        "ref": "feature-branch",
+        "return_run_details": True,
+        "inputs": {"tests": "true"},
+    }
+    mock_sleep.assert_not_called()
+    mock_event.get.assert_called_once_with("https://api.github.com/repos/test/repo/actions/runs/123")
+    assert results == [
+        {
+            "name": "CI Workflow",
+            "file": "ci.yml",
+            "url": "https://github.com/test/repo/actions/runs/123",
+            "run_number": 42,
+        }
+    ]
 
 
 def test_trigger_and_get_workflow_info_reports_dispatch_failures():
@@ -160,27 +154,16 @@ def test_trigger_and_get_workflow_info_with_temp_branch():
     mock_event = MagicMock()
     mock_event.repository = "test/repo"
 
-    workflow_response = MagicMock()
-    workflow_response.status_code = 200
-    workflow_response.json.return_value = {"name": "CI Workflow"}
+    mock_event.post.return_value.status_code = 200
+    mock_event.post.return_value.json.return_value = {
+        "html_url": "https://github.com/test/repo/actions/runs/123",
+        "run_url": "https://api.github.com/repos/test/repo/actions/runs/123",
+    }
+    mock_event.get.return_value.status_code = 404
 
-    runs_response = MagicMock()
-    runs_response.status_code = 200
-    runs_response.json.return_value = {"workflow_runs": [{"html_url": "https://example.com", "run_number": 1}]}
-
-    def get_side_effect(url):
-        if "workflows/ci.yml" in url and "runs" not in url:
-            return workflow_response
-        elif "runs" in url:
-            return runs_response
-        default = MagicMock()
-        default.status_code = 404
-        return default
-
-    mock_event.get.side_effect = get_side_effect
-
-    with patch("time.sleep"):
-        trigger_and_get_workflow_info(mock_event, "temp-ci-123-456", ["ci.yml"], temp_branch="temp-ci-123-456")
+    results = trigger_and_get_workflow_info(mock_event, "temp-ci-123-456", ["ci.yml"], temp_branch="temp-ci-123-456")
+    assert results[0]["url"] == "https://github.com/test/repo/actions/runs/123"
+    assert results[0]["run_number"] is None
 
     # Verify temp branch was deleted
     mock_event.delete.assert_called_once_with("https://api.github.com/repos/test/repo/git/refs/heads/temp-ci-123-456")
