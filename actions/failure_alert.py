@@ -20,7 +20,7 @@ PROMPT = """Triage this failed GitHub Actions run for the maintainers' chat aler
 Reply in GitHub-flavored Markdown in at most 150 words, using only the detail the failure needs, with no headings, tables, emoji (drop any from quoted text) or preamble:
 - Line 1: `**<Bug|Transient|Unclear>** - <what failed and its decisive error, in one short sentence>`
   - Bug: a re-run of the same commit would fail again until something changes, such as the code, tests, build configuration, workflow or a dependency release.
-  - Transient: a re-run would likely pass, such as a flaky or timing-sensitive test, a network, registry or rate-limit error, or a runner fault like lost communication or a shutdown.
+  - Transient: every failed job is explained by the available logs and a re-run would likely pass, such as a network, registry or rate-limit error, or a runner fault. Missing or unexplained failures require Unclear, even if other jobs look transient.
   - Unclear: the logs do not show the cause, for example when they are cut off or missing.
   - If jobs fail for different reasons, Line 1 covers the most actionable one (Bug, then Unclear, then Transient).
 - Then up to 4 bullets as needed: decisive evidence, the likely root cause, a fix or next diagnostic check, and any other distinct failure. Distinguish confirmed facts from hypotheses and say when the logs do not establish the cause. Group matrix jobs that fail the same way.
@@ -89,29 +89,15 @@ def run():
     text = os.environ["ALERT_TEXT"]
     event = Action()
     source = event.event_data.get("workflow_run")
-    if source:
-        if source["status"] != "completed" or source["run_attempt"] > 2:
-            return
-        try:
-            if source["run_attempt"] == 1:
-                if source["conclusion"] not in FAILED_CONCLUSIONS:
-                    return
-                # A manual rerun may already have started before this completion event was handled.
-                current = event.get(source["url"], hard=True).json()
-                if current["run_attempt"] != 1:
-                    return
-                event.post(f"{source['url']}/rerun-failed-jobs", hard=True)
-                print("Failed jobs rerun requested; Slack will report when attempt 2 completes.")
-                return
+    if source and (
+        source["run_attempt"] > 2 or (source["run_attempt"] == 1 and source["conclusion"] not in FAILED_CONCLUSIONS)
+    ):
+        return
+    try:
+        if source and source["run_attempt"] == 2:
             original = event.get(f"{source['url']}/attempts/1", hard=True).json()
             if original["conclusion"] not in FAILED_CONCLUSIONS:
                 return
-            outcome = "Passed" if source["conclusion"] == "success" else source["conclusion"]
-            text += f"\n*Rerun result: {outcome}* — <{source['html_url']}/attempts/2|Attempt 2>"
-        except Exception as e:  # a retry API failure must not hide the original alert
-            print(f"::warning::Automatic rerun unavailable: {e}")
-            text += "\nAutomatic rerun could not be confirmed; check the linked run."
-    try:
         run_info = (
             source
             or event.get(
@@ -123,6 +109,20 @@ def run():
     except Exception as e:  # the alert matters more than its analysis
         print(f"::warning::Failure analysis skipped: {e}")
         analysis = ""
+    if source:
+        if source["run_attempt"] == 2:
+            outcome = "Passed" if source["conclusion"] == "success" else source["conclusion"]
+            text += f"\n*Rerun result: {outcome}* — <{source['html_url']}/attempts/2|Attempt 2>"
+        elif analysis.startswith("**Transient** -"):
+            try:
+                if event.get(source["url"], hard=True).json()["run_attempt"] != 1:
+                    return  # a manual rerun already owns the next completion event
+                event.post(f"{source['url']}/rerun-failed-jobs", hard=True)
+                print("Transient failure: rerun requested; Slack will report when attempt 2 completes.")
+                return
+            except requests.RequestException as e:
+                print(f"::warning::Automatic rerun unavailable: {e}")
+                text += "\nAutomatic rerun could not be confirmed; check the linked run."
     if analysis:
         print(analysis)
         if summary_file := os.getenv("GITHUB_STEP_SUMMARY"):

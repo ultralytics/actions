@@ -49,7 +49,6 @@ def github_get(url, **kwargs):
         f"{API}/runs/7": RUN,
         f"{API}/runs/7/attempts/1": RUN,
         f"{API}/runs/7/attempts/1/jobs": {"total_count": len(JOBS), "jobs": JOBS},
-        f"{API}/runs/7/attempts/2/jobs": {"total_count": 1, "jobs": [dict(JOBS[0], name="Retried tests")]},
     }.get(url)
     response = MagicMock(status_code=200, content=LOG.encode(), **{"elapsed.total_seconds.return_value": 0.1})
     response.json.return_value = json_data
@@ -112,59 +111,30 @@ def test_run_posts_bare_alert_when_analysis_fails(alert_env, monkeypatch, capsys
     assert not alert_env.exists()
 
 
-@pytest.mark.parametrize("conclusion", ["success", "failure", "timed_out", "cancelled"])
-@pytest.mark.parametrize("ai", [True, False])
-def test_completed_workflow_retries_once_then_reports_result(alert_env, monkeypatch, conclusion, ai):
-    """A completed failure defers Slack until the rerun event and analyzes the correct attempt's real log path."""
+@pytest.mark.parametrize("verdict", ["Transient", "Bug", "Unclear", ""])
+def test_completed_workflow_retries_only_transient_failures(alert_env, monkeypatch, verdict):
+    """The existing triage controls retries; recovery reports the original failure without starting another retry."""
     event_path = alert_env.parent / "event.json"
     monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
     event_path.write_text(json.dumps({"workflow_run": RUN}))
-    monkeypatch.setattr("actions.utils.openai_utils.OPENAI_API_KEY", "key" if ai else "")
-    monkeypatch.setattr("actions.utils.openai_utils.ANTHROPIC_API_KEY", "")
-    get_response = MagicMock(return_value="**Transient** - Network failure")
+    reply = f"**{verdict}** - Network failure" if verdict else ""
+    get_response = MagicMock(return_value=reply)
     monkeypatch.setattr(failure_alert, "get_response", get_response)
     failure_alert.run()
+    if verdict != "Transient":
+        assert not requests.Session.post.called
+        assert failure_alert.requests.post.call_args.kwargs["json"]["text"] == (
+            "*CI* ❌ `org/repo`" + (f"\n*{verdict}* - Network failure" if verdict else "")
+        )
+        return
     assert requests.Session.post.call_args.args[0] == f"{API}/runs/7/rerun-failed-jobs"
-    assert not failure_alert.requests.post.called and not get_response.called
+    assert not failure_alert.requests.post.called
 
-    event_path.write_text(json.dumps({"workflow_run": dict(RUN, run_attempt=2, conclusion=conclusion)}))
+    event_path.write_text(json.dumps({"workflow_run": dict(RUN, run_attempt=2, conclusion="success")}))
     failure_alert.run()
     text = failure_alert.requests.post.call_args.kwargs["json"]["text"]
-    assert f"Rerun result: {'Passed' if conclusion == 'success' else conclusion}" in text
-    assert "/attempts/2|Attempt 2>" in text and ("*Transient* - Network failure" in text) == ai
-    if ai:
-        prompt = get_response.call_args.args[0][0]["content"]
-        expected_attempt = 2 if conclusion in {"failure", "timed_out"} else 1
-        assert f"logs from attempt {expected_attempt}" in prompt
-        assert ("Retried tests" in prompt) == (expected_attempt == 2)
+    assert "Rerun result: Passed" in text and "/attempts/2|Attempt 2>" in text
+    prompt = get_response.call_args.args[0][0]["content"]
+    assert "Current attempt: 2, conclusion: success; logs from attempt 1" in prompt
+    assert "### Log tail: Tests" in prompt
     assert requests.Session.post.call_count == 1
-
-    event_path.write_text(json.dumps({"workflow_run": dict(RUN, run_attempt=3, conclusion=conclusion)}))
-    failure_alert.run()
-    assert requests.Session.post.call_count == 1 and failure_alert.requests.post.call_count == 1
-
-
-def test_retry_failure_still_alerts_without_ai(alert_env, monkeypatch):
-    """A denied rerun cannot suppress the original alert, including when no AI credentials are configured."""
-    event_path = alert_env.parent / "event.json"
-    event_path.write_text(json.dumps({"workflow_run": RUN}))
-    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
-    monkeypatch.setattr("actions.utils.openai_utils.OPENAI_API_KEY", "")
-    monkeypatch.setattr("actions.utils.openai_utils.ANTHROPIC_API_KEY", "")
-    requests.Session.post.return_value.status_code = 403
-    requests.Session.post.return_value.raise_for_status.side_effect = requests.HTTPError("403 Forbidden")
-    failure_alert.run()
-    assert failure_alert.requests.post.call_args.kwargs["json"]["text"] == (
-        "*CI* ❌ `org/repo`\nAutomatic rerun could not be confirmed; check the linked run."
-    )
-
-
-@pytest.mark.parametrize("attempt,conclusion", [(1, "success"), (1, "cancelled"), (2, "success")])
-def test_successful_original_workflow_stays_silent(alert_env, monkeypatch, attempt, conclusion):
-    """An initially successful workflow and its manual rerun do not produce failure alerts or another rerun."""
-    event_path = alert_env.parent / "event.json"
-    event_path.write_text(json.dumps({"workflow_run": dict(RUN, run_attempt=attempt, conclusion=conclusion)}))
-    monkeypatch.setenv("GITHUB_EVENT_PATH", str(event_path))
-    monkeypatch.setitem(RUN, "conclusion", "success")
-    failure_alert.run()
-    assert not requests.Session.post.called and not failure_alert.requests.post.called

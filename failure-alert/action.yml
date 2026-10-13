@@ -2,7 +2,7 @@
 
 name: "Failure Alert"
 author: "Ultralytics"
-description: "Rerun failed jobs once on workflow completion, then post the result and AI triage to Slack"
+description: "Rerun likely transient failures once, then post the result and AI triage to Slack"
 branding:
   icon: "bell"
   color: "red"
