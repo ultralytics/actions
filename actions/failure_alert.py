@@ -96,7 +96,7 @@ def run(
     if source and (
         source["conclusion"] not in FAILED_CONCLUSIONS
         or source["run_attempt"] > 2
-        or (source["run_attempt"] == 2 and source["triggering_actor"]["type"] != "Bot")
+        or (source["run_attempt"] == 2 and (not rerun or source["triggering_actor"]["type"] != "Bot"))
     ):
         return
     if source:
@@ -135,7 +135,7 @@ def run(
         elif rerun and analysis.startswith("**Transient** -"):
             try:
                 if event.get(source["url"], hard=True).json()["run_attempt"] != 1:
-                    return  # someone already reran it manually and owns the result
+                    return  # already rerun, by hand or by a retried task, and that attempt owns the result
                 event.post(f"{source['url']}/rerun-failed-jobs", hard=True)
                 print(
                     f"Rerun requested for {source['html_url']}; Slack alerts only if attempt 2 fails too.\n{analysis}"
