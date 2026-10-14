@@ -49,8 +49,8 @@ def github_get(url, **kwargs):
     """Serve the run, its jobs and the failed job's log like the GitHub API."""
     json_data = {
         f"{API}/runs/7": RUN,
-        f"{API}/runs/7/attempts/1": RUN,
         f"{API}/runs/7/attempts/1/jobs": {"total_count": len(JOBS), "jobs": JOBS},
+        f"{API}/runs/7/attempts/2/jobs": {"total_count": len(JOBS), "jobs": JOBS},
     }.get(url)
     response = MagicMock(status_code=200, content=LOG.encode(), **{"elapsed.total_seconds.return_value": 0.1})
     response.json.return_value = json_data
@@ -140,7 +140,7 @@ def test_composite_keeps_immediate_alert_with_ambient_workflow_run(alert_env, mo
 @pytest.mark.parametrize("rerun", [False, True])
 @pytest.mark.parametrize("verdict", ["Transient", "Bug", "Unclear", ""])
 def test_completed_workflow_retries_only_transient_failures(alert_env, monkeypatch, verdict, rerun):
-    """The existing triage controls retries; recovery reports the original failure without starting another retry."""
+    """Triage controls retries, and only a second failure of the App's own retry alerts, without another retry."""
     event = Action(token="installation-token", event_name="workflow_run", event_data={"workflow_run": RUN})
     monkeypatch.delenv("ALERT_TEXT")
     monkeypatch.delenv("SLACK_WEBHOOK")
@@ -158,13 +158,21 @@ def test_completed_workflow_retries_only_transient_failures(alert_env, monkeypat
     assert requests.Session.post.call_args.args[0] == f"{API}/runs/7/rerun-failed-jobs"
     assert not failure_alert.requests.post.called
 
-    event.event_data["workflow_run"] = dict(RUN, run_attempt=2, conclusion="success")
+    for attempt in (  # a passed retry, and a manual rerun that follows an alert, stay silent
+        dict(RUN, run_attempt=2, conclusion="success", triggering_actor={"type": "Bot"}),
+        dict(RUN, run_attempt=2, triggering_actor={"type": "User"}),
+    ):
+        event.event_data["workflow_run"] = attempt
+        failure_alert.run(event, webhook, rerun=rerun)
+    assert not failure_alert.requests.post.called
+
+    event.event_data["workflow_run"] = dict(RUN, run_attempt=2, triggering_actor={"type": "Bot"})
     failure_alert.run(event, webhook, rerun=rerun)
     text = failure_alert.requests.post.call_args.kwargs["json"]["text"]
     assert failure_alert.requests.post.call_args.args[0] == webhook
     assert requests.Session.post.call_args.kwargs["headers"]["Authorization"] == "Bearer installation-token"
-    assert "Rerun result: Passed" in text and "/attempts/2|Attempt 2>" in text
+    assert "❌" in text and "*Failed on both attempts*: the automatic <" in text and "/attempts/2|rerun>" in text
     prompt = get_response.call_args.args[0][0]["content"]
-    assert "Current attempt: 2, conclusion: success; logs from attempt 1" in prompt
+    assert "Attempt: 2, conclusion: failure" in prompt
     assert "### Log tail: Tests" in prompt
     assert requests.Session.post.call_count == 1

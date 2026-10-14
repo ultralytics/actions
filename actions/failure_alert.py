@@ -47,9 +47,7 @@ def analyze_run(event: Action, run: dict) -> str:
     """Return a Markdown triage of the run's failed jobs, or an empty string without an API key or a failed job."""
     if event.should_skip_llm():
         return ""
-    # A recovered or cancelled rerun still needs the original failure's logs.
-    attempt = run["run_attempt"] if run.get("conclusion") in FAILED_CONCLUSIONS else 1
-    jobs = event.paginate(f"{run['url']}/attempts/{attempt}/jobs", key="jobs", hard=True)
+    jobs = event.paginate(f"{run['url']}/attempts/{run['run_attempt']}/jobs", key="jobs", hard=True)
     failed = [job for job in jobs if job.get("conclusion") in FAILED_CONCLUSIONS]
     if not failed:
         return ""
@@ -61,10 +59,7 @@ def analyze_run(event: Action, run: dict) -> str:
         f"Repository: {repo}",
         f"Workflow: {run['name']} run #{run['run_number']} ({run['event']} on {run['head_branch']}): {run['html_url']}",
         f"Commit: {repo_url}/commit/{sha} {title}",
-        (
-            f"Current attempt: {run['run_attempt']}, conclusion: {run.get('conclusion')}; logs from attempt {attempt}. "
-            "Report this observed result; a passed rerun confirms recovery but does not prove the root cause is fixed."
-        ),
+        f"Attempt: {run['run_attempt']}, conclusion: {run.get('conclusion')}",
         "Failed jobs:",
     ]
     for job in failed:
@@ -94,17 +89,19 @@ def run(
     analysis_timeout: int = 0,
     rerun: bool = False,
 ):
-    """Retry completed failures once, then report the result and triage when the rerun completes."""
+    """Alert a failed run with its triage, or retry it once and alert only if the retry fails too."""
     source = event.event_data.get("workflow_run") if event else None
     event = event or Action()
+    # Only failures alert, and of reruns only the one this App requested: a manual rerun already follows an alert
     if source and (
-        source["run_attempt"] > 2 or (source["run_attempt"] == 1 and source["conclusion"] not in FAILED_CONCLUSIONS)
+        source["conclusion"] not in FAILED_CONCLUSIONS
+        or source["run_attempt"] > 2
+        or (source["run_attempt"] == 2 and source["triggering_actor"]["type"] != "Bot")
     ):
         return
     if source:
-        icon = "✅" if source["conclusion"] == "success" else "❌"
         text = (
-            f"{mention + ' ' if mention else ''}*{to_mrkdwn(source['name'])}* {icon} "
+            f"{mention + ' ' if mention else ''}*{to_mrkdwn(source['name'])}* ❌ "
             f"`{source['repository']['full_name']}`  <{source['html_url']}|*Run*>"
         )
     else:
@@ -117,10 +114,6 @@ def run(
         previous_handler = signal.signal(signal.SIGALRM, expire_analysis)
         signal.alarm(analysis_timeout)
     try:
-        if source and source["run_attempt"] == 2:
-            original = event.get(f"{source['url']}/attempts/1", hard=True).json()
-            if original["conclusion"] not in FAILED_CONCLUSIONS:
-                return
         run_info = (
             source
             or event.get(
@@ -138,14 +131,15 @@ def run(
             signal.signal(signal.SIGALRM, previous_handler)
     if source:
         if source["run_attempt"] == 2:
-            outcome = "Passed" if source["conclusion"] == "success" else source["conclusion"]
-            text += f"\n*Rerun result: {outcome}* — <{source['html_url']}/attempts/2|Attempt 2>"
+            text += f"\n*Failed on both attempts*: the automatic <{source['html_url']}/attempts/2|rerun> failed too."
         elif rerun and analysis.startswith("**Transient** -"):
             try:
                 if event.get(source["url"], hard=True).json()["run_attempt"] != 1:
-                    return  # a manual rerun already owns the next completion event
+                    return  # someone already reran it manually and owns the result
                 event.post(f"{source['url']}/rerun-failed-jobs", hard=True)
-                print(f"Rerun requested for {source['html_url']}; Slack reports when attempt 2 completes.\n{analysis}")
+                print(
+                    f"Rerun requested for {source['html_url']}; Slack alerts only if attempt 2 fails too.\n{analysis}"
+                )
                 return
             except requests.RequestException as e:
                 print(f"::warning::Automatic rerun unavailable: {e}")
