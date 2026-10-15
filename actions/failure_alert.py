@@ -50,8 +50,8 @@ def get_failed_jobs(event: Action, run: dict) -> list[dict]:
     jobs = event.paginate(f"{run['url']}/attempts/{run['run_attempt']}/jobs", key="jobs", hard=True)
     for job in jobs:  # only an annotation tells a timeout from a manual or concurrency cancel
         if job.get("conclusion") == "cancelled":
-            notes = event.get(f"{GITHUB_API_URL}/repos/{repo}/check-runs/{job['id']}/annotations")
-            if notes.status_code == 200 and any(TIMEOUT in note["message"] for note in notes.json()):
+            notes = event.paginate(f"{GITHUB_API_URL}/repos/{repo}/check-runs/{job['id']}/annotations", hard=True)
+            if any(TIMEOUT in note["message"] for note in notes):
                 job["conclusion"] = "timed_out"
     return [job for job in jobs if job.get("conclusion") in FAILED_CONCLUSIONS]
 
