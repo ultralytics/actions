@@ -26,6 +26,7 @@ YEAR = datetime.now(timezone.utc).year
         ("f.css", "body {}\n", f"/* {AGPL} */\n\nbody {{}}\n"),
         ("g.html", "<!DOCTYPE html>\n<html></html>\n", f"<!DOCTYPE html>\n<!-- {AGPL} -->\n\n<html></html>\n"),
         ("h.py", f"# {AGPL}\n\nimport os\n", None),
+        ("j.py", f"# {AGPL}\n\n\ndef f():\n    pass\n", None),  # ruff keeps two blank lines before a def
         ("i.py", "", None),
         ("missing.py", None, None),
     ],

@@ -147,12 +147,8 @@ def update_file(file_path, prefix, block_start, block_end, base_header):
 
     # Determine where content starts
     if header_index >= 0:
-        # Content starts after existing header
-        content_start = header_index + 1
-        # Skip blank line after header if present
-        if content_start < len(lines) and not lines[content_start].strip():
-            content_start += 1
-        content_lines = lines[content_start:]
+        # Content starts after existing header, keeping its blank lines, such as the two before a top-level def
+        content_lines = lines[header_index + 1 :]
 
     # No header found
     elif special_line_index >= 0:
