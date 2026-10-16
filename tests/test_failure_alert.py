@@ -179,18 +179,19 @@ def test_completed_workflow_retries_only_transient_failures(alert_env, monkeypat
 
 
 @pytest.mark.parametrize(
-    "annotation, alerts",
+    "annotation, status, alerts",
     [
-        ("The job has exceeded the maximum execution time of 30m0s", True),
-        ("Canceling since a higher priority waiting request for ci-main exists", False),
-        ("The run was canceled by @user.", False),
+        ("The job has exceeded the maximum execution time of 30m0s", 200, True),
+        ("The job has exceeded the maximum execution time of 30m0s", 403, False),  # a token without checks: read
+        ("Canceling since a higher priority waiting request for ci-main exists", 200, False),
+        ("The run was canceled by @user.", 200, False),
     ],
 )
-def test_cancelled_run_alerts_only_at_job_timeout(alert_env, monkeypatch, annotation, alerts):
+def test_cancelled_run_alerts_only_at_job_timeout(alert_env, monkeypatch, annotation, status, alerts):
     """GitHub reports a job stopped at its timeout-minutes as cancelled; other cancels stay silent despite failed jobs."""
     monkeypatch.setitem(JOBS[1], "conclusion", "cancelled")  # restored after the triage relabels it timed_out
     monkeypatch.setitem(JOBS[1], "steps", [{"name": "Ruff", "conclusion": "cancelled"}])
-    annotations = MagicMock(status_code=200, **{"elapsed.total_seconds.return_value": 0.1})
+    annotations = MagicMock(status_code=status, **{"elapsed.total_seconds.return_value": 0.1})
     annotations.json.return_value = [{"message": annotation}, {"message": "The operation was canceled."}]
     get = requests.Session.get.side_effect
     monkeypatch.setattr(
