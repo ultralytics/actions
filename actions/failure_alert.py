@@ -12,6 +12,7 @@ import requests
 from actions.utils import GITHUB_API_URL, Action, get_response
 
 FAILED_CONCLUSIONS = {"failure", "timed_out"}
+TIMEOUT = "The job has exceeded the maximum execution time"  # annotation of a job cancelled at its timeout-minutes
 MAX_LOG_JOBS = 10  # jobs whose logs are read; every failed job is still listed with its URL
 LOG_CHARS = 60000  # log tail budget shared by the jobs read, so a single failure gets a deeper tail
 MAX_JOB_LOG_CHARS = 20000
@@ -21,7 +22,7 @@ PROMPT = """Triage this failed GitHub Actions run for the maintainers' chat aler
 Reply in GitHub-flavored Markdown in at most 150 words, using only the detail the failure needs, with no headings, tables, emoji (drop any from quoted text) or preamble:
 - Line 1: `**<Bug|Transient|Unclear>** - <what failed and its decisive error, in one short sentence>`
   - Bug: a re-run of the same commit would fail again until something changes, such as the code, tests, build configuration, workflow or a dependency release.
-  - Transient: every failed job is explained by the available logs and a re-run would likely pass, such as a network, registry or rate-limit error, or a runner fault like a lost runner connection. Missing or unexplained failures require Unclear, even if other jobs look transient.
+  - Transient: every failed job is explained by the available logs and a re-run would likely pass, such as a network, registry or rate-limit error, or a runner fault like a lost runner connection. A logged timeout connecting to an external service, such as a database, explains its failure. Missing or unexplained failures require Unclear, even if other jobs look transient.
   - Unclear: the logs do not show the cause, for example when they are cut off or missing.
   - If jobs fail for different reasons, Line 1 covers the most actionable one (Bug, then Unclear, then Transient).
 - Then up to 4 bullets as needed: decisive evidence, the likely root cause, a fix or next diagnostic check, and any other distinct failure. Distinguish confirmed facts from hypotheses and say when the logs do not establish the cause. Group matrix jobs that fail the same way.
@@ -43,12 +44,23 @@ def get_log_tail(event: Action, repo: str, job_id: int, chars: int) -> str:
     return LOG_NOISE.sub("", log.split("Post job cleanup.")[0])[-chars:]
 
 
+def get_failed_jobs(event: Action, run: dict) -> list[dict]:
+    """Return the run attempt's failed jobs, marking a job GitHub cancelled at its timeout-minutes as timed_out."""
+    repo = run["repository"]["full_name"]
+    jobs = event.paginate(f"{run['url']}/attempts/{run['run_attempt']}/jobs", key="jobs", hard=True)
+    for job in jobs:  # only an annotation, listed first, tells a timeout from a manual or concurrency cancel
+        if job.get("conclusion") == "cancelled":
+            notes = event.get(f"{GITHUB_API_URL}/repos/{repo}/check-runs/{job['id']}/annotations")
+            if notes.status_code == 200 and any(TIMEOUT in note["message"] for note in notes.json()):  # checks: read
+                job["conclusion"] = "timed_out"
+    return [job for job in jobs if job.get("conclusion") in FAILED_CONCLUSIONS]
+
+
 def analyze_run(event: Action, run: dict) -> str:
     """Return a Markdown triage of the run's failed jobs, or an empty string without an API key or a failed job."""
     if event.should_skip_llm():
         return ""
-    jobs = event.paginate(f"{run['url']}/attempts/{run['run_attempt']}/jobs", key="jobs", hard=True)
-    failed = [job for job in jobs if job.get("conclusion") in FAILED_CONCLUSIONS]
+    failed = get_failed_jobs(event, run)
     if not failed:
         return ""
 
@@ -63,8 +75,11 @@ def analyze_run(event: Action, run: dict) -> str:
         "Failed jobs:",
     ]
     for job in failed:
-        step = next((s["name"] for s in job.get("steps") or [] if s.get("conclusion") in FAILED_CONCLUSIONS), None)
-        details.append(f"- {job['name']}{f' (step: {step})' if step else ''}: {job['html_url']}")
+        step = next(
+            (s["name"] for s in job.get("steps") or [] if s.get("conclusion") in {*FAILED_CONCLUSIONS, "cancelled"}),
+            None,
+        )
+        details.append(f"- {job['name']} ({job['conclusion']}{f', step: {step}' if step else ''}): {job['html_url']}")
     read = failed[:MAX_LOG_JOBS]
     chars = min(MAX_JOB_LOG_CHARS, LOG_CHARS // len(read))
     logs = [f"### Log tail: {job['name']}\n{get_log_tail(event, repo, job['id'], chars)}" for job in read]
@@ -94,9 +109,13 @@ def run(
     event = event or Action()
     # Only failures alert, and of reruns only the one this App requested: a manual rerun already follows an alert
     if source and (
-        source["conclusion"] not in FAILED_CONCLUSIONS
+        source["conclusion"] not in {*FAILED_CONCLUSIONS, "cancelled"}
         or source["run_attempt"] > 2
         or (source["run_attempt"] == 2 and (not rerun or source["triggering_actor"]["type"] != "Bot"))
+        or (  # a cancelled run alerts only when a job hit its timeout-minutes, not on a manual or concurrency cancel
+            source["conclusion"] == "cancelled"
+            and all(job["conclusion"] != "timed_out" for job in get_failed_jobs(event, source))
+        )
     ):
         return
     if source:

@@ -92,7 +92,7 @@ def test_run_posts_alert_with_triage_of_failed_jobs(alert_env, monkeypatch):
     assert [m["role"] for m in messages] == ["user"] and kwargs == {"check_links": False}
     assert "https://github.com/org/repo/blob/abc123/<path>#L<line>" in prompt
     assert "Commit: https://github.com/org/repo/commit/abc123 Fix loader\n" in prompt
-    assert f"- Tests (step: Pytest): {JOB_URL}" in prompt and "Lint" not in prompt and "Alert" not in prompt
+    assert f"- Tests (failure, step: Pytest): {JOB_URL}" in prompt and "Lint" not in prompt and "Alert" not in prompt
     assert "### Log tail: Tests\nE   ImportError: cannot import name 'load' → ✅\n" in prompt
     assert "cleanup noise" not in prompt and "\x1b" not in prompt and "10:00:00" not in prompt
 
@@ -176,3 +176,38 @@ def test_completed_workflow_retries_only_transient_failures(alert_env, monkeypat
     assert "Attempt: 2, conclusion: failure" in prompt
     assert "### Log tail: Tests" in prompt
     assert requests.Session.post.call_count == 1
+
+
+@pytest.mark.parametrize(
+    "annotation, status, alerts",
+    [
+        ("The job has exceeded the maximum execution time of 30m0s", 200, True),
+        ("The job has exceeded the maximum execution time of 30m0s", 403, False),  # a token without checks: read
+        ("Canceling since a higher priority waiting request for ci-main exists", 200, False),
+        ("The run was canceled by @user.", 200, False),
+    ],
+)
+def test_cancelled_run_alerts_only_at_job_timeout(alert_env, monkeypatch, annotation, status, alerts):
+    """GitHub reports a job stopped at its timeout-minutes as cancelled; other cancels stay silent despite failed jobs."""
+    monkeypatch.setitem(JOBS[1], "conclusion", "cancelled")  # restored after the triage relabels it timed_out
+    monkeypatch.setitem(JOBS[1], "steps", [{"name": "Ruff", "conclusion": "cancelled"}])
+    annotations = MagicMock(status_code=status, **{"elapsed.total_seconds.return_value": 0.1})
+    annotations.json.return_value = [{"message": annotation}, {"message": "The operation was canceled."}]
+    get = requests.Session.get.side_effect
+    monkeypatch.setattr(
+        "requests.Session.get",
+        MagicMock(
+            side_effect=lambda url, **kwargs: annotations if url.endswith("/annotations") else get(url, **kwargs)
+        ),
+    )
+    get_response = MagicMock(return_value="**Unclear** - Lint timed out")
+    monkeypatch.setattr(failure_alert, "get_response", get_response)
+    event = Action(
+        token="token", event_name="workflow_run", event_data={"workflow_run": dict(RUN, conclusion="cancelled")}
+    )
+    failure_alert.run(event, "https://hooks.slack.com/services/app", rerun=True)
+
+    assert failure_alert.requests.post.called == alerts == get_response.called
+    if alerts:
+        prompt = get_response.call_args.args[0][0]["content"]
+        assert f"- Tests (failure, step: Pytest): {JOB_URL}" in prompt and "- Lint (timed_out, step: Ruff): " in prompt
