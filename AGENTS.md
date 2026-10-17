@@ -37,7 +37,7 @@ pytest tests/test_first_interaction.py -v
 INPUTS_PRETTIER=false INPUTS_SPELLING=false ultralytics-actions-format # the bot's exact ruff and docstring pass
 ```
 
-Keep Python 3.8 compatibility; `.github/workflows/ci.yml` tests Python 3.8 and 3.14 on Ubuntu and macOS. Formatter flags are owned by `action.yml` and mirrored in `actions/format_code.py`: update both, including codespell lists (`tests/test_format_code.py` enforces this). Run pytest from the repository root; the real Markdown formatter test can rewrite files, so inspect the working tree afterward.
+Keep Python 3.8 compatibility; `.github/workflows/ci.yml` tests Python 3.8 and 3.15 on Ubuntu and macOS. Formatter flags are owned by `action.yml` and mirrored in `actions/format_code.py`: update both, including codespell lists (`tests/test_format_code.py` enforces this). Run pytest from the repository root; the real Markdown formatter test can rewrite files, so inspect the working tree afterward.
 
 ## Where to look
 
