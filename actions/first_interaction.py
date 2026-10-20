@@ -177,6 +177,8 @@ def main(*args, **kwargs):
         return
 
     number, node_id, title, body, username, issue_type, action = get_event_content(event)
+    if username == event.get_username():  # its own issues, such as fuzz reports, get no greeting or labels
+        return
     if issue_type == "pull request" and action == "opened" and event.should_skip_pr_author():
         return
     if issue_type != "pull request" and action not in {"opened", "created"}:
