@@ -32,6 +32,8 @@ runs:
         # Put the newest matching tool cache Python on PATH so uv uses it instead of downloading one
         dir=$(printf '%s\n' "$RUNNER_TOOL_CACHE/Python/${PYTHON_VERSION:-3}".*/*64 | sort -V | tail -1)
         if [ -d "$dir/bin" ]; then echo "$dir/bin" >> "$GITHUB_PATH"; elif [ -d "$dir" ]; then echo "$dir" >> "$GITHUB_PATH"; fi
+        # Prefer preinstalled Pythons over uv-managed ones that earlier jobs left on persistent self-hosted runners
+        echo "UV_PYTHON_PREFERENCE=system" >> "$GITHUB_ENV"
 
     - name: Install latest uv
       id: latest
