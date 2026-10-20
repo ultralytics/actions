@@ -181,6 +181,8 @@ def main(*args, **kwargs):
         return
     if issue_type != "pull request" and action not in {"opened", "created"}:
         return
+    if username == event.get_username():  # its own issues, such as fuzz reports, get no greeting or labels
+        return
 
     available_labels = (
         event.paginate(f"{GITHUB_API_URL}/repos/{event.repository}/labels", hard=True) if AUTO_LABELS else []
