@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import http.client
 import json
 import os
 import time
@@ -87,6 +88,10 @@ def github_get(path, params=None, token=None, allow_skip=False):
                 print(f"Skipping {path}: {e.code}")
                 return None
             raise
+        except http.client.IncompleteRead:
+            if attempt == 2:
+                raise
+            time.sleep(2**attempt)
 
 
 def paginate(path, params=None, key=None, max_pages=100, token=None, allow_skip=False):
