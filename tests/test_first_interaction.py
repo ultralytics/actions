@@ -100,12 +100,17 @@ def test_open_pr_review_description(mock_action, mock_content, mock_response, mo
     event.should_skip_llm.return_value = False
     event.should_skip_pr_author.return_value = False
     event.paginate.return_value = []
-    event.pr = {"body": body}
+    event.pr = {"body": body, "state": "open"}
     event.get_pr_diff.return_value = ("diff", [])
 
     first_interaction.main()
 
     mock_review.assert_called_once_with(event, "Test PR", expected)
+
+    mock_review.reset_mock()
+    event.pr["state"] = "closed"  # closed by its author before the task ran: no summary, labels, greeting or review
+    first_interaction.main()
+    mock_review.assert_not_called()
 
 
 @patch("actions.first_interaction.check_links_in_string", return_value="Thank you for your issue")

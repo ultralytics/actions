@@ -27,7 +27,9 @@ SIGN_STRIP = " \t*_`\"'.!,;:✅"  # whitespace, markdown emphasis, quotes, punct
 COMMENT_MARKER = "<!-- ultralytics-cla -->"
 LEGACY_MARKER = "CLA Assistant Lite bot"
 BOT_LOGIN = "github-actions[bot]"
-ALLOWLIST = frozenset(("copilot", "dependabot[bot]", "github-actions[bot]", "pre-commit-ci[bot]"))
+ALLOWLIST = frozenset(
+    ("copilot", "dependabot[bot]", "github-actions[bot]", "pre-commit-ci[bot]", "ultralyticsassistant")
+)
 TRANSIENT_STATUS = (429, 500, 502, 503, 504)
 
 

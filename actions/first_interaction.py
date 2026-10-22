@@ -201,9 +201,12 @@ def main(*args, **kwargs):
 
     # Use unified PR open response for new PRs (summary + labels + first comment in 1 API call)
     if issue_type == "pull request" and action == "opened":
+        diff = event.get_pr_diff()  # also reloads the PR, which its author may have closed since opening it
+        if event.pr.get("state") != "open":
+            print(f"Skipping: PR state is {event.pr.get('state')}")
+            return
         if AUTO_PR_SUMMARY or AUTO_LABELS:
             print(f"Processing PR open by @{username} with unified API call...")
-            diff = event.get_pr_diff()
             response = get_pr_open_response(
                 event.repository,
                 diff,
