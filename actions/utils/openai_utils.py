@@ -80,9 +80,13 @@ _CITATION_PATTERN = re.compile(
 )
 
 
+_UTM_PATTERN = re.compile(r"([?&])utm_source=openai(?:&|(?=[^\w.~%-]|$))")
+
+
 def sanitize_ai_text(s: str) -> str:
-    """Strip private-use citation tokens (for example, ``cite...`` markers)."""
-    return _CITATION_PATTERN.sub("", s) if s else ""
+    """Strip private-use citation tokens (for example, ``cite...`` markers) and web search's utm_source=openai."""
+    s = _CITATION_PATTERN.sub("", s) if s else ""
+    return _UTM_PATTERN.sub(lambda m: m[1] if m[0].endswith("&") else "", s)
 
 
 def remove_outer_codeblocks(string):

@@ -733,3 +733,5 @@ def test_sanitize_ai_text_keeps_cite_words():
     plain = "The most-cited paper was cited and cites citeable work."
     assert sanitize_ai_text(marked) == "Done . See ."
     assert sanitize_ai_text(plain) == plain
+    linked = "[a](https://x.org/p?utm_source=openai) [b](https://x.org/q?id=1&utm_source=openai&v=2)"
+    assert sanitize_ai_text(linked) == "[a](https://x.org/p) [b](https://x.org/q?id=1&v=2)"
