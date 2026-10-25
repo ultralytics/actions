@@ -38,24 +38,24 @@ runs:
     - name: Install latest uv
       id: latest
       continue-on-error: true
-      uses: astral-sh/setup-uv@v10.2.0
+      uses: astral-sh/setup-uv@v10.3.2
       with:
         version: latest
         python-version: ${{ inputs.python-version }}
         activate-environment: ${{ inputs.activate-environment }}
-        venv-path: ${{ runner.temp }}/.venv
+        venv-path: ${{ inputs.activate-environment == 'true' && format('{0}/.venv', runner.temp) || '' }}
         enable-cache: ${{ inputs.enable-cache }}
         ignore-empty-workdir: ${{ inputs.ignore-empty-workdir }}
         ignore-nothing-to-cache: true
 
     - name: Install latest known uv
       if: steps.latest.outcome == 'failure'
-      uses: astral-sh/setup-uv@v10.2.0
+      uses: astral-sh/setup-uv@v10.3.2
       with:
         version: latest-known
         python-version: ${{ inputs.python-version }}
         activate-environment: ${{ inputs.activate-environment }}
-        venv-path: ${{ runner.temp }}/.venv
+        venv-path: ${{ inputs.activate-environment == 'true' && format('{0}/.venv', runner.temp) || '' }}
         enable-cache: ${{ inputs.enable-cache }}
         ignore-empty-workdir: ${{ inputs.ignore-empty-workdir }}
         ignore-nothing-to-cache: true
