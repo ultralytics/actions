@@ -100,6 +100,7 @@ def remove_outer_codeblocks(string):
 def filter_labels(available_labels: dict, current_labels: list | None = None, is_pr: bool = False) -> dict:
     """Filters labels by removing manually-assigned and mutually exclusive labels, adding an Alert label if absent."""
     current_labels = {label.lower() for label in (current_labels or [])}
+    scoped = any(":" in label for label in current_labels)  # an item takes one "scope: value" label, e.g. priority
     excluded = {
         "help wanted",
         "todo",
@@ -114,7 +115,7 @@ def filter_labels(available_labels: dict, current_labels: list | None = None, is
     filtered = {
         name: description
         for name, description in available_labels.items()
-        if name.lower() not in excluded | current_labels
+        if name.lower() not in excluded | current_labels and not (scoped and ":" in name)
     }
 
     if "bug" in current_labels:

@@ -80,6 +80,7 @@ def test_get_pr_contributors_excludes_bots():
         "reviews": {"nodes": []},
         "comments": {"nodes": []},
         "commits": {
+            "totalCount": 1,
             "nodes": [
                 {
                     "commit": {
@@ -87,7 +88,7 @@ def test_get_pr_contributors_excludes_bots():
                         "committer": {"user": {"login": "teammate", "__typename": "User"}},
                     }
                 },
-            ]
+            ],
         },
     }
     pr_response = MagicMock(
