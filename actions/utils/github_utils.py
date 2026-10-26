@@ -42,6 +42,7 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
             reviews(first: 50) { nodes { author { login, __typename } } }
             comments(first: 50) { nodes { author { login, __typename } } }
             commits(first: 100) {
+                totalCount
                 nodes {
                     commit {
                         author { user { login, __typename } }
@@ -464,15 +465,17 @@ Thank you 🙏
 
             contributors = {x["author"]["login"] for x in comments if x["author"]["__typename"] != "Bot"}
 
-            for commit in data["commits"]["nodes"]:
-                commit_data = commit["commit"]
-                for user_type in ["author", "committer"]:
-                    if (
-                        (user := commit_data[user_type].get("user"))
-                        and user["__typename"] != "Bot"
-                        and (login := user.get("login"))
-                    ):
-                        contributors.add(login)
+            commits = data["commits"]
+            if commits["totalCount"] <= len(commits["nodes"]):  # past one page (a repository sync) it is a partial list
+                for commit in commits["nodes"]:
+                    commit_data = commit["commit"]
+                    for user_type in ["author", "committer"]:
+                        if (
+                            (user := commit_data[user_type].get("user"))
+                            and user["__typename"] != "Bot"
+                            and (login := user.get("login"))
+                        ):
+                            contributors.add(login)
 
             contributors.discard(author)
             contributors.discard(username)
