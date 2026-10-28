@@ -203,7 +203,7 @@ URL_PATTERN = re.compile(
     r"(?:www\.)?"  # Optional www.
     r"(?:[\w.-]+)?"  # Optional domain name and subdomains
     r"\.[a-zA-Z]{2,}"  # TLD
-    r"(?:/[^\s\"')\]<>]*)?"  # Optional path
+    r"(?:/[^\s\"')\]<>\u3000-\u303f\uff00-\uffef]*)?"  # Optional path, ending at full-width punctuation (。，)
     r")"
 )
 
