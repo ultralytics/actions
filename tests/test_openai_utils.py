@@ -55,6 +55,7 @@ def test_gpt_6_cost_includes_cache_write_and_long_context_rates():
     usage["input_tokens"] = 272001
     expected = ((272001 - 200 * 0.9 + 300 * 0.25) * 2.00 * 2 + 100 * 10.00 * 1.5) / 1e6
     assert _openai_usage_cost(usage, "gpt-6-sol") == expected
+    assert _openai_usage_cost(usage, "gpt-6-sol", "flex") == expected / 2  # flex bills at Batch rates
     turns = [{"input_tokens": 150000, "output_tokens": 0}] * 2
     assert sum(_openai_usage_cost(turn, "gpt-5.6-luna") for turn in turns) == 0.06
     assert _openai_usage_cost({"input_tokens": 300000, "output_tokens": 0}, "gpt-5.6-luna") == 0.12
@@ -197,10 +198,11 @@ def test_response_read_timeout_retries(mock_post, mock_sleep, agent, failures):
     assert mock_sleep.call_args_list == [call(2**attempt) for attempt in range(min(failures, 2))]
 
 
+@pytest.mark.parametrize("tier", [None, "flex"])
 @patch("time.sleep")
 @patch("requests.post")
-def test_get_response_retries_rate_limits(mock_post, mock_sleep):
-    """Test a 429 response is retried with a longer backoff than server errors."""
+def test_get_response_retries_rate_limits(mock_post, mock_sleep, tier):
+    """Test a 429 is retried with a longer backoff than server errors, or at once on the default tier from flex."""
     limited = MagicMock()
     limited.status_code = 429
     limited.elapsed.total_seconds.return_value = 0.1
@@ -211,11 +213,11 @@ def test_get_response_retries_rate_limits(mock_post, mock_sleep):
     mock_post.side_effect = [limited, ok]
 
     with patch("actions.utils.openai_utils.OPENAI_API_KEY", "test-key"):
-        result = get_response([{"role": "user", "content": "Hello"}], check_links=False, retries=1)
+        result = get_response([{"role": "user", "content": "Hello"}], check_links=False, retries=1, service_tier=tier)
 
     assert result == "recovered"
-    assert mock_post.call_count == 2
-    mock_sleep.assert_called_once_with(10)  # 10 * 2**0, not the 2**0 server-error backoff
+    assert [c.kwargs["json"].get("service_tier") for c in mock_post.call_args_list] == [tier, tier and "default"]
+    assert mock_sleep.call_args_list == ([] if tier else [call(10)])  # 10 * 2**0, not the 2**0 server-error backoff
 
 
 @patch("requests.post")
@@ -325,7 +327,7 @@ def test_get_agent_response_calls_function_tools(mock_post):
     assert mock_post.call_count == 2
     first_payload = mock_post.call_args_list[0].kwargs["json"]
     assert first_payload["store"] is True
-    assert first_payload["service_tier"] == "default"
+    assert first_payload["service_tier"] == "flex"
     assert first_payload["reasoning"] == {"effort": "medium"}
     assert first_payload["context_management"] == [{"type": "compaction", "compact_threshold": 272_000}]
     assert first_payload["prompt_cache_key"].startswith("agent-run:")

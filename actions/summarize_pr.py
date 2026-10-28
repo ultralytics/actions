@@ -57,7 +57,7 @@ def generate_merge_message(pr_summary, pr_credit, pr_url):
 - Keep the complete comment concise and meaningful.""",
         },
     ]
-    return get_response(messages)
+    return get_response(messages, service_tier="flex")
 
 
 def generate_pr_summary(repository, diff, title="", description=""):
@@ -72,7 +72,7 @@ def generate_pr_summary(repository, diff, title="", description=""):
         },
         {"role": "user", "content": prompt},
     ]
-    reply = get_response(messages)
+    reply = get_response(messages, service_tier="flex")
     if is_large:
         reply = "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + reply
 

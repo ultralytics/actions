@@ -288,8 +288,8 @@ def _normalize_usage_tokens(usage: dict) -> tuple[int, int, int]:
     return input_tokens, cached_tokens, cache_write_tokens
 
 
-def _openai_usage_cost(usage: dict, model: str) -> float:
-    """Compute billed USD cost including cache reads/writes and GPT-5.6/GPT-6/Haiku 5.5 long-prompt rates."""
+def _openai_usage_cost(usage: dict, model: str, service_tier: str | None = None) -> float:
+    """Compute billed USD cost including cache reads/writes, GPT-5.6/GPT-6/Haiku 5.5 long-prompt and flex rates."""
     costs = MODEL_COSTS.get(model, (0.0, 0.0))
     input_tokens, cached_tokens, cache_write_tokens = _normalize_usage_tokens(usage)
     cache_read_rate = {"claude-fable-5-1": 0.025, "claude-opus-5-5": 0.05, "claude-sonnet-5-5": 0.05}.get(model, 0.1)
@@ -302,7 +302,8 @@ def _openai_usage_cost(usage: dict, model: str) -> float:
         input_rate, output_rate = 5, 5
     else:
         input_rate = output_rate = 1
-    return (billed_input * costs[0] * input_rate + usage.get("output_tokens", 0) * costs[1] * output_rate) / 1e6
+    cost = (billed_input * costs[0] * input_rate + usage.get("output_tokens", 0) * costs[1] * output_rate) / 1e6
+    return cost / 2 if service_tier == "flex" else cost  # flex bills every token class at Batch rates
 
 
 def _format_tool_calls(calls: list[str]) -> str:
@@ -322,7 +323,9 @@ def _print_openai_usage(
         input_tokens, cached_tokens, cache_write_tokens = _normalize_usage_tokens(usage)
         output_tokens = usage.get("output_tokens", 0)  # includes thinking, noted in the parenthetical
         thinking_tokens = _thinking_tokens(usage)
-        cost = _openai_usage_cost(usage, model) if billed_cost is None else billed_cost
+        cost = (
+            _openai_usage_cost(usage, model, response_json.get("service_tier")) if billed_cost is None else billed_cost
+        )
         notes = []
         if cached_tokens:
             notes.append(f"{round(100 * cached_tokens / input_tokens)}% cached")
@@ -347,6 +350,10 @@ def _post_response(
             success = r.status_code == 200
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
 
+            if attempt < retries and r.status_code == 429 and data.get("service_tier") == "flex":
+                print("Flex capacity unavailable (unbilled); retrying on the default tier...")
+                data = {**data, "service_tier": "default"}
+                continue
             if attempt < retries and (r.status_code >= 500 or r.status_code == 429):
                 wait = 10 * 2**attempt if r.status_code == 429 else 2**attempt  # rate limits need longer backoff
                 print(f"Retrying {r.status_code} in {wait}s (attempt {attempt + 1}/{retries + 1})...")
@@ -461,7 +468,7 @@ def get_agent_response(
         next_input = conversation
         base_data = {
             "model": model,
-            "service_tier": "default",
+            "service_tier": "flex",  # reviews are read later, so they run at half price
             "store": True,
             "tools": tools,
             "parallel_tool_calls": True,  # batched tool calls share one turn, so the history is re-billed fewer times
@@ -505,7 +512,7 @@ def get_agent_response(
             print("WARNING ⚠️ context compacted server-side; earlier tool results are summarized, not verbatim")
         turn_calls = _response_tool_calls(output_items)
         turn_cost = (
-            _openai_usage_cost(response_json.get("usage") or {}, model)
+            _openai_usage_cost(response_json.get("usage") or {}, model, response_json.get("service_tier"))
             + turn_calls.count("web_search") * WEB_SEARCH_CALL_COST
         )
         total_cost += turn_cost
@@ -591,6 +598,7 @@ def get_response(
     model: str | None = None,
     retries: int = 2,
     background: bool = False,
+    service_tier: str | None = None,  # "flex" halves OpenAI cost for replies nobody waits on
 ) -> str | dict:
     """Generates a completion using OpenAI or Anthropic API with retry logic."""
     model = model or _get_default_model()
@@ -618,6 +626,8 @@ def get_response(
                 data["prompt_cache_options"] = {"mode": "explicit"}  # disable costly implicit writes for one-shot calls
             if background:
                 data["background"] = True
+            if service_tier:
+                data["service_tier"] = service_tier
             if any(x in model for x in ("gpt-5", "gpt-6")):
                 data["reasoning"] = {"effort": reasoning_effort or "medium"}
             if text_format:
@@ -631,6 +641,10 @@ def get_response(
             print(f"{'✓' if success else '✗'} POST {url} → {r.status_code} ({elapsed:.1f}s)")
 
             # Retry server errors and rate limits (a 429 rejection executed nothing, so retrying is side-effect free)
+            if attempt < retries and r.status_code == 429 and service_tier == "flex":
+                print("Flex capacity unavailable (unbilled); retrying on the default tier...")
+                service_tier = "default"
+                continue
             if attempt < retries and (r.status_code >= 500 or r.status_code == 429):
                 wait = 10 * 2**attempt if r.status_code == 429 else 2**attempt  # rate limits need longer backoff
                 print(f"Retrying {r.status_code} in {wait}s (attempt {attempt + 1}/{retries + 1})...")
@@ -746,6 +760,7 @@ Generate 2 outputs in a single JSON response for the PR titled '{title}' with th
     result = get_response(
         messages,
         text_format={"format": {"type": "json_schema", "name": "pr_open_response", "strict": True, "schema": schema}},
+        service_tier="flex",
     )
     if is_large and "summary" in result:
         result["summary"] = (
