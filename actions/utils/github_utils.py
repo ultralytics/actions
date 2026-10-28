@@ -45,8 +45,8 @@ query($owner: String!, $repo: String!, $pr_number: Int!) {
                 totalCount
                 nodes {
                     commit {
-                        author { user { login, __typename } }
-                        committer { user { login, __typename } }
+                        author { user { login } }
+                        committer { user { login } }
                     }
                 }
             }
@@ -468,14 +468,10 @@ Thank you 🙏
             commits = data["commits"]
             if commits["totalCount"] <= len(commits["nodes"]):  # past one page (a repository sync) it is a partial list
                 for commit in commits["nodes"]:
-                    commit_data = commit["commit"]
                     for user_type in ["author", "committer"]:
-                        if (
-                            (user := commit_data[user_type].get("user"))
-                            and user["__typename"] != "Bot"
-                            and (login := user.get("login"))
-                        ):
-                            contributors.add(login)
+                        # A commit's user is always typed User, so a bot shows only as its "[bot]" login
+                        if (user := commit["commit"][user_type].get("user")) and not user["login"].endswith("[bot]"):
+                            contributors.add(user["login"])
 
             contributors.discard(author)
             contributors.discard(username)

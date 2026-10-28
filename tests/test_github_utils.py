@@ -70,7 +70,7 @@ def test_action_paginate_walks_every_page():
 
 
 def test_get_pr_contributors_excludes_bots():
-    """Test PR contributor credit excludes bot commit users."""
+    """Test PR contributor credit excludes bot commit users, which GitHub types as User."""
     action = Action(
         token="test-token",
         event_data={"repository": {"full_name": "test/repo"}, "pull_request": {"number": 123}},
@@ -84,8 +84,8 @@ def test_get_pr_contributors_excludes_bots():
             "nodes": [
                 {
                     "commit": {
-                        "author": {"user": {"login": "github-actions[bot]", "__typename": "Bot"}},
-                        "committer": {"user": {"login": "teammate", "__typename": "User"}},
+                        "author": {"user": {"login": "github-actions[bot]"}},
+                        "committer": {"user": {"login": "teammate"}},
                     }
                 },
             ],

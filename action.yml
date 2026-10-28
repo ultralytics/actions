@@ -211,6 +211,10 @@ runs:
         trap 'echo "::endgroup::"' EXIT
         # Preinstalled pinned tools (the fork PR webhook image) are reused; its unprivileged formatter cannot install
         [ "$(prettier --version 2>/dev/null)" = "3.9.9" ] || npm install -g prettier@3.9.9
+        # shfmt before the Markdown bash blocks use it; curl before && makes a failed download skip only shell formatting
+        [ "$(shfmt --version 2>/dev/null)" = "v3.13.1" ] || {
+          curl -fsSL "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" -o "$(npm prefix -g)/bin/shfmt" && chmod +x "$(npm prefix -g)/bin/shfmt"
+        }
         ultralytics-actions-update-markdown-code-blocks
         extensions="css,less,scss,yml,yaml,html,vue,svelte"
         [ "${INPUTS_BIOME:-false}" = "true" ] && { [ -f "biome.json" ] || [ -f "biome.jsonc" ]; } || extensions="js,jsx,ts,tsx,json,$extensions"
@@ -220,11 +224,7 @@ runs:
         if [ -d "./docs" ]; then
           find ./docs -name "*.md" -type f ! -path "*/reference/*" -exec npx prettier --tab-width 4 --print-width 120 --write --list-different {} +
         fi
-        # Bash last: a failed shfmt download or a script that fails to parse would otherwise skip the formatting above
-        [ "$(shfmt --version 2>/dev/null)" = "v3.13.1" ] || {
-          curl -fsSL "https://github.com/mvdan/sh/releases/download/v3.13.1/shfmt_v3.13.1_$(uname -s | tr '[:upper:]' '[:lower:]')_$(uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')" -o "$(npm prefix -g)/bin/shfmt"
-          chmod +x "$(npm prefix -g)/bin/shfmt"
-        }
+        # Bash last: a script that fails to parse would otherwise skip the formatting above
         find . -name "*.sh" -type f -not -path "*/node_modules/*" -not -path "*/.git/*" -exec shfmt -i 2 -sr -bn -ci -l -w {} +
       shell: bash
       continue-on-error: true
