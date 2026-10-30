@@ -273,7 +273,7 @@ runs:
       continue-on-error: true # Important so that commit step can pick up changes
 
     # Spelling ---------------------------------------------------------------------------------------------------------
-    # --ignore-regex '\b[a-z]+[A-Z][a-zA-Z]*\b' ignores camelCase words (e.g. repoRes, dateA) to prevent false positives
+    # --ignore-regex skips false positives: camelCase words (e.g. repoRes, dateA) and acronym possessives (e.g. GET's)
     - name: Run Codespell
       if: github.event_name == 'pull_request' && inputs.spelling == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       run: |
@@ -283,8 +283,8 @@ runs:
           --builtin clear,informal,en-GB_to_en-US \
           --write-changes \
           --uri-ignore-words-list "*" \
-          --ignore-regex '\b[a-z]+[A-Z][a-zA-Z]*\b' \
-          --ignore-words-list "nin,cancelled,MapPin,couldn,grey,writeable,RepResNet,Idenfy,Smoot,EHR,ALS,Carmel,FPR,Hach,Calle,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,nam,afterall,skelton,goin,cann,CANN,tbe,dfine,ges,linz,inout" \
+          --ignore-regex "\b[a-z]+[A-Z][a-zA-Z]*\b|\b[A-Z]{2,}'s\b" \
+          --ignore-words-list "nin,cancelled,MapPin,couldn,grey,writeable,RepResNet,Idenfy,Smoot,EHR,ALS,Carmel,FPR,Hach,Calle,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,nam,afterall,skelton,goin,cann,CANN,tbe,dfine,ges,linz,inout,presse" \
           --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,*lock*,__pycache__*,*.ico,*.jpg,*.png,*.webp,*.avif,*.mp4,*.mov,*.patch,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml,action.yml"
       shell: bash
       continue-on-error: true
