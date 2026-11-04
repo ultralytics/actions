@@ -160,10 +160,16 @@ def generate_release_summary(
 
 
 def create_github_release(event, tag_name: str, name: str, body: str):
-    """Creates a GitHub release with specified tag, name, and body content for the given repository."""
+    """Create a GitHub release, retrying server errors and raising when the release still does not exist."""
     url = f"{GITHUB_API_URL}/repos/{event.repository}/releases"
     data = {"tag_name": tag_name, "name": name, "body": body, "draft": False, "prerelease": False}
-    event.post(url, json=data)
+    for attempt in range(3):  # GitHub rejects a second release for one tag, so retrying a 5xx POST cannot duplicate it
+        status = event.post(url, json=data).status_code
+        if status < 500 or attempt == 2:
+            break
+        time.sleep(30 * (attempt + 1))
+    if status != 201:  # a 5xx may still have created the release, turning the retry into a 422 duplicate
+        event.get(f"{url}/tags/{tag_name}", hard=True)
 
 
 def get_actual_previous_tag(current_tag: str) -> str:

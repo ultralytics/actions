@@ -123,6 +123,7 @@ def test_create_github_release():
     """Test creating GitHub release."""
     mock_event = MagicMock()
     mock_event.repository = "test/repo"
+    mock_event.post.return_value.status_code = 201
 
     create_github_release(event=mock_event, tag_name="v1.1.0", name="Version 1.1.0", body="Release notes")
 
@@ -136,3 +137,18 @@ def test_create_github_release():
             "prerelease": False,
         },
     )
+    mock_event.get.assert_not_called()
+
+
+@patch("actions.summarize_release.time.sleep")
+def test_create_github_release_retries_server_error(mock_sleep):
+    """Test a 5xx release POST is retried and the release is verified when the retry reports a duplicate."""
+    mock_event = MagicMock()
+    mock_event.repository = "test/repo"
+    mock_event.post.side_effect = [MagicMock(status_code=500), MagicMock(status_code=422)]
+
+    create_github_release(event=mock_event, tag_name="v1.1.0", name="Version 1.1.0", body="Release notes")
+
+    assert mock_event.post.call_count == 2
+    mock_sleep.assert_called_once_with(30)
+    mock_event.get.assert_called_once_with("https://api.github.com/repos/test/repo/releases/tags/v1.1.0", hard=True)
