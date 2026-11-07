@@ -63,7 +63,25 @@ def test_docstring_formatter_keeps_colons_in_param_continuations():
         """,
             "https://docs.ultralytics.com/yolov5/tutorials/pytorch-hub-model-loading",
         ),
+        (
+            """Predict.
+
+        Returns:
+            (Iterator[ultralytics.engine.results.Results | torch.Tensor] | list[ultralytics.engine.results.Results] |
+                list[torch.Tensor]): Prediction results or embeddings.
+        """,
+            "list[torch.Tensor]): Prediction results or embeddings.",
+        ),
+        (
+            """Do it.
+
+        Args:
+          x (int): First.
+            y (int): Second.
+        """,
+            "\n            y (int): Second.",
+        ),
     ):
         once = format_python_docstrings.format_docstring(text, 8, 120, '"""', "")
-        assert kept in once
+        assert kept in once and "|:" not in once
         assert format_python_docstrings.format_docstring(once[3:-3], 8, 120, '"""', "") == once
