@@ -47,6 +47,7 @@ EPYDOC_RX = re.compile(r"^\s*@(?:param|type|return|rtype|raise)\b", re.MULTILINE
 NUMPY_UNDERLINE_SECTION_RX = re.compile(
     r"^\s*(Parameters|Returns|Yields|Raises|Notes|Examples)\n[-]{3,}\s*$", re.MULTILINE
 )
+PARAM_HEAD_RX = re.compile(r"(\*{0,2}[A-Za-z_][\w.]*\s*)?(\(.*\))?")  # name, name (type), (type); not prose
 GOOGLE_SECTION_RX = re.compile(
     r"^\s*(Args|Attributes|Methods|Returns|Yields|Raises|Example|Examples|Notes|References):\s*$", re.MULTILINE
 )
@@ -235,7 +236,7 @@ def looks_like_param(s: str) -> bool:
     if is_list_item(s) or ":" not in s:
         return False
     head = s.split(":", 1)[0].strip()
-    return False if head in URLS else bool(head)
+    return bool(head) and head not in URLS and (head.endswith(")") or bool(PARAM_HEAD_RX.fullmatch(head)))
 
 
 def iter_items(lines: list[str]) -> list[list[str]]:

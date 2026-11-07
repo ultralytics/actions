@@ -38,3 +38,17 @@ def test_docstring_formatter_preserves_identifier_first_words():
     ):
         assert format_python_docstrings.format_docstring(text, 8, 120, '"""', "") == f'"""{text}"""'
     assert format_python_docstrings.format_docstring("done.", 8, 120, '"""', "") == '"""Done."""'
+
+
+def test_docstring_formatter_keeps_colons_in_param_continuations():
+    """Test that a param continuation containing a colon, such as a URL, is not split into a new param."""
+    text = """Check a requirement.
+
+        Args:
+            version (str): Required version. The default range excludes 3.3+, whose oneDNN CPU inference fails
+                (https://github.com/PaddlePaddle/Paddle/issues/77340).
+            gpu (str): Required GPU version.
+        """
+    assert "(https://github.com/PaddlePaddle/Paddle/issues/77340)" in format_python_docstrings.format_docstring(
+        text, 8, 120, '"""', ""
+    )
