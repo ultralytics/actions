@@ -41,14 +41,29 @@ def test_docstring_formatter_preserves_identifier_first_words():
 
 
 def test_docstring_formatter_keeps_colons_in_param_continuations():
-    """Test that a param continuation containing a colon, such as a URL, is not split into a new param."""
-    text = """Check a requirement.
+    """Test that deeper-indented continuation lines containing colons stay in their param and format stably."""
+    for text, kept in (
+        (
+            """Check a requirement.
 
         Args:
             version (str): Required version. The default range excludes 3.3+, whose oneDNN CPU inference fails
                 (https://github.com/PaddlePaddle/Paddle/issues/77340).
             gpu (str): Required GPU version.
-        """
-    assert "(https://github.com/PaddlePaddle/Paddle/issues/77340)" in format_python_docstrings.format_docstring(
-        text, 8, 120, '"""', ""
-    )
+        """,
+            "(https://github.com/PaddlePaddle/Paddle/issues/77340)",
+        ),
+        (
+            """Load a model.
+
+        Raises:
+            Exception: If the model loading fails due to invalid path or incompatible model state, with helpful suggestions
+                including a reference to the troubleshooting page:
+                https://docs.ultralytics.com/yolov5/tutorials/pytorch-hub-model-loading
+        """,
+            "https://docs.ultralytics.com/yolov5/tutorials/pytorch-hub-model-loading",
+        ),
+    ):
+        once = format_python_docstrings.format_docstring(text, 8, 120, '"""', "")
+        assert kept in once
+        assert format_python_docstrings.format_docstring(once[3:-3], 8, 120, '"""', "") == once
