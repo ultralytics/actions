@@ -47,6 +47,9 @@ EPYDOC_RX = re.compile(r"^\s*@(?:param|type|return|rtype|raise)\b", re.MULTILINE
 NUMPY_UNDERLINE_SECTION_RX = re.compile(
     r"^\s*(Parameters|Returns|Yields|Raises|Notes|Examples)\n[-]{3,}\s*$", re.MULTILINE
 )
+TYPED_PARAM_RX = re.compile(  # "name (type):" starts a param at any indent; type tokens joined only by | or ,
+    r"""\*{0,2}[A-Za-z_]\w*\s*\(\s*[\w.\[\]'"*-]+(?:\s*[|,]\s*[\w.\[\]'"*-]+)*\s*\)\s*:"""
+)
 GOOGLE_SECTION_RX = re.compile(
     r"^\s*(Args|Attributes|Methods|Returns|Yields|Raises|Example|Examples|Notes|References):\s*$", re.MULTILINE
 )
@@ -247,10 +250,12 @@ def iter_items(lines: list[str]) -> list[list[str]]:
         if i >= n:
             break
         item = [lines[i]]
+        indent = len(lines[i]) - len(lines[i].lstrip()) if ":" in lines[i] else float("inf")  # head unfinished
         i += 1
         while i < n:
             st = lines[i].strip()
-            if st and looks_like_param(st):
+            deeper = len(lines[i]) - len(lines[i].lstrip()) > indent  # deeper lines continue the item
+            if st and looks_like_param(st) and (not deeper or TYPED_PARAM_RX.match(st)):
                 break
             item.append(lines[i])
             i += 1

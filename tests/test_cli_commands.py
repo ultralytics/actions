@@ -38,3 +38,50 @@ def test_docstring_formatter_preserves_identifier_first_words():
     ):
         assert format_python_docstrings.format_docstring(text, 8, 120, '"""', "") == f'"""{text}"""'
     assert format_python_docstrings.format_docstring("done.", 8, 120, '"""', "") == '"""Done."""'
+
+
+def test_docstring_formatter_keeps_colons_in_param_continuations():
+    """Test that deeper-indented continuation lines containing colons stay in their param and format stably."""
+    for text, kept in (
+        (
+            """Check a requirement.
+
+        Args:
+            version (str): Required version. The default range excludes 3.3+, whose oneDNN CPU inference fails
+                (https://github.com/PaddlePaddle/Paddle/issues/77340).
+            gpu (str): Required GPU version.
+        """,
+            "(https://github.com/PaddlePaddle/Paddle/issues/77340)",
+        ),
+        (
+            """Load a model.
+
+        Raises:
+            Exception: If the model loading fails due to invalid path or incompatible model state, with helpful suggestions
+                including a reference to the troubleshooting page:
+                https://docs.ultralytics.com/yolov5/tutorials/pytorch-hub-model-loading
+        """,
+            "https://docs.ultralytics.com/yolov5/tutorials/pytorch-hub-model-loading",
+        ),
+        (
+            """Predict.
+
+        Returns:
+            (Iterator[ultralytics.engine.results.Results | torch.Tensor] | list[ultralytics.engine.results.Results] |
+                list[torch.Tensor]): Prediction results or embeddings.
+        """,
+            "list[torch.Tensor]): Prediction results or embeddings.",
+        ),
+        (
+            """Do it.
+
+        Args:
+          x (int): First.
+            y (int): Second.
+        """,
+            "\n            y (int): Second.",
+        ),
+    ):
+        once = format_python_docstrings.format_docstring(text, 8, 120, '"""', "")
+        assert kept in once and "|:" not in once
+        assert format_python_docstrings.format_docstring(once[3:-3], 8, 120, '"""', "") == once
