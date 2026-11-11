@@ -44,9 +44,13 @@ def get_log_tail(event: Action, repo: str, job_id: int, chars: int) -> str:
         return "\n".join([f"(log unavailable: HTTP {r.status_code})", *messages])
     log = r.content.decode(errors="replace")  # served as text/plain without a charset, which requests reads as Latin-1
     log = LOG_NOISE.sub("", log.split("Post job cleanup.")[0])
-    if len(log) > chars and (errors := [m.end() for m in re.finditer(r"##\[error\].*", log[: -chars // 2])]):
-        room = chars // 2 // len(errors)  # a long log's tail misses failures annotated earlier, such as pytest's
-        return "\n[...]\n".join([*(log[max(0, end - room) : end] for end in errors), log[-chars // 2 :]])
+    errors = [m.end() for m in re.finditer(r"##\[error\].*", log[: -chars // 2])][: max(1, chars // 4000)]
+    if len(log) > chars and errors:  # a long log's tail misses failures annotated earlier, such as pytest's
+        room, start, parts = chars // 2 // len(errors), 0, []
+        for end in errors:
+            parts.append(log[max(start, end - room) : end])
+            start = end
+        return "\n[...]\n".join([*parts, log[-chars // 2 :]])
     return log[-chars:]
 
 
