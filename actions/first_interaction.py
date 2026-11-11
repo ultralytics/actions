@@ -256,8 +256,8 @@ def main(*args, **kwargs):
         event, number, node_id, issue_type, username, response.get("labels", []), label_descriptions
     ):
         return  # flagged: no greeting on hidden content
-    if custom_response := response.get("first_comment"):
-        event.add_comment(number, node_id, custom_response, issue_type)
+    if (custom_response := response.get("first_comment")) and not event.is_org_member(username):
+        event.add_comment(number, node_id, custom_response, issue_type)  # team members need no "engineer will assist"
 
 
 if __name__ == "__main__":

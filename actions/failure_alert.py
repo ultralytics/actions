@@ -34,14 +34,24 @@ Rules:
 
 
 def get_log_tail(event: Action, repo: str, job_id: int, chars: int) -> str:
-    """Return the end of a job's log before post-job cleanup, or the job's annotations when GitHub kept no log."""
+    """Return the end of a job's log before post-job cleanup, led by the lines before each earlier error annotation, or
+    the job's annotations when GitHub kept no log.
+    """
     r = event.get(f"{GITHUB_API_URL}/repos/{repo}/actions/jobs/{job_id}/logs")
     if r.status_code != 200:  # a runner that lost contact uploads no log, but its annotation still says why
         notes = event.get(f"{GITHUB_API_URL}/repos/{repo}/check-runs/{job_id}/annotations")
         messages = [note["message"] for note in notes.json()] if notes.status_code == 200 else []
         return "\n".join([f"(log unavailable: HTTP {r.status_code})", *messages])
     log = r.content.decode(errors="replace")  # served as text/plain without a charset, which requests reads as Latin-1
-    return LOG_NOISE.sub("", log.split("Post job cleanup.")[0])[-chars:]
+    log = LOG_NOISE.sub("", log.split("Post job cleanup.")[0])
+    errors = [m.end() for m in re.finditer(r"##\[error\].*", log[: -chars // 2])][: max(1, chars // 4000)]
+    if len(log) > chars and errors:  # a long log's tail misses failures annotated earlier, such as pytest's
+        room, start, parts = chars // 2 // len(errors), 0, []
+        for end in errors:
+            parts.append(log[max(start, end - room) : end])
+            start = end
+        return "\n[...]\n".join([*parts, log[-chars // 2 :]])
+    return log[-chars:]
 
 
 def get_failed_jobs(event: Action, run: dict) -> list[dict]:
