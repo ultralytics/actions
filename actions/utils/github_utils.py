@@ -271,6 +271,8 @@ class Action:
             return self._pr_diff_cache
 
         self.pr = self.get(f"{GITHUB_API_URL}/repos/{self.repository}/pulls/{self.pr['number']}", hard=True).json()
+        if pushed_sha := os.getenv("AUTO_FORMAT_SHA"):  # this run's format push, which the PR may not show yet
+            self.pr["head"]["sha"] = pushed_sha
         url = f"{GITHUB_API_URL}/repos/{self.repository}/compare/{self.pr['base']['sha']}...{self.pr['head']['sha']}"
         for delay in (0, 2, 4, 8):  # a head just pushed to a fork reaches the base repo asynchronously
             time.sleep(delay)

@@ -331,6 +331,7 @@ runs:
 
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
+      id: push
       # Generated PRs may be opened by github_username (for example analytics data updates) and still need one
       # Auto-format commit on the opened event. The recursion risk starts after that commit pushes a synchronize
       # event as github_username, so keep the bot guard only for synchronize events.
@@ -354,6 +355,7 @@ runs:
         if ! git diff --staged --quiet; then
           git commit -m "$COMMIT_MSG"
           git push origin "HEAD:refs/heads/${PR_HEAD_REF}"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
         else
           echo "No changes to commit"
         fi
@@ -377,6 +379,7 @@ runs:
         LABELS: ${{ inputs.labels }}
         SUMMARY: ${{ inputs.summary }}
         REVIEW: ${{ inputs.review }}
+        AUTO_FORMAT_SHA: ${{ steps.push.outputs.sha }}
       run: |
         echo "::group::PR Automation and First Interaction"
         trap 'echo "::endgroup::"' EXIT
