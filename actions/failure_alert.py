@@ -6,6 +6,7 @@ from __future__ import annotations
 import os
 import re
 import signal
+from typing import Literal
 
 import requests
 
@@ -112,7 +113,7 @@ def run(
     slack_webhook: str | None = None,
     mention: str = "",
     analysis_timeout: int = 0,
-    rerun: bool = False,
+    rerun: bool | Literal["always"] = False,
 ):
     """Alert a failed run with its triage, or retry it once and alert only if the retry fails too."""
     source = event.event_data.get("workflow_run") if event else None
@@ -150,7 +151,7 @@ def run(
                 hard=True,
             ).json()
         )
-        analysis = analyze_run(event, run_info)
+        analysis = "" if source and rerun == "always" and source["run_attempt"] == 1 else analyze_run(event, run_info)
     except Exception as e:  # the alert matters more than its analysis
         print(f"::warning::Failure analysis skipped: {e}")
         analysis = ""
@@ -161,7 +162,7 @@ def run(
     if source:
         if source["run_attempt"] == 2:
             text += f"\n*Failed on both attempts*: the automatic <{source['html_url']}/attempts/2|rerun> failed too."
-        elif rerun and analysis.startswith("**Transient** -"):
+        elif rerun == "always" or (rerun and analysis.startswith("**Transient** -")):
             try:
                 if event.get(source["url"], hard=True).json()["run_attempt"] != 1:
                     return  # already rerun, by hand or by a retried task, and that attempt owns the result
@@ -171,6 +172,8 @@ def run(
                 )
                 return
             except requests.RequestException as e:
+                if rerun == "always":
+                    raise  # Cloud Tasks retries dispatch; only a completed rerun may alert.
                 print(f"::warning::Automatic rerun unavailable: {e}")
                 text += "\nAutomatic rerun could not be confirmed; check the linked run."
     if analysis:
