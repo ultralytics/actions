@@ -52,8 +52,7 @@ def generate_merge_message(pr_summary, pr_credit, pr_url):
 {pr_summary}
 
 - Start with an enthusiastic note that the PR was merged.
-- Include exactly one short, accurately attributed inspirational quote in a Markdown blockquote.
-- Connect the quote to the concrete impact described in the PR summary without inventing results or benefits.
+- Name the concrete impact described in the PR summary without inventing results or benefits.
 - Keep the complete comment concise and meaningful.""",
         },
     ]

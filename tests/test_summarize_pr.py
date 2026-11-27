@@ -17,15 +17,15 @@ def test_generate_pr_summary(mock_get_response):
 
 
 @patch("actions.summarize_pr.get_response")
-def test_generate_merge_message_requires_quote_and_pr_impact(mock_get_response):
-    """Test merged PR comments retain the personalized quote and impact requirements."""
-    mock_get_response.return_value = "Merged response with quote"
+def test_generate_merge_message_requires_pr_impact(mock_get_response):
+    """Test merged PR comments name the PR's impact and carry no stock quote, which repeated across merges."""
+    mock_get_response.return_value = "Merged response"
 
     message = generate_merge_message("Improved export reliability", "@testuser", "https://github.com/test/repo/pull/1")
 
-    assert message == "Merged response with quote"
+    assert message == "Merged response"
     prompt = mock_get_response.call_args.args[0][1]["content"]
-    assert "exactly one short, accurately attributed inspirational quote" in prompt
+    assert "quote" not in prompt
     assert "concrete impact" in prompt
     assert "Improved export reliability" in prompt
 
