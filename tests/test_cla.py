@@ -68,6 +68,7 @@ def test_contributors_paginates_and_requires_verified_github_identity():
         },
         {"name": "Alias", "email": "2+alias@users.noreply.github.com", "user": None},
         {"name": "Unknown", "email": "private@example.com", "user": None},
+        {"name": "", "email": "nameless@example.com", "user": None},
         {"user": {"databaseId": 3, "login": "dependabot[bot]"}},
         {"user": {"databaseId": 6, "login": "Copilot"}},
         {"user": {"databaseId": 4, "login": "other[bot]"}},
@@ -77,8 +78,9 @@ def test_contributors_paginates_and_requires_verified_github_identity():
 
     assert cla._contributors(source, 7) == [
         {"id": 1, "name": "person"},
-        {"id": None, "name": "Alias"},
-        {"id": None, "name": "Unknown"},
+        {"id": None, "name": "Alias <2+alias@users.noreply.github.com>"},
+        {"id": None, "name": "Unknown <private@example.com>"},
+        {"id": None, "name": "<nameless@example.com>"},
         {"id": 4, "name": "other[bot]"},
         {"id": 5, "name": "bot-attacker"},
     ]
@@ -270,7 +272,7 @@ def test_run_fails_unlinked_email_author():
     with pytest.raises(RuntimeError, match="must sign"):
         cla.run(source, store)
 
-    assert "not linked to a GitHub account" in source.post.call_args.kwargs["json"]["body"]
+    assert "`Unknown <private@example.com>` commit email is not linked" in source.post.call_args.kwargs["json"]["body"]
 
 
 def test_run_requires_pr_opener_when_commit_identity_is_already_signed():
