@@ -80,9 +80,9 @@ def _contributors(action: Action, number: int) -> list[dict]:
         user = commit.get("author")
         if user and not _allowed(user["login"]):
             contributors[user["id"]] = {"id": user["id"], "name": user["login"]}
-        elif not user and author.get("name"):
-            key = f"unknown:{author['name']}:{author.get('email', '')}"
-            contributors[key] = {"id": None, "name": author["name"]}
+        elif not user:
+            name = f"{author.get('name', '')} <{author.get('email', '')}>".strip()
+            contributors[f"unknown:{name}"] = {"id": None, "name": name}
     return list(contributors.values())
 
 
@@ -150,7 +150,11 @@ def _comment_body(signed: list[dict], unsigned: list[dict], unknown: list[dict])
         return f"{COMMENT_MARKER}\nAll Contributors have signed the CLA. ✅"
     names = "\n".join(f"- {'✅' if user in signed else '❌'} @{user['name']}" for user in signed + unsigned)
     if unknown:
-        names += "\n" + "\n".join(f"- ❌ {user['name']} (not linked to a GitHub account)" for user in unknown)
+        names += "\n" + "\n".join(
+            f"- ❌ `{user['name']}` commit email is not linked to a GitHub account: add it at "
+            "https://github.com/settings/emails or amend the commit author"
+            for user in unknown
+        )
     return f"""{COMMENT_MARKER}
 Thank you for your contribution. Before it can be accepted, every contributor must sign our [Contributor License Agreement]({CLA_DOCUMENT}) by posting this exact comment:
 
