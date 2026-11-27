@@ -95,7 +95,10 @@ def trigger_and_get_workflow_info(
                 json={"ref": branch, "return_run_details": True, **({"inputs": inputs} if inputs else {})},
             )
             if response.status_code != 200:
-                result["error"] = response.json().get("message", "workflow dispatch failed")
+                try:
+                    result["error"] = response.json().get("message", "workflow dispatch failed")
+                except ValueError:  # an outage answers with an HTML or plain-text page
+                    result["error"] = f"HTTP {response.status_code}: {response.text[:300]}"
             else:
                 run = response.json()
                 result["url"] = run["html_url"]
