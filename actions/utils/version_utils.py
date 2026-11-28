@@ -48,8 +48,12 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
         print(f"WARNING: Incorrect version pattern: {local_version}")
         return local_version, None, False
 
-    response = requests.get(f"https://pypi.org/pypi/{package_name}/json")
-    remote_version = response.json()["info"]["version"] if response.status_code == 200 else None
+    response = requests.get(f"https://pypi.org/pypi/{package_name}/json", timeout=30)
+    remote_version = None
+    if response.status_code != 404:  # only "not found" means a first release; outages must not trigger a publish
+        response.raise_for_status()
+        if not (remote_version := response.json()["info"]["version"]):
+            raise ValueError("PyPI returned an empty version")
     print(f"Local: {local_version}, PyPI: {remote_version or 'Not Found'}")
 
     return local_version, remote_version, should_publish(local_version, remote_version)
@@ -65,8 +69,12 @@ def check_pubdev_version(pubspec_yaml="pubspec.yaml"):
         print(f"WARNING: Incorrect version pattern: {local_version}")
         return local_version, None, False
 
-    response = requests.get(f"https://pub.dev/api/packages/{package_name}")
-    remote_version = response.json()["latest"]["version"] if response.status_code == 200 else None
+    response = requests.get(f"https://pub.dev/api/packages/{package_name}", timeout=30)
+    remote_version = None
+    if response.status_code != 404:  # only "not found" means a first release; outages must not trigger a publish
+        response.raise_for_status()
+        if not (remote_version := response.json()["latest"]["version"]):
+            raise ValueError("pub.dev returned an empty version")
     print(f"Local: {local_version}, pub.dev: {remote_version or 'Not Found'}")
 
     return local_version, remote_version, should_publish(local_version, remote_version)

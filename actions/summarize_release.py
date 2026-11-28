@@ -6,7 +6,6 @@ import os
 import re
 import subprocess
 import time
-from datetime import datetime, timezone
 
 from .utils import (
     GITHUB_API_URL,
@@ -31,43 +30,64 @@ def get_release_diff(event, previous_tag: str, latest_tag: str) -> tuple[str, li
 
 def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
     """Retrieves and processes pull requests merged between two specified tags in a GitHub repository."""
-    url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{latest_tag}"
-    r = event.get(url)
+    repo_url = f"{GITHUB_API_URL}/repos/{event.repository}"
+    r = event.get(f"{repo_url}/compare/{previous_tag}...{latest_tag}")
 
     if r.status_code != 200:
         print(f"Failed to get comparison between {previous_tag} and {latest_tag}, status: {r.status_code}")
         return []
 
-    data = r.json()
-    if "commits" not in data:
+    commits = r.json().get("commits")
+    if not commits:
         print(f"No commits found in comparison between {previous_tag} and {latest_tag}")
         return []
 
-    pr_numbers = set()
-    for commit in data["commits"]:
-        pr_matches = re.findall(r"#(\d+)", commit["commit"]["message"])
-        pr_numbers.update(pr_matches)
+    order = {commit["sha"]: i for i, commit in enumerate(commits)}
+    prs = {}
+    for sha in order:
+        for pr in event.paginate(f"{repo_url}/commits/{sha}/pulls"):
+            if pr.get("merged_at") and pr["merge_commit_sha"] in order:
+                prs[pr["number"]] = pr
 
-    prs = []
-    for pr_number in sorted(pr_numbers):  # earliest to latest
-        pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}"
-        pr_response = event.get(pr_url)
-        if pr_response.status_code == 200 and (pr_data := pr_response.json()).get("merged_at"):
-            prs.append(
-                {
-                    "number": pr_data["number"],
-                    "title": pr_data["title"],
-                    "body": remove_html_comments(pr_data.get("body") or ""),
-                    "author": pr_data["user"]["login"],
-                    "html_url": pr_data["html_url"],
-                    "merged_at": pr_data["merged_at"],
-                }
-            )
+    # Resolve local references that GitHub's commit associations missed or the token could not read.
+    ref = rf"(?:(?<![\w/.-])|(?<![\w.-]){re.escape(event.repository)})#(\d+)"  # "#N" or "owner/repo#N" for this repo
+    refs = {int(n) for c in commits for n in re.findall(ref, c["commit"]["message"], flags=re.IGNORECASE)}
+    staged = []
+    for number in sorted(refs - prs.keys()):
+        r = event.get(f"{repo_url}/pulls/{number}")
+        if (pr := r.json() if r.status_code == 200 else {}).get("merged_at"):
+            if pr["merge_commit_sha"] in order:
+                prs[number] = pr
+            else:
+                # An ancestor of the previous tag has already shipped, even if another PR also contains it.
+                url = f"{repo_url}/compare/{previous_tag}...{pr['merge_commit_sha']}"
+                r = event.get(url, params={"per_page": 1})
+                if r.status_code == 200 and r.json()["status"] in {"ahead", "diverged"}:
+                    staged.append(pr)
 
-    # Sort PRs by merge date
-    prs.sort(key=lambda x: datetime.strptime(x["merged_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc))
+    # A squash rewrites its commits. Walk verified PRs, including newly found promotions, by their original base and head.
+    merged = list(prs.values())
+    for outer in merged:
+        if not staged:
+            break
+        if outer["head"]["sha"] not in order:
+            url = f"{repo_url}/compare/{outer['base']['sha']}...{outer['head']['sha']}"
+            original = {c["sha"] for c in event.paginate(url, key="commits")}
+            merged.extend(pr for pr in staged if pr["merge_commit_sha"] in original)
+            staged = [pr for pr in staged if pr["merge_commit_sha"] not in original]
 
-    return prs
+    merged.sort(key=lambda p: (p["merged_at"], order.get(p["merge_commit_sha"], -1), p["number"]))
+    return [
+        {
+            "number": pr["number"],
+            "title": pr["title"],
+            "body": remove_html_comments(pr.get("body") or ""),
+            "author": (pr["user"] or {}).get("login", "ghost"),
+            "html_url": pr["html_url"],
+            "merged_at": pr["merged_at"],
+        }
+        for pr in merged
+    ]
 
 
 def get_new_contributors(event, prs: list) -> set:
@@ -212,8 +232,12 @@ def main(*args, **kwargs):
     # Get the diff between the tags
     diff = get_release_diff(event, previous_tag, CURRENT_TAG)
 
-    # Get PRs merged between the tags
-    prs = get_prs_between_tags(event, previous_tag, CURRENT_TAG)
+    # Get PRs merged between the tags; a release without its PR list beats a failed release
+    try:
+        prs = get_prs_between_tags(event, previous_tag, CURRENT_TAG)
+    except Exception as e:
+        print(f"Failed to list PRs: {e}")
+        prs = []
 
     # Generate release summary
     try:

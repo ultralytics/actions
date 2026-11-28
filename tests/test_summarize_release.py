@@ -8,6 +8,7 @@ from actions.summarize_release import (
     get_prs_between_tags,
     get_release_diff,
 )
+from actions.utils import Action
 
 
 def test_get_release_diff():
@@ -31,30 +32,32 @@ def test_get_release_diff():
 
 
 def test_get_prs_between_tags():
-    """Test retrieving PRs between tags."""
-    mock_event = MagicMock()
-    mock_event.repository = "test/repo"
-
-    mock_event.get.side_effect = [
-        MagicMock(status_code=200, json=lambda: {"commits": [{"commit": {"message": "Fix bug #123"}}]}),
-        MagicMock(
-            status_code=200,
-            json=lambda: {
-                "number": 123,
-                "title": "Fix bug",
-                "body": "Fix",
-                "user": {"login": "user1"},
-                "html_url": "url",
-                "merged_at": "2023-01-01T12:00:00Z",
-            },
-        ),
+    """Keep associated and referenced PRs in compare order when they merge in the same second."""
+    event = Action(event_data={"repository": {"full_name": "test/repo"}}, verbose=False)
+    commits = [
+        {"sha": "abc", "commit": {"message": "Fix bug"}},
+        {"sha": "def", "commit": {"message": "Release (Test/Repo#123), see other/repo#789"}},
     ]
+    pr = {
+        "number": 124,
+        "title": "Fix bug",
+        "body": "Fix",
+        "user": {"login": "user1"},
+        "html_url": "url",
+        "merged_at": "2023-01-01T12:00:00Z",
+        "merge_commit_sha": "abc",
+    }
+    responses = [
+        MagicMock(status_code=200, json=lambda: {"commits": commits}),
+        MagicMock(status_code=200, json=lambda: [pr]),
+        MagicMock(status_code=403),
+        MagicMock(status_code=200, json=lambda: dict(pr, number=123, merge_commit_sha="def", user=None)),
+    ]
+    with patch.object(event.session, "get", side_effect=responses) as get:
+        prs = get_prs_between_tags(event, "v1.0.0", "v1.1.0")
 
-    with patch("time.sleep"):
-        prs = get_prs_between_tags(mock_event, "v1.0.0", "v1.1.0")
-
-    assert len(prs) == 1
-    assert prs[0]["number"] == 123
+    assert [(pr["number"], pr["author"]) for pr in prs] == [(124, "user1"), (123, "ghost")]
+    assert get.call_args.args[0].endswith("/pulls/123")
 
 
 def test_get_prs_between_tags_api_failure():
@@ -78,8 +81,7 @@ def test_get_prs_between_tags_empty_commits():
     mock_event = MagicMock()
     mock_event.get.return_value = MagicMock(status_code=200, json=lambda: {"commits": []})
 
-    with patch("time.sleep"):
-        assert get_prs_between_tags(mock_event, "v1.0.0", "v1.1.0") == []
+    assert get_prs_between_tags(mock_event, "v1.0.0", "v1.1.0") == []
 
 
 @patch("actions.summarize_release.get_response")
