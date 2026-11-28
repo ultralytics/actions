@@ -76,8 +76,8 @@ mutation($discussionId: ID!) {
 """
 
 GRAPHQL_LOCK_DISCUSSION = """
-mutation($lockableId: ID!, $lockReason: LockReason) {
-    lockLockable(input: {lockableId: $lockableId, lockReason: $lockReason}) {
+mutation($lockableId: ID!) {
+    lockLockable(input: {lockableId: $lockableId}) {
         lockedRecord {
             ... on Discussion {
                 id
@@ -363,9 +363,6 @@ class Action:
 
     def apply_labels(self, number: int, node_id: str, labels: list[str], issue_type: str):
         """Applies specified labels to a GitHub issue, pull request, or discussion."""
-        if any(label.lower() == "alert" for label in labels):
-            self.create_alert_label()
-
         if issue_type == "discussion":
             label_ids = self.get_label_ids(labels)
             if not label_ids:
@@ -375,11 +372,6 @@ class Action:
         else:
             url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/{number}/labels"
             self.post(url, json={"labels": labels})
-
-    def create_alert_label(self):
-        """Creates the 'Alert' label in the repository if it doesn't exist."""
-        alert_label = {"name": "Alert", "color": "FF0000", "description": "Potential spam, abuse, or off-topic."}
-        self.post(f"{GITHUB_API_URL}/repos/{self.repository}/labels", json=alert_label)
 
     def remove_labels(self, number: int, labels: tuple[str, ...]):
         """Removes specified labels from an issue or PR."""
@@ -424,7 +416,7 @@ class Action:
     def lock_item(self, number: int, node_id: str, issue_type: str):
         """Locks an issue, pull request, or discussion to prevent further interactions."""
         if issue_type == "discussion":
-            self.graphql_request(GRAPHQL_LOCK_DISCUSSION, variables={"lockableId": node_id, "lockReason": "OFF_TOPIC"})
+            self.graphql_request(GRAPHQL_LOCK_DISCUSSION, variables={"lockableId": node_id})  # a reason is rejected
         else:
             url = f"{GITHUB_API_URL}/repos/{self.repository}/issues/{number}/lock"
             self.put(url, json={"lock_reason": "off-topic"})

@@ -97,8 +97,8 @@ def remove_outer_codeblocks(string):
     return string
 
 
-def filter_labels(available_labels: dict, current_labels: list | None = None, is_pr: bool = False) -> dict:
-    """Filters labels by removing manually-assigned and mutually exclusive labels, adding an Alert label if absent."""
+def filter_labels(available_labels: dict, current_labels: list | None = None) -> dict:
+    """Filters labels by removing manually-assigned and mutually exclusive labels."""
     current_labels = {label.lower() for label in (current_labels or [])}
     scoped = any(":" in label for label in current_labels)  # an item takes one "scope: value" label, e.g. priority
     excluded = {
@@ -111,6 +111,7 @@ def filter_labels(available_labels: dict, current_labels: list | None = None, is
         "stale",
         "wontfix",
         "duplicate",
+        "fixed",  # added to linked issues once the fixing PR merges, never at open
     }
     filtered = {
         name: description
@@ -122,13 +123,6 @@ def filter_labels(available_labels: dict, current_labels: list | None = None, is
         filtered = {name: description for name, description in filtered.items() if name.lower() != "question"}
     elif "question" in current_labels:
         filtered = {name: description for name, description in filtered.items() if name.lower() != "bug"}
-
-    if "alert" not in current_labels and not any(name.lower() == "alert" for name in filtered):
-        filtered["Alert"] = (
-            "Potential spam, abuse, or illegal activity including advertising, unsolicited promotions, malware, "
-            "phishing, crypto offers, pirated software or media, free movie downloads, cracks, keygens or any other "
-            "content that violates terms of service or legal standards."
-        )
 
     return filtered
 

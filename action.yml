@@ -115,7 +115,7 @@ runs:
         echo "::group::Install Dependencies"
         trap 'echo "::endgroup::"' EXIT
         package_dir=$(mktemp -d "$RUNNER_TEMP/ultralytics-actions.XXXXXX")
-        uv build --wheel "$ACTION_PATH" --out-dir "$package_dir"
+        uv build -q --wheel "$ACTION_PATH" --out-dir "$package_dir"
         packages=("$package_dir"/*.whl)
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages+=(codespell tomli)
@@ -139,9 +139,26 @@ runs:
         ref: ${{ github.event.pull_request.head.sha }}
         fetch-depth: 2
 
+    # Formatting runs only when Commit and Push can commit its result: a same-repo PR head (the fork PR webhook formats
+    # forks) on opened or synchronize. Generated PRs may be opened by github_username (for example analytics data
+    # updates) and still need one auto-format commit on the opened event. The recursion risk starts after that commit
+    # pushes a synchronize event as github_username, so keep the bot guard only for synchronize events.
+    - name: Check Formatting
+      id: format
+      if: |
+        github.event_name == 'pull_request' &&
+        (github.event.action == 'opened' || github.event.action == 'synchronize') &&
+        (github.event.action == 'opened' || github.actor != inputs.github_username) &&
+        github.event.pull_request.head.repo.full_name == github.repository
+      run: |
+        echo "::group::Check Formatting"
+        trap 'echo "::endgroup::"' EXIT
+        echo "run=true" >> "$GITHUB_OUTPUT"
+      shell: bash
+
     # File header ------------------------------------------------------------------------------------------------------
     - name: File Header
-      if: github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      if: steps.format.outputs.run == 'true'
       env:
         HEADER: ${{ inputs.header }}
       run: |
@@ -165,7 +182,7 @@ runs:
     # D413: Missing blank line after last section
     # --target-version is Python 3.8 for --extend-select UP (pyupgrade)
     - name: Run Python
-      if: github.event_name == 'pull_request' && inputs.python == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      if: steps.format.outputs.run == 'true' && inputs.python == 'true'
       run: |
         echo "::group::Run Python"
         trap 'echo "::endgroup::"' EXIT
@@ -187,7 +204,7 @@ runs:
 
     # Biome (JavaScript, TypeScript, JSON, JSX, TSX) ------------------------------------------------------------------
     - name: Run Biome
-      if: github.event_name == 'pull_request' && inputs.biome == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      if: steps.format.outputs.run == 'true' && inputs.biome == 'true'
       run: |
         echo "::group::Run Biome"
         trap 'echo "::endgroup::"' EXIT
@@ -203,7 +220,7 @@ runs:
 
     # Prettier (JavaScript, JSX, Angular, Vue, Flow, TypeScript, CSS, HTML, JSON, GraphQL, Markdown, YAML) -------------
     - name: Run Prettier
-      if: github.event_name == 'pull_request' && (inputs.prettier == 'true' || inputs.markdown == 'true') && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      if: steps.format.outputs.run == 'true' && (inputs.prettier == 'true' || inputs.markdown == 'true')
       env:
         INPUTS_BIOME: ${{ inputs.biome }}
       run: |
@@ -231,7 +248,7 @@ runs:
 
     # Swift formatting -------------------------------------------------------------------------------------------------
     - name: Run Swift Formatter
-      if: github.event_name == 'pull_request' && inputs.swift == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      if: steps.format.outputs.run == 'true' && inputs.swift == 'true'
       run: |
         echo "::group::Run Swift Formatter"
         trap 'echo "::endgroup::"' EXIT
@@ -244,7 +261,7 @@ runs:
     # Flutter bundles Dart and resolves Flutter packages; without `pub get`, `dart format` cannot read the package
     # language version and silently falls back to the pre-3.7 short style.
     - name: Setup Flutter SDK
-      if: github.event_name == 'pull_request' && inputs.dart == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      if: steps.format.outputs.run == 'true' && inputs.dart == 'true'
       uses: ultralytics/actions/retry@main
       with:
         retries: 2
@@ -257,7 +274,7 @@ runs:
           echo "$RUNNER_TEMP/flutter/bin" >> "$GITHUB_PATH"
 
     - name: Run Dart Formatter
-      if: github.event_name == 'pull_request' && inputs.dart == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      if: steps.format.outputs.run == 'true' && inputs.dart == 'true'
       run: |
         echo "::group::Run Dart Formatter"
         trap 'echo "::endgroup::"' EXIT
@@ -275,7 +292,7 @@ runs:
     # Spelling ---------------------------------------------------------------------------------------------------------
     # --ignore-regex skips false positives: camelCase words (e.g. repoRes, dateA) and acronym possessives (e.g. GET's)
     - name: Run Codespell
-      if: github.event_name == 'pull_request' && inputs.spelling == 'true' && (github.event.action == 'opened' || github.event.action == 'synchronize')
+      if: steps.format.outputs.run == 'true' && inputs.spelling == 'true'
       run: |
         echo "::group::Run Codespell"
         trap 'echo "::endgroup::"' EXIT
@@ -284,7 +301,7 @@ runs:
           --write-changes \
           --uri-ignore-words-list "*" \
           --ignore-regex "\b[a-z]+[A-Z][a-zA-Z]*\b|\b[A-Z]{2,}'s\b" \
-          --ignore-words-list "nin,cancelled,MapPin,couldn,grey,writeable,RepResNet,Idenfy,Smoot,EHR,ALS,Carmel,FPR,Hach,Calle,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,nam,afterall,skelton,goin,cann,CANN,tbe,dfine,ges,linz,inout,presse" \
+          --ignore-words-list "nin,cancelled,MapPin,couldn,grey,writeable,RepResNet,Idenfy,Smoot,EHR,ALS,Carmel,FPR,Hach,Calle,crate,nd,ned,strack,dota,ane,segway,fo,gool,winn,nam,afterall,skelton,goin,cann,CANN,tbe,dfine,ges,linz,inout,presse,te,sme" \
           --skip "*.pt,*.pth,*.torchscript,*.onnx,*.tflite,*.pb,*.bin,*.param,*.mlmodel,*.engine,*.npy,*.data*,*.csv,*pnnx*,*venv*,*translat*,*lock*,__pycache__*,*.ico,*.jpg,*.png,*.webp,*.avif,*.mp4,*.mov,*.patch,/runs,/.git,./docs/??/*.md,./docs/mkdocs_??.yml,action.yml"
       shell: bash
       continue-on-error: true
@@ -298,6 +315,7 @@ runs:
         OPENAI_API_KEY: ${{ inputs.openai_api_key }}
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
         MODEL: ${{ inputs.model }}
+        PYTHONUNBUFFERED: "1" # stream LLM progress live instead of in one burst at exit
       run: |
         echo "::group::PR Summary"
         trap 'echo "::endgroup::"' EXIT
@@ -307,7 +325,7 @@ runs:
 
     # Bun Update ---------------------------------------------------------------------------------------------------------
     - name: Bun Update
-      if: github.event_name == 'pull_request' && inputs.bun_update == 'true' && github.event.action == 'opened'
+      if: steps.format.outputs.run == 'true' && inputs.bun_update == 'true' && github.event.action == 'opened'
       run: |
         echo "::group::Bun Update"
         trap 'echo "::endgroup::"' EXIT
@@ -332,14 +350,7 @@ runs:
     # Commit Changes ---------------------------------------------------------------------------------------------------
     - name: Commit and Push Changes
       id: push
-      # Generated PRs may be opened by github_username (for example analytics data updates) and still need one
-      # Auto-format commit on the opened event. The recursion risk starts after that commit pushes a synchronize
-      # event as github_username, so keep the bot guard only for synchronize events.
-      if: |
-        github.event_name == 'pull_request' &&
-        (github.event.action == 'opened' || github.event.action == 'synchronize') &&
-        (github.event.action == 'opened' || github.actor != inputs.github_username) &&
-        github.event.pull_request.head.repo.full_name == github.repository
+      if: steps.format.outputs.run == 'true'
       env:
         GITHUB_USERNAME: ${{ inputs.github_username }}
         GITHUB_EMAIL: ${{ inputs.github_email }}
@@ -380,6 +391,7 @@ runs:
         SUMMARY: ${{ inputs.summary }}
         REVIEW: ${{ inputs.review }}
         AUTO_FORMAT_SHA: ${{ steps.push.outputs.sha }}
+        PYTHONUNBUFFERED: "1" # stream LLM progress live instead of in one burst at exit
       run: |
         echo "::group::PR Automation and First Interaction"
         trap 'echo "::endgroup::"' EXIT
@@ -399,6 +411,7 @@ runs:
         ANTHROPIC_API_KEY: ${{ inputs.anthropic_api_key }}
         MODEL: ${{ inputs.model }}
         REVIEW_MODEL: ${{ inputs.review_model }}
+        PYTHONUNBUFFERED: "1" # stream LLM progress live instead of in one burst at exit
       run: |
         echo "::group::PR Review"
         trap 'echo "::endgroup::"' EXIT
@@ -409,7 +422,7 @@ runs:
     # Broken links -----------------------------------------------------------------------------------------------------
     # lychee-action only ships Linux binaries, so install lychee directly to support macOS runners (Swift repos) too.
     - name: Broken Link Checker
-      if: inputs.links == 'true' && github.event_name == 'pull_request' && github.event.action != 'closed'
+      if: inputs.links == 'true' && github.event_name == 'pull_request' && (github.event.action == 'opened' || github.event.action == 'synchronize')
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
       # Check all markdown and html files in repo. Ignores the following status codes to reduce false positives:

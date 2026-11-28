@@ -203,8 +203,10 @@ runs:
                         pending.append(pid)
             return found
 
-        def tracked_processes(token):
-            """Return processes carrying the attempt's unique inherited environment marker."""
+        def attempt_processes(token):
+            """Return the attempt's processes: subreaped descendants on Linux, else those carrying its env marker."""
+            if sys.platform.startswith("linux"):  # the subreaper keeps every descendant in this tree; ps may be absent
+                return descendants(os.getpid())
             marker = f"ULTRALYTICS_RETRY_TOKEN={token}"
             processes = subprocess.check_output(["ps", "axeww", "-o", "pid=", "-o", "command="], text=True)
             return {int(line.split(None, 1)[0]) for line in processes.splitlines() if marker in line}
@@ -232,34 +234,20 @@ runs:
             if ctypes.CDLL(None, use_errno=True).prctl(36, 1, 0, 0, 0) != 0:
                 raise OSError(ctypes.get_errno(), "Unable to enable child subreaper")
         process = subprocess.Popen(command, env=environment, start_new_session=True)
-        process_ids = set()
         try:
             return_code = process.wait(timeout=timeout)
             sys.exit(128 - return_code if return_code < 0 else return_code)
         except subprocess.TimeoutExpired:
             open(timeout_marker, "w").close()
-            if sys.platform.startswith("linux"):
-                process_ids = descendants(os.getpid())
-            process_ids |= tracked_processes(token)
-            send_signal(process.pid, process_ids, signal.SIGTERM)
+            send_signal(process.pid, attempt_processes(token), signal.SIGTERM)
             deadline = time.monotonic() + 5
             while time.monotonic() < deadline:
-                if sys.platform.startswith("linux"):
-                    process_ids = descendants(os.getpid())
-                else:
-                    process_ids = set()
-                process_ids |= tracked_processes(token)
-                process_ids = {pid for pid in process_ids if pid != os.getpid()}
+                process_ids = attempt_processes(token)
                 if not process_ids:
                     break
                 send_signal(process.pid, process_ids, signal.SIGTERM)
                 time.sleep(0.1)
-            if sys.platform.startswith("linux"):
-                process_ids = descendants(os.getpid())
-            else:
-                process_ids = set()
-            process_ids |= tracked_processes(token)
-            send_signal(process.pid, process_ids, signal.SIGKILL)
+            send_signal(process.pid, attempt_processes(token), signal.SIGKILL)
             process.wait()
             sys.exit(124)
         PY

@@ -235,10 +235,11 @@ def main(*args, **kwargs):
                     event, number, node_id, issue_type, username, response.get("labels", []), label_descriptions
                 ):
                     return  # flagged: no greeting or review on hidden content
-                print("Adding first interaction comment...")
-                event.add_comment(
-                    number, node_id, get_pr_first_comment_template(event.repository, username), issue_type
-                )
+                if not event.is_org_member(username):  # team members need no contributor checklist
+                    print("Adding first interaction comment...")
+                    event.add_comment(
+                        number, node_id, get_pr_first_comment_template(event.repository, username), issue_type
+                    )
 
         # Automatic PR review after first interaction
         if AUTO_PR_REVIEW:

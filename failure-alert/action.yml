@@ -51,7 +51,7 @@ runs:
         echo "::group::Failure Alert"
         package_dir=$(mktemp -d "$RUNNER_TEMP/ultralytics-actions.XXXXXX")
         # Isolated from any venv the caller activated, so this runs the code at this action's ref
-        if ! { uv build --wheel "$ACTION_PATH" --out-dir "$package_dir" &&
+        if ! { uv build -q --wheel "$ACTION_PATH" --out-dir "$package_dir" &&
           uv run --isolated --no-project --with "$package_dir"/*.whl python -I -m actions.failure_alert; }; then
           echo "::warning::Failure alert with analysis failed; posting the alert without it"
           jq -n --arg text "$ALERT_TEXT" '{text: $text}' | curl -fsS -o /dev/null -X POST -H "Content-Type: application/json" --data @- "$SLACK_WEBHOOK"

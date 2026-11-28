@@ -197,6 +197,7 @@ def format_code_with_ruff(temp_dir):
                 "check",
                 "--fix",
                 "--unsafe-fixes",
+                "--exit-zero",  # unfixable findings in snippets are expected, not formatter errors
                 "--extend-select=F,I,D,UP,RUF",
                 "--target-version=py38",
                 "--ignore=B018,BLE001,D100,D101,D103,D104,D203,D205,D212,D213,D401,D406,D407,D413,F401,F821,F841,RUF001,RUF002,RUF012,RUF100,S110",

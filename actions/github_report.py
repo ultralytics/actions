@@ -54,7 +54,7 @@ def get_unpassed_status_checks(rollup):
 
 def gh_json(args, check=True):
     """Run a GitHub CLI command and return parsed JSON output."""
-    result = subprocess.run(["gh", *args], capture_output=True, text=True, check=check)
+    result = subprocess.run(["gh", *args], stdout=subprocess.PIPE, text=True, check=check)  # stderr explains failures
     return json.loads(result.stdout or "[]")
 
 

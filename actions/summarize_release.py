@@ -50,7 +50,6 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
 
     prs = []
     for pr_number in sorted(pr_numbers):  # earliest to latest
-        time.sleep(1)  # Rate limit: space out GitHub REST API requests
         pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}"
         pr_response = event.get(pr_url)
         if pr_response.status_code == 200 and (pr_data := pr_response.json()).get("merged_at"):
@@ -78,7 +77,6 @@ def get_new_contributors(event, prs: list) -> set:
     for pr in prs:
         author = pr["author"]
         if author in checked_authors:
-            print(f"Skipping duplicate author: {author}")
             continue
         checked_authors.add(author)
 
