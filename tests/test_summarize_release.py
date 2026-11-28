@@ -48,6 +48,7 @@ def test_get_prs_between_tags():
                     "html_url": "url",
                     "merged_at": "2023-01-01T12:00:00Z",
                     "head": {"ref": "fix-bug"},
+                    "merge_commit_sha": "abc",
                 }
             ],
         ),
@@ -79,6 +80,7 @@ def test_get_prs_between_tags_missing_commits():
 def test_get_prs_between_tags_empty_commits():
     """Test empty commits list returns empty list."""
     mock_event = MagicMock()
+    mock_event.repository = "test/repo"
     mock_event.get.return_value = MagicMock(status_code=200, json=lambda: {"commits": []})
 
     with patch("time.sleep"):

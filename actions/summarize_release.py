@@ -45,7 +45,8 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
     # "#N" refs count when that PR's merge commit is in this range; cited issues, other repos' refs and older PRs drop
     # out. Commits no ref accounts for (e.g. subjects without "(#N)") ask GitHub which merged PR introduced them.
     shas = {commit["sha"] for commit in data["commits"]}
-    refs = {int(n) for c in data["commits"] for n in re.findall(r"(?<![\w/.-])#(\d+)", c["commit"]["message"])}
+    ref = rf"(?:(?<![\w/.-])|(?<![\w.-]){re.escape(event.repository)})#(\d+)"  # "#N" or "owner/repo#N" for this repo
+    refs = {int(n) for c in data["commits"] for n in re.findall(ref, c["commit"]["message"], flags=re.IGNORECASE)}
     prs, staged = {}, []
     for number in refs:
         r = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{number}")
@@ -56,10 +57,15 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
                 staged.append(pr)
     for sha in shas.difference(pr["merge_commit_sha"] for pr in prs.values()):
         r = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/commits/{sha}/pulls")
-        prs.update({pr["number"]: pr for pr in (r.json() if r.status_code == 200 else []) if pr.get("merged_at")})
-    # A PR merged into a staging branch counts when that branch itself merged into main in this range
-    branches = {pr["head"]["ref"] for pr in prs.values()}
-    prs.update({pr["number"]: pr for pr in staged if pr["base"]["ref"] in branches})
+        found = r.json() if r.status_code == 200 else []
+        prs.update({pr["number"]: pr for pr in found if pr.get("merged_at") and pr["merge_commit_sha"] in shas})
+    # A PR merged into a staging branch counts when its merge commit is part of a PR merged into main in this range
+    for outer in [p for p in prs.values() if any(s["base"]["ref"] == p["head"]["ref"] for s in staged)]:
+        commits = {
+            c["sha"]
+            for c in event.paginate(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{outer['number']}/commits")
+        }
+        prs.update({s["number"]: s for s in staged if s["merge_commit_sha"] in commits})
 
     summaries = (
         {
@@ -217,8 +223,12 @@ def main(*args, **kwargs):
     # Get the diff between the tags
     diff = get_release_diff(event, previous_tag, CURRENT_TAG)
 
-    # Get PRs merged between the tags
-    prs = get_prs_between_tags(event, previous_tag, CURRENT_TAG)
+    # Get PRs merged between the tags; a release without its PR list beats a failed release
+    try:
+        prs = get_prs_between_tags(event, previous_tag, CURRENT_TAG)
+    except Exception as e:
+        print(f"Failed to list PRs: {e}")
+        prs = []
 
     # Generate release summary
     try:
