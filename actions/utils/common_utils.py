@@ -365,7 +365,7 @@ def is_url(url, session=None, check=True, max_attempts=3, timeout=3, return_url=
                         break  # an unreachable host fails GET the same way
                     except ValueError:  # requests' InvalidURL and InvalidSchema: a malformed URL
                         return (False, url) if return_url else False
-                    except Exception:
+                    except requests.exceptions.RequestException:  # a reset, read timeout or SSL error: try GET
                         continue
                     response.close()
                     # Only update URL if there were actual HTTP redirects (indicated by response.history)
