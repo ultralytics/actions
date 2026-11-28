@@ -42,21 +42,21 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
         print(f"No commits found in comparison between {previous_tag} and {latest_tag}")
         return []
 
-    # Ask GitHub which merged PR introduced each commit: commit subjects can lack "(#N)" or cite unrelated issues
-    prs, refs = {}, set()
-    for commit in data["commits"]:
-        refs.update(map(int, re.findall(r"#(\d+)", commit["commit"]["message"])))
-        r = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/commits/{commit['sha']}/pulls")
-        prs.update({pr["number"]: pr for pr in (r.json() if r.status_code == 200 else []) if pr.get("merged_at")})
-    # A PR merged into a staging branch reaches main inside another PR's squash commit, named only in its message
-    for number in refs.difference(prs):
+    # "#N" refs count when that PR's merge commit is in this range, or when it merged into a staging branch that reached
+    # main inside another PR's squash commit; cited issues, other repos' refs and older PRs drop out. Commits no ref
+    # accounts for (e.g. subjects without "(#N)") ask GitHub which merged PR introduced them.
+    shas = {commit["sha"] for commit in data["commits"]}
+    refs = {int(n) for c in data["commits"] for n in re.findall(r"(?<![\w/.-])#(\d+)", c["commit"]["message"])}
+    prs = {}
+    for number in refs:
         r = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{number}")
-        if (
-            r.status_code == 200
-            and (pr := r.json()).get("merged_at")
-            and pr["base"]["ref"] != pr["base"]["repo"]["default_branch"]
+        if (pr := r.json() if r.status_code == 200 else {}).get("merged_at") and (
+            pr["merge_commit_sha"] in shas or pr["base"]["ref"] != pr["base"]["repo"]["default_branch"]
         ):
             prs[number] = pr
+    for sha in shas.difference(pr["merge_commit_sha"] for pr in prs.values()):
+        r = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/commits/{sha}/pulls")
+        prs.update({pr["number"]: pr for pr in (r.json() if r.status_code == 200 else []) if pr.get("merged_at")})
 
     summaries = (
         {

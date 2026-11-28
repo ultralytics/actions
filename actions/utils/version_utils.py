@@ -51,7 +51,7 @@ def check_pypi_version(pyproject_toml="pyproject.toml"):
     response = requests.get(f"https://pypi.org/pypi/{package_name}/json", timeout=30)
     if response.status_code != 404:  # only "not found" means a first release; outages must not trigger a publish
         response.raise_for_status()
-    remote_version = response.json()["info"]["version"] if response.status_code == 200 else None
+    remote_version = response.json()["info"]["version"] if response.status_code != 404 else None
     print(f"Local: {local_version}, PyPI: {remote_version or 'Not Found'}")
 
     return local_version, remote_version, should_publish(local_version, remote_version)
@@ -70,7 +70,7 @@ def check_pubdev_version(pubspec_yaml="pubspec.yaml"):
     response = requests.get(f"https://pub.dev/api/packages/{package_name}", timeout=30)
     if response.status_code != 404:  # only "not found" means a first release; outages must not trigger a publish
         response.raise_for_status()
-    remote_version = response.json()["latest"]["version"] if response.status_code == 200 else None
+    remote_version = response.json()["latest"]["version"] if response.status_code != 404 else None
     print(f"Local: {local_version}, pub.dev: {remote_version or 'Not Found'}")
 
     return local_version, remote_version, should_publish(local_version, remote_version)
