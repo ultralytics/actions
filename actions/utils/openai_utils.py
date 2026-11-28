@@ -741,6 +741,8 @@ Generate 2 outputs in a single JSON response for the PR titled '{title}' with th
         messages,
         text_format={"format": {"type": "json_schema", "name": "pr_open_response", "strict": True, "schema": schema}},
     )
+    available = {name.lower(): name for name in filtered_labels}  # never apply an excluded or unknown label
+    result["labels"] = [available[label.lower()] for label in result.get("labels", []) if label.lower() in available]
     if is_large and "summary" in result:
         result["summary"] = (
             "**WARNING ⚠️** this PR is very large, summary may not cover all changes.\n\n" + result["summary"]

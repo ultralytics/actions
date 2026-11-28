@@ -115,7 +115,7 @@ runs:
         echo "::group::Install Dependencies"
         trap 'echo "::endgroup::"' EXIT
         package_dir=$(mktemp -d "$RUNNER_TEMP/ultralytics-actions.XXXXXX")
-        uv build -q --wheel "$ACTION_PATH" --out-dir "$package_dir"
+        uv build --wheel "$ACTION_PATH" --out-dir "$package_dir"
         packages=("$package_dir"/*.whl)
         if [ "$INPUTS_SPELLING" = "true" ]; then
           packages+=(codespell tomli)

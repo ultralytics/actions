@@ -17,7 +17,14 @@ updates:
   - package-ecosystem: github-actions
     # "/" covers /.github/workflows and the root action.yml; each sub-action's action.yml needs its own directory
     directories:
-      ["/", "/cla", "/cleanup-disk", "/dependabot", "/failure-alert", "/github-report", "/retry", "/setup-uv"]
+      - "/"
+      - "/cla"
+      - "/cleanup-disk"
+      - "/dependabot"
+      - "/failure-alert"
+      - "/github-report"
+      - "/retry"
+      - "/setup-uv"
     schedule:
       interval: weekly
       time: "04:00"
