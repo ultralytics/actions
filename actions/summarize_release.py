@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import os
-import re
 import subprocess
 import time
-from datetime import datetime, timezone
 
 from .utils import (
     GITHUB_API_URL,
@@ -43,18 +41,13 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
         print(f"No commits found in comparison between {previous_tag} and {latest_tag}")
         return []
 
-    pr_numbers = set()
+    # Ask GitHub which merged PR introduced each commit: commit subjects can lack "(#N)" or cite unrelated issues
+    prs = {}
     for commit in data["commits"]:
-        pr_matches = re.findall(r"#(\d+)", commit["commit"]["message"])
-        pr_numbers.update(pr_matches)
-
-    prs = []
-    for pr_number in sorted(pr_numbers):  # earliest to latest
-        pr_url = f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{pr_number}"
-        pr_response = event.get(pr_url)
-        if pr_response.status_code == 200 and (pr_data := pr_response.json()).get("merged_at"):
-            prs.append(
-                {
+        r = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/commits/{commit['sha']}/pulls")
+        for pr_data in r.json() if r.status_code == 200 else []:
+            if pr_data.get("merged_at"):
+                prs[pr_data["number"]] = {
                     "number": pr_data["number"],
                     "title": pr_data["title"],
                     "body": remove_html_comments(pr_data.get("body") or ""),
@@ -62,12 +55,8 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
                     "html_url": pr_data["html_url"],
                     "merged_at": pr_data["merged_at"],
                 }
-            )
 
-    # Sort PRs by merge date
-    prs.sort(key=lambda x: datetime.strptime(x["merged_at"], "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc))
-
-    return prs
+    return sorted(prs.values(), key=lambda x: x["merged_at"])  # ISO 8601 UTC timestamps sort by merge date
 
 
 def get_new_contributors(event, prs: list) -> set:

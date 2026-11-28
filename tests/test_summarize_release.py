@@ -36,17 +36,19 @@ def test_get_prs_between_tags():
     mock_event.repository = "test/repo"
 
     mock_event.get.side_effect = [
-        MagicMock(status_code=200, json=lambda: {"commits": [{"commit": {"message": "Fix bug #123"}}]}),
+        MagicMock(status_code=200, json=lambda: {"commits": [{"sha": "abc", "commit": {"message": "Fix bug"}}]}),
         MagicMock(
             status_code=200,
-            json=lambda: {
-                "number": 123,
-                "title": "Fix bug",
-                "body": "Fix",
-                "user": {"login": "user1"},
-                "html_url": "url",
-                "merged_at": "2023-01-01T12:00:00Z",
-            },
+            json=lambda: [
+                {
+                    "number": 123,
+                    "title": "Fix bug",
+                    "body": "Fix",
+                    "user": {"login": "user1"},
+                    "html_url": "url",
+                    "merged_at": "2023-01-01T12:00:00Z",
+                }
+            ],
         ),
     ]
 
