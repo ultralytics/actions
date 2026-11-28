@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import re
 import subprocess
 import time
 
@@ -42,21 +43,33 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
         return []
 
     # Ask GitHub which merged PR introduced each commit: commit subjects can lack "(#N)" or cite unrelated issues
-    prs = {}
+    prs, refs = {}, set()
     for commit in data["commits"]:
+        refs.update(map(int, re.findall(r"#(\d+)", commit["commit"]["message"])))
         r = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/commits/{commit['sha']}/pulls")
-        for pr_data in r.json() if r.status_code == 200 else []:
-            if pr_data.get("merged_at"):
-                prs[pr_data["number"]] = {
-                    "number": pr_data["number"],
-                    "title": pr_data["title"],
-                    "body": remove_html_comments(pr_data.get("body") or ""),
-                    "author": pr_data["user"]["login"],
-                    "html_url": pr_data["html_url"],
-                    "merged_at": pr_data["merged_at"],
-                }
+        prs.update({pr["number"]: pr for pr in (r.json() if r.status_code == 200 else []) if pr.get("merged_at")})
+    # A PR merged into a staging branch reaches main inside another PR's squash commit, named only in its message
+    for number in refs.difference(prs):
+        r = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{number}")
+        if (
+            r.status_code == 200
+            and (pr := r.json()).get("merged_at")
+            and pr["base"]["ref"] != pr["base"]["repo"]["default_branch"]
+        ):
+            prs[number] = pr
 
-    return sorted(prs.values(), key=lambda x: x["merged_at"])  # ISO 8601 UTC timestamps sort by merge date
+    summaries = (
+        {
+            "number": pr["number"],
+            "title": pr["title"],
+            "body": remove_html_comments(pr.get("body") or ""),
+            "author": pr["user"]["login"],
+            "html_url": pr["html_url"],
+            "merged_at": pr["merged_at"],
+        }
+        for pr in prs.values()
+    )
+    return sorted(summaries, key=lambda x: x["merged_at"])  # ISO 8601 UTC timestamps sort by merge date
 
 
 def get_new_contributors(event, prs: list) -> set:

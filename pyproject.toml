@@ -128,7 +128,7 @@ line-length = 120
 target-version = "py38"
 
 [tool.ruff.lint]
-ignore = ["BLE001"] # deliberate catch-alls keep the bot running; action.yml's ruff ignores it too
+ignore = ["BLE001", "S112"] # deliberate catch-alls keep the bot running, as action.yml's ruff allows
 
 [tool.ruff.format]
 docstring-code-format = true
