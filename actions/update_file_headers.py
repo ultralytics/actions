@@ -45,32 +45,34 @@ COMMENT_MAP = {
     ".xml": (None, "<!-- ", " -->"),  # Android XML
 }
 
-# Ignore these Paths (do not update their headers)
+# Ignore these Paths (do not update their headers), matched in "/" + the repo-relative path: "/name/" is a directory,
+# "/name" a file name, so block.py, clock.ts or website/ are not mistaken for lock files or the mkdocs site/ directory
 IGNORE_PATHS = {
-    ".idea",
-    ".venv",
-    "env/",
-    "node_modules",
-    ".git/",  # trailing slash so this does not also match .github/
-    "__pycache__",
-    "mkdocs_github_authors.yaml",
+    "/.idea/",
+    "/.venv/",
+    "/venv/",
+    "/env/",
+    "/node_modules/",
+    "/.git/",
+    "/__pycache__/",
+    "/mkdocs_github_authors.yaml",
     # Build and distribution directories
-    "dist/",
-    "build/",
-    ".eggs",
-    "site/",  # mkdocs build directory
+    "/dist/",
+    "/build/",
+    "/.eggs/",
+    "/site/",  # mkdocs build directory
     # Lock files
-    "lock",
+    "-lock.",
     # Minified files
     ".min.js",
     ".min.css",
     # Auto-generated files
-    "generated/",
-    "auto_gen/",
-    "next-env.d.ts",
-    "Package.swift",
-    ".eslintrc.js",
-    ".prettierrc.js",
+    "/generated/",
+    "/auto_gen/",
+    "/next-env.d.ts",
+    "/Package.swift",
+    "/.eslintrc.js",
+    "/.prettierrc.js",
     ".g.dart",
     ".pb.c",
     ".pb.cpp",
@@ -78,18 +80,18 @@ IGNORE_PATHS = {
     ".pb.js",
     ".pb.py",
     ".pb.swift",
-    "schema.graphql.ts",
-    "schema.graphql.js",
+    "/schema.graphql.ts",
+    "/schema.graphql.js",
     ".g.swift",
-    "tsconfig.generated.json",
-    "R.java",
-    "R.swift",
-    "BuildConfig.java",
+    "/tsconfig.generated.json",
+    "/R.java",
+    "/R.swift",
+    "/BuildConfig.java",
     ".designer.cs",
-    "swagger.yaml",
-    "swagger.yml",
-    "openapi.yaml",
-    "openapi.yml",
+    "/swagger.yaml",
+    "/swagger.yml",
+    "/openapi.yaml",
+    "/openapi.yml",
 }
 
 
@@ -211,7 +213,7 @@ def main(*args, **kwargs):
         for file_path in directory.rglob(f"*{ext}"):
             # Match against the repo-relative POSIX path so directory entries behave the same on Windows
             relative_path = file_path.relative_to(directory).as_posix()
-            if not file_path.is_file() or any(part in relative_path for part in IGNORE_PATHS):
+            if not file_path.is_file() or any(part in f"/{relative_path}" for part in IGNORE_PATHS):
                 continue
 
             total += 1
