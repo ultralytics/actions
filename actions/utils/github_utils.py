@@ -510,10 +510,12 @@ Thank you 🙏
 
         if self.event_name == "discussion":
             discussion = self.event_data.get("discussion", {})
-            info |= {
-                "github.event.discussion.node_id": discussion.get("node_id"),
-                "github.event.discussion.number": discussion.get("number"),
-            }
+            info.update(
+                {
+                    "github.event.discussion.node_id": discussion.get("node_id"),
+                    "github.event.discussion.number": discussion.get("number"),
+                }
+            )
 
         width = max(len(k) for k in info) + 5
         header = f"Ultralytics Actions {__version__} Information " + "-" * 40
