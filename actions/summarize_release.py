@@ -30,55 +30,64 @@ def get_release_diff(event, previous_tag: str, latest_tag: str) -> tuple[str, li
 
 def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
     """Retrieves and processes pull requests merged between two specified tags in a GitHub repository."""
-    url = f"{GITHUB_API_URL}/repos/{event.repository}/compare/{previous_tag}...{latest_tag}"
-    r = event.get(url)
+    repo_url = f"{GITHUB_API_URL}/repos/{event.repository}"
+    r = event.get(f"{repo_url}/compare/{previous_tag}...{latest_tag}")
 
     if r.status_code != 200:
         print(f"Failed to get comparison between {previous_tag} and {latest_tag}, status: {r.status_code}")
         return []
 
-    data = r.json()
-    if "commits" not in data:
+    commits = r.json().get("commits")
+    if not commits:
         print(f"No commits found in comparison between {previous_tag} and {latest_tag}")
         return []
 
-    # "#N" refs count when that PR's merge commit is in this range; cited issues, other repos' refs and older PRs drop
-    # out. Commits no ref accounts for (e.g. subjects without "(#N)") ask GitHub which merged PR introduced them.
-    shas = {commit["sha"] for commit in data["commits"]}
-    ref = rf"(?:(?<![\w/.-])|(?<![\w.-]){re.escape(event.repository)})#(\d+)"  # "#N" or "owner/repo#N" for this repo
-    refs = {int(n) for c in data["commits"] for n in re.findall(ref, c["commit"]["message"], flags=re.IGNORECASE)}
-    prs, staged = {}, []
-    for number in refs:
-        r = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{number}")
-        if (pr := r.json() if r.status_code == 200 else {}).get("merged_at"):
-            if pr["merge_commit_sha"] in shas:
-                prs[number] = pr
-            elif pr["base"]["ref"] != pr["base"]["repo"]["default_branch"]:
-                staged.append(pr)
-    for sha in shas.difference(pr["merge_commit_sha"] for pr in prs.values()):
-        r = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/commits/{sha}/pulls")
-        found = r.json() if r.status_code == 200 else []
-        prs.update({pr["number"]: pr for pr in found if pr.get("merged_at") and pr["merge_commit_sha"] in shas})
-    # A PR merged into a staging branch counts when its merge commit is part of a PR merged into main in this range
-    for outer in [p for p in prs.values() if any(s["base"]["ref"] == p["head"]["ref"] for s in staged)]:
-        commits = {
-            c["sha"]
-            for c in event.paginate(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{outer['number']}/commits")
-        }
-        prs.update({s["number"]: s for s in staged if s["merge_commit_sha"] in commits})
+    order = {commit["sha"]: i for i, commit in enumerate(commits)}
+    prs = {}
+    for sha in order:
+        for pr in event.paginate(f"{repo_url}/commits/{sha}/pulls"):
+            if pr.get("merged_at") and pr["merge_commit_sha"] in order:
+                prs[pr["number"]] = pr
 
-    summaries = (
+    # Resolve local references that GitHub's commit associations missed or the token could not read.
+    ref = rf"(?:(?<![\w/.-])|(?<![\w.-]){re.escape(event.repository)})#(\d+)"  # "#N" or "owner/repo#N" for this repo
+    refs = {int(n) for c in commits for n in re.findall(ref, c["commit"]["message"], flags=re.IGNORECASE)}
+    staged = []
+    for number in sorted(refs - prs.keys()):
+        r = event.get(f"{repo_url}/pulls/{number}")
+        if (pr := r.json() if r.status_code == 200 else {}).get("merged_at"):
+            if pr["merge_commit_sha"] in order:
+                prs[number] = pr
+            else:
+                # An ancestor of the previous tag has already shipped, even if another PR also contains it.
+                url = f"{repo_url}/compare/{previous_tag}...{pr['merge_commit_sha']}"
+                r = event.get(url, params={"per_page": 1})
+                if r.status_code == 200 and r.json()["status"] in {"ahead", "diverged"}:
+                    staged.append(pr)
+
+    # A squash rewrites its commits. Walk verified PRs, including newly found promotions, by their original base and head.
+    merged = list(prs.values())
+    for outer in merged:
+        if not staged:
+            break
+        if outer["head"]["sha"] not in order:
+            url = f"{repo_url}/compare/{outer['base']['sha']}...{outer['head']['sha']}"
+            original = {c["sha"] for c in event.paginate(url, key="commits")}
+            merged.extend(pr for pr in staged if pr["merge_commit_sha"] in original)
+            staged = [pr for pr in staged if pr["merge_commit_sha"] not in original]
+
+    merged.sort(key=lambda p: (p["merged_at"], order.get(p["merge_commit_sha"], -1), p["number"]))
+    return [
         {
             "number": pr["number"],
             "title": pr["title"],
             "body": remove_html_comments(pr.get("body") or ""),
-            "author": pr["user"]["login"],
+            "author": (pr["user"] or {}).get("login", "ghost"),
             "html_url": pr["html_url"],
             "merged_at": pr["merged_at"],
         }
-        for pr in prs.values()
-    )
-    return sorted(summaries, key=lambda x: (x["merged_at"], x["number"]))  # ISO 8601 UTC sorts by merge time
+        for pr in merged
+    ]
 
 
 def get_new_contributors(event, prs: list) -> set:
