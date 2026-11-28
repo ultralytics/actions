@@ -42,21 +42,24 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
         print(f"No commits found in comparison between {previous_tag} and {latest_tag}")
         return []
 
-    # "#N" refs count when that PR's merge commit is in this range, or when it merged into a staging branch that reached
-    # main inside another PR's squash commit; cited issues, other repos' refs and older PRs drop out. Commits no ref
-    # accounts for (e.g. subjects without "(#N)") ask GitHub which merged PR introduced them.
+    # "#N" refs count when that PR's merge commit is in this range; cited issues, other repos' refs and older PRs drop
+    # out. Commits no ref accounts for (e.g. subjects without "(#N)") ask GitHub which merged PR introduced them.
     shas = {commit["sha"] for commit in data["commits"]}
     refs = {int(n) for c in data["commits"] for n in re.findall(r"(?<![\w/.-])#(\d+)", c["commit"]["message"])}
-    prs = {}
+    prs, staged = {}, []
     for number in refs:
         r = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/pulls/{number}")
-        if (pr := r.json() if r.status_code == 200 else {}).get("merged_at") and (
-            pr["merge_commit_sha"] in shas or pr["base"]["ref"] != pr["base"]["repo"]["default_branch"]
-        ):
-            prs[number] = pr
+        if (pr := r.json() if r.status_code == 200 else {}).get("merged_at"):
+            if pr["merge_commit_sha"] in shas:
+                prs[number] = pr
+            elif pr["base"]["ref"] != pr["base"]["repo"]["default_branch"]:
+                staged.append(pr)
     for sha in shas.difference(pr["merge_commit_sha"] for pr in prs.values()):
         r = event.get(f"{GITHUB_API_URL}/repos/{event.repository}/commits/{sha}/pulls")
         prs.update({pr["number"]: pr for pr in (r.json() if r.status_code == 200 else []) if pr.get("merged_at")})
+    # A PR merged into a staging branch counts when that branch itself merged into main in this range
+    branches = {pr["head"]["ref"] for pr in prs.values()}
+    prs.update({pr["number"]: pr for pr in staged if pr["base"]["ref"] in branches})
 
     summaries = (
         {
@@ -69,7 +72,7 @@ def get_prs_between_tags(event, previous_tag: str, latest_tag: str) -> list:
         }
         for pr in prs.values()
     )
-    return sorted(summaries, key=lambda x: x["merged_at"])  # ISO 8601 UTC timestamps sort by merge date
+    return sorted(summaries, key=lambda x: (x["merged_at"], x["number"]))  # ISO 8601 UTC sorts by merge time
 
 
 def get_new_contributors(event, prs: list) -> set:

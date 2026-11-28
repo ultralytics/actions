@@ -223,16 +223,9 @@ runs:
       if: steps.format.outputs.run == 'true' && (inputs.prettier == 'true' || inputs.markdown == 'true')
       env:
         INPUTS_BIOME: ${{ inputs.biome }}
-        GH_TOKEN: ${{ inputs.token }}
-        PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
         echo "::group::Run Prettier"
         trap 'echo "::endgroup::"' EXIT
-        # A whole-repo pass costs ~15 s and almost never changes a file: skip PRs that touch nothing formatted here.
-        # Without a PR file list (no gh, no PR, oversized diff) the whole repo is still formatted.
-        files=$(gh pr diff "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --name-only 2>/dev/null) &&
-          ! grep -qiE '\.(md|ya?ml|jsonc?|css|less|scss|html|vue|svelte|jsx?|tsx?|sh)$|prettier|biome|editorconfig' <<< "$files" &&
-          { echo "No Markdown, YAML, JSON, web, shell or formatter config files changed"; exit 0; }
         # Preinstalled pinned tools (the fork PR webhook image) are reused; its unprivileged formatter cannot install
         [ "$(prettier --version 2>/dev/null)" = "3.9.9" ] || npm install -g prettier@3.9.9
         # shfmt before the Markdown bash blocks use it; curl before && makes a failed download skip only shell formatting
